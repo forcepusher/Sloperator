@@ -6,8 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- **Auto** in the Side panel dropdown, after None, and what every window now opens with: the panel for
-  what the agent is doing opens as it does it. Terminal for the commands it runs, Web preview for a web
+- **Auto** in the Side panel dropdown, after None, and picked in every window: no panel until the agent
+  does something one shows, then the panel for what it is doing opens as it does it (the window widens
+  once, and the panel then stays open). Terminal for the commands it runs, Web preview for a web
   page it writes (and the scripts beside it), the File inspector for a picture, document or sound it
   makes, the Code editor for a code or text file it writes new (lit as it is written), File changes for
   a file that was already there (what it took out beside what it put in), the Video editor for a video, the Image editor

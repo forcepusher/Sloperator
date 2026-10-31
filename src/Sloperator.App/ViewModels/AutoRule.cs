@@ -151,36 +151,3 @@ public static class AutoRule
         return Storyboard.Recent(videosDir).FirstOrDefault();
     }
 }
-
-/// <summary>A line of the Auto panel's list: what the agent does, and the panel Auto shows for it.</summary>
-public sealed record AutoRow(string Does, string Panel);
-
-/// <summary>
-/// The Auto panel before the agent has done anything a panel shows: what Auto will show, and when. It
-/// takes nothing into the message box, so a message sent with it open goes as typed.
-/// </summary>
-public sealed class AutoPanelViewModel : ISidePanel
-{
-    /// <summary>What the bar says.</summary>
-    public string Hint => "The panel for what the agent is doing opens here as it does it.";
-
-    /// <summary>What the agent does, and the panel Auto shows for it.</summary>
-    public IReadOnlyList<AutoRow> Rows { get; } =
-    [
-        new("Runs a command", AutoRule.Terminal),
-        new("Writes a new code or text file", AutoRule.CodeEditor),
-        new("Changes a file that was already there", AutoRule.FileChanges),
-        new("Writes a web page or its scripts", AutoRule.WebPreview),
-        new("Makes a picture, document or sound", AutoRule.FileInspector),
-        new("Makes a new version of a picture", AutoRule.ImageEditor),
-        new("Works on a video", AutoRule.VideoEditor),
-    ];
-
-    public (string Via, string Context)? About(IReadOnlyList<string> files) => null;
-
-    public void Sent() { }
-
-    public bool Drop(IReadOnlyList<string> paths) => false;
-
-    public void Dispose() { }
-}

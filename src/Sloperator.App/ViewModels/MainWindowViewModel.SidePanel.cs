@@ -78,7 +78,8 @@ public interface IFilePanel : ISidePanel
 /// (see <see cref="Views.FileMenu"/>); null for a panel no file opens in.
 /// </param>
 /// <param name="Opens">Which files it opens from that menu, by their path.</param>
-public sealed record SidePanelOption(string Name, string Description, double MinWidth, double MinHeight, Func<MainWindowViewModel, ISidePanel>? Open,
+/// <param name="Open">The panel, made for the window; Auto's gives none while nothing a panel shows has happened yet.</param>
+public sealed record SidePanelOption(string Name, string Description, double MinWidth, double MinHeight, Func<MainWindowViewModel, ISidePanel?>? Open,
     string? OpenIn = null, Func<string, bool>? Opens = null)
 {
     /// <summary>How wide the panel opens, splitter included; 0 for None.</summary>
@@ -182,8 +183,8 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// The panel picked when the window opens (Auto), before it is first shown: the window opens with
-    /// it, rather than growing to the left as it appears.
+    /// The panel picked when the window opens (Auto), before it is first shown: Auto starts (its File
+    /// changes reading), with no panel in a new window; one picked by hand would open with the window.
     /// </summary>
     internal void OpenSidePanel()
     {
