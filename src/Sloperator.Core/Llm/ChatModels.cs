@@ -81,6 +81,13 @@ public sealed class ChatMessage
     /// </summary>
     public JsonArray? ReasoningDetails { get; set; }
 
+    /// <summary>
+    /// For replies through LiteLLM-style gateways (proxyapi.ru): Claude's thinking blocks as they
+    /// sent them (<c>thinking_blocks</c>, each with its signature), put together from the stream and
+    /// sent back with the reply when <see cref="ChatRequestOptions.SendReasoning"/> is on.
+    /// </summary>
+    public JsonArray? ThinkingBlocks { get; set; }
+
     public bool HasToolCalls => ToolCalls is { Count: > 0 };
 
     public static ChatMessage System(string text) => new() { Role = ChatRole.System, Content = text };

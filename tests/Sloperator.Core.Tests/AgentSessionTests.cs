@@ -458,7 +458,7 @@ public class AgentSessionTests
     {
         var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok again"));
         server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, """{"error":{"message":"Unrecognized request argument supplied: top_k"}}"""));
-        var client = new OpenAiChatClient(new HttpClient(server), "http://test", null);
+        var client = new OpenAiChatClient(new HttpClient(server), "http://refuses-top-k", null);
         var options = new ChatRequestOptions { Extra = new JsonObject { ["top_k"] = 40 } };
 
         await client.CompleteAsync([ChatMessage.User("hi")], [], options, null, CancellationToken.None);
@@ -475,21 +475,24 @@ public class AgentSessionTests
     {
         // proxyapi.ru, 2026-11-01: with every extra dropped, reasoning_effort went too and Claude's
         // thinking came as an empty block with a signature.
-        var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok again"));
+        var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok again"), Sse.Text("next run"), Sse.Text("other model"));
         server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, """{"error": {"message": "chat_template_kwargs: Extra inputs are not permitted", "type": "invalid_request_error", "param": null, "code": null}}"""));
-        var client = new OpenAiChatClient(new HttpClient(server), "http://test", null);
         var options = new ChatRequestOptions
         {
+            Model = "anthropic/claude-opus-5-5",
             SendReasoning = true,
             Extra = new JsonObject { ["chat_template_kwargs"] = new JsonObject { ["preserve_thinking"] = true } },
             Effort = "xhigh",
         };
         List<ChatMessage> history = [ChatMessage.User("hi"), new ChatMessage { Role = ChatRole.Assistant, Content = "hello", Reasoning = "greet back" }, ChatMessage.User("again")];
+        var client = new OpenAiChatClient(new HttpClient(server), "http://refuses-kwargs", null);
 
         await client.CompleteAsync(history, [], options, null, CancellationToken.None);
         await client.CompleteAsync(history, [], options, null, CancellationToken.None);
+        // The next run makes a client of its own, and isn't refused again.
+        await new OpenAiChatClient(new HttpClient(server), "http://refuses-kwargs", null).CompleteAsync(history, [], options, null, CancellationToken.None);
 
-        Assert.Equal(3, server.Requests.Count);
+        Assert.Equal(4, server.Requests.Count);
         Assert.NotNull(server.Requests[0]["chat_template_kwargs"]);
         foreach (var request in server.Requests.Skip(1))
         {
@@ -498,6 +501,50 @@ public class AgentSessionTests
             Assert.NotNull(request["stream_options"]);
             Assert.Equal("greet back", (string?)request["messages"]![1]!["reasoning_content"]);
         }
+
+        // Another model there is asked with it as before.
+        var other = new ChatRequestOptions { Model = "qwen3.8", SendReasoning = true, Extra = options.Extra };
+        await new OpenAiChatClient(new HttpClient(server), "http://refuses-kwargs", null).CompleteAsync(history, [], other, null, CancellationToken.None);
+        Assert.NotNull(server.Requests[^1]["chat_template_kwargs"]);
+    }
+
+    [Fact]
+    public async Task A_refusal_that_names_none_of_our_fields_drops_them_all_for_the_run()
+    {
+        var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok again"), Sse.Text("next run"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, """{"error":{"message":"Unexpected fields in the request"}}"""));
+        var options = new ChatRequestOptions { Model = "m", SendReasoning = true, Extra = new JsonObject { ["top_k"] = 40 }, Effort = "high" };
+        List<ChatMessage> history = [ChatMessage.User("hi"), new ChatMessage { Role = ChatRole.Assistant, Content = "hello", Reasoning = "greet back" }, ChatMessage.User("again")];
+        var client = new OpenAiChatClient(new HttpClient(server), "http://refuses-unnamed", null);
+
+        await client.CompleteAsync(history, [], options, null, CancellationToken.None);
+        await client.CompleteAsync(history, [], options, null, CancellationToken.None);
+        await new OpenAiChatClient(new HttpClient(server), "http://refuses-unnamed", null).CompleteAsync(history, [], options, null, CancellationToken.None);
+
+        Assert.Equal(4, server.Requests.Count);
+        foreach (var request in server.Requests.Skip(1).Take(2))
+            Assert.Empty(OpenAiChatClient.OurFields(request, options));
+        // A guess, so for this run only.
+        Assert.Equal(["stream_options", "reasoning_effort", "reasoning_content", "top_k"], OpenAiChatClient.OurFields(server.Requests[3], options));
+    }
+
+    [Fact]
+    public async Task Thinking_blocks_whose_signature_is_refused_are_left_out()
+    {
+        var server = new ScriptedServer(Sse.Text("ok"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, """{"error": {"message": "messages.1.content.0: Invalid `signature` in `thinking` block", "type": "invalid_request_error", "param": null, "code": null}}"""));
+        var reply = new ChatMessage
+        {
+            Role = ChatRole.Assistant, Content = "hello", Reasoning = "greet back",
+            ThinkingBlocks = new JsonArray(new JsonObject { ["type"] = "thinking", ["thinking"] = "greet back", ["signature"] = "b2xk" }),
+        };
+        var client = new OpenAiChatClient(new HttpClient(server), "http://refuses-signature", null);
+
+        var answer = await client.CompleteAsync([ChatMessage.User("hi"), reply, ChatMessage.User("again")], [], new ChatRequestOptions { SendReasoning = true }, null, CancellationToken.None);
+
+        Assert.Equal("ok", answer.Content);
+        Assert.NotNull(server.Requests[0]["messages"]![1]!["thinking_blocks"]);
+        Assert.Null(server.Requests[1]["messages"]![1]!["thinking_blocks"]);
     }
 
     [Fact]
