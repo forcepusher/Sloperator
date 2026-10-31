@@ -13,10 +13,10 @@ using Xunit;
 
 namespace Sloperator.App.Tests;
 
-/// <summary>The Live preview panel: its bar, what WebView2 missing shows, and what of the page goes with a message.</summary>
-public sealed class LivePreviewTests : IDisposable
+/// <summary>The Web preview panel: its bar, what WebView2 missing shows, and what of the page goes with a message.</summary>
+public sealed class WebPreviewTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("bb-live-preview-").FullName;
+    private readonly string _dir = Directory.CreateTempSubdirectory("bb-web-preview-").FullName;
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
@@ -25,9 +25,9 @@ public sealed class LivePreviewTests : IDisposable
     [Fact]
     public void Errors_picked_are_named_by_their_numbers()
     {
-        Assert.Equal("Error 2", LivePreviewViewModel.ErrorsCaption([Error(2, "a")]));
-        Assert.Equal("Errors 1-3", LivePreviewViewModel.ErrorsCaption([Error(1, "a"), Error(2, "b"), Error(3, "c")]));
-        Assert.Equal("2 errors", LivePreviewViewModel.ErrorsCaption([Error(1, "a"), Error(3, "c")]));
+        Assert.Equal("Error 2", WebPreviewViewModel.ErrorsCaption([Error(2, "a")]));
+        Assert.Equal("Errors 1-3", WebPreviewViewModel.ErrorsCaption([Error(1, "a"), Error(2, "b"), Error(3, "c")]));
+        Assert.Equal("2 errors", WebPreviewViewModel.ErrorsCaption([Error(1, "a"), Error(3, "c")]));
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class LivePreviewTests : IDisposable
         File.WriteAllText(page, "<p>hi</p>");
         HeadlessApp.Run(() =>
         {
-            using var vm = new LivePreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
+            using var vm = new WebPreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
             vm.Show(page);
             Assert.Equal(new Uri("https://page.sloperator.example/index.html"), vm.Address);
             Assert.Equal(_dir, vm.PageFolder);
@@ -52,7 +52,7 @@ public sealed class LivePreviewTests : IDisposable
 
             vm.PickErrors([vm.Errors[0]]);
             var (via, context) = vm.About([page])!.Value;
-            Assert.Equal("Live preview · index.html · error 1", via);
+            Assert.Equal("Web preview · index.html · error 1", via);
             Assert.Contains(page, context);
             Assert.Contains("1. TypeError: x is undefined\n    at game.js:4:2\n]", context);
             Assert.DoesNotContain("Sound off", context);
@@ -76,8 +76,8 @@ public sealed class LivePreviewTests : IDisposable
         File.WriteAllText(page, "<p>hi</p>");
         HeadlessApp.Run(() =>
         {
-            using var vm = new LivePreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
-            var panel = new LivePreviewPanel { DataContext = vm };
+            using var vm = new WebPreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
+            var panel = new WebPreviewPanel { DataContext = vm };
             // Avalonia's stand-in for a browser: WebView2 wants the window's thread of a real app.
             panel.GetLogicalDescendants().OfType<NativeWebView>().Single().AdapterPreference = [Avalonia.Platform.WebViewAdapterType.Headless];
             var window = new Window { Width = 880, Height = 600, Background = Brushes.Black, Content = panel };
@@ -124,7 +124,7 @@ public sealed class LivePreviewTests : IDisposable
         File.WriteAllText(script, "1");
         HeadlessApp.Run(() =>
         {
-            using var vm = new LivePreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
+            using var vm = new WebPreviewViewModel(null, _dir, Path.Combine(_dir, "webview"));
             Assert.False(vm.Drop([script]));
             Assert.Null(vm.Path);
             Assert.True(vm.Drop([script, page]));

@@ -267,8 +267,8 @@
     <DataTemplate DataType="vm:CodeEditorViewModel">
       <views:CodeEditorPanel />
     </DataTemplate>
-    <DataTemplate DataType="vm:LivePreviewViewModel">
-      <views:LivePreviewPanel />
+    <DataTemplate DataType="vm:WebPreviewViewModel">
+      <views:WebPreviewPanel />
     </DataTemplate>
     <DataTemplate DataType="vm:TerminalViewModel">
       <views:TerminalPanel />

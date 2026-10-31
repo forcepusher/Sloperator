@@ -18,9 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent redraws only that part. ComfyUI gets a new built-in workflow for it, sloperator/redraw_area.
 - Video editor's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
-- **Live preview** in the Side panel dropdown: a web page or web game the agent is building, running
+- **Web preview** in the Side panel dropdown: a web page or web game the agent is building, running
   beside the chat in Microsoft's WebView2, served from its folder as a web server would (ES modules and
-  fetch work). Open one with Open file, by dropping it on the panel, or with **Open in Live preview** on
+  fetch work). Open one with Open file, by dropping it on the panel, or with **Open in Web preview** on
   an HTML file's right-click menu. **Watch** opens the page the agent writes and reloads it as files in
   its folder change; Reload does it by hand. The page's script errors are listed under it: select some
   to ask about them. **Area** freezes the page to drag over a part of it, which goes into the message
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.
-- A picture picked in a side panel (an area marked in File inspector, Live preview or Image editor)
+- A picture picked in a side panel (an area marked in File inspector, Web preview or Image editor)
   shows itself on its card over the message box and in the sent message, in place of a file icon.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.

@@ -4,12 +4,12 @@ using System.Text.Json.Nodes;
 namespace Sloperator.Core.Web;
 
 /// <summary>
-/// A web page or web game shown in the Live preview panel, beside the chat. The page is served from
+/// A web page or web game shown in the Web preview panel, beside the chat. The page is served from
 /// its folder under a made-up https address (WebView2's folder mapping), not as a file:// one, so what a
 /// game does as on a web server works: ES modules, fetch of its own files. The page's script errors come
 /// back to the panel through a script run before the page's own (<see cref="ConsoleScript"/>).
 /// </summary>
-public static partial class LivePage
+public static partial class PreviewPage
 {
     /// <summary>The host the page's folder is served under; .example is reserved, so it is never a real site.</summary>
     public const string Host = "page.sloperator.example";

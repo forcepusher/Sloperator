@@ -243,7 +243,7 @@ public sealed class FileChanges
 
     private (string Path, int Number)? _lastChange;
 
-    /// <summary>The file the agent changed last in the chat of those <paramref name="which"/> takes (the Live preview's page, when it opens); null with none.</summary>
+    /// <summary>The file the agent changed last in the chat of those <paramref name="which"/> takes (the Web preview's page, when it opens); null with none.</summary>
     public string? Last(Func<string, bool> which)
     {
         lock (_gate)
