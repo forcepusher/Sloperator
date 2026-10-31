@@ -1830,11 +1830,11 @@ Sloperator word from the chat title. Put Sloperator word first", then "Separate 
 that same dot", then "replace the dot after Connected with that green status indicator, use it as a
 dot"): the bar's own title (`TitleBar.Text`, "Sloperator"; the window's title,
 "<chat> - Sloperator", stays the taskbar's), the server's state (`TitleBar.Status`: the status word,
-the status light 8 x 8 with 4 on each side as a dot has, and the context's use, in the muted 12,
+the status light 8 x 8 with 8 on each side, a space more than a dot has (the user: "a tad bit more spacing"), and the context's use, in the muted 12,
 faint while the window isn't active), and the chat's title (`TitleBar.Subtitle`, the title's look;
 nothing before the first message). The status and the chat's title follow the same "·"
 (`TextBlock.titleDot`, muted, 4 on each side: 5 clear pixels each side at 100%, 6 to 8 at 125%, with
-the letters' own sides; the light has 5 before it and 4 after at 100%, the digit after it starting
+the letters' own sides; the light has 9 before it and 8 after at 100%, 11 and 11 at 125%, the digit after it starting
 at its own edge). The TitleBar shows its dots by its `status` and `subtitle` classes. The margins
 that end the title and the chat's title at the dots name the `title` class in their selectors: a
 class in a selector makes it a trigger in Avalonia, which outranks a selector without one whatever
