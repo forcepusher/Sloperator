@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -48,6 +49,63 @@ public sealed class ToolCardLayoutTests
         Assert.Equal("Read C:\\notes.txt", item.Title);
         Assert.False(item.HasCommand);
         Assert.False(new ToolCallItem("1", "ssh", "SSH box: ls").HasCommand);
+    }
+
+    [Theory]
+    [InlineData(@"Read C:\Users\user\Documents\Sloperator\Hello World\hello.py", "Read hello.py")]
+    [InlineData(@"List C:\Users\user\Documents\Sloperator\Hello World", "List Hello World")]
+    [InlineData(@"List C:\Users\user\Documents\Sloperator\Hello World\ *.py", "List Hello World *.py")]
+    [InlineData(@"Copy C:\a b\x.txt to D:\backup\x old.txt", "Copy x.txt to x old.txt")]
+    [InlineData(@"Read C:\a folder with a long name\b.txt", "Read b.txt")]
+    [InlineData(@"Write C:\work\notes.md (12 chars)", "Write notes.md (12 chars)")]
+    [InlineData(@"Read /home/me/app/main.py on web1", "Read main.py on web1")]
+    [InlineData(@"Read ~/app/main.py on web1", "Read main.py on web1")]
+    [InlineData(@"Copy \\nas\share\film.mkv to C:\Films", "Copy film.mkv to Films")]
+    [InlineData(@"Search C:\code\app for ""C:\x\y""", @"Search app for ""C:\x\y""")]
+    [InlineData(@"Compare C:\a\one.txt with C:\b\two.txt", "Compare one.txt with two.txt")]
+    [InlineData(@"Install ComfyUI in D:\AI\ComfyUI", "Install ComfyUI in ComfyUI")]
+    // What is not a whole path stays: a relative one, a root, a web address, typed words, and
+    // what follows ": " (a command over SSH, a query).
+    [InlineData(@"Read notes\today.md", @"Read notes\today.md")]
+    [InlineData(@"List C:\", @"List C:\")]
+    [InlineData("Read https://example.com/docs/page.html", "Read https://example.com/docs/page.html")]
+    [InlineData(@"Type ""C:\Users\me\file.txt""", @"Type ""C:\Users\me\file.txt""")]
+    [InlineData("SSH web1: cat /etc/nginx/nginx.conf", "SSH web1: cat /etc/nginx/nginx.conf")]
+    [InlineData(@"Run a command · List C:\logs\app", "Run a command · List app")]
+    public void A_card_shows_its_paths_by_their_names(string summary, string shown) => Assert.Equal(shown, ToolLine.Short(summary));
+
+    [Fact]
+    public void A_card_line_is_one_line_with_the_whole_title_in_its_tooltip()
+    {
+        const string summary = @"Read C:\Users\user\Documents\Sloperator\Hello World\a folder with a long name\a file whose name is far too long to fit on one line beside the tool.txt";
+        var (line, tip, height, words) = HeadlessApp.Run(() => Shown(new ToolCallItem("1", "read_file", summary), card =>
+        {
+            var text = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text?.StartsWith("Read ", StringComparison.Ordinal) == true);
+            var chip = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "read_file");
+            return (text.Text, ToolTip.GetTip(text), text.Bounds.Height, chip.Bounds.Height);
+        }));
+        Assert.Equal("Read a file whose name is far too long to fit on one line beside the tool.txt", line);
+        Assert.Equal(summary, tip);
+        Assert.True(height < 2 * words, $"one line: {height} high");
+    }
+
+    [Fact]
+    public void The_time_and_how_the_call_ended_are_over_the_card_on_the_left_as_over_the_thoughts()
+    {
+        var item = new ToolCallItem("1", "read_file", @"Read C:\notes.txt") { At = new DateTime(2026, 10, 31, 4, 51, 10, DateTimeKind.Local).ToUniversalTime() };
+        item.Ended = item.At!.Value.AddMilliseconds(1.2);
+        item.State = ToolItemState.Done;
+        Assert.Equal("04:51:10 · Done in 1 ms", item.HeadText);
+        Assert.Equal("Waiting for your OK", new ToolCallItem("1", "read_file", "x") { At = null, State = ToolItemState.AwaitingApproval }.HeadText);
+
+        var (head, card) = HeadlessApp.Run(() => Shown(item, shown =>
+        {
+            var line = shown.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == item.HeadText);
+            var border = shown.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card"));
+            return (line.TranslatePoint(default, shown)!.Value, border.TranslatePoint(default, shown)!.Value);
+        }));
+        Assert.Equal(card.X, head.X);
+        Assert.True(head.Y < card.Y);
     }
 
     [Theory]

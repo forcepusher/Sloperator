@@ -337,7 +337,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public string Arguments { get; init; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Command), nameof(HasCommand))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
     private string _summary = summary;
 
     /// <summary>
@@ -346,6 +346,9 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// under it in a block of its own (a whole command in bold was too much, the user, 2026-10-29).
     /// </summary>
     public string Title => !HasCommand ? Summary : CommandParts().Description is { } d ? $"Run a command · {d}" : "Run a command";
+
+    /// <summary>The title as the card shows it, on one line: its paths by their names (<see cref="ToolLine"/>); the whole title is its tooltip.</summary>
+    public string Line => ToolLine.Short(Title);
 
     /// <summary>The command a run_shell call ran, from its summary, so a saved chat shows it too; null for any other call.</summary>
     public string? Command => CommandParts().Command;
@@ -363,7 +366,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public bool HasCommand => Command is { Length: > 0 };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError))]
+    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(HeadText), nameof(IsError))]
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
@@ -398,12 +401,12 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
 
     /// <summary>How a long call is getting on ("KSampler, step 3 of 20 · 1:12"), while it runs.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HeadText))]
     private string _progress = "";
 
     /// <summary>When the call ended, or the run stopped it. <see cref="ChatItemViewModel.At"/> is when it began to run (after an OK, if it waited for one).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HeadText))]
     private DateTime? _ended;
 
     private TimeSpan? Took => At is { } at && Ended is { } ended ? ended - at : null;
@@ -423,11 +426,27 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>"Running…", and after a few seconds for how long ("Running… 0:12"), as the wait for the model counts: a long command doesn't look stuck.</summary>
     private string RunningText => At is { } at && DateTime.UtcNow - at is { TotalSeconds: >= 3 } running ? $"Running… {ChatTimes.Stopwatch(running)}" : "Running…";
 
+    /// <summary>
+    /// Over the card, as over the model's step: when the call began to run and how it ended in how
+    /// long ("14:05:09 · Done in 1.2 s"). It was at the card's top right, where the thoughts' time is
+    /// over them on the left (the user, 2026-10-31).
+    /// </summary>
+    public string HeadText => At is { } at ? $"{ChatTimes.Clock(at)} · {StatusText}" : StatusText;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(At))
+            OnPropertyChanged(nameof(HeadText));
+    }
+
     /// <summary>Called every second while a run is on, for the count in <see cref="StatusText"/>.</summary>
     public void Tick()
     {
-        if (State == ToolItemState.Running && Progress.Length == 0)
-            OnPropertyChanged(nameof(StatusText));
+        if (State != ToolItemState.Running || Progress.Length > 0)
+            return;
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HeadText));
     }
 
     public Task<bool> WaitForApprovalAsync(CancellationToken ct)

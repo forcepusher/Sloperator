@@ -1452,7 +1452,7 @@ check the list's own enumerator makes, and a copy made during a context reset co
 Every line of the chat shows when it happened, so where a task's time went can be read off it: a
 message the time it was sent, each step of the model when it was asked and how long it took
 ("14:05:09 · model 41 s"; its tooltip splits that into sending the request, waiting for the first
-words, and writing), each tool call when it began to run and how long it ran ("Done in 1.2 s"; a
+words, and writing), each tool call when it began to run and how long it ran ("14:05:09 · Done in 1.2 s", over its card on the left as the model's line is over its thoughts; a
 wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
 and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s").
@@ -2743,6 +2743,34 @@ tool's name chip 8 across. `ToolCardLayoutTests` lays a card out headless: the c
 under the title, the picture of a click, a wait and a key folded, a screenshot's and a zoom's open.
 Checked in the app with a stand-in model (screenshot, wait, two run_shell calls) and PrintWindow:
 the wait's picture folded, opening it by UI Automation showed it.
+
+**One line beside the tool's name (2026-10-31).** The card's line wrapped over up to three ragged
+lines in the column left between the name chip and the time ("Read C:\Users\user\Documents\Sloperator\
+Hello World\hello.py", broken at "C:" and inside "Hello World"); the user circled it. The line is now
+one line (`TextTrimming`, no wrap), and every whole path in it shows as its file or folder name
+(`ToolLine.Short`, `ToolCallItem.Line`: "Read hello.py", "List Hello World", "Copy hello.py to
+hello copy.py"); the line as the tool gave it is the tooltip, and the model still gets it whole. It
+works on the summary text, so it applies to every tool, an MCP one too, without a change in any of
+them, and to chats saved before. A whole path starts at a drive (`C:\`), `\\`, `/` or `~/` after a
+space or "(", and goes on over spaces ("Hello World") up to a new line, a quote, ", ", " (", a
+wildcard, or a word like on/to/with/in/for, unless a separator comes after that word that doesn't
+begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are: what follows ": "
+(an SSH command, a search, keys), anything in quotes (typed text), relative paths, a bare root, web
+addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
+only once it changed a file, so the first cards (a list, a read) would still show whole paths.
+
+The time and how the call ended moved out of the card's top right to over the card on the left
+(`ToolCallItem.HeadText`, "04:51:10 · Done in 1 ms"), as the model's step has its time over its
+thoughts (the user, 2026-10-31: one place for the times). The same `TextBlock.muted`, the same 6
+between it and the box as the step's `StackPanel`: measured in the app, 9 empty rows from the line's
+ink to the card's border at 100% and to the Thoughts' border alike, 11 and 11 at 125%. With nothing
+beside it now, the line has the card's width less the chip's. The chip and one line sit as a
+one-line card's did before (row for row the same at 100%). `ToolCardLayoutTests` checks the paths,
+one line with the whole in the tooltip, and the time over the card at its left edge. Rig (ignored by
+git): `.dev/tool-summary-test` (build.sh before|after into <name>125 and a DPI-unaware <name>100,
+run.ps1 with a stand-in calling list_directory, read_file, run_shell, copy and a read with a long
+path, close.ps1 closes the panel Auto opens for the command, size.ps1, hdr.ps1/rows.ps1/gap.ps1
+measure, pair.ps1 puts before and after side by side).
 
 Web addresses in the chat are links: in replies (written out, `www.` ones, in code and tables,
 and Markdown's `[text](https://...)`, which shows its text alone), in the user's messages, in the
