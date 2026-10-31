@@ -98,7 +98,6 @@ public sealed partial class MainWindowViewModel
     {
         if (usage.Size <= 0) return;
         ContextUsage = $"{usage.Used / 1000.0:0}k of {ContextSizes.Format(usage.Size)} used";
-        ContextUsageTip = $"Starts a fresh context from a handoff note at {usage.Reset:N0} tokens.";
     }
 
     /// <summary>

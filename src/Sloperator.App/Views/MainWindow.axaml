@@ -293,11 +293,11 @@
        goes first, then the light, and the word stays. -->
   <views:TitleBar DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}">
     <views:TitleBar.Status>
-      <views:WholeRow Background="Transparent">
+      <views:WholeRow>
         <TextBlock Classes="muted" Text="{Binding ServerStatusText}" VerticalAlignment="Center" />
         <Ellipse Classes="status" Classes.checking="{Binding IsChecking}" Classes.connected="{Binding IsConnected}" Classes.failed="{Binding IsFailed}"
                  Width="8" Height="8" VerticalAlignment="Center" Margin="8,0" />
-        <TextBlock Classes="muted" Text="{Binding ContextUsage}" IsVisible="{Binding HasContextUsage}" ToolTip.Tip="{Binding ContextUsageTip}"
+        <TextBlock Classes="muted" Text="{Binding ContextUsage}" IsVisible="{Binding HasContextUsage}"
                    VerticalAlignment="Center" />
       </views:WholeRow>
     </views:TitleBar.Status>
