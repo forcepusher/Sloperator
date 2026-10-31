@@ -25,6 +25,7 @@ public sealed partial class MainWindowViewModel
                 return;
             _autoShown = value;
             OnPropertyChanged(nameof(SidePanelCaption));
+            OnPropertyChanged(nameof(SidePanelName));
         }
     }
 

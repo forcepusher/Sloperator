@@ -311,8 +311,10 @@
        the status light stands where a dot would, with a space more on each side than a dot (8). The window's
        title, "<chat> - Sloperator", is the taskbar's. The state: the status word, the light, the
        context's use, each part whole or not at all (WholeRow): in a narrow window the context's use
-       goes first, then the light, and the word stays. -->
-  <views:TitleBar DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}">
+       goes first, then the light, and the word stays. With a side panel open it all starts over the
+       chat, where it is without one, and the panel's name is over the panel (the user, 2026-10-31;
+       Bar.Inset follows the chat's column, MainWindow). -->
+  <views:TitleBar x:Name="Bar" DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}" Caption="{Binding SidePanelName}">
     <views:TitleBar.Status>
       <views:WholeRow>
         <TextBlock Classes="muted" Text="{Binding ServerStatusText}" VerticalAlignment="Center" />
@@ -331,7 +333,7 @@
     </Border>
     <GridSplitter x:Name="SidePanelSplitter" Grid.Column="1" IsVisible="False" ResizeDirection="Columns" />
 
-  <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+  <Grid x:Name="ChatColumn" Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
     <!-- Header -->
     <Border Grid.Row="0" Classes="bar">

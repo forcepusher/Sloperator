@@ -171,9 +171,13 @@ public sealed partial class MainWindowViewModel
     /// <summary>The open panel, on the left of the chat; null with none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSidePanel))]
+    [NotifyPropertyChangedFor(nameof(SidePanelName))]
     private ISidePanel? _sidePanel;
 
     public bool HasSidePanel => SidePanel is not null;
+
+    /// <summary>The open panel's name, in the title bar over it (under Auto, the panel Auto shows); empty with none.</summary>
+    public string SidePanelName => HasSidePanel ? ShownSidePanel?.Name ?? "" : "";
 
     partial void OnSelectedSidePanelChanged(SidePanelOption? oldValue, SidePanelOption? newValue)
     {

@@ -25,7 +25,11 @@
       <!-- The title, then what the window puts after it (Status, Subtitle): the chat window's server
            status and its chat's title. The status is measured before the subtitle, so a long chat
            title is cut short before it. Each part after the title follows a dot (TextBlock.titleDot),
-           as the parts of the status do. -->
+           as the parts of the status do. Before all of it, as wide as the window's side panel is
+           (Inset), that panel's name (Caption), so the title stays over the chat. -->
+      <Border x:Name="CaptionHost" DockPanel.Dock="Left" IsVisible="False" ClipToBounds="True">
+        <TextBlock x:Name="CaptionText" Classes="title" IsHitTestVisible="False" />
+      </Border>
       <TextBlock x:Name="TitleText" DockPanel.Dock="Left" Classes="title" IsHitTestVisible="False" />
       <TextBlock x:Name="StatusDot" DockPanel.Dock="Left" Classes="muted titleDot" IsHitTestVisible="False" />
       <ContentPresenter x:Name="StatusHost" DockPanel.Dock="Left" />

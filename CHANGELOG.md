@@ -69,6 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hello.py" in place of the whole path over three lines); the whole line is in its tooltip.
 - A tool call's card says how long it took without the time it began ("Done in 8 ms"); the time is
   in its tooltip.
+- With a side panel open, the title bar's text stays over the chat, and the panel's name is in the
+  title bar over the panel.
 - Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.
 - A picture picked in a side panel (an area marked in File inspector, Web preview or Image editor)
   shows itself on its card over the message box and in the sent message, in place of a file icon.
