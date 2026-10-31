@@ -3060,6 +3060,31 @@ conversation holds them as they are (`ToolContext.InConversation`): not from the
 message's run, and not from the overview, which then says they were given above. Once the agent
 changes them, or after a context reset, they come whole again.
 
+Measured on 31 October 2026 on the laptop through `sloperator-cli`, with Haiku 5.5 (OpenRouter) and
+Qwen 3.8 27B (the user's LM Studio). The test project was a small PowerShell project of 31 files. Its
+tests need `tools\make-fixtures.ps1` run first, and it has a 27-line `AGENTS.md` of the user's.
+- **The first chat:** both models hit the missing fixtures. Both then added one correct line under
+  `## Notes` at the end, left the user's lines alone, and said so in their reply.
+- **A second chat:** Qwen made the fixtures before its first test run (38 s, 4 calls, against
+  99 s, 9 calls and an error). Haiku ran the tests first and used its note once they failed.
+- **A 10-file copy that already has the note:** both models indexed it and made the fixtures first.
+  With `--no-index`, the note came after their first call, and both still made the fixtures first.
+
+index-bench compared develop d87f1f8 with this change: 10 tasks with the index, one run each, plus
+a second fm-explain on Qwen.
+- Every edit passed on both builds, and no file changed in the tasks that say not to change any.
+- Qwen wrote one note, in an edit task, into the project's `CLAUDE.md`. It said the SDK lives in
+  `.dev\dotnet` and the solution is `BlackBox.slnx`, because that run had no dotnet on PATH and
+  installed one. Run again with dotnet on PATH, it wrote no note.
+- Haiku: 528 s, 116 calls and 2.1M prompt tokens, against 576 s, 127 calls and 2.7M.
+- Qwen: 3,958 s, 264 calls and 5.6M, against 4,078 s, 244 calls and 4.3M. One branch fm-explain
+  took 1,048 s and 2.4M tokens, on shell commands that kept failing. Its second run took 643 s,
+  against 641 s for develop's.
+
+The benchmark's edit checks had named the renamed `Sloperator.*` files since the rename, which the
+snapshot (6fc10f2) doesn't have, so every edit failed whatever the model did. They name its
+`BlackBox.*` files again.
+
 **Search** (`query`): the definitions of names the query writes as code (`SettingsStore`,
 `save_game`; a plain "settings" in a question isn't the property `Settings`), then every line that
 has such a name (or the one word of a one-word query) as a whole word, as a search with a command
