@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.LivePreviewPanel"
+             x:DataType="vm:LivePreviewViewModel"
+             Background="{StaticResource BbBackground}">
+  <DockPanel>
+    <!-- Area at the left, as the File inspector's; the page's name and the folder served; Reload, Open file
+         and Watch, then × to close the panel. All there from the start, greyed while they have nothing to do. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <!-- Watch: the page the agent writes opens, and the page reloads as files in its folder change. -->
+        <ToggleButton DockPanel.Dock="Right" Classes="ghost" Margin="8,0,0,0" IsChecked="{Binding Watch}"
+                      ToolTip.Tip="Open the page the agent writes and reload it as its files change" AutomationProperties.Name="Watch">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+            <TextBlock Text="Watch" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <Button DockPanel.Dock="Right" Classes="ghost" Margin="8,0,0,0" Click="OnOpenClick"
+                ToolTip.Tip="Open a web page to preview" AutomationProperties.Name="Open file">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M19 20H4a2 2 0 0 1-2-2V6c0-1.11.89-2 2-2h6l2 2h7a2 2 0 0 1 2 2H4v10l2.14-8h17.07l-2.28 8.5c-.23.87-1.01 1.5-1.93 1.5z" />
+            <TextBlock Text="Open file" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button DockPanel.Dock="Right" Classes="ghost act" Margin="12,0,0,0" Command="{Binding ReloadCommand}"
+                ToolTip.Tip="{Binding ReloadTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Reload">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+            <TextBlock Text="Reload" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <!-- Area: the page frozen, to drag over a part of it (nothing can be drawn over WebView2's window). -->
+        <ToggleButton DockPanel.Dock="Left" Classes="ghost" IsChecked="{Binding AreaMode}" IsEnabled="{Binding CanFreeze}" Margin="0,0,12,0"
+                      ToolTip.Tip="{Binding AreaTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Area">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M3 3h4v2H5v2H3zm14 0h4v4h-2V5h-2zM3 17h2v2h2v2H3zm16 0h2v4h-4v-2h2zM9 3h6v2H9zm0 16h6v2H9zM3 9h2v6H3zm16 0h2v6h-2z" />
+            <TextBlock Text="Area" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <Panel>
+          <!-- The page's name, then its folder cut at its start, so the folder's own name stays. -->
+          <DockPanel VerticalAlignment="Center" Margin="0,0,4,0" Background="Transparent" views:FileMenu.File="{Binding Path}" IsVisible="{Binding HasFile}">
+            <TextBlock DockPanel.Dock="Left" Text="{Binding FileName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Path}" />
+            <TextBlock Classes="muted" Margin="12,0,0,0" Text="{Binding PageFolder}" TextTrimming="LeadingCharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding PageFolder}" />
+          </DockPanel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasFile}" Text="Select errors or an area to ask about them."
+                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="Select errors or an area to ask about them." />
+        </Panel>
+      </DockPanel>
+    </Border>
+
+    <Grid RowDefinitions="*,4,160">
+      <Panel Grid.Row="0">
+        <TextBlock Classes="muted" IsVisible="{Binding !HasFile}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                   MaxWidth="360" TextAlignment="Center" Text="{Binding EmptyText}" />
+        <!-- WebView2 isn't on the PC: what to get, in place of the page. -->
+        <StackPanel IsVisible="{Binding Missing}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="360">
+          <TextBlock TextWrapping="Wrap" TextAlignment="Center"
+                     Text="Live preview shows pages with Microsoft's WebView2, which isn't installed on this PC. Install the Evergreen runtime, then open the panel again." />
+          <Button Classes="ghost" HorizontalAlignment="Center" Click="OnGetRuntime" ToolTip.Tip="{x:Static vm:LivePreviewViewModel.RuntimeAddress}"
+                  AutomationProperties.Name="Get WebView2">
+            <TextBlock Text="Get WebView2" VerticalAlignment="Center" />
+          </Button>
+        </StackPanel>
+        <!-- The page, as the browser in WebView2 draws it, in a window of its own over the panel. -->
+        <Panel x:Name="Host" IsVisible="{Binding ShowsPage}" />
+        <!-- With Area on: the page frozen, to drag an area over. -->
+        <views:ZoomBox x:Name="FrozenBox" Source="{Binding Frozen}" IsVisible="{Binding IsFrozen}" Margin="0"
+                       views:FileMenu.Image="{Binding Frozen}" Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" AutomationProperties.Name="Frozen page" />
+      </Panel>
+      <GridSplitter Grid.Row="1" ResizeDirection="Rows" />
+
+      <!-- The page's script errors since it last loaded; those selected go into the chat's box. -->
+      <DockPanel Grid.Row="2">
+        <Border DockPanel.Dock="Top" Classes="bar slim">
+          <DockPanel>
+            <TextBlock Text="Errors" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Classes="muted" Margin="12,0,0,0" Text="{Binding ErrorCount}" VerticalAlignment="Center" />
+          </DockPanel>
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasErrors}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Text="{Binding NoErrorsText}" />
+          <ListBox x:Name="ErrorList" Classes="files" ItemsSource="{Binding Errors}" SelectionMode="Multiple" IsVisible="{Binding HasErrors}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Errors">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ConsoleItem">
+                <DockPanel ToolTip.Tip="{Binding Tip}">
+                  <TextBlock DockPanel.Dock="Right" Classes="muted" Margin="12,0,0,0" Text="{Binding Where}" IsVisible="{Binding HasWhere}"
+                             FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" MaxWidth="280" TextTrimming="LeadingCharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Summary}" Foreground="{StaticResource BbError}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </DockPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Panel>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>
