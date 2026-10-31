@@ -30,10 +30,10 @@ public class SidePanelCardTests : IDisposable
             Entries =
             [
                 new ChatEntry { Kind = ChatEntryKind.User, Text = "what is this", Via = "File changes · notes.md", Cards = [new SidePanelCard("Lines 3-5 · notes.md", Path: @"C:\w\notes.md")] },
-                new ChatEntry { Kind = ChatEntryKind.User, Text = "make it", Via = "Video generator · Fox", Cards = [new SidePanelCard("Fox", "whole video", Icon: clapper)] },
+                new ChatEntry { Kind = ChatEntryKind.User, Text = "make it", Via = "Video editor · Fox", Cards = [new SidePanelCard("Fox", "whole video", Icon: clapper)] },
             ],
         });
-        File.WriteAllText(Path.Combine(_dir, "old.json"), """{"id":"old","title":"Old","entries":[{"kind":"User","text":"Hi","via":"Video generator · Fox"}]}""");
+        File.WriteAllText(Path.Combine(_dir, "old.json"), """{"id":"old","title":"Old","entries":[{"kind":"User","text":"Hi","via":"Video editor · Fox"}]}""");
 
         var entries = store.Load("cards")!.Entries;
         Assert.Equal(new SidePanelCard("Lines 3-5 · notes.md", Path: @"C:\w\notes.md"), Assert.Single(entries[0].Cards!));

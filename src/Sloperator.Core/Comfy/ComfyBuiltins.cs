@@ -85,7 +85,7 @@ public static class ComfyBuiltins
             "Redraws only a marked part of a picture from a prompt, the rest kept as it is: a door made red, a figure added, a face fixed. " +
             "Any SD 1.5, SD 2 or SDXL checkpoint; light enough for a PC without a graphics card (SD 1.5 on the CPU).",
             CommonNotes + " 4.image is the picture (a full local path is uploaded). 5.image is its mask, as big as the picture: white where to redraw, " +
-            "black what to keep, soft at its edge (the Picture generator panel writes one for the box the user marked). 2.text says what goes in the " +
+            "black what to keep, soft at its edge (the Image editor panel writes one for the box the user marked). 2.text says what goes in the " +
             "marked part, in the picture's style. The mask lets only that part change (SetLatentNoiseMask) and DifferentialDiffusion blends its soft edge " +
             "into the rest; 8.denoise 0.75 redraws the part, 0.5 keeps its shapes with new details, 0.9 to 1 replaces it outright. The picture is worked " +
             "on at its own size: SD 1.5 suits pictures up to about 768 pixels, SDXL about 1024. On the CPU, 20 steps of a 512 picture take three to five minutes.",

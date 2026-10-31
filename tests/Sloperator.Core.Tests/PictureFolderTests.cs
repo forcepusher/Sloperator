@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Sloperator.Core.Tests;
 
-/// <summary>The Picture generator's pictures: a folder each, its versions the picture files in it, and the mask of a part to redraw.</summary>
+/// <summary>The Image editor's pictures: a folder each, its versions the picture files in it, and the mask of a part to redraw.</summary>
 public sealed class PictureFolderTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-pictures-").FullName;

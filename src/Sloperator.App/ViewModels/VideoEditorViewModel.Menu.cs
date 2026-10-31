@@ -4,7 +4,7 @@ using Microsoft.VisualBasic.FileIO;
 
 namespace Sloperator.App.ViewModels;
 
-public sealed partial class VideoGeneratorViewModel
+public sealed partial class VideoEditorViewModel
 {
     // ---- the right-click menus: the timeline is where the video is worked on ------------------------------------
     // (the user's call, 2026-10-24: "Right click on timeline -> Create. And then you pick either a file

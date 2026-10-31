@@ -5,7 +5,7 @@ using SkiaSharp;
 namespace Sloperator.Core.Media;
 
 /// <summary>
-/// The pictures of the Picture generator panel (Data\pictures, beside the videos), a folder each: its
+/// The pictures of the Image editor panel (Data\pictures, beside the videos), a folder each: its
 /// versions are the picture files in it, oldest first. The agent's comfyui runs copy what they make
 /// into the folder (save_to), so a redo is a new version and the earlier ones stay.
 /// </summary>

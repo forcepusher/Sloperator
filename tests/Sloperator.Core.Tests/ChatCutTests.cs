@@ -99,7 +99,7 @@ public class ChatCutTests
     public void Files_alone_and_a_message_with_context_are_found()
     {
         var file = Path.Combine(Path.GetTempPath(), "bb-cut-" + Guid.NewGuid().ToString("N")[..8] + ".txt");
-        UserInput hi = new("hi"), files = new("", [file]), video = new("Make it.") { Context = "[In the Video generator: clip 2]" };
+        UserInput hi = new("hi"), files = new("", [file]), video = new("Make it.") { Context = "[In the Video editor: clip 2]" };
         List<ChatMessage> history = [From(hi), Reply("hello"), From(files), Reply("read"), From(video), Reply("made")];
 
         Assert.Equal(2, ChatCut.HistoryStart(history, [hi, files, video], 1));

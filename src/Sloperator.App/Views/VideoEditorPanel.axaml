@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Sloperator.App.ViewModels"
              xmlns:views="using:Sloperator.App.Views"
-             x:Class="Sloperator.App.Views.VideoGeneratorPanel"
-             x:DataType="vm:VideoGeneratorViewModel"
+             x:Class="Sloperator.App.Views.VideoEditorPanel"
+             x:DataType="vm:VideoEditorViewModel"
              Background="{StaticResource BbBackground}">
 
   <UserControl.Styles>
@@ -227,7 +227,7 @@
             </Button>
             <Button Classes="ghost small act" HorizontalContentAlignment="Center" Command="{Binding ZoomResetCommand}"
                     ToolTip.ShowOnDisabled="True" ToolTip.Tip="{Binding ZoomResetTip}" AutomationProperties.Name="Zoom to 100%">
-              <views:SlotText Text="{Binding ZoomText}" Slot="{x:Static vm:VideoGeneratorViewModel.ZoomSlot}" TextAlignment="Center" TextElement.FontFeatures="+tnum" />
+              <views:SlotText Text="{Binding ZoomText}" Slot="{x:Static vm:VideoEditorViewModel.ZoomSlot}" TextAlignment="Center" TextElement.FontFeatures="+tnum" />
             </Button>
             <Button Classes="ghost icon small act" Command="{Binding ZoomInCommand}" ToolTip.ShowOnDisabled="True"
                     ToolTip.Tip="{Binding ZoomInTip}" AutomationProperties.Name="Zoom in">
@@ -271,7 +271,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:SoundLineItem">
                     <!-- Its name, and its volume under it. -->
-                    <Border Height="{x:Static vm:VideoGeneratorViewModel.SoundLineHeight}" Background="Transparent" ContextRequested="OnSoundLineMenu">
+                    <Border Height="{x:Static vm:VideoEditorViewModel.SoundLineHeight}" Background="Transparent" ContextRequested="OnSoundLineMenu">
                       <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Margin="10,0,0,0" />
                         <Slider Classes="volume" Minimum="0" Maximum="2" Value="{Binding Volume}" SmallChange="0.05" LargeChange="0.25" Margin="8,-8,8,-12"
@@ -286,13 +286,13 @@
             </StackPanel>
           </Border>
 
-          <!-- Dragged sideways anywhere but the ruler, a clip's edge and a sound, it scrolls (VideoGeneratorPanel.Pan);
+          <!-- Dragged sideways anywhere but the ruler, a clip's edge and a sound, it scrolls (VideoEditorPanel.Pan);
                the wheel does too, Ctrl+wheel zooms. -->
           <ScrollViewer x:Name="Timeline" Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                         PointerWheelChanged="OnTimelineWheel" Background="Transparent" BringIntoViewOnFocusChange="False" ContextRequested="OnRowMenu">
             <Panel Width="{Binding TimelineWidth}" HorizontalAlignment="Left" ClipToBounds="True">
               <StackPanel>
-                <views:VideoRuler x:Name="Ruler" Height="40" Pps="{Binding Pps}" Length="{Binding Length}" Lead="{x:Static vm:VideoGeneratorViewModel.Lead}" />
+                <views:VideoRuler x:Name="Ruler" Height="40" Pps="{Binding Pps}" Length="{Binding Length}" Lead="{x:Static vm:VideoEditorViewModel.Lead}" />
 
                 <!-- References: a card each, image files, video files and generated images; the dashed card makes a new one. -->
                 <Panel Height="92" Tag="references" Background="Transparent">
@@ -311,7 +311,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:ReferenceCard">
                         <Button Classes="bare" Click="OnCardClick" ContextRequested="OnCardMenu" ToolTip.Tip="{Binding Kind}" AutomationProperties.Name="{Binding Name}">
-                          <Border Classes="block" Classes.selected="{Binding IsSelected}" Classes.drop="{Binding IsDropTarget}" Width="{x:Static vm:VideoGeneratorViewModel.CardWidth}" Height="84" Cursor="Hand">
+                          <Border Classes="block" Classes.selected="{Binding IsSelected}" Classes.drop="{Binding IsDropTarget}" Width="{x:Static vm:VideoEditorViewModel.CardWidth}" Height="84" Cursor="Hand">
                             <DockPanel>
                               <TextBlock DockPanel.Dock="Bottom" Text="{Binding State}" FontSize="10" Classes="muted" Margin="6,0,6,3" TextTrimming="CharacterEllipsis" />
                               <TextBlock DockPanel.Dock="Bottom" Text="{Binding Name}" FontSize="11" Margin="6,1,6,0" TextTrimming="CharacterEllipsis" />
@@ -409,7 +409,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:SoundLineItem">
                         <!-- The line, and its dashed + after its last sound: a click makes a new sound there. -->
-                        <Border Height="{x:Static vm:VideoGeneratorViewModel.SoundLineHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+                        <Border Height="{x:Static vm:VideoEditorViewModel.SoundLineHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
                           <Canvas>
                             <Button Classes="bare" Canvas.Left="{Binding AddX}" Canvas.Top="4" Width="56" Height="40" Click="OnCreateSound"
                                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Cursor="Hand"
@@ -478,7 +478,7 @@
          made beside it. That column is always there at one width (2026-10-31): under the viewer, shown only
          with something picked and as tall as its text, it moved the picture with every pick. -->
     <DockPanel>
-      <Border DockPanel.Dock="Right" Width="{x:Static vm:VideoGeneratorViewModel.DetailsWidth}" BorderBrush="{StaticResource BbBorder}" BorderThickness="1,0,0,0">
+      <Border DockPanel.Dock="Right" Width="{x:Static vm:VideoEditorViewModel.DetailsWidth}" BorderBrush="{StaticResource BbBorder}" BorderThickness="1,0,0,0">
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="How it was made">
           <StackPanel Spacing="8" Margin="16,12">
             <!-- Always there, greyed but for a version shown, its tip saying how to get one. -->

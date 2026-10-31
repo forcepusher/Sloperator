@@ -8,7 +8,7 @@ using Sloperator.Core.Media;
 
 namespace Sloperator.App.ViewModels;
 
-/// <summary>A picture in the Picture generator panel's list: its folder, its name, and a small copy of its newest version.</summary>
+/// <summary>A picture in the Image editor panel's list: its folder, its name, and a small copy of its newest version.</summary>
 public sealed partial class PictureItem(string folder) : ObservableObject
 {
     public string Folder { get; } = folder;
@@ -73,7 +73,7 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 }
 
 /// <summary>
-/// The Picture generator panel, beside the chat, a sibling of the Video generator for single pictures:
+/// The Image editor panel, beside the chat, a sibling of the Video editor for single pictures:
 /// the pictures in Data\pictures (a folder each, its versions the picture files in it), the picked one big
 /// with its versions under it, and how the version shown was made beside it (its Prompt metadata, as the
 /// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
@@ -81,7 +81,7 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 /// version picks it into the chat's box; a box dragged over the big picture picks that part, with a mask
 /// of it, for the agent to redraw only that part (sloperator/redraw_area).
 /// </summary>
-public sealed partial class PictureGeneratorViewModel : ObservableObject, ISidePanel
+public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 {
     private readonly MainWindowViewModel? _chat;
 
@@ -96,7 +96,7 @@ public sealed partial class PictureGeneratorViewModel : ObservableObject, ISideP
     private bool _picking;
 
     /// <param name="chat">The chat the panel is beside, where picks go and its messages are sent; null in tests.</param>
-    public PictureGeneratorViewModel(MainWindowViewModel? chat, string root, string picksDir)
+    public ImageEditorViewModel(MainWindowViewModel? chat, string root, string picksDir)
     {
         _chat = chat;
         Root = root;
@@ -464,21 +464,21 @@ public sealed partial class PictureGeneratorViewModel : ObservableObject, ISideP
         var picture = pick.Picture;
         var save = $"Make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", so the result is its next version there " +
                    "(the panel shows the newest; earlier versions stay)";
-        var opening = $"[The Picture generator panel is open beside the chat. ";
+        var opening = $"[The Image editor panel is open beside the chat. ";
         if (pick.Version is null)
-            return ($"Picture generator · {picture.Name} · new",
+            return ($"Image editor · {picture.Name} · new",
                 opening + $"They picked a new picture, \"{picture.Name}\", not made yet: what they say is what it shows. {save}; " +
                 "sloperator/text_to_image suits a PC without a graphics card.]");
         var version = pick.Version;
         var versions = string.Join(", ", picture.Versions.Select((v, i) => $"{i + 1}: {v}"));
         if (pick.Mask is { } mask)
-            return ($"Picture generator · {picture.Name} · area of version {version.Number}",
+            return ($"Image editor · {picture.Name} · area of version {version.Number}",
                 opening + $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
                 $"The picture {pick.File} attached below is that part. Redraw only that part as they say, the rest kept: run the comfyui tool with " +
                 $"name=sloperator/redraw_area, set 4.image to \"{version.Path}\", 5.image to the mask \"{mask}\" (white where to redraw), 2.text to what goes there " +
                 $"in the picture's style (and 1.ckpt_name to the checkpoint it was made with, if its metadata says), and save_to \"{picture.Folder}\", " +
                 $"so it becomes the picture's next version. Its versions: {versions}.]");
-        return ($"Picture generator · {picture.Name} · version {version.Number}",
+        return ($"Image editor · {picture.Name} · version {version.Number}",
             opening + $"They picked version {version.Number} of {picture.Versions.Count} of the picture \"{picture.Name}\" ({version.Path}, attached below). " +
             $"To change it or make it again, {char.ToLowerInvariant(save[0])}{save[1..]}; image_to_image keeps its layout, text_to_image starts afresh from " +
             $"the prompt in its metadata. Its versions: {versions}.]");
