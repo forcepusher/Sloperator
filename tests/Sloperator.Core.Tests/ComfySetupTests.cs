@@ -695,6 +695,35 @@ public class ComfyModelToolTests : IDisposable
     }
 
     [Fact]
+    public async Task Sloperators_own_redraw_area_redraws_the_masked_part_of_a_picture()
+    {
+        _comfy.OnCpu = true;
+        var tool = new ComfyTool();
+        var list = await Call(tool, """{"action": "templates", "search": "redraw a part of a picture with a mask"}""");
+        Assert.Contains("sloperator/redraw_area \"Redraw a part of a picture with a checkpoint\"", list.Text);
+        Assert.Contains("[ready]", list.Text.Split('\n').First(l => l.Contains("sloperator/redraw_area")));
+
+        var picture = Path.Combine(_home, "house.png");
+        var mask = Path.Combine(_home, "mask.png");
+        File.WriteAllBytes(picture, [137, 80, 78, 71]);
+        File.WriteAllBytes(mask, [137, 80, 78, 71]);
+        var run = await Call(tool, new JsonObject
+        {
+            ["action"] = "run",
+            ["name"] = "sloperator/redraw_area",
+            ["set"] = new JsonObject { ["4.image"] = picture, ["5.image"] = mask, ["2.text"] = "a red wooden door" },
+        }.ToJsonString());
+        Assert.False(run.IsError, run.Text);
+        var prompt = Assert.Single(_comfy.Prompts)["prompt"]!;
+        // Both files uploaded; only the masked part is noised, through DifferentialDiffusion's model.
+        Assert.Equal("uploaded.png", (string?)prompt["4"]!["inputs"]!["image"]);
+        Assert.Equal("uploaded.png", (string?)prompt["5"]!["inputs"]!["image"]);
+        Assert.Equal("7", (string?)prompt["8"]!["inputs"]!["latent_image"]![0]);
+        Assert.Equal("9", (string?)prompt["8"]!["inputs"]!["model"]![0]);
+        Assert.Equal(0.75, (double?)prompt["8"]!["inputs"]!["denoise"]);
+    }
+
+    [Fact]
     public async Task A_comfyui_that_runs_already_is_used_as_it_is_and_none_is_installed_beside_it()
     {
         var install = await Call(new ComfyTool(), """{"action": "install"}""");

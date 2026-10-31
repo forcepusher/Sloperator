@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole as it prints, every line of it (the agent itself reads only the start and end of a long output).
   **Wrap** wraps long lines; **Watch** shows the newest command as it starts. Select lines to ask about
   them. A chat opened again from History shows its commands.
+- **Picture generator** in the Side panel dropdown, beside Video generator: your pictures, each with its
+  versions (a redo is a new version and the earlier ones stay), the one you pick shown big with how it was
+  made. **New picture** starts one: say in the chat what it shows. **Make again** makes a new version. Click
+  a picture or a version to ask about it; drag a box over a part of it and say what to change, and the
+  agent redraws only that part. ComfyUI gets a new built-in workflow for it, sloperator/redraw_area.
 - Video generator's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
 - **Live preview** in the Side panel dropdown: a web page or web game the agent is building, running
@@ -44,8 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chat. Pictures an SVG links on the web aren't fetched. Sloperator.exe is about 1.5 MB bigger.
 
 ### Changed
-- A picture picked in a side panel (an area marked in File inspector or Live preview) shows itself on
-  its card over the message box and in the sent message, in place of a file icon.
+- A picture picked in a side panel (an area marked in File inspector, Live preview or Picture generator)
+  shows itself on its card over the message box and in the sent message, in place of a file icon.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.
 - Settings → Safety: the dropdown for when Sloperator asks before acting is labelled

@@ -255,6 +255,9 @@
     <DataTemplate DataType="vm:VideoGeneratorViewModel">
       <views:VideoGeneratorPanel />
     </DataTemplate>
+    <DataTemplate DataType="vm:PictureGeneratorViewModel">
+      <views:PictureGeneratorPanel />
+    </DataTemplate>
     <DataTemplate DataType="vm:FileChangesViewModel">
       <views:FileChangesPanel />
     </DataTemplate>

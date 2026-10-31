@@ -1,0 +1,531 @@
+using System.Collections.ObjectModel;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Sloperator.Core.Documents;
+using Sloperator.Core.Media;
+
+namespace Sloperator.App.ViewModels;
+
+/// <summary>A picture in the Picture generator panel's list: its folder, its name, and a small copy of its newest version.</summary>
+public sealed partial class PictureItem(string folder) : ObservableObject
+{
+    public string Folder { get; } = folder;
+    public string Name => Path.GetFileName(Folder);
+
+    /// <summary>Its versions, oldest first.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Count), nameof(IsMade))]
+    private IReadOnlyList<string> _versions = [];
+
+    public bool IsMade => Versions.Count > 0;
+
+    /// <summary>"3 versions", "1 version", "not made yet".</summary>
+    public string Count => Versions.Count switch { 0 => "not made yet", 1 => "1 version", var n => $"{n} versions" };
+
+    /// <summary>Its newest version, 160 wide; null before it has one.</summary>
+    [ObservableProperty]
+    private Bitmap? _thumbnail;
+
+    private string? _thumbnailOf;
+
+    /// <summary>The thumbnail read again when the newest version is another file.</summary>
+    internal void LoadThumbnail()
+    {
+        if (Versions.Count == 0 || Versions[^1] == _thumbnailOf)
+            return;
+        var path = _thumbnailOf = Versions[^1];
+        Task.Run(() =>
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var bitmap = Bitmap.DecodeToWidth(stream, 160);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var old = Thumbnail;
+                    Thumbnail = bitmap;
+                    old?.Dispose();
+                });
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+            {
+            }
+        });
+    }
+
+    public override string ToString() => Name;
+}
+
+/// <summary>A version of the picture shown: its number from 1, and whether it is the one in the big view.</summary>
+public sealed partial class VersionItem(int number, string path) : ObservableObject
+{
+    public int Number { get; } = number;
+    public string Path { get; } = path;
+    public string Label => Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public string Tip => $"Version {Number} · {System.IO.Path.GetFileName(Path)}";
+
+    [ObservableProperty]
+    private bool _isShown;
+
+    public override string ToString() => $"Version {Number}";
+}
+
+/// <summary>
+/// The Picture generator panel, beside the chat, a sibling of the Video generator for single pictures:
+/// the pictures in Data\pictures (a folder each, its versions the picture files in it), the picked one big
+/// with its versions under it, and how the version shown was made beside it (its Prompt metadata, as the
+/// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
+/// picture's folder, so a redo is a new version and the earlier ones stay. A click on a picture or a
+/// version picks it into the chat's box; a box dragged over the big picture picks that part, with a mask
+/// of it, for the agent to redraw only that part (sloperator/redraw_area).
+/// </summary>
+public sealed partial class PictureGeneratorViewModel : ObservableObject, ISidePanel
+{
+    private readonly MainWindowViewModel? _chat;
+
+    /// <summary>Where the pictures are: Data\pictures.</summary>
+    public string Root { get; }
+
+    /// <summary>Where pictures of marked parts and their masks go for the message: the chat's pasted files.</summary>
+    private readonly string _picksDir;
+
+    private readonly DispatcherTimer _readTimer;
+    private FileSystemWatcher? _watcher;
+    private bool _picking;
+
+    /// <param name="chat">The chat the panel is beside, where picks go and its messages are sent; null in tests.</param>
+    public PictureGeneratorViewModel(MainWindowViewModel? chat, string root, string picksDir)
+    {
+        _chat = chat;
+        Root = root;
+        _picksDir = picksDir;
+        // A run copies its picture in, and the list follows once the writing rests.
+        _readTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
+        {
+            _readTimer!.Stop();
+            Refresh();
+        });
+        if (chat is not null)
+            chat.Attachments.CollectionChanged += OnBoxChanged;
+        Watch();
+        Refresh();
+    }
+
+    // ---- the pictures -------------------------------------------------------------------------------
+
+    public ObservableCollection<PictureItem> Pictures { get; } = [];
+
+    public bool HasPictures => Pictures.Count > 0;
+
+    /// <summary>The picture shown big; null with none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelected), nameof(Title), nameof(EmptyText))]
+    [NotifyCanExecuteChangedFor(nameof(MakeAgainCommand))]
+    private PictureItem? _selected;
+
+    public bool HasSelected => Selected is not null;
+
+    /// <summary>What the bar says: the picture and the version shown, else how the panel is used.</summary>
+    public string Title => Selected is not { } p ? "Click a picture or a version to ask about it, or drag over a part of it to redraw that part."
+        : Shown is { } v ? $"{p.Name} · version {v.Number} of {p.Versions.Count}" : $"{p.Name} · not made yet";
+
+    /// <summary>What the big view says with no version to show.</summary>
+    public string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it shows, and the agent makes it here."
+        : HasPictures ? "Pick a picture" : "No pictures yet. New picture starts one; say in the chat what it shows.";
+
+    /// <summary>The versions of the picture shown, oldest first.</summary>
+    public ObservableCollection<VersionItem> Versions { get; } = [];
+
+    /// <summary>The version in the big view; null before the picture has one.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPicture))]
+    private VersionItem? _shown;
+
+    /// <summary>The version shown, decoded.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPicture))]
+    private Bitmap? _picture;
+
+    public bool HasPicture => Picture is not null && Shown is not null;
+
+    /// <summary>The version's size in pixels.</summary>
+    private (int Width, int Height) _size;
+
+    /// <summary>How the version shown was made, as its file says (ComfyUI's prompt, the settings); null when it doesn't.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecipe))]
+    private MediaRecipe? _recipe;
+
+    public bool HasRecipe => Recipe is not null;
+
+    /// <summary>The zoom of the big view (1 fits it).</summary>
+    [ObservableProperty]
+    private double _zoom = 1;
+
+    /// <summary>The part marked on the big view; null with none.</summary>
+    [ObservableProperty]
+    private DocumentArea? _mark;
+
+    partial void OnSelectedChanged(PictureItem? value)
+    {
+        Versions.Clear();
+        if (value is not null)
+            foreach (var (path, i) in value.Versions.Select((p, i) => (p, i)))
+                Versions.Add(new VersionItem(i + 1, path));
+        ShowVersion(Versions.LastOrDefault());
+    }
+
+    /// <summary>A version into the big view, its Prompt metadata beside it.</summary>
+    private void ShowVersion(VersionItem? version)
+    {
+        foreach (var v in Versions)
+            v.IsShown = ReferenceEquals(v, version);
+        Shown = version;
+        Mark = null;
+        Zoom = 1;
+        var old = Picture;
+        Picture = null;
+        old?.Dispose();
+        Recipe = null;
+        if (version is null)
+            return;
+        var path = version.Path;
+        Task.Run(() =>
+        {
+            Bitmap? bitmap = null;
+            try { bitmap = new Bitmap(path); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { }
+            var recipe = MediaRecipe.Read(path);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_closed || Shown?.Path != path)
+                {
+                    bitmap?.Dispose();
+                    return;
+                }
+                Picture = bitmap;
+                _size = bitmap is null ? default : (bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+                Recipe = recipe;
+            });
+        });
+    }
+
+    /// <summary>The pictures folder read again: new pictures in the list, new versions under the one shown (the newest then shown, as the agent's run makes it).</summary>
+    public void Refresh()
+    {
+        if (_closed)
+            return;
+        var folders = PictureFolder.All(Root);
+        foreach (var gone in Pictures.Where(p => !folders.Contains(p.Folder, StringComparer.OrdinalIgnoreCase)).ToList())
+        {
+            if (ReferenceEquals(gone, Selected))
+                Selected = null;
+            Pictures.Remove(gone);
+        }
+        for (var i = 0; i < folders.Count; i++)
+        {
+            var item = Pictures.FirstOrDefault(p => string.Equals(p.Folder, folders[i], StringComparison.OrdinalIgnoreCase));
+            if (item is null)
+                Pictures.Insert(Math.Min(i, Pictures.Count), item = new PictureItem(folders[i]));
+            else if (Pictures.IndexOf(item) != i)
+                Pictures.Move(Pictures.IndexOf(item), Math.Min(i, Pictures.Count - 1));
+            var versions = PictureFolder.Versions(item.Folder);
+            if (!versions.SequenceEqual(item.Versions))
+            {
+                item.Versions = versions;
+                item.LoadThumbnail();
+                if (ReferenceEquals(item, Selected))
+                    NewVersions(item);
+            }
+        }
+        OnPropertyChanged(nameof(HasPictures));
+        OnPropertyChanged(nameof(EmptyText));
+        MakeAgainCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>The picture shown got versions: they join the strip, and the newest is shown.</summary>
+    private void NewVersions(PictureItem item)
+    {
+        var known = Versions.Select(v => v.Path).ToList();
+        if (!item.Versions.Take(known.Count).SequenceEqual(known))
+        {
+            OnSelectedChanged(item);
+            return;
+        }
+        foreach (var path in item.Versions.Skip(known.Count))
+            Versions.Add(new VersionItem(Versions.Count + 1, path));
+        ShowVersion(Versions[^1]);
+        OnPropertyChanged(nameof(Title));
+    }
+
+    private void Watch()
+    {
+        try
+        {
+            Directory.CreateDirectory(Root);
+            var watcher = new FileSystemWatcher(Root)
+            {
+                IncludeSubdirectories = true,
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
+            };
+            FileSystemEventHandler changed = (_, _) => Dispatcher.UIThread.Post(Changed);
+            watcher.Created += changed;
+            watcher.Deleted += changed;
+            watcher.Changed += changed;
+            watcher.Renamed += (_, _) => Dispatcher.UIThread.Post(Changed);
+            watcher.Error += (_, _) => Dispatcher.UIThread.Post(Changed);
+            watcher.EnableRaisingEvents = true;
+            _watcher = watcher;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+        }
+    }
+
+    private void Changed()
+    {
+        _readTimer.Stop();
+        _readTimer.Start();
+    }
+
+    // ---- the bar's buttons ------------------------------------------------------------------------
+
+    /// <summary>New picture: an empty folder, picked, so what the user says next is what it shows.</summary>
+    [RelayCommand]
+    private void NewPicture()
+    {
+        string folder;
+        try { folder = PictureFolder.New(Root); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _chat?.AddNotice($"The new picture's folder could not be made: {ex.Message}", isError: true, ex);
+            return;
+        }
+        Refresh();
+        if (Pictures.FirstOrDefault(p => p.Folder == folder) is { } item)
+        {
+            Selected = item;
+            PickPicture();
+        }
+    }
+
+    /// <summary>Make again: a new version of the picture picked, made as it was (the panel's own message, as Make the video is).</summary>
+    [RelayCommand(CanExecute = nameof(CanMakeAgain))]
+    private void MakeAgain()
+    {
+        if (Selected is not { IsMade: true })
+            return;
+        // Picked now if it wasn't: the message is about it.
+        if (_pick is null)
+            PickPicture();
+        _chat?.SendFromSidePanel("Make this picture again as a new version.", withPicks: true);
+    }
+
+    private bool CanMakeAgain() => Selected is { IsMade: true };
+
+    public string MakeAgainTip => CanMakeAgain() ? "Make a new version of it, as it was made" : "Pick a picture that has been made first";
+
+    partial void OnSelectedChanged(PictureItem? oldValue, PictureItem? newValue) => OnPropertyChanged(nameof(MakeAgainTip));
+
+    // ---- what is picked, into the chat's box ------------------------------------------------------
+
+    /// <summary>What is picked: the picture (its version shown, or none yet), or a part of the version with its mask.</summary>
+    private sealed record Picked(PictureItem Picture, VersionItem? Version, string File, string? Mask = null, string? Place = null);
+
+    private Picked? _pick;
+
+    /// <summary>Raised when what was picked leaves the box (sent, unpicked, taken off), so the view clears its marks.</summary>
+    public event Action? Unpicked;
+
+    /// <summary>A click on a picture in the list or on a version: it is shown, and picked.</summary>
+    public void Pick(PictureItem picture, VersionItem? version = null)
+    {
+        if (!ReferenceEquals(Selected, picture))
+            Selected = picture;
+        if (version is not null && !ReferenceEquals(version, Shown))
+            ShowVersion(version);
+        PickPicture();
+    }
+
+    /// <summary>The picture selected, as the version shown (or the folder of one not made yet), into the box.</summary>
+    private void PickPicture()
+    {
+        if (Selected is not { } picture)
+            return;
+        Mark = null;
+        DropFiles();
+        var file = Shown?.Path ?? picture.Folder;
+        _pick = new Picked(picture, Shown, file);
+        _picking = true;
+        try { _chat?.Pick([(file, Shown is { } v ? $"Version {v.Number} · {picture.Name}" : $"New · {picture.Name}")]); }
+        finally { _picking = false; }
+    }
+
+    /// <summary>
+    /// A box dragged over the big picture: a picture of that part and a mask of it (white in the box, soft at
+    /// its edge) are saved for the message, and the part goes into the box as "Area of version 2 · Lighthouse";
+    /// the agent redraws only it. A click (null) picks the version shown whole.
+    /// </summary>
+    public void PickArea(DocumentArea? area)
+    {
+        if (area is null)
+        {
+            PickPicture();
+            return;
+        }
+        if (Selected is not { } picture || Shown is not { } version || _size.Width == 0)
+            return;
+        Mark = area;
+        var (width, height) = _size;
+        var dir = _picksDir;
+        Task.Run(() =>
+        {
+            try
+            {
+                var pixels = DocumentArea.Decode(version.Path) ?? throw new IOException("the picture can't be read");
+                var crop = DocumentArea.SaveNew(area.Crop(pixels), dir);
+                var mask = Path.Combine(dir, Path.GetFileNameWithoutExtension(crop).Replace("Area", "Mask", StringComparison.Ordinal) + ".png");
+                PictureFolder.SaveMask(area, pixels.Width, pixels.Height, mask);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_closed || !Equals(Mark, area) || !ReferenceEquals(Shown, version))
+                    {
+                        TryDelete(crop);
+                        TryDelete(mask);
+                        return;
+                    }
+                    DropFiles();
+                    _pick = new Picked(picture, version, crop, mask, area.Place(pixels.Width, pixels.Height, "pixels"));
+                    _picking = true;
+                    try { _chat?.Pick([(crop, $"Area of version {version.Number} · {picture.Name}")]); }
+                    finally { _picking = false; }
+                });
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                Dispatcher.UIThread.Post(() => _chat?.AddNotice($"The marked part could not be saved: {ex.Message}", isError: true, ex));
+            }
+        });
+    }
+
+    /// <summary>A part picked before goes: its picture and mask, which weren't sent, with it.</summary>
+    private void DropFiles()
+    {
+        if (_pick is { Mask: { } mask } pick)
+        {
+            TryDelete(pick.File);
+            TryDelete(mask);
+        }
+        _pick = null;
+    }
+
+    private static void TryDelete(string file)
+    {
+        try { File.Delete(file); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Esc, a click away: what was picked leaves the box. False when nothing was.</summary>
+    public bool Unpick()
+    {
+        Mark = null;
+        if (_pick is null)
+            return false;
+        DropFiles();
+        _picking = true;
+        try { _chat?.Pick([]); }
+        finally { _picking = false; }
+        Unpicked?.Invoke();
+        return true;
+    }
+
+    private void OnBoxChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_picking || _pick is null || e.OldItems is null || !e.OldItems.OfType<AttachmentItem>().Any(a => a.Picked))
+            return;
+        if (_chat?.Attachments.Any(a => a.Picked) == true)
+            return;
+        DropFiles();
+        Mark = null;
+        Unpicked?.Invoke();
+    }
+
+    /// <summary>
+    /// What a message sent with a pick carries: over its bubble the picture and what of it; for the model, the
+    /// picture's folder and versions, and how to make the next one there (the comfyui tool's save_to), or for a
+    /// part, the picture, the box in its pixels and the mask, with how to redraw only that part.
+    /// </summary>
+    public (string Via, string Context)? About(IReadOnlyList<string> files)
+    {
+        if (_pick is not { } pick || !files.Contains(pick.File, StringComparer.OrdinalIgnoreCase))
+            return null;
+        var picture = pick.Picture;
+        var save = $"Make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", so the result is its next version there " +
+                   "(the panel shows the newest; earlier versions stay)";
+        var opening = $"[The Picture generator panel is open beside the chat. ";
+        if (pick.Version is null)
+            return ($"Picture generator · {picture.Name} · new",
+                opening + $"They picked a new picture, \"{picture.Name}\", not made yet: what they say is what it shows. {save}; " +
+                "sloperator/text_to_image suits a PC without a graphics card.]");
+        var version = pick.Version;
+        var versions = string.Join(", ", picture.Versions.Select((v, i) => $"{i + 1}: {v}"));
+        if (pick.Mask is { } mask)
+            return ($"Picture generator · {picture.Name} · area of version {version.Number}",
+                opening + $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
+                $"The picture {pick.File} attached below is that part. Redraw only that part as they say, the rest kept: run the comfyui tool with " +
+                $"name=sloperator/redraw_area, set 4.image to \"{version.Path}\", 5.image to the mask \"{mask}\" (white where to redraw), 2.text to what goes there " +
+                $"in the picture's style (and 1.ckpt_name to the checkpoint it was made with, if its metadata says), and save_to \"{picture.Folder}\", " +
+                $"so it becomes the picture's next version. Its versions: {versions}.]");
+        return ($"Picture generator · {picture.Name} · version {version.Number}",
+            opening + $"They picked version {version.Number} of {picture.Versions.Count} of the picture \"{picture.Name}\" ({version.Path}, attached below). " +
+            $"To change it or make it again, {char.ToLowerInvariant(save[0])}{save[1..]}; image_to_image keeps its layout, text_to_image starts afresh from " +
+            $"the prompt in its metadata. Its versions: {versions}.]");
+    }
+
+    /// <summary>The message went with the pick: it is no longer picked (its files went with it, and stay).</summary>
+    public void Sent()
+    {
+        if (_pick is null)
+            return;
+        _pick = null;
+        Mark = null;
+        Unpicked?.Invoke();
+    }
+
+    /// <summary>Pictures dropped on the panel go into a new picture as its first versions.</summary>
+    public bool Drop(IReadOnlyList<string> paths)
+    {
+        var pictures = paths.Where(p => File.Exists(p) && PictureFolder.IsPicture(p)).ToList();
+        if (pictures.Count == 0)
+            return false;
+        try
+        {
+            var folder = PictureFolder.New(Root);
+            foreach (var p in pictures)
+                File.Copy(p, Path.Combine(folder, Path.GetFileName(p)));
+            Refresh();
+            if (Pictures.FirstOrDefault(i => i.Folder == folder) is { } item)
+                Selected = item;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _chat?.AddNotice($"The pictures could not be added: {ex.Message}", isError: true, ex);
+        }
+        return true;
+    }
+
+    private bool _closed;
+
+    public void Dispose()
+    {
+        _closed = true;
+        _readTimer.Stop();
+        _watcher?.Dispose();
+        if (_chat is not null)
+            _chat.Attachments.CollectionChanged -= OnBoxChanged;
+        DropFiles();
+        Picture?.Dispose();
+    }
+}

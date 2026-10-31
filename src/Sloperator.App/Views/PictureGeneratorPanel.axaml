@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.PictureGeneratorPanel"
+             x:DataType="vm:PictureGeneratorViewModel"
+             Background="{StaticResource BbBackground}">
+
+  <UserControl.Styles>
+    <!-- The picture shown: grey, as the Code editor's tree; what goes with a message is the box's card. -->
+    <Style Selector="ListBox.pictures ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.pictures ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.pictures ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BbChip}" />
+    </Style>
+    <!-- The version shown: grey too, not the yellow of a toggle that is on. -->
+    <Style Selector="Button.version.shown /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BbButtonPressed}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BbControlBorderHover}" />
+    </Style>
+    <Style Selector="Button.version:not(.shown) TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
+    </Style>
+    <Style Selector="ListBox.pictures ListBoxItem">
+      <Setter Property="Padding" Value="8" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- The picture and version shown, or how the panel is used; New picture and Make again, then × to close. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <Button DockPanel.Dock="Right" Classes="ghost act" Margin="8,0,0,0" Command="{Binding MakeAgainCommand}"
+                ToolTip.Tip="{Binding MakeAgainTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Make again">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+            <TextBlock Text="Make again" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button DockPanel.Dock="Right" Classes="ghost" Margin="12,0,0,0" Command="{Binding NewPictureCommand}"
+                ToolTip.Tip="Start a picture: say in the chat what it shows" AutomationProperties.Name="New picture">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            <TextBlock Text="New picture" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <TextBlock Classes.muted="{Binding !HasSelected}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
+      </DockPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="180,4,*,4,260">
+      <!-- The pictures, the one changed last first: its newest version small, its name, how many versions. -->
+      <Panel Grid.Column="0">
+        <TextBlock Classes="muted" IsVisible="{Binding !HasPictures}" Text="No pictures yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <ListBox x:Name="List" Classes="files pictures" ItemsSource="{Binding Pictures}" SelectedItem="{Binding Selected}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Pictures">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:PictureItem">
+              <StackPanel Spacing="4" ToolTip.Tip="{Binding Folder}">
+                <Border Height="100" Background="{StaticResource BbFrame}" CornerRadius="4" ClipToBounds="True">
+                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                </Border>
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="muted" Text="{Binding Count}" FontSize="12" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Panel>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- The version shown big (a drag marks a part to redraw, a click picks it whole), its versions under it. -->
+      <DockPanel Grid.Column="2">
+        <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="4" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:VersionItem">
+                  <Button Classes="ghost small version" Classes.shown="{Binding IsShown}" MinWidth="32" HorizontalContentAlignment="Center"
+                          Click="OnVersionClick" ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding}">
+                    <TextBlock Text="{Binding Label}" TextElement.FontFeatures="+tnum" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </DockPanel>
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasPicture}" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" />
+          <views:ZoomBox x:Name="Big" Source="{Binding Picture}" IsVisible="{Binding HasPicture}" Margin="16" Zoom="{Binding Zoom}"
+                         Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" views:FileMenu.Image="{Binding Picture}"
+                         views:FileMenu.File="{Binding Shown.Path, FallbackValue={x:Null}}" AutomationProperties.Name="Picture" />
+        </Panel>
+      </DockPanel>
+      <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+      <!-- How the version shown was made: its prompts and settings, as the File inspector's Prompt metadata shows them. -->
+      <DockPanel Grid.Column="4">
+        <Border DockPanel.Dock="Top" Classes="bar slim">
+          <TextBlock Text="Prompt metadata" FontWeight="SemiBold" VerticalAlignment="Center" />
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasRecipe}" Text="The version shown says nothing of how it was made" HorizontalAlignment="Center"
+                     VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="200" />
+          <ScrollViewer IsVisible="{Binding HasRecipe}" HorizontalScrollBarVisibility="Disabled">
+            <views:RecipeView DataContext="{Binding Recipe}" Margin="16,12,16,16" />
+          </ScrollViewer>
+        </Panel>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>

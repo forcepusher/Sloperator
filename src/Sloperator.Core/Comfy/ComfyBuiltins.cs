@@ -81,6 +81,31 @@ public static class ComfyBuiltins
             }
             """,
             ["image", "image to image", "img2img", "edit", "style", "photo", "picture", "SD 1.5", "SDXL", "checkpoint", "cpu"]),
+        new("redraw_area", "Redraw a part of a picture with a checkpoint",
+            "Redraws only a marked part of a picture from a prompt, the rest kept as it is: a door made red, a figure added, a face fixed. " +
+            "Any SD 1.5, SD 2 or SDXL checkpoint; light enough for a PC without a graphics card (SD 1.5 on the CPU).",
+            CommonNotes + " 4.image is the picture (a full local path is uploaded). 5.image is its mask, as big as the picture: white where to redraw, " +
+            "black what to keep, soft at its edge (the Picture generator panel writes one for the box the user marked). 2.text says what goes in the " +
+            "marked part, in the picture's style. The mask lets only that part change (SetLatentNoiseMask) and DifferentialDiffusion blends its soft edge " +
+            "into the rest; 8.denoise 0.75 redraws the part, 0.5 keeps its shapes with new details, 0.9 to 1 replaces it outright. The picture is worked " +
+            "on at its own size: SD 1.5 suits pictures up to about 768 pixels, SDXL about 1024. On the CPU, 20 steps of a 512 picture take three to five minutes.",
+            $$$"""
+            {
+              "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "{{{Checkpoint}}}"}, "_meta": {"title": "Checkpoint"}},
+              "2": {"class_type": "CLIPTextEncode", "inputs": {"text": "a red wooden door", "clip": ["1", 1]}, "_meta": {"title": "Prompt"}},
+              "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "blurry, low quality, deformed, watermark, text", "clip": ["1", 1]}, "_meta": {"title": "Negative prompt"}},
+              "4": {"class_type": "LoadImage", "inputs": {"image": "example.png"}, "_meta": {"title": "Picture"}},
+              "5": {"class_type": "LoadImageMask", "inputs": {"image": "mask.png", "channel": "red"}, "_meta": {"title": "Mask of the part to redraw"}},
+              "6": {"class_type": "VAEEncode", "inputs": {"pixels": ["4", 0], "vae": ["1", 2]}},
+              "7": {"class_type": "SetLatentNoiseMask", "inputs": {"samples": ["6", 0], "mask": ["5", 0]}},
+              "9": {"class_type": "DifferentialDiffusion", "inputs": {"model": ["1", 0]}},
+              "8": {"class_type": "KSampler", "inputs": {"model": ["9", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["7", 0],
+                    "seed": 42, "steps": 20, "cfg": 7, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 0.75}, "_meta": {"title": "Sampler"}},
+              "10": {"class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 2]}},
+              "11": {"class_type": "SaveImage", "inputs": {"images": ["10", 0], "filename_prefix": "Sloperator_redraw"}}
+            }
+            """,
+            ["image", "inpaint", "inpainting", "redraw", "mask", "area", "part", "edit", "fix", "SD 1.5", "SDXL", "checkpoint", "cpu"]),
         new("video_to_audio", "Video to audio (foley) with MMAudio",
             "The sounds of a video, made to match what it shows and when (footsteps, a door, rain, an engine): MMAudio, from kijai's ComfyUI-MMAudio nodes.",
             "1.file is the video (a full local path is uploaded); 25 frames a second suit it, which is how the video tool hands its clips over. " +

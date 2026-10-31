@@ -92,6 +92,8 @@ public sealed partial class MainWindowViewModel
             OpenIn: "Live preview", Opens: Core.Web.LivePage.IsPage),
         new("Terminal", "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
+        new("Picture generator", "Make pictures and redraw parts of them", 760, 0,
+            vm => new PictureGeneratorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
         new("Video generator", "Plan and make a video shot by shot", 770, 633,
             vm => new VideoGeneratorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];

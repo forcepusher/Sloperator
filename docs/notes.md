@@ -582,6 +582,55 @@ checkpoint, which needed six tries for one lighthouse. Without a tool the agent 
 half minutes getting ComfyUI to stay up and wrote an SD 1.5 workflow from memory. It still sets
 comfyui-mcp up by itself when the user asks for it.
 
+### The Picture generator panel
+**Picture generator** in the Side panel dropdown (`PictureGeneratorViewModel`, `PictureGeneratorPanel`; least 760),
+a sibling of the Video generator for single pictures (the user's request through the coordinator, 2026-11-01).
+Its pictures are folders in Data\pictures (`AppPaths.PicturesDir`, beside Data\videos), a folder each, and a
+picture's **versions** are the picture files in its folder, oldest first by when they were written
+(`PictureFolder.Versions`). Nothing else is kept: the agent makes a version by running the comfyui tool with
+`save_to` the picture's folder (the tool copies what the run makes there), so a redo is a new version and the
+earlier ones stay, without anything to keep in step. A `FileSystemWatcher` on Data\pictures reads it again 250 ms
+after writing rests (`Refresh`), and a new version of the picture shown is shown.
+
+**The panel**: the pictures in a 180 column, the one changed last first (its newest version 160 wide, its name,
+"2 versions" or "not made yet"; the one shown grey, as the Code editor's tree); the version shown big in a
+`ZoomBox` (the wheel zooms, a right drag pans), its versions under it as small buttons in a foot bar (the one
+shown lighter, the others' numbers muted: not the yellow of a toggle that is on, which read as picked); and
+beside it in a 260 column how that version was made, `MediaRecipe.Read` shown by the File inspector's
+`RecipeView` (prompts with Copy, then the settings: ComfyUI's PNGs carry their workflow). The bar has the picture
+and version ("Untitled picture · version 2 of 2"), **New picture** (a folder "Untitled picture", "Untitled picture
+2"…, `PictureFolder.New`, picked so what the user says next is what it shows) and **Make again** (the panel's own
+message, "Make this picture again as a new version.", sent with the pick as Make the video is; greyed with a tip
+until a picture that has a version is picked). Pictures dropped on the panel start a picture with them as its
+versions.
+
+**Picks** (through `MainWindowViewModel.Pick`, no card otherwise): a click on a picture or a version picks the
+version shown ("Version 2 · Lighthouse"; a picture not made yet as "New · Untitled picture", its folder the
+pick), and the model is told the picture's folder and all its versions, and to make the next one with save_to
+that folder (image_to_image to keep the layout, text_to_image from the prompt in its metadata). **A part to
+redraw**: a left drag over the big picture marks a box (the File inspector's `ZoomBox` mark; a click picks the
+version whole), and a picture of the part (`DocumentArea.SaveNew`, shared with the File inspector) and a mask of
+it go to Data\pasted: `PictureFolder.SaveMask` writes a PNG as big as the picture, white in the box, black
+elsewhere, its edge a soft ramp (a fortieth of the box's shorter side, 4 px at least) so the redraw blends. The
+card is "Area of version 2 · Lighthouse", and the model is told the version's path, the box in its pixels, the
+mask's path, and to run **sloperator/redraw_area** with 4.image, 5.image, 2.text and save_to the folder.
+Esc, sending and another pick let it go; a part unpicked before sending has its picture and mask deleted.
+
+**sloperator/redraw_area** (`ComfyBuiltins`, next to image_to_image): LoadImage the picture, LoadImageMask the
+mask (its red channel), VAEEncode, SetLatentNoiseMask, the model through DifferentialDiffusion, KSampler at
+denoise 0.75, so only the masked part is noised and redrawn and the soft edge blends (the seamless-loop guide's
+masking). Both files are uploaded by the tool as LoadImage's are, so no tool of its own was needed. The picture is
+worked on at its own size. The fake ComfyUI of the tests got LoadImageMask, SetLatentNoiseMask and
+DifferentialDiffusion for it. No new library: the published exe grew 44 KB (28,152,938 to 28,197,032 bytes against
+develop 0bba308, no trim warnings), and the trimmed exe showed the versions, the metadata and a marked part as the
+Debug build did.
+Checked on the laptop's ComfyUI (2026-11-01; CPU only, SD 1.5 fp16, 10 steps, a stand-in agent making the calls the
+panel's messages ask for): the new picture's prompt made a 512x512 lighthouse in 230 s, ComfyUI started by the
+tool; the panel showed it with its prompt and settings. A box over the second lighthouse with "put a red hot air
+balloon here" went to the model with the version, box and mask, and redraw_area made version 2 in 190 s: only
+the box changed, blended at its edge (at 10 CPU steps SD 1.5 painted sky and cloud there, not a balloon), and the
+panel showed version 2 with "Denoise 0.75" and "From Sloperator_00001_.png" in its metadata.
+
 ## Videos
 (Films until 2026-10-25, when the user had film, take and sound track renamed video, clip and
 sound line everywhere: texts, the model's tool (`video`, was `film`) and guides, code, files and
@@ -873,7 +922,7 @@ one's width to the other's: the view model sets the new tool in one change (it w
 and the window shrank to the chat and grew back), the window sets the panel's content itself (a
 binding took it after the layout), and the dropdown's list is closed first (it lingered a frame over
 the resized window). Measured after: popup closed, then one frame with all of the switch, for every
-pick of None, Video generator and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector or Live preview) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
+pick of None, Video generator and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Live preview or Picture generator) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
 `MainWindow.FitColumns` on the columns' SizeChanged): down to its least (`SidePanelOption.MinWidth`,
 splitter included: Video generator 770, where its top bar still fits in one row with the video's name cut
 short; File changes 560), then the window stops, at the panel's least plus the chat's 660 (no more than
