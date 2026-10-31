@@ -79,6 +79,24 @@ public class SshIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task The_terminal_panel_gets_only_what_the_command_prints_also_the_first_after_logging_in()
+    {
+        if (Host is null) return;
+        var log = new CommandLog();
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(), Ssh = _hosts, Commands = log };
+        Task<ToolResult> Run(string command) =>
+            new SshTool().ExecuteAsync(new JsonObject { ["host"] = Host, ["key_file"] = Key, ["command"] = command }, ctx, CancellationToken.None);
+
+        // The first command starts the terminal, whose login and setup lines came along before (seen in the 1.3.0 release check).
+        Assert.False((await Run("echo one; echo two")).IsError);
+        Assert.False((await Run("echo three")).IsError);
+        var runs = log.Runs;
+        Assert.Equal(["one", "two"], runs[0].LinesFrom(0));
+        Assert.Equal(["three"], runs[1].LinesFrom(0));
+        Assert.Equal((0, 0), (runs[0].ExitCode, runs[1].ExitCode));
+    }
+
+    [Fact]
     public async Task Prompts_long_commands_and_interrupts()
     {
         if (Host is null) return;

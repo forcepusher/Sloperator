@@ -4012,7 +4012,11 @@ command lines it types itself left out, a marker after output with no line break
 line) and hands them to `SshHost.Listener`, the ssh tool's command; a command that outlasts its call goes on
 filling the same command over the calls that wait for it, answer it or interrupt it, and ends when one of
 them sees it done. This is before the 4 MB bound on what a call keeps (`BoundRaw`), so the panel has every
-line. A server without bash runs each command on a side channel: its output comes with the result.
+line. A terminal starts with the first command (and again after the server rebooted): `RunAsync` holds the
+listener back until it is up, else the login's "Last login" and Sloperator's setup lines, echoed while
+typed, went in as the command's first lines (seen on the workstation's lab VM in the 1.3.0 release check;
+`SshIntegrationTests.The_terminal_panel_gets_only_what_the_command_prints_...`). A server without bash
+runs each command on a side channel: its output comes with the result.
 The model's copy is as before: run_shell's first quarter and last three quarters of 30,000 characters,
 ssh's 16,000; the panel keeps all of it, which is what it is for.
 
@@ -4046,7 +4050,9 @@ Checked in the app (2026-11-01, a stand-in agent running four PowerShell command
 a 3,000-line log listed whole (the model got 30,000 characters of it), a failing one red with exit 2, a slow
 one's lines coming in one by one while "running · 10 s" ticked; lines 2980-2981 dragged over went to the
 model numbered; the chat opened again from History showed all four. ssh's lines were checked by
-`TerminalLinesTests` only: there is no SSH server on this laptop.
+`TerminalLinesTests` only: there is no SSH server on this laptop. On the workstation (release build, Haiku
+5.5, the lab VM): Auto opened the Terminal for the agent's first command, ssh and PowerShell commands listed
+with where they ran, and terminal.json written with the chat.
 
 **A failed PowerShell command's error** showed Sloperator's own lines in that run (the coordinator, from the
 shot of the failed command): run_shell's script was the setup ([Console]::OutputEncoding, $ProgressPreference,
