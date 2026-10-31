@@ -125,7 +125,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ChatTitle));
         _history = chat.History;
         _pictures = new(_chats.NextPictureNumber(chat.Id));
-        UseChanges(FileChanges.Load(ChangesFile(chat.Id)), chat.Folder);
+        UseChanges(FileChanges.Load(ChangesFile(chat.Id)), chat.Folder, Core.Tools.CommandLog.Load(CommandsFile(chat.Id)));
         Changes.TurnsUpTo(chat.Entries.Max(e => e.Turn) ?? 0);
         var withFiles = new List<(ChatItemViewModel, Func<IReadOnlyList<string>>)>();
         foreach (var entry in chat.Entries)

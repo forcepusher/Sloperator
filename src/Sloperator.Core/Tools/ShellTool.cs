@@ -49,6 +49,8 @@ public sealed partial class ShellTool : Tool
         psi.StandardOutputEncoding = Encoding.UTF8;
         psi.StandardErrorEncoding = Encoding.UTF8;
 
+        // The Terminal panel's line for it: every line it prints, also what the model gets only the head and tail of.
+        var run = ctx.Commands?.Start(command, "This PC", cwd);
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         var output = new OutputCapture(MaxOutput);
         var gate = new object();
@@ -70,18 +72,33 @@ public sealed partial class ShellTool : Tool
                 }
                 FlushBinary();
                 output.Add(line);
+                if (run is not null)
+                    foreach (var part in line.Split('\n'))
+                        run.Add(part);
             }
         }
         void FlushBinary()
         {
-            if (binary > 0) output.Add(Ssh.TerminalText.BinaryNote(binary));
+            if (binary > 0)
+            {
+                output.Add(Ssh.TerminalText.BinaryNote(binary));
+                run?.Add(Ssh.TerminalText.BinaryNote(binary));
+            }
             binary = 0;
         }
         process.OutputDataReceived += (_, e) => { if (e.Data is null) stdoutClosed.TrySetResult(); else Append(e.Data); };
         process.ErrorDataReceived += (_, e) => { if (e.Data is null) stderrClosed.TrySetResult(); else Append(e.Data); };
         process.Exited += (_, _) => exited.TrySetResult();
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            run?.End(null, "didn't start");
+            throw;
+        }
         process.StandardInput.Close();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
@@ -100,12 +117,20 @@ public sealed partial class ShellTool : Tool
         {
             try { process.Kill(entireProcessTree: true); }
             catch (Exception ex) when (ex is InvalidOperationException or AggregateException or System.ComponentModel.Win32Exception) { }
-            ct.ThrowIfCancellationRequested();
+            if (ct.IsCancellationRequested)
+            {
+                run?.End(null, "stopped");
+                ct.ThrowIfCancellationRequested();
+            }
+            run?.End(null, $"timed out after {timeout.TotalSeconds:0} s");
             return ToolResult.Error($"Timed out after {timeout.TotalSeconds:0}s.\n{Snapshot()}");
         }
 
         // The rest of what it printed; a program it left running keeps the pipes, so not for long.
         await Task.WhenAny(Task.WhenAll(stdoutClosed.Task, stderrClosed.Task), Task.Delay(TimeSpan.FromSeconds(2), ct)).ConfigureAwait(false);
+        lock (gate)
+            FlushBinary();
+        run?.End(process.ExitCode);
         ct.ThrowIfCancellationRequested();
         return new ToolResult($"Exit code {process.ExitCode}\n{Snapshot()}", IsError: process.ExitCode != 0);
 

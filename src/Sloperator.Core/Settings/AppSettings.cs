@@ -384,6 +384,12 @@ public sealed class PanelSettings
 
     /// <summary>Code editor: the language picked for a kind of file, by its extension (or its name with none), in place of the one its extension says; "Plain text" for none.</summary>
     public Dictionary<string, string> CodeLanguages { get; set; } = [];
+
+    /// <summary>Terminal: the newest command is shown as it starts, its output kept at its end.</summary>
+    public bool WatchTerminal { get; set; } = true;
+
+    /// <summary>Terminal: long output lines wrap inside the panel rather than run off its right edge.</summary>
+    public bool WrapTerminal { get; set; } = true;
 }
 
 /// <summary>What Sloperator tells the user outside its windows.</summary>

@@ -87,6 +87,8 @@ public sealed partial class MainWindowViewModel
         new("Code editor", "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
+        new("Terminal", "The agent's commands and all they print", 600, 0,
+            vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
         new("Video generator", "Plan and make a video shot by shot", 770, 633,
             vm => new VideoGeneratorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];
@@ -234,8 +236,10 @@ public sealed partial class MainWindowViewModel
     internal event Action? ChangesUpdated;
 
     /// <param name="editorFolder">The folder the chat had open in the Code editor panel (see <see cref="EditorFolder"/>).</param>
-    private void UseChanges(FileChanges changes, string? editorFolder = null)
+    /// <param name="commands">The chat's commands as the Terminal panel shows them; a new log when it has none yet.</param>
+    private void UseChanges(FileChanges changes, string? editorFolder = null, Core.Tools.CommandLog? commands = null)
     {
+        UseCommands(commands ?? new Core.Tools.CommandLog());
         EditorFolder = editorFolder;
         if (Changes is not null)
             Changes.Changed -= OnChanges;
@@ -252,6 +256,42 @@ public sealed partial class MainWindowViewModel
         if (ReferenceEquals(changes, Changes))
             ChangesUpdated?.Invoke();
     });
+
+    // ---- the commands the agent ran in this chat (the Terminal panel) ----------------------------
+
+    /// <summary>The commands the agent ran in the chat on screen, with all they printed.</summary>
+    internal Core.Tools.CommandLog Commands { get; private set; } = null!;
+
+    /// <summary>On the window's thread: commands started, printed or ended, or another chat's took their place.</summary>
+    internal event Action? CommandsUpdated;
+
+    /// <summary>A note to the window's thread is on its way: lines come by the thousand, one note covers them.</summary>
+    private int _commandsPosted;
+
+    private void UseCommands(Core.Tools.CommandLog commands)
+    {
+        if (Commands is not null)
+            Commands.Changed -= OnCommands;
+        Commands = commands;
+        commands.Changed += OnCommands;
+        CommandsUpdated?.Invoke();
+    }
+
+    // On the tool's thread; a run stopped by leaving the chat still writes into the chat's own log.
+    private void OnCommands(Core.Tools.CommandLog commands)
+    {
+        if (Interlocked.Exchange(ref _commandsPosted, 1) == 1)
+            return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Volatile.Write(ref _commandsPosted, 0);
+            if (ReferenceEquals(commands, Commands))
+                CommandsUpdated?.Invoke();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Where a chat's commands are kept: Data/chats/id/terminal.json, beside its pictures, so it goes with the chat.</summary>
+    private string CommandsFile(string chatId) => Path.Combine(_chats.PicturesOf(chatId), "terminal.json");
 
     // ---- the Code editor panel's folder and unsaved files ---------------------------------------
 

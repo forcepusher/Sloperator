@@ -3744,6 +3744,59 @@ long lines wrap inside the panel under their own start (AvaloniaEdit's `WordWrap
 picks and Watch's lines are as before; off, a long line scrolls sideways. Checked by a click in the app:
 Game.cs's long summary line wrapped, and off, the setting was saved false.
 
+### Terminal
+**Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
+the agent runs, live (the user's request through the coordinator, 2026-11-01): run_shell on this PC and ssh
+on a server. Read-only: a command's input is closed (run_shell) or answered by the agent (ssh's input), so
+nothing is typed here.
+
+**Where the lines come from.** The tools had no way to hand their output on as it came; now `ToolContext.Commands`
+(a `CommandLog`, one per chat, made with File changes' list in `UseChanges` and given to the session by
+`AgentSetup`) gets each command as it starts (`Start`: the command, "This PC" or the server as user@host, the
+folder), each line as it is printed (`CommandRun.Add`) and its end (`End`: the exit code, or "timed out
+after 60 s", "stopped", "the terminal ended", "the connection failed"). run_shell adds each line where it
+already reads them (a CLIXML error record decoded into its lines; binary output as its note), and ends the
+command when the shell exits, after the rest of its output came. ssh: the terminal's read loop cuts what it
+reads into lines (`TerminalLines`: escape codes cleaned as for the model, Sloperator's markers and the
+command lines it types itself left out, a marker after output with no line break of its own taken off the
+line) and hands them to `SshHost.Listener`, the ssh tool's command; a command that outlasts its call goes on
+filling the same command over the calls that wait for it, answer it or interrupt it, and ends when one of
+them sees it done. This is before the 4 MB bound on what a call keeps (`BoundRaw`), so the panel has every
+line. A server without bash runs each command on a side channel: its output comes with the result.
+The model's copy is as before: run_shell's first quarter and last three quarters of 30,000 characters,
+ssh's 16,000; the panel keeps all of it, which is what it is for.
+
+**The list** (260 wide, `ListBox.files commands`; the command shown grey, as the Code editor's tree, since only
+lines picked are yellow): each command's first line in Cascadia Mono, then where it ran, how it ended and how
+long it took ("This PC · exit 0 · 326 ms", "admin@web1 · running · 0:12", ticking each second while it runs),
+in the error colour when it didn't end with 0; the tooltip has the whole command, its folder and when it
+started. **The output** is the Code editor's view (`CodeView`, read-only, `Dress()` now giving both panels the
+same look) under a bar with the whole command and "This PC · C:\Users\user · exit 0 · 326 ms · 3,000 lines".
+Lines are added at its end as they come; the window's thread is told of new lines once per burst
+(`MainWindowViewModel.OnCommands`: one note on its way at a time), so 3,000 lines printed in 0.3 s arrive in a
+few appends. **Watch** (`panels.watchTerminal`, on by default) shows the newest command as it starts and keeps
+the output at its last line; off, a new command doesn't take the view from the one being read. **Wrap**
+(`panels.wrapTerminal`, on) wraps long lines under their start. Both are the shared `WatchToggles`.
+
+**Lines selected** (150 ms after the selection rests, as the Code editor's; a part of a line means the line)
+go into the box as "Lines 2980-2981 · 1..3000 | % {…" (the command's first line, cut at 40 characters). The
+lines are saved as Data/pasted/Terminal <time>.txt, the pick's file (deleted when unpicked before sending, as
+an area's picture is), and the message tells the model the command, where it ran, how it ended, how many lines
+it printed in all, and the lines numbered as the panel shows them, up to 20,000 characters.
+
+**Kept with the chat** in Data/chats/<id>/terminal.json (`CommandLog.KeepIn`, set when a run starts, as the
+chat gets its id then; written when each command ends, through a file beside it), so a chat opened from
+History shows its commands, and deleting the chat deletes them with its folder. A command still running when
+the app closed comes back ended, "not seen to end".
+
+No new library: the published exe grew 28 KB (28,141,496 to 28,169,656 bytes against develop 4d0fd59, no trim
+warnings), and the trimmed exe wrote and read terminal.json as the Debug build did.
+Checked in the app (2026-11-01, a stand-in agent running four PowerShell commands, at 125% and at 100%):
+a 3,000-line log listed whole (the model got 30,000 characters of it), a failing one red with exit 2, a slow
+one's lines coming in one by one while "running · 10 s" ticked; lines 2980-2981 dragged over went to the
+model numbered; the chat opened again from History showed all four. ssh's lines were checked by
+`TerminalLinesTests` only: there is no SSH server on this laptop.
+
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen
 scaled to 200%), the full-screen viewer, a picked file's thumbnail, File inspector (as shapes, see

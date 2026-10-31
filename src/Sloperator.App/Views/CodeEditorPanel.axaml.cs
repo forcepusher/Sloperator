@@ -40,30 +40,8 @@ public partial class CodeEditorPanel : UserControl
             _pickTimer.Stop();
             _pickTimer.Start();
         };
-        // Selected text is what goes with a message: the yellow tint of what is picked anywhere, under the
-        // code's own colours. The line with the caret a card's shade, the caret the text's colour.
-        area.SelectionBrush = Brush("BbAccentTint");
-        area.SelectionBorder = null;
-        area.SelectionForeground = null;
-        area.SelectionCornerRadius = 0;
-        area.CaretBrush = Brush("BbText");
-        area.TextView.CurrentLineBackground = Brush("BbSurface");
-        // Its border a pen that draws nothing: null left AvaloniaEdit's own green line round it.
-        area.TextView.CurrentLineBorder = new Pen(Brushes.Transparent, 0);
-        // A link in code isn't followed by a click: the click is for the caret.
-        Editor.Options.EnableHyperlinks = false;
-        Editor.Options.EnableEmailHyperlinks = false;
-        Editor.Options.HighlightCurrentLine = true;
+        Editor.Dress();
         Editor.Options.IndentationSize = 4;
-        // The numbers 8 in from the panel's edge (LineNumbersMargin, set in markup, reached a margin made
-        // before it), and no dotted line between them and the code: room instead, as the diff's gutter has.
-        foreach (var numbers in area.LeftMargins.OfType<AvaloniaEdit.Editing.LineNumberMargin>())
-            numbers.Margin = new Thickness(8, 0, 0, 0);
-        foreach (var line in area.LeftMargins.OfType<Line>())
-        {
-            line.Stroke = Brushes.Transparent;
-            line.Margin = new Thickness(4, 0, 4, 0);
-        }
         // The encodings and line breaks offered, the file's own ticked: one picked converts the whole file.
         EncodingButton.Entries = () => Core.Projects.CodeFile.Encodings.Select(encoding =>
             Pick(Core.Projects.CodeFile.NameOf(encoding), _vm?.IsEncoding(encoding) == true, () => _vm?.PickEncoding(encoding)));

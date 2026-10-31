@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.TerminalPanel"
+             x:DataType="vm:TerminalViewModel"
+             Background="{StaticResource BbBackground}">
+
+  <UserControl.Styles>
+    <!-- The command shown: grey, not the yellow of what goes with a message (only lines selected in its output do), as the Code editor's tree. -->
+    <Style Selector="ListBox.commands ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.commands ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.commands ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BbChip}" />
+    </Style>
+    <Style Selector="TextBlock.failed">
+      <Setter Property="Foreground" Value="{StaticResource BbError}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- How the panel is used; Wrap and Watch, as File changes and the Code editor have them, then × to close. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <!-- Watch: the newest command shows as it starts, its output kept at its end. -->
+        <views:WatchToggles DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
+        <TextBlock Classes="muted" Text="{Binding EmptyText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding EmptyText}" />
+      </DockPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="260,4,*">
+      <!-- The chat's commands, newest last: the command, then where it ran, how it ended and how long it took. -->
+      <Panel Grid.Column="0">
+        <TextBlock Classes="muted" IsVisible="{Binding !HasCommands}" Text="No commands yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <ListBox x:Name="List" Classes="files commands" ItemsSource="{Binding Commands}" SelectedItem="{Binding Selected}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Commands">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CommandItem">
+              <StackPanel Spacing="2" ToolTip.Tip="{Binding Tip}">
+                <TextBlock Text="{Binding Command}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="muted" Classes.failed="{Binding Failed}" Text="{Binding Status}" FontSize="12" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Panel>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- The command shown: its command line and how it went over its whole output. -->
+      <DockPanel Grid.Column="2">
+        <Border DockPanel.Dock="Top" Classes="bar" Padding="8">
+          <StackPanel Spacing="2" MinHeight="32" VerticalAlignment="Center">
+            <TextBlock Text="{Binding FullCommand}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" TextTrimming="CharacterEllipsis"
+                       MaxLines="1" ToolTip.Tip="{Binding FullCommand}" IsVisible="{Binding HasSelected}" />
+            <TextBlock Classes="muted" Classes.failed="{Binding Selected.Failed, FallbackValue=False}" Text="{Binding Details}" FontSize="12"
+                       TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Details}" IsVisible="{Binding HasSelected}" />
+          </StackPanel>
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasSelected}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="Its output shows here" />
+          <!-- All it printed, read-only; lines selected go into the chat's box. -->
+          <views:CodeView x:Name="Output" IsVisible="{Binding HasSelected}" IsReadOnly="True" WordWrap="{Binding Wrap}" ShowLineNumbers="True"
+                          FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
+                          Background="Transparent" Foreground="{StaticResource BbCode}" LineNumbersForeground="{StaticResource BbFaint}"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Output" />
+        </Panel>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>
