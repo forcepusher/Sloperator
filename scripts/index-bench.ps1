@@ -32,6 +32,11 @@ param(
 $ErrorActionPreference = "Continue"
 $repo = Split-Path $PSScriptRoot
 $dotnetDir = Join-Path $repo ".dev\dotnet"
+if (-not (Test-Path "$dotnetDir\dotnet.exe")) {
+  # A worktree in .dev\wt has no .dev of its own: the main checkout's.
+  $common = & git.exe -C $repo rev-parse --path-format=absolute --git-common-dir 2>$null
+  if ($common) { $dotnetDir = Join-Path (Split-Path $common) ".dev\dotnet" }
+}
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue) -and (Test-Path "$dotnetDir\dotnet.exe")) {
   # The runs inherit it, so the model can build the copy too.
   $env:DOTNET_ROOT = $dotnetDir
