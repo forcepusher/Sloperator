@@ -15,6 +15,7 @@ namespace Sloperator.Core.Settings;
 ///   Data/scratch/  (helper files the agent made for its tasks: scripts and the like)
 ///   Data/pasted/   (pictures pasted into the chat from the clipboard)
 ///   Data/videos/    (one folder per video: its storyboard, frames, shots, song and the video)
+///   Data/pictures/  (one folder per picture of the Picture generator panel: its versions)
 ///   Data/index/    (the indexes of the folders the agent indexed, a file each)
 ///   Data/errors.log (every error Sloperator showed, see <see cref="ErrorLog"/>)
 /// </code>
@@ -64,6 +65,9 @@ public sealed class AppPaths(string root)
     /// choice), rather than in the PC's Videos folder.
     /// </summary>
     public string VideosDir => Path.Combine(DataDir, "videos");
+
+    /// <summary>The pictures made in the Picture generator panel, a folder each holding its versions (see <see cref="Media.PictureFolder"/>), beside the videos.</summary>
+    public string PicturesDir => Path.Combine(DataDir, "pictures");
 
     /// <summary>The indexes of the folders the agent indexed, a file each (see <see cref="Projects.FolderIndex"/>).</summary>
     public string IndexDir => Path.Combine(DataDir, "index");

@@ -87,6 +87,8 @@ public sealed partial class MainWindowViewModel
         new("Code editor", "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
+        new("Picture generator", "Make pictures and redraw parts of them", 760, 0,
+            vm => new PictureGeneratorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
         new("Video generator", "Plan and make a video shot by shot", 770, 633,
             vm => new VideoGeneratorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];

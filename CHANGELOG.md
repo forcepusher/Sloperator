@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Picture generator** in the Side panel dropdown, beside Video generator: your pictures, each with its
+  versions (a redo is a new version and the earlier ones stay), the one you pick shown big with how it was
+  made. **New picture** starts one: say in the chat what it shows. **Make again** makes a new version. Click
+  a picture or a version to ask about it; drag a box over a part of it and say what to change, and the
+  agent redraws only that part. ComfyUI gets a new built-in workflow for it, sloperator/redraw_area.
 - Video generator's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
 - **Code editor** in the Side panel dropdown: a folder's files in a tree and the file you click open

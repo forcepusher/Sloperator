@@ -814,12 +814,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
                 var (picture, where, told) = cut();
                 if (picture is null)
                     return;
-                Directory.CreateDirectory(dir);
-                var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", System.Globalization.CultureInfo.InvariantCulture);
-                var file = System.IO.Path.Combine(dir, $"Area {stamp}.png");
-                for (var n = 2; File.Exists(file); n++)
-                    file = System.IO.Path.Combine(dir, $"Area {stamp} ({n}).png");
-                DocumentArea.SavePng(picture, file);
+                var file = DocumentArea.SaveNew(picture, dir);
                 Dispatcher.UIThread.Post(() =>
                 {
                     // Another area marked meanwhile, or another file shown, or the mark taken off: it isn't wanted.
