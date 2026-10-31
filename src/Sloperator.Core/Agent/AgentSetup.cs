@@ -20,9 +20,11 @@ public static class AgentSetup
     /// <param name="changes">The chat's list of the files the agent changed (see <see cref="ToolContext.Changes"/>).</param>
     /// <param name="modelServer">The app's top bar, for the agent to switch the model Sloperator runs on (model_server); null for none.</param>
     /// <param name="chatDirectory">The chat's own folder (see <see cref="ToolContext.ChatDirectory"/>); null where there is no saved chat.</param>
+    /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
-        object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null)
+        object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
+        CommandLog? commands = null)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);
@@ -47,6 +49,7 @@ public static class AgentSetup
             ToolsDirectory = paths.ToolsDir,
             IndexDirectory = paths.IndexDir,
             Changes = changes,
+            Commands = commands,
             ModelServer = modelServer,
         };
 

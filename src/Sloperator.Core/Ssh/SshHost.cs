@@ -87,6 +87,19 @@ public sealed partial class SshHost : IDisposable
     /// <summary>The text of the last command started in the terminal.</summary>
     public string? LastCommand { get; private set; }
 
+    /// <summary>The folder the terminal was in when its last command ended (the next starts there); null before one did.</summary>
+    public string? Directory { get; private set; }
+
+    /// <summary>
+    /// The Terminal panel's line of the command running in the terminal: each line the terminal prints
+    /// goes to it as it comes, cleaned of escape codes and of Sloperator's own markers. Set by the ssh
+    /// tool for a command and taken off when it ends; null while nobody shows them.
+    /// </summary>
+    public Tools.CommandRun? Listener { get; set; }
+
+    /// <summary>The terminal's output cut into lines for <see cref="Listener"/>; the read loop's alone.</summary>
+    private readonly TerminalLines _lines = new();
+
     // ---- the terminal --------------------------------------------------------------------
 
     /// <summary>Starts a command in the terminal and waits for it at most <paramref name="wait"/>.</summary>
@@ -222,6 +235,7 @@ public sealed partial class SshHost : IDisposable
             {
                 lock (_gate)
                     _raw.Remove(0, Math.Min(_raw.Length, m.Index + m.Length));
+                Directory = m.Groups[3].Value;
                 _running = null;
                 return new(ShellState.Done, Tidy(raw[..m.Index]), int.Parse(m.Groups[2].Value), m.Groups[3].Value, Note: Join(notes));
             }
@@ -413,6 +427,11 @@ public sealed partial class SshHost : IDisposable
                     continue;
                 }
                 var c = decoder.GetChars(buffer, 0, n, chars, 0);
+                // To the panel first, so a command's lines are all there once its marker is seen.
+                if (Listener is { } listener)
+                    _lines.Feed(chars.AsSpan(0, c), listener.Add);
+                else
+                    _lines.Clear();
                 lock (_gate)
                 {
                     _raw.Append(chars, 0, c);
@@ -433,7 +452,6 @@ public sealed partial class SshHost : IDisposable
         _signal.Release();
     }
 
-    /// <summary>
     /// Kills what runs in the terminal: every process on its tty except its bash. What runs as
     /// root (under sudo) is killed with sudo.
     /// </summary>
@@ -654,4 +672,41 @@ public sealed partial class SshHost : IDisposable
 
     [GeneratedRegex(@"\x1eBB-INIT-(bash)?-([^\x1e]+)\x1e")]
     private static partial Regex InitMarker();
+}
+
+/// <summary>
+/// A terminal's output cut into lines as it is read, for the Terminal panel: each whole line cleaned of
+/// escape codes (<see cref="TerminalText.Clean"/>) and of the markers and command lines Sloperator writes
+/// into the terminal itself; a part of a line waits for the rest of it.
+/// </summary>
+internal sealed partial class TerminalLines
+{
+    private readonly StringBuilder _part = new();
+
+    public void Feed(ReadOnlySpan<char> read, Action<string> line)
+    {
+        foreach (var c in read)
+        {
+            if (c != '\n')
+            {
+                _part.Append(c);
+                continue;
+            }
+            var text = _part.ToString();
+            _part.Clear();
+            // The end marker may follow output that didn't end its line (printf without \n).
+            var marked = text.Contains('\x1e');
+            text = TerminalText.Clean(AnyMarker().Replace(text, "")).TrimEnd('\n');
+            if (text.StartsWith("__bb_id=", StringComparison.Ordinal) || marked && text.Length == 0)
+                continue;
+            line(text);
+        }
+    }
+
+    /// <summary>A part of a line read while nobody listened is dropped: the next command starts afresh.</summary>
+    public void Clear() => _part.Clear();
+
+    /// <summary>Any of Sloperator's markers in a line of the terminal, or the start of one cut off at the line's end.</summary>
+    [GeneratedRegex(@"\x1e[^\x1e]*\x1e?")]
+    private static partial Regex AnyMarker();
 }

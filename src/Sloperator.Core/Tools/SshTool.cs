@@ -88,6 +88,9 @@ public sealed partial class SshTool : Tool
                 if (host.IsBusy)
                     return ToolResult.Error(Prefix(notice) + "The previous command is still running in this terminal. Call ssh with no command to wait for it, " +
                                             "with input to answer it, or with interrupt to stop it; then run the next one.");
+                // The Terminal panel's line for it, fed by the terminal as it prints, over as many calls as it runs.
+                if (ctx.Commands?.Start(command, host.Target.ToString(), host.Directory ?? "~") is { } run)
+                    host.Listener = run;
                 result = await host.RunAsync(command, wait, ct, returnWhenQuiet).ConfigureAwait(false);
             }
             else if (host.IsBusy)
@@ -101,8 +104,11 @@ public sealed partial class SshTool : Tool
         }
         catch (Exception ex) when (ex is IOException or Renci.SshNet.Common.SshException or ObjectDisposedException)
         {
+            Over(host, null, "the connection failed");
             return ToolResult.Error(Prefix(notice) + $"The connection to {host.Target} failed: {ex.Message}. If the server is rebooting, wait a little and try again.");
         }
+        if (result.State is ShellState.Done or ShellState.Ended)
+            Over(host, result, result.State == ShellState.Ended ? "the terminal ended" : interrupt ? "stopped with Ctrl+C" : null);
         // A command that wrote a config file (sudoers, sshd, nginx, ...) gets that file checked once it's done.
         if (result.State == ShellState.Done && host.LastCommand is { } last && ConfigChecks.PathsIn(last) is { Count: > 0 } paths &&
             await ConfigChecks.RunAsync(host, paths, ct).ConfigureAwait(false) is { } checkedNote)
@@ -130,6 +136,21 @@ public sealed partial class SshTool : Tool
                    "(2>/dev/null): it can't have seen what is there. Run that part with sudo.";
         }
         return null;
+    }
+
+    /// <summary>
+    /// The command running in the terminal is over: its line in the Terminal panel ends, with its exit
+    /// code. A server without bash runs it on a side channel, whose output comes only with the result.
+    /// </summary>
+    private static void Over(SshHost host, ShellResult? result, string? ending)
+    {
+        if (host.Listener is not { } run)
+            return;
+        host.Listener = null;
+        if (run.LineCount == 0 && result is { Output.Length: > 0 })
+            foreach (var line in result.Output.Split('\n'))
+                run.Add(line);
+        run.End(result?.ExitCode, ending);
     }
 
     /// <param name="waited">How long this call waited for the command.</param>

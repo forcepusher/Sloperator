@@ -672,8 +672,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
             // Named now, not at the first save: what capture_result takes goes into the chat's folder.
             _chatId ??= ChatStore.NewId();
+            Commands.KeepIn(CommandsFile(_chatId));
             var session = _session = AgentSetup.Create(BackendConnection.Create(_http, server), _platform, _settings.Agent, _paths, _mcp, _ssh, history,
-                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId));
+                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands);
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);
             var imagesKey = session.SeesImages ? runKey : null;

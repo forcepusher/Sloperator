@@ -78,6 +78,39 @@ public sealed class CodeView : TextEditor
             ScrollToVerticalOffset(Math.Max(0, view.GetVisualTopByDocumentLine(line.LineNumber) - at - above * ratio));
     }
 
+    /// <summary>
+    /// The app's look, once the line numbers are set (in markup): what is selected in the yellow tint of what
+    /// is picked anywhere, under the text's own colours; the line with the caret a card's shade, the caret the
+    /// text's colour; the numbers 8 in from the panel's edge and no dotted line after them; no links followed
+    /// by a click. The Code editor's and the Terminal's text look the same.
+    /// </summary>
+    public void Dress()
+    {
+        var area = TextArea;
+        area.SelectionBrush = Brush("BbAccentTint");
+        area.SelectionBorder = null;
+        area.SelectionForeground = null;
+        area.SelectionCornerRadius = 0;
+        area.CaretBrush = Brush("BbText");
+        area.TextView.CurrentLineBackground = Brush("BbSurface");
+        // Its border a pen that draws nothing: null left AvaloniaEdit's own green line round it.
+        area.TextView.CurrentLineBorder = new Pen(Brushes.Transparent, 0);
+        // A link in the text isn't followed by a click: the click is for the caret.
+        Options.EnableHyperlinks = false;
+        Options.EnableEmailHyperlinks = false;
+        Options.HighlightCurrentLine = true;
+        // LineNumbersMargin set in markup reached a margin made before it, so the margin is set here.
+        foreach (var numbers in area.LeftMargins.OfType<AvaloniaEdit.Editing.LineNumberMargin>())
+            numbers.Margin = new Thickness(8, 0, 0, 0);
+        foreach (var line in area.LeftMargins.OfType<Avalonia.Controls.Shapes.Line>())
+        {
+            line.Stroke = Brushes.Transparent;
+            line.Margin = new Thickness(4, 0, 4, 0);
+        }
+
+        static IBrush Brush(string key) => (IBrush)Application.Current!.FindResource(key)!;
+    }
+
     protected override Type StyleKeyOverride => typeof(TextEditor);
 
     private readonly ChangeLight _light = new();

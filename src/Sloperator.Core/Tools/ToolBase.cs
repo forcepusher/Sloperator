@@ -153,6 +153,9 @@ public sealed class ToolContext
     /// <summary>The files the agent changes in this chat, for the File changes panel; null when nobody shows them.</summary>
     public Diffs.FileChanges? Changes { get; init; }
 
+    /// <summary>The commands the agent runs in this chat (run_shell, ssh) with all they print, as they print it, for the Terminal panel; null when nobody shows them.</summary>
+    public CommandLog? Commands { get; init; }
+
     /// <summary>
     /// Tells the user how a long call is getting on ("KSampler, step 3 of 20 · 1:12"), shown on its
     /// card while it runs. Set by the agent session for each call; null when nobody listens.

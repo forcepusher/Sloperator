@@ -387,6 +387,12 @@ public sealed class PanelSettings
 
     /// <summary>Live preview: the web page the agent writes opens, and the page reloads when files in its folder change.</summary>
     public bool WatchPreview { get; set; } = true;
+
+    /// <summary>Terminal: the newest command is shown as it starts, its output kept at its end.</summary>
+    public bool WatchTerminal { get; set; } = true;
+
+    /// <summary>Terminal: long output lines wrap inside the panel rather than run off its right edge.</summary>
+    public bool WrapTerminal { get; set; } = true;
 }
 
 /// <summary>What Sloperator tells the user outside its windows.</summary>

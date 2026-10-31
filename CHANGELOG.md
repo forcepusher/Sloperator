@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Terminal** in the Side panel dropdown: the commands the agent runs, on this PC and over SSH, listed
+  as they run with where they ran, their exit code and how long they took, and the one you pick shown
+  whole as it prints, every line of it (the agent itself reads only the start and end of a long output).
+  **Wrap** wraps long lines; **Watch** shows the newest command as it starts. Select lines to ask about
+  them. A chat opened again from History shows its commands.
 - Video generator's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
 - **Live preview** in the Side panel dropdown: a web page or web game the agent is building, running
@@ -88,6 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tool").
 
 ### Fixed
+- A PowerShell command that fails no longer shows Sloperator's own setup lines in its error, and the
+  error's line numbers are the command's own.
 - In the File inspector, a sound's playhead moves while it plays again, and playing a stretch you
   picked stops at its end. Animations (GIF, WebP, APNG) play there again too.
 - A sound plays from exactly where you start it: an MP3 started up to half a second off and a FLAC

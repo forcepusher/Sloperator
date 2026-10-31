@@ -3848,6 +3848,76 @@ their colour). PrintWindow with PW_RENDERFULLCONTENT captures the page with the 
 `.dev/live-preview-test/` (run.ps1 with a stand-in agent writing the game into %TEMP%, shots.ps1, drive.ps1
 clickat/dragat; CLICK_FACTOR 1.25 for the DPI-unaware build, which reads posted points as if scaled).
 
+### Terminal
+**Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
+the agent runs, live (the user's request through the coordinator, 2026-11-01): run_shell on this PC and ssh
+on a server. Read-only: a command's input is closed (run_shell) or answered by the agent (ssh's input), so
+nothing is typed here.
+
+**Where the lines come from.** The tools had no way to hand their output on as it came; now `ToolContext.Commands`
+(a `CommandLog`, one per chat, made with File changes' list in `UseChanges` and given to the session by
+`AgentSetup`) gets each command as it starts (`Start`: the command, "This PC" or the server as user@host, the
+folder), each line as it is printed (`CommandRun.Add`) and its end (`End`: the exit code, or "timed out
+after 60 s", "stopped", "the terminal ended", "the connection failed"). run_shell adds each line where it
+already reads them (a CLIXML error record decoded into its lines; binary output as its note), and ends the
+command when the shell exits, after the rest of its output came. ssh: the terminal's read loop cuts what it
+reads into lines (`TerminalLines`: escape codes cleaned as for the model, Sloperator's markers and the
+command lines it types itself left out, a marker after output with no line break of its own taken off the
+line) and hands them to `SshHost.Listener`, the ssh tool's command; a command that outlasts its call goes on
+filling the same command over the calls that wait for it, answer it or interrupt it, and ends when one of
+them sees it done. This is before the 4 MB bound on what a call keeps (`BoundRaw`), so the panel has every
+line. A server without bash runs each command on a side channel: its output comes with the result.
+The model's copy is as before: run_shell's first quarter and last three quarters of 30,000 characters,
+ssh's 16,000; the panel keeps all of it, which is what it is for.
+
+**The list** (260 wide, `ListBox.files commands`; the command shown grey, as the Code editor's tree, since only
+lines picked are yellow): each command's first line in Cascadia Mono, then where it ran, how it ended and how
+long it took ("This PC · exit 0 · 326 ms", "admin@web1 · running · 0:12", ticking each second while it runs),
+in the error colour when it didn't end with 0; the tooltip has the whole command, its folder and when it
+started. **The output** is the Code editor's view (`CodeView`, read-only, `Dress()` now giving both panels the
+same look) under a bar with the whole command and "This PC · C:\Users\user · exit 0 · 326 ms · 3,000 lines".
+Lines are added at its end as they come; the window's thread is told of new lines once per burst
+(`MainWindowViewModel.OnCommands`: one note on its way at a time), so 3,000 lines printed in 0.3 s arrive in a
+few appends. **Watch** (`panels.watchTerminal`, on by default) shows the newest command as it starts and keeps
+the output at its last line; off, a new command doesn't take the view from the one being read. **Wrap**
+(`panels.wrapTerminal`, on) wraps long lines under their start. Both are the shared `WatchToggles`.
+
+**Lines selected** (150 ms after the selection rests, as the Code editor's; a part of a line means the line)
+go into the box as "Lines 2980-2981 · 1..3000 | % {…" (the command's first line, cut at 40 characters). The
+lines are saved as Data/pasted/Terminal <time>.txt, the pick's file (deleted when unpicked before sending, as
+an area's picture is), and the message tells the model the command, where it ran, how it ended, how many lines
+it printed in all, and the lines numbered as the panel shows them, up to 20,000 characters.
+
+**Kept with the chat** in Data/chats/<id>/terminal.json (`CommandLog.KeepIn`, set when a run starts, as the
+chat gets its id then; written when each command ends, through a file beside it), so a chat opened from
+History shows its commands, and deleting the chat deletes them with its folder. A command still running when
+the app closed comes back ended, "not seen to end".
+
+No new library: the published exe grew 28 KB (28,141,496 to 28,169,656 bytes against develop 4d0fd59, no trim
+warnings), and the trimmed exe wrote and read terminal.json as the Debug build did.
+Checked in the app (2026-11-01, a stand-in agent running four PowerShell commands, at 125% and at 100%):
+a 3,000-line log listed whole (the model got 30,000 characters of it), a failing one red with exit 2, a slow
+one's lines coming in one by one while "running · 10 s" ticked; lines 2980-2981 dragged over went to the
+model numbered; the chat opened again from History showed all four. ssh's lines were checked by
+`TerminalLinesTests` only: there is no SSH server on this laptop.
+
+**A failed PowerShell command's error** showed Sloperator's own lines in that run (the coordinator, from the
+shot of the failed command): run_shell's script was the setup ([Console]::OutputEncoding, $ProgressPreference,
+the curl alias), the command, then the exit-code line, one script, and Windows PowerShell names a top-level
+script by its text, so Write-Error's message began with all three ("[Console]::OutputEncoding = …\nWrite-Output
+…; Write-Error …\nif (-not $?) … : Missing file: config.json"), and every other error's "At line" was one more
+than the command's own; the model got the same. Now `PowerShellScript.Wrap` (Core, used by
+`WindowsPlatform.CreateShellStartInfo`) runs the command as a script block of its own: its text in Base64 inside
+the script (so no quote or '@ in it can end the string it is in), dot-sourced so it runs in the script's scope
+as before, its last line `$SloperatorOk = $?`, which the exit-code line after it reads ($? after the block
+itself is always true: Get-Item of a missing folder and cmd /c exit 3 both came back 0 without it). An error's
+position is then in the command's own lines; what of Sloperator's still shows is taken out by
+`PowerShellScript.Tidy` as run_shell decodes the error record: that last line, which Write-Error names with the
+command ("…; exit 2\n$SloperatorOk = $? : Missing file"), and the position of the line that runs the block
+("At line:2 char:1 + . $SloperatorCommand"), the one error that names it. A command now runs from a file past
+about 4,500 characters (Base64 in Base64 is longer), where it was about 12,000. Tests: `ToolTests`' Windows shell
+test checks the text and the line number; exit codes, stderr and the long command's file as before.
+
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen
 scaled to 200%), the full-screen viewer, a picked file's thumbnail, File inspector (as shapes, see
