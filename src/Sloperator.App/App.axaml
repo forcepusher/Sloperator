@@ -450,6 +450,26 @@
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
       <Setter Property="Margin" Value="12,0,8,0" />
     </Style>
+    <!-- The dot between the parts of a chat window's bar: "Sloperator · ● Connected · 15k of 256k
+         used · <chat>", 4 on each side. Shown before the status and the chat's title when the window
+         has them (TitleBar.status, .subtitle); the title and the chat's title then end at the dots. -->
+    <Style Selector="TextBlock.titleDot">
+      <Setter Property="Text" Value="·" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="4,0" />
+    </Style>
+    <Style Selector="views|TitleBar TextBlock#StatusDot, views|TitleBar TextBlock#SubtitleDot">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="views|TitleBar.status TextBlock#StatusDot, views|TitleBar.subtitle TextBlock#SubtitleDot">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="views|TitleBar.status TextBlock.title#TitleText">
+      <Setter Property="Margin" Value="12,0,0,0" />
+    </Style>
+    <Style Selector="views|TitleBar TextBlock.title#SubtitleText">
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
     <Style Selector="Button.caption">
       <Setter Property="Width" Value="46" />
       <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />

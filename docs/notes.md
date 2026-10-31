@@ -1823,14 +1823,19 @@ signs #808080 while the window isn't active. Windows 10 drew its own grey bar wh
 The bar had the blob 16x16 at 12 from the left and the title 8 after it until 2026-10-31, when
 the user asked for it to go: the title took its place at 12, and the exe, taskbar and Alt+Tab keep
 the icon.
-A chat window's bar reads "Sloperator ● Connected · 15k of 256k used   <chat>" since 2026-10-31
+A chat window's bar reads "Sloperator · ● Connected · 15k of 256k used · <chat>" since 2026-10-31
 (the user: the status was in the top bar under it, between the Side panel dropdown and History; put
 first beside minimize, then after the window's title, then first with the title last, then "Separate
-Sloperator word from the chat title. Put Sloperator word first"): the bar's own title
-(`TitleBar.Text`, "Sloperator"; the window's title, "<chat> - Sloperator", stays the taskbar's),
-the server's state 12 after it (`TitleBar.Status`: the dot, the status word 8 after it and the
-context's use, in the muted 12, faint while the window isn't active), and the chat's title 12 after
-that (`TitleBar.Subtitle`, the title's look; nothing before the first message). The dot and the word
+Sloperator word from the chat title. Put Sloperator word first", then "Separate all of those with
+that same dot"): the bar's own title (`TitleBar.Text`, "Sloperator"; the window's title,
+"<chat> - Sloperator", stays the taskbar's), the server's state (`TitleBar.Status`: the dot, the
+status word 8 after it and the context's use, in the muted 12, faint while the window isn't active),
+and the chat's title (`TitleBar.Subtitle`, the title's look; nothing before the first message), each
+part after the first behind the same "·" (`TextBlock.titleDot`, muted, 4 on each side: 5 clear
+pixels each side at 100%, 6 to 8 at 125%, with the letters' own sides). The TitleBar shows its dots
+by its `status` and `subtitle` classes. The margins that end the title and the chat's title at the
+dots name the `title` class in their selectors: a class in a selector makes it a trigger in Avalonia,
+which outranks a selector without one whatever the order (`TextBlock.title`'s 12 won at first). The dot and the word
 never move; the chat's title moves as the context's use comes after the first reply and as its
 number grows. The status is docked before the chat's title and measured first, so a long chat title
 is cut short with "…" before any of it; with no room left the `WholeRow` gives way, the context's
