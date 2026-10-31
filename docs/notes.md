@@ -3146,8 +3146,8 @@ index, one updating it at a time, and six are kept in memory.
 **The overview** (index_folder without `query`, at most about 1,400 tokens): what kind of project
 it is (git and its branch; a solution and each project's kind, framework, packages and projects it
 uses; `package.json`'s scripts and dependencies; Unity's version and packages; Godot, Unreal,
-Cargo, Go, Python, CMake…), the start of its README, the start of its notes for AI agents
-(`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, Copilot's instructions), its languages, its folders two
+Cargo, Go, Python, CMake…), the start of its README, its notes for AI agents (`AGENTS.md` and
+`CLAUDE.md` whole, the start of `.cursorrules` and Copilot's instructions), its languages, its folders two
 levels down with the files in each, and its main files with what they define: a "repo map", the
 files whose definitions the most other files use first, each with its types and their most used
 members. A name of several words (`SettingsStore`) used in another file counts fully; a one-word
@@ -3165,6 +3165,60 @@ It is an orientation, not a reading of the project: what it is, how it is laid o
 things are. Until 23 October it was twice as long (about 2,500 tokens, 40 main files with six
 members each), and searches gave eight parts of six lines (up to 2,300 tokens); on qwen3.8 that
 version made a big project slower to work in than no index at all (see the benchmark below).
+
+**Project notes**: a project's `AGENTS.md` is where the agent keeps what it learns about it (the
+user, 31 October 2026: memory in a text file in the project). It is the file Codex, Cursor, Goose
+and others read, the user can read and edit it, and it goes with the project. The system prompt asks
+the agent to add, before it finishes, a line or two under a `## Notes` heading at its end when it
+learned something the next task in the project would need and the files don't make plain (how to
+build, run or test it, what failed and what worked instead, a quirk, a choice the user made); to
+use `CLAUDE.md` when the project has only that and make `AGENTS.md` when it has neither; to fix or
+remove a note of its own that turns out wrong but never the user's lines; to keep secrets out, as
+the file is often shared; and to say in its reply what it noted. It writes with `edit_file` and
+`write_file`: no tool of its own. So the overview gives `AGENTS.md` and `CLAUDE.md` whole, before
+the other tools' files and outside its own 1,400 tokens (until then all of them shared 600
+characters, the first 16 lines of each at most, and three `.cursor/rules` files, sorted first, left
+`AGENTS.md` out altogether): up to 32 KiB of the two together, what Codex reads by default
+(`project_doc_max_bytes`); past that, the start and the end of a file (half the room each: the
+project's rules, as a rule, and the latest notes) with a line saying which lines are left out and
+the `read_file` offset and limit that read them. A `CLAUDE.md` with the same text as `AGENTS.md` (a
+link to it, or a copy) is said in a line. Other tools' files keep their 16-line start.
+
+A model that doesn't index never sees the overview, and a project of fewer than 25 files is never
+asked to be indexed, so the notes come with the note on the project too (`ProjectNudge`): the first
+time in a chat the model reads, lists or changes a file of a project, or names it in a command, the
+note gives its `AGENTS.md` and `CLAUDE.md` as the overview would ("… is a project (a git repository)
+with notes for AI agents in its top folder, which go for your work on it:"), along with "Index it
+now" for a big one not indexed, and alone for a small one or without `index_folder`. A project with
+no notes and too small to index still gets no note. The notes don't come twice while the
+conversation holds them as they are (`ToolContext.InConversation`): not from the note in a later
+message's run, and not from the overview, which then says they were given above. Once the agent
+changes them, or after a context reset, they come whole again.
+
+Measured on 31 October 2026 on the laptop through `sloperator-cli`, with Haiku 5.5 (OpenRouter) and
+Qwen 3.8 27B (the user's LM Studio). The test project was a small PowerShell project of 31 files. Its
+tests need `tools\make-fixtures.ps1` run first, and it has a 27-line `AGENTS.md` of the user's.
+- **The first chat:** both models hit the missing fixtures. Both then added one correct line under
+  `## Notes` at the end, left the user's lines alone, and said so in their reply.
+- **A second chat:** Qwen made the fixtures before its first test run (38 s, 4 calls, against
+  99 s, 9 calls and an error). Haiku ran the tests first and used its note once they failed.
+- **A 10-file copy that already has the note:** both models indexed it and made the fixtures first.
+  With `--no-index`, the note came after their first call, and both still made the fixtures first.
+
+index-bench compared develop d87f1f8 with this change: 10 tasks with the index, one run each, plus
+a second fm-explain on Qwen.
+- Every edit passed on both builds, and no file changed in the tasks that say not to change any.
+- Qwen wrote one note, in an edit task, into the project's `CLAUDE.md`. It said the SDK lives in
+  `.dev\dotnet` and the solution is `BlackBox.slnx`, because that run had no dotnet on PATH and
+  installed one. Run again with dotnet on PATH, it wrote no note.
+- Haiku: 528 s, 116 calls and 2.1M prompt tokens, against 576 s, 127 calls and 2.7M.
+- Qwen: 3,958 s, 264 calls and 5.6M, against 4,078 s, 244 calls and 4.3M. One branch fm-explain
+  took 1,048 s and 2.4M tokens, on shell commands that kept failing. Its second run took 643 s,
+  against 641 s for develop's.
+
+The benchmark's edit checks had named the renamed `Sloperator.*` files since the rename, which the
+snapshot (6fc10f2) doesn't have, so every edit failed whatever the model did. They name its
+`BlackBox.*` files again.
 
 **Search** (`query`): the definitions of names the query writes as code (`SettingsStore`,
 `save_game`; a plain "settings" in a question isn't the property `Settings`), then every line that
@@ -3197,7 +3251,8 @@ Sloperator repository, 2026-10-26). Once per project in
 a chat, and again after a context reset, which drops the overview: the app starts a session for
 every message, so the note looks back over the chat for the projects already indexed and the notes
 already given (until 2026-10-23 it came again with every message, and the model indexed again). A
-note, never a block: the user's rule.
+note, never a block: the user's rule. The same note gives the project's `AGENTS.md` (see Project notes
+above), also for a project too small to index.
 
 To index first, but not to search only the index: the prompt and the tool's description say to
 search the index or the shell, whichever fits. The user's aim is a model that isn't blind in a
