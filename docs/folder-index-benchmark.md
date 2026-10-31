@@ -285,6 +285,37 @@ nothing the lean index cut was something Claude needed.
   it. That run was left out of the averages. This is the look-up feature, not the index; Sloperator
   no longer searches for the model (see docs/notes.md, Web search).
 
+## Baseline, 1 November 2026
+
+This is a reference to compare later builds against. It is the build merged as develop 2e094a4,
+with notes for agents kept in a project's AGENTS.md (see docs/notes.md, Folder index). It ran on the
+laptop, with the index only (`-Conditions with`), one run per task, and the edit checks fixed in
+110b5ff. The question answers were graded blind (`-Name agentnotes`).
+
+| Task | Haiku 5.5 (OpenRouter) | Qwen 3.8 27B (LM Studio) |
+| --- | --- | --- |
+| explain | 62 s, 29 calls, 501k, 8/8 | 450 s, 27 calls, 480k, 8/8 |
+| context | 39 s, 11 calls, 227k, 8/8 | 323 s, 18 calls, 406k, 8/8 |
+| repeat | 34 s, 11 calls, 161k, 8/8 | 340 s, 17 calls, 286k, 8/8 |
+| observers | 12 s, 8 calls, 58k, 7/7 | 109 s, 8 calls, 92k, 7/7 |
+| wait | 147 s, 9 calls, 190k, passed | 270 s, 19 calls, 304k, passed |
+| rename | 62 s, 5 calls, 115k, passed | 206 s, 10 calls, 210k, passed |
+| fm-explain | 63 s, 16 calls, 374k, 8/8 | 643 s, 47 calls, 835k, 8/8 (a first run: 1,048 s, 80 calls) |
+| fm-needs | 79 s, 19 calls, 369k, 8/8 (1 wrong claim) | 346 s, 30 calls, 442k, 8/8 |
+| fm-draggable | 18 s, 4 calls, 52k, 12/12 | 160 s, 4 calls, 65k, 12/12 |
+| fm-toilet | 12 s, 4 calls, 65k, passed | 63 s, 4 calls, 74k, passed |
+
+Prompt tokens are in thousands.
+- **Answers:** every one scored full marks.
+- **Wrong claims:** one for Haiku and one for Qwen, both in passing.
+- **Develop just before (d87f1f8):** Haiku took 576 s, 127 calls and 2.7M tokens, and Qwen took
+  3,437 s, 196 calls and 3.5M without its second fm-explain. Every answer scored full marks there
+  too, with one wrong claim for Haiku and three for Qwen.
+
+Runs, answers and grades are kept on the laptop in `%USERPROFILE%\IndexBench\runs\agentnotes-*`
+and `judge\agentnotes`. To compare a new build, run the same command with a new `-Label` and grade
+it the same way.
+
 ## Limits
 
 - Two runs per task and condition; Qwen's times for the same task varied by up to four times, so
