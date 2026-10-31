@@ -87,6 +87,9 @@ public sealed partial class MainWindowViewModel
         new("Code editor", "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
+        new("Live preview", "Play a web page or game as it is built", 560, 0,
+            vm => new LivePreviewViewModel(vm, vm._paths.PastedDir, vm._paths.WebViewDir),
+            OpenIn: "Live preview", Opens: Core.Web.LivePage.IsPage),
         new("Video generator", "Plan and make a video shot by shot", 770, 633,
             vm => new VideoGeneratorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];

@@ -36,6 +36,7 @@ Sloperator/
                pasted/ (pictures pasted into the chat, see Files in a message),
                videos/ (a folder per video: storyboard, frames, shots, song and the video, see Videos),
                index/ (the indexes of the folders the agent indexed, a file each, see Folder index),
+               webview/ (the Live preview panel's WebView2 profile, see Live preview),
                crash.log (errors no code caught, see below), errors.log (every error shown, see below),
                sloperator.png (the notifications' icon, see Notify me when done),
                update-check.txt (when Sloperator last asked GitHub for a new version, see Updates)
@@ -3743,6 +3744,87 @@ Wrap and Watch, and Save and Reload (Discard) over the file even with none open.
 long lines wrap inside the panel under their own start (AvaloniaEdit's `WordWrap`), one number a line, so
 picks and Watch's lines are as before; off, a long line scrolls sideways. Checked by a click in the app:
 Game.cs's long summary line wrapped, and off, the setting was saved false.
+
+### Live preview
+**Live preview** in the Side panel dropdown (`LivePreviewViewModel`, `LivePreviewPanel`; least 560) runs the
+web page or web game the agent is building beside the chat, so the user plays it and points at what is
+wrong (the user's request through the coordinator, 2026-11-01). It is Avalonia's own web view,
+`Avalonia.Controls.WebView` 12.1.1 (MIT; `NativeWebView`, WebView2 on Windows, trim-safe): no browser in the
+exe, WebView2 being Windows' own Edge runtime: the published exe grew 0.24 MB (28,141,496 to 28,384,893 bytes
+against develop 4d0fd59, no trim warnings), and the trimmed exe ran the panel as the Debug build did. Its profile (cookies, cache, local storage) is kept in
+Data\webview (`AppPaths.WebViewDir`, set as WebView2's user data folder in `EnvironmentRequested`), so the app
+stays portable.
+
+**Ways in.** Open file in its bar (a picker of .html and .htm, in the shown page's folder), a page dropped on
+the panel (`Drop`: the first web page of the files; other files go with the next message), and **Open in
+Live preview** on every web page's right-click menu (`IFilePanel`, `Opens: LivePage.IsPage`; left out on the
+page already shown). With **Watch** on (`panels.watchPreview`, on by default), the panel opens on the page the
+agent wrote last in the chat (`FileChanges.Last(LivePage.IsPage)`), the page of each new write_file or
+edit_file call on a web page opens (`FileChanges.LastChange`, as the Code editor follows), and the page
+reloads 250 ms after files in its folder (and folders under it) stop changing (`FileSystemWatcher`, the
+Code editor's debounce): a game written in three files reloads once the last is written. A change under
+.git, node_modules and the other folders the folder index leaves out doesn't reload it (`LivePage.Reloads`),
+as a commit or an install would. **Reload** in the bar does it by hand. Every bar button is there from the
+start, greyed with a tip while it has nothing to do (no page, no WebView2).
+
+**Served, not opened as a file.** A page opened at file:// can't load an ES module (`<script type="module">`
+is refused across file:// origins) nor fetch its own JSON, which is how web games are written now. So the
+page's folder is served at https://page.sloperator.example/ through WebView2's
+`SetVirtualHostNameToFolderMapping` (`LivePage.Host`; .example is reserved, never a real site), and the page
+is shown at its address there (`LivePage.Address`). The folder served is the page's project
+(`ProjectRoot`: a git repository, a package.json…) when the page is in one, so a page in src\ reaches
+../assets, else the page's folder (`LivePage.Folder`); the bar shows the page's own folder, which is also the
+one watched. A link the user follows to another page of the folder makes that the page shown
+(`LivePage.PathOf`); a WebView2 too old for folder mapping shows the file:// address. Checked in the app: a
+made-up three-file game (index.html loading game.js as a module, which imports stars.js) ran in the panel.
+
+**What Avalonia's web view doesn't pass on** is asked of WebView2 itself (`Platform.Windows.WebView2Page`),
+through the ICoreWebView2 the web view hands over in `AdapterCreated` (`IWindowsWebView2PlatformHandle`),
+called through its vtable as Media Foundation and WinRT are (`ComAbi`): AddScriptToExecuteOnDocumentCreated
+(slot 27), CapturePreview (30) and ICoreWebView2_3's SetVirtualHostNameToFolderMapping (71). The slots are
+WebView2.h's; Avalonia's own interop in the package declares the same interfaces in the same order, which is
+where they were checked. CapturePreview's completion handler is made by hand as the toasts' handler is.
+
+**The page's errors** are listed under it (a 160 high part under a splitter, "Errors" and their count over
+it): a script given to every document before its own (`LivePage.ConsoleScript`) posts uncaught errors (with
+the file, line and column the browser gives), failed promise rejections, files that failed to load (an
+`<img>`, a script) and console.error, through `chrome.webview.postMessage`, as JSON the panel reads back
+(`LivePage.Parse`; the web view may hand a string over in quotes). The page's own addresses in what an error
+says become paths in the folder ("Failed to load sprites/basket.png", "game.js:30:29"). A row shows the
+error's first line in the error colour, Cascadia Mono 12 as code, and where it was thrown at its right; its
+tooltip is the whole of it. The list starts again whenever the page loads (`NavigationStarted`).
+**Error rows selected** (one click, Ctrl and Shift add, as a list does) go into the box as "Error 2 ·
+index.html", "Errors 1-3", "2 errors" for ones not one after another (`ErrorsCaption`), the page's path as
+the pick's; the message tells the model the page, the folder served and its address, and the errors whole
+with where they were thrown, numbered as listed ("which is what they refer to"), up to 20,000 characters.
+Esc, sending and another page let them go.
+
+**Area** (in the bar's left, as the File inspector's): Avalonia can't draw over the web view's native
+window, so Area takes a picture of the page as it is (CapturePreview, the view's pixels as a PNG) and the
+page's own view (its size in CSS pixels and how far it is scrolled, from a script), shows the picture frozen
+in a `ZoomBox` in place of the page, and the user drags a box on it. The live page is hidden only once the
+picture is there (hidden first, WebView2 might not draw it). The box goes in as "Area · index.html", a
+picture of it cut from the frozen one and saved as Data/pasted/Area <time>.png (`DocumentArea.SaveNew`,
+shared with the File inspector's areas, deleted when unpicked before sending), and the model is told where
+it is in CSS pixels of the page's view ("x 8-201, y 6-46 of the 856x635 CSS pixels of the page's view",
+and how far the page was scrolled when it was). Esc or Area off goes back to the live page. Checked in the
+app at 125% and at 100% (a DPI-unaware build): the HUD of the made-up game marked, a 241x51 picture went in,
+and the model got the place and the picture.
+
+**Without WebView2** (Windows 10 may not have it; Windows 11 always does): the panel says so in the page's
+place, with **Get WebView2**, which opens Microsoft's WebView2 page, and the page and Reload and Area greyed
+("WebView2 isn't installed"). Whether it is there is Avalonia's own look-up
+(`WebViewAdapterInfo.GetAdapterInfo(WebView2).IsInstalled`), which reads the registry, not
+WEBVIEW2_BROWSER_EXECUTABLE_FOLDER, so on this laptop (Windows 10 LTSC 2021, WebView2 156 installed) the
+state was checked headless only (`LivePreviewTests`), not in the running app. The web view isn't told to use
+WebView2 only: under Avalonia's headless platform that made the tests start WebView2 on a thread it refuses
+(RPC_E_CHANGED_MODE); the tests pick Avalonia's headless web view instead.
+
+**UI Automation** stops at the web view's window: past it, Sloperator's tree wasn't walked (the error rows,
+the box), so the rig clicks by posted mouse messages at points found in its captures (the error rows by
+their colour). PrintWindow with PW_RENDERFULLCONTENT captures the page with the window. Rig:
+`.dev/live-preview-test/` (run.ps1 with a stand-in agent writing the game into %TEMP%, shots.ps1, drive.ps1
+clickat/dragat; CLICK_FACTOR 1.25 for the DPI-unaware build, which reads posted points as if scaled).
 
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen

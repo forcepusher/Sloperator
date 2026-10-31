@@ -61,14 +61,39 @@ public sealed record DocumentArea(double Left, double Top, double Right, double 
     public static RawImage? Decode(string path)
     {
         using var decoded = Media.SvgFile.Handles(path) ? Media.SvgFile.Open(path)?.RenderAtLeast(2048) : Media.PictureFile.Decode(path);
-        if (decoded is null)
-            return null;
+        return decoded is null ? null : Pixels(decoded);
+    }
+
+    /// <summary>A picture's pixels from its encoded bytes (a PNG), BGRA and opaque; null when they can't be decoded.</summary>
+    public static RawImage? Decode(byte[] encoded)
+    {
+        using var decoded = SKBitmap.Decode(encoded);
+        return decoded is null ? null : Pixels(decoded);
+    }
+
+    private static RawImage Pixels(SKBitmap decoded)
+    {
         using var bgra = decoded.ColorType == SKColorType.Bgra8888 && decoded.AlphaType == SKAlphaType.Premul ? null : decoded.Copy(SKColorType.Bgra8888);
         var b = bgra ?? decoded;
         var pixels = new byte[b.Width * b.Height * 4];
         for (var row = 0; row < b.Height; row++)
             Marshal.Copy(b.GetPixels() + row * b.RowBytes, pixels, row * b.Width * 4, b.Width * 4);
         return new RawImage(b.Width, b.Height, pixels);
+    }
+
+    /// <summary>
+    /// A picture of an area marked in a side panel, saved for the model as "Area 2026-10-25 14-03-09.png"
+    /// in <paramref name="dir"/> (the chat's pasted pictures), " (2)" added when that is taken; its path.
+    /// </summary>
+    public static string SaveNew(RawImage image, string dir)
+    {
+        Directory.CreateDirectory(dir);
+        var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", CultureInfo.InvariantCulture);
+        var file = Path.Combine(dir, $"Area {stamp}.png");
+        for (var n = 2; File.Exists(file); n++)
+            file = Path.Combine(dir, $"Area {stamp} ({n}).png");
+        SavePng(image, file);
+        return file;
     }
 
     /// <summary>Writes <paramref name="image"/> to <paramref name="path"/> as a PNG.</summary>

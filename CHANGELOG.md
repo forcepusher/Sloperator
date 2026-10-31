@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Video generator's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
+- **Live preview** in the Side panel dropdown: a web page or web game the agent is building, running
+  beside the chat in Microsoft's WebView2, served from its folder as a web server would (ES modules and
+  fetch work). Open one with Open file, by dropping it on the panel, or with **Open in Live preview** on
+  an HTML file's right-click menu. **Watch** opens the page the agent writes and reloads it as files in
+  its folder change; Reload does it by hand. The page's script errors are listed under it: select some
+  to ask about them. **Area** freezes the page to drag over a part of it, which goes into the message
+  as a picture. Without WebView2 (possible on Windows 10) the panel says where to get it.
 - **Code editor** in the Side panel dropdown: a folder's files in a tree and the file you click open
   beside it, with line numbers and highlighting, to read and edit (Ctrl+S saves). It shows the folder
   you open in it (Open folder, or drop one on it), kept with the chat, else the project the agent
