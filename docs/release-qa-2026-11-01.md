@@ -13,6 +13,7 @@ programs, its GPU, its second monitor or the Qwen server.
 | Unit suites with the opt-in tests on | workstation | App 284 of 285, Core 1220 of 1231 at first: none a product bug, three fixed (below) |
 | Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 12 min 51 s: 61 model calls, 66 tool calls, played to 132 and to Game Over in Play mode, built and checked the exe |
 | This version's changes in the published exe (a stand-in agent) | laptop | all as the changelog says; one empty line after a PowerShell error in the Terminal, fixed |
+| ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
 
 ## Clean-up
 
@@ -94,6 +95,15 @@ The workstation thread ran, on 0439af3 (Release build):
   and `BB_COMFY_ONLINE`: App 284 of 285, Core 1220 of 1231 (7 skipped, run apart).
   `GatewayThinkingTests` on OpenRouter Haiku 5.5, `MunitoImageCapTests` and `TextOnlyServerTests` on
   munito gemma-4-12b: each 1 of 1.
+- Found and fixed (88d509b, its thread's branch fix/ssh-terminal-setup-lines, taken onto the release
+  branch): the first ssh command after logging in (and after a reboot) showed four more lines in the
+  Terminal panel and terminal.json than it printed: the terminal's echo of Sloperator's setup, the prompt,
+  readline's line, sometimes "Last login". The model's copy was clean. The ssh tool handed the panel the
+  command before `RunAsync` started the terminal; `RunAsync` now holds it back until the terminal is up.
+  A new opt-in SSH test fails without the fix; Ssh and CommandLog tests 84 of 84 against the lab.
+- The release exe on Haiku 5.5 and the lab VM: Auto opened the Terminal for the first command ("Auto
+  (Terminal)"), ssh rows read "admin@127.0.0.2 · exit 0 · 1.1 s", PowerShell's "This PC", terminal.json
+  written; the title bar's status and caption right. Second-monitor tasks on Haiku 5.5: 4 of 4.
 - Not product bugs. That PC's code page is 1251: the ANSI code page test (fixed: it uses the PC's own),
   and two pause-key tests that fail on develop too. Two races between test classes: ComfyOnlineTests
   beside the Civitai stand-ins (fixed: one collection), ImageEditorTests deleting its folder while a
