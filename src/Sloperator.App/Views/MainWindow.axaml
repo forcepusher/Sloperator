@@ -675,19 +675,18 @@
             <DataTemplate DataType="vm:ToolCallItem">
               <Border Classes="card" Margin="0,0,40,0">
                 <StackPanel Spacing="8">
-                  <!-- The title takes the width that is left, so a long one wraps inside the card
-                       (in a horizontal StackPanel it had all the width it wanted and ran past the
-                       card's edge); past three lines it ends in "…", the whole of it in the tooltip.
-                       On the right: when the call began to run, and how it ended in how long. -->
+                  <!-- The tool's name, and beside it on one line what it does: its paths by their names
+                       (ToolCallItem.Line), the whole of it in the tooltip; what doesn't fit ends in "…" (a
+                       whole path wrapped over three ragged lines, the user, 2026-10-31). On the right: how
+                       it ended in how long, with no clock time (too many times in the chat, the user, the
+                       same day); when it began to run is its tooltip. -->
                   <DockPanel>
-                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" VerticalAlignment="Top" Margin="4,0,0,0" />
-                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText, StringFormat='{}{0} ·'}" IsVisible="{Binding HasTime}"
-                               ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
                     <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
                     <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
                       <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
                     </Border>
-                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="{Binding Line}" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
                   </DockPanel>
 
