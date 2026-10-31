@@ -314,7 +314,7 @@
        goes first, then the light, and the word stays. With a side panel open it all starts over the
        chat, where it is without one, and the panel's name is over the panel (the user, 2026-10-31;
        Bar.Inset follows the chat's column, MainWindow). -->
-  <views:TitleBar x:Name="Bar" DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}" Caption="{Binding SidePanelCaption}">
+  <views:TitleBar x:Name="Bar" DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}" Caption="{Binding SidePanelName}">
     <views:TitleBar.Status>
       <views:WholeRow>
         <TextBlock Classes="muted" Text="{Binding ServerStatusText}" VerticalAlignment="Center" />
@@ -346,9 +346,13 @@
         <PathIcon DockPanel.Dock="Left" Width="10" Height="10" Margin="0,0,8,0.5" VerticalAlignment="Center" Foreground="{StaticResource BbAccent}" Data="M14 7l-5 5 5 5z" />
         <ComboBox x:Name="SidePanelBox" DockPanel.Dock="Left" Classes="ghost" ItemsSource="{Binding SidePanelOptions}" SelectedItem="{Binding SelectedSidePanel}"
                   VerticalAlignment="Center" AutomationProperties.Name="Side panel">
+          <!-- The window's caption, not the pick's word: under Auto it names the panel shown ("Auto (Terminal)"),
+               in a slot as wide as every caption Auto has, so the bar doesn't move as Auto changes panel. -->
           <ComboBox.SelectionBoxItemTemplate>
             <DataTemplate x:DataType="vm:SidePanelOption">
-              <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).SidePanelCaption}"
+                              Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).SidePanelCaptionSlot}"
+                              TextElement.FontWeight="SemiBold" VerticalAlignment="Center" />
             </DataTemplate>
           </ComboBox.SelectionBoxItemTemplate>
           <ComboBox.ItemTemplate>
@@ -673,19 +677,18 @@
             <DataTemplate DataType="vm:ToolCallItem">
               <Border Classes="card" Margin="0,0,40,0">
                 <StackPanel Spacing="8">
-                  <!-- The title takes the width that is left, so a long one wraps inside the card
-                       (in a horizontal StackPanel it had all the width it wanted and ran past the
-                       card's edge); past three lines it ends in "…", the whole of it in the tooltip.
-                       On the right: when the call began to run, and how it ended in how long. -->
+                  <!-- The tool's name, and beside it on one line what it does: its paths by their names
+                       (ToolCallItem.Line), the whole of it in the tooltip; what doesn't fit ends in "…" (a
+                       whole path wrapped over three ragged lines, the user, 2026-10-31). On the right: how
+                       it ended in how long, with no clock time (too many times in the chat, the user, the
+                       same day); when it began to run is its tooltip. -->
                   <DockPanel>
-                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" VerticalAlignment="Top" Margin="4,0,0,0" />
-                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText, StringFormat='{}{0} ·'}" IsVisible="{Binding HasTime}"
-                               ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
                     <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
                     <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
                       <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
                     </Border>
-                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="{Binding Line}" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
                   </DockPanel>
 

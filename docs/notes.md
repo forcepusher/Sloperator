@@ -1452,8 +1452,8 @@ check the list's own enumerator makes, and a copy made during a context reset co
 Every line of the chat shows when it happened, so where a task's time went can be read off it: a
 message the time it was sent, each step of the model when it was asked and how long it took
 ("14:05:09 · model 41 s"; its tooltip splits that into sending the request, waiting for the first
-words, and writing), each tool call when it began to run and how long it ran ("Done in 1.2 s"; a
-wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
+words, and writing), each tool call how long it ran ("Done in 1.2 s", when it began in its tooltip:
+the step over it has the time; a wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
 and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s").
 The times are saved with the chat; a chat saved before they were kept shows none.
@@ -1897,7 +1897,7 @@ is cut short with "…" before any of it; with no room left the `WholeRow` gives
 use first, then the light, the word staying. Settings has neither and
 its title at 12 as before.
 With a side panel open, all of that starts over the chat, 12 in from the chat's left as without one,
-and the panel's name (`TitleBar.Caption`, the title's look, `SidePanelCaption`: the panel Auto shows
+and the panel's name (`TitleBar.Caption`, the title's look, `SidePanelName`: the panel Auto shows
 under Auto) is 12 in from the window's left, over the panel, cut with "…" in the panel's width (the
 user, 2026-10-31: the title had slid over the panel). `TitleBar.Inset` is the chat's column's left
 (the panel and the splitter), set from that column's bounds after the layout pass: set during it,
@@ -2751,6 +2751,33 @@ tool's name chip 8 across. `ToolCardLayoutTests` lays a card out headless: the c
 under the title, the picture of a click, a wait and a key folded, a screenshot's and a zoom's open.
 Checked in the app with a stand-in model (screenshot, wait, two run_shell calls) and PrintWindow:
 the wait's picture folded, opening it by UI Automation showed it.
+
+**One line beside the tool's name (2026-10-31).** The card's line wrapped over up to three ragged
+lines in the column left between the name chip and the time ("Read C:\Users\user\Documents\Sloperator\
+Hello World\hello.py", broken at "C:" and inside "Hello World"); the user circled it. The line is now
+one line (`TextTrimming`, no wrap), and every whole path in it shows as its file or folder name
+(`ToolLine.Short`, `ToolCallItem.Line`: "Read hello.py", "List Hello World", "Copy hello.py to
+hello copy.py"); the line as the tool gave it is the tooltip, and the model still gets it whole. It
+works on the summary text, so it applies to every tool, an MCP one too, without a change in any of
+them, and to chats saved before. A whole path starts at a drive (`C:\`), `\\`, `/` or `~/` after a
+space or "(", and goes on over spaces ("Hello World") up to a new line, a quote, ", ", " (", a
+wildcard, or a word like on/to/with/in/for, unless a separator comes after that word that doesn't
+begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are: what follows ": "
+(an SSH command, a search, keys), anything in quotes (typed text), relative paths, a bare root, web
+addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
+only once it changed a file, so the first cards (a list, a read) would still show whole paths.
+
+How the call ended in how long stays at the card's top right, without the clock time it had before
+it ("Done in 1.2 s"; the time it began to run is the tooltip): too many times in the chat, the user
+said the same evening, as the step over the card has one already. Only the chat's cards lost it; the
+saved chat and the logs keep it. (The line had been moved over the card on the left, as the model's
+step has its time over its thoughts, and was put back: "This was a mistake".) The chip and the line
+sit as a one-line card's did before. `ToolCardLayoutTests` checks the paths, one line with the whole
+in the tooltip, and no clock time on the card. Rig (ignored by
+git): `.dev/tool-summary-test` (build.sh before|after into <name>125 and a DPI-unaware <name>100,
+run.ps1 with a stand-in calling list_directory, read_file, run_shell, copy and a read with a long
+path, close.ps1 closes the panel Auto opens for the command, size.ps1, hdr.ps1/rows.ps1/gap.ps1
+measure, pair.ps1 puts before and after side by side).
 
 Web addresses in the chat are links: in replies (written out, `www.` ones, in code and tables,
 and Markdown's `[text](https://...)`, which shows its text alone), in the user's messages, in the
@@ -4077,9 +4104,14 @@ go Code editor or File changes, Terminal, and back: that is the work as it goes.
 **Nothing moves mid-task.** Auto's room is as narrow and as short as the widest and tallest of its panels needs
 (800, the Code editor's, and 633 tall, the Video editor's; `WithAuto` takes them from the options), so a panel for another never
 resizes the window: `MainWindow.Dock` sees the same pick (`_dockedFor`) and only puts the new panel in the room,
-which keeps the width the splitter left it at. The dropdown keeps saying "Auto", so the chat's bar doesn't change
-either; each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the old
-panel's content, then the new one's.
+which keeps the width the splitter left it at. The dropdown names the panel Auto shows, "Auto (Terminal)", and
+"Auto" with none (`SidePanelCaption`; the user, 2026-11-01: "so we have an idea of what panel is currently open";
+it said "Auto" alone before), in a `SlotText` as wide as every caption Auto has (`SidePanelCaptionSlot`, "Auto (File
+inspector)" the widest), so the chat's bar doesn't move as Auto goes from panel to panel: "Auto" alone leaves room
+before the arrow. It is the window's caption, not the pick's word (the ComboBox's selection box binds to the window's
+view model). At the chat's least width (660) the bar still has History, New chat, New window and Settings in one row
+beside it. Each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the
+old panel's content, then the new one's.
 
 **No context of its own.** Auto never picks anything: it shows panels (`Follow`), and a message typed with it
 open goes as it is, as with every panel (see the Side panel under Videos: a card only of what the user picked). While something
@@ -4111,7 +4143,10 @@ the panel of its latest call that has one, read from its cards (`FromChat`; a ch
 arguments in the conversation, not on its card); with none (New chat), the panel open stays, showing the new chat
 as a panel picked by hand does, and the window keeps its size. Picking a panel by hand, or **Open in**/Inspect
 on a file, leaves Auto for that panel until Auto is picked again: the user's pick, which Auto would take away at the
-agent's next call. The × closes the panel as for any (None).
+agent's next call. **The ×** closes the panel and Auto stays picked (`CloseAutoPanel`; the user, 2026-11-01: × "should
+not switch the side panel to None mode"), as at the window's start: the agent's next work a panel shows opens one
+again. What the panel put in the box goes with it. A panel picked by hand closes to None as before, there being
+nothing else to go back to.
 
 **No panel until there is something to show.** Every window opens with Auto picked (the dropdown says "Auto"),
 but as the chat alone: Auto opens a panel only for the agent's first call that has one, already showing it, and

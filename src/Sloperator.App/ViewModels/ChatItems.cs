@@ -337,7 +337,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public string Arguments { get; init; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Command), nameof(HasCommand))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
     private string _summary = summary;
 
     /// <summary>
@@ -346,6 +346,9 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// under it in a block of its own (a whole command in bold was too much, the user, 2026-10-29).
     /// </summary>
     public string Title => !HasCommand ? Summary : CommandParts().Description is { } d ? $"Run a command · {d}" : "Run a command";
+
+    /// <summary>The title as the card shows it, on one line: its paths by their names (<see cref="ToolLine"/>); the whole title is its tooltip.</summary>
+    public string Line => ToolLine.Short(Title);
 
     /// <summary>The command a run_shell call ran, from its summary, so a saved chat shows it too; null for any other call.</summary>
     public string? Command => CommandParts().Command;

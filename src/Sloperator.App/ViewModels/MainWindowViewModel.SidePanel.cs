@@ -155,22 +155,29 @@ public sealed partial class MainWindowViewModel
         (SidePanel as IFilePanel)?.Show(path);
     }
 
-    /// <summary>The × on the open panel: None in the dropdown.</summary>
-    internal void CloseSidePanel() => SelectedSidePanel = SidePanelOptions[0];
+    /// <summary>The × on the open panel: None in the dropdown; under Auto the panel closes and Auto stays.</summary>
+    internal void CloseSidePanel()
+    {
+        if (IsAuto)
+            CloseAutoPanel();
+        else
+            SelectedSidePanel = SidePanelOptions[0];
+    }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SidePanelCaption), nameof(SidePanelCaptionSlot))]
     private SidePanelOption? _selectedSidePanel;
 
     /// <summary>The open panel, on the left of the chat; null with none.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSidePanel))]
-    [NotifyPropertyChangedFor(nameof(SidePanelCaption))]
+    [NotifyPropertyChangedFor(nameof(SidePanelName))]
     private ISidePanel? _sidePanel;
 
     public bool HasSidePanel => SidePanel is not null;
 
     /// <summary>The open panel's name, in the title bar over it (under Auto, the panel Auto shows); empty with none.</summary>
-    public string SidePanelCaption => HasSidePanel ? ShownSidePanel?.Name ?? "" : "";
+    public string SidePanelName => HasSidePanel ? ShownSidePanel?.Name ?? "" : "";
 
     partial void OnSelectedSidePanelChanged(SidePanelOption? oldValue, SidePanelOption? newValue)
     {
