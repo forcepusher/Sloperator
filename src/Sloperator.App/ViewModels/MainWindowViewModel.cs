@@ -128,9 +128,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     [NotifyPropertyChangedFor(nameof(HasContextUsage))]
     private string _contextUsage = "";
 
-    [ObservableProperty]
-    private string _contextUsageTip = "";
-
     public bool HasContextUsage => ContextUsage.Length > 0;
 
     /// <summary>

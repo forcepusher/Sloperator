@@ -1897,8 +1897,12 @@ use first, then the light, the word staying. Settings has neither and
 its title at 12 as before. The row is as tall as the strip and each part centred in it, as the
 title is: the words share the title's baseline and the 8 x 8 dot (9 x 9 before, 11.25 px at 125%) is
 exactly in the middle at 100% and 125% (12 rows over and under it; 15 at 125%). Measured on the
-laptop's 100% (unaware) and 125% builds. The row is the client to Windows (not the caption), as the
-buttons are, so its tooltips show; it can't be dragged from.
+laptop's 100% (unaware) and 125% builds. The row is part of the caption, as the title is: the window
+is dragged, snapped, maximized on a double-click and given its menu from it. For a few hours it was
+the client to Windows, as the buttons are, so its tooltips showed, and the user couldn't drag the
+window by it (2026-10-31). Its tooltips went: over the caption the window gets no pointer events
+(the status word is always shown now, and the context's use said when a fresh context starts, which
+nothing shows any more).
 The buttons' tooltips (Minimize, Maximize or Restore Down, Close) are at the pointer, as every
 tooltip in the app and Windows' own caption tooltips: Avalonia's `Pointer` placement, the tip's
 corner 20 under the pointer, flipped to its left when it would run off the screen (Restore Down and

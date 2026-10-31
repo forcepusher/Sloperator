@@ -46,8 +46,8 @@ public partial class TitleBar : UserControl
     }
 
     /// <summary>
-    /// What sits right after the title: the chat window's server status. It takes the
-    /// pointer as the buttons do (not the caption), so its tooltips show.
+    /// What sits right after the title: the chat window's server status. Part of the caption, as
+    /// the title is: the window is dragged, maximized and given its menu from it too.
     /// </summary>
     public Control? Status
     {
@@ -159,7 +159,7 @@ public partial class TitleBar : UserControl
                 handled = true;
                 var hit = Platform.Windows.WindowsPlatform.FrameHitTest(hwnd, lParam);
                 return hit != HTCLIENT ? hit : Over(MaximizeButton, lParam) ? HTMAXBUTTON
-                    : Over(this, lParam) && !Over(MinimizeButton, lParam) && !Over(CloseButton, lParam) && !Over(StatusHost, lParam) ? HTCAPTION : HTCLIENT;
+                    : Over(this, lParam) && !Over(MinimizeButton, lParam) && !Over(CloseButton, lParam) ? HTCAPTION : HTCLIENT;
             case WM_NCMOUSEMOVE:
                 _pointer = new PixelPoint((short)(lParam & 0xFFFF), (short)((lParam >> 16) & 0xFFFF));
                 Hover(wParam == HTMAXBUTTON);
