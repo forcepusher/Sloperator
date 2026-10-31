@@ -668,55 +668,54 @@
               </StackPanel>
             </DataTemplate>
 
-            <!-- Over the card, as the time is over the model's thoughts: when the call began to run, and
-                 how it ended in how long (ToolCallItem.HeadText). -->
             <DataTemplate DataType="vm:ToolCallItem">
-              <StackPanel Spacing="6" Margin="0,0,40,0">
-                <TextBlock Classes="muted" Text="{Binding HeadText}" ToolTip.Tip="{Binding TimeTip}" HorizontalAlignment="Left" />
-                <Border Classes="card">
-                  <StackPanel Spacing="8">
-                    <!-- The tool's name, and the line of what it does beside it, on one line: its paths by
-                         their names (ToolCallItem.Line), the whole of it in the tooltip; what doesn't fit
-                         ends in "…". A whole path wrapped over three ragged lines (the user, 2026-10-31). -->
-                    <DockPanel>
-                      <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
-                      <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Center" Margin="0,0,8,0">
-                        <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
-                      </Border>
-                      <TextBlock Text="{Binding Line}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
-                    </DockPanel>
-
-                    <!-- A shell command in full, open: what ran matters more than its output. -->
-                    <Border Classes="command" IsVisible="{Binding HasCommand}">
-                      <views:SelectableText Classes="command" Text="{Binding Command}" />
+              <Border Classes="card" Margin="0,0,40,0">
+                <StackPanel Spacing="8">
+                  <!-- The tool's name, and beside it on one line what it does: its paths by their names
+                       (ToolCallItem.Line), the whole of it in the tooltip; what doesn't fit ends in "…" (a
+                       whole path wrapped over three ragged lines, the user, 2026-10-31). On the right: how
+                       it ended in how long, with no clock time (too many times in the chat, the user, the
+                       same day); when it began to run is its tooltip. -->
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
+                    <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
+                      <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
                     </Border>
+                    <TextBlock Text="{Binding Line}" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
+                  </DockPanel>
 
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsAwaitingApproval}">
-                      <Button Classes="primary" Content="Allow" Command="{Binding ApproveCommand}" />
-                      <Button Classes="ghost" Content="Deny" Command="{Binding DenyCommand}" />
-                    </StackPanel>
+                  <!-- A shell command in full, open: what ran matters more than its output. -->
+                  <Border Classes="command" IsVisible="{Binding HasCommand}">
+                    <views:SelectableText Classes="command" Text="{Binding Command}" />
+                  </Border>
 
-                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" IsVisible="{Binding HasOpenScreenshot}" />
-
-                    <ItemsControl ItemsSource="{Binding Previews}" IsVisible="{Binding HasPreviews}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <StackPanel Spacing="8" />
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-
-                    <!-- The screen an action left, folded as its output (see ToolCallItem.HasFoldedScreenshot). -->
-                    <Expander IsVisible="{Binding HasFoldedScreenshot}" Header="Screenshot" Padding="8" HorizontalAlignment="Stretch">
-                      <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" />
-                    </Expander>
-
-                    <Expander IsVisible="{Binding HasResult}" Header="Output" Padding="8,4" HorizontalAlignment="Stretch">
-                      <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
-                    </Expander>
+                  <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsAwaitingApproval}">
+                    <Button Classes="primary" Content="Allow" Command="{Binding ApproveCommand}" />
+                    <Button Classes="ghost" Content="Deny" Command="{Binding DenyCommand}" />
                   </StackPanel>
-                </Border>
-              </StackPanel>
+
+                  <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" IsVisible="{Binding HasOpenScreenshot}" />
+
+                  <ItemsControl ItemsSource="{Binding Previews}" IsVisible="{Binding HasPreviews}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+
+                  <!-- The screen an action left, folded as its output (see ToolCallItem.HasFoldedScreenshot). -->
+                  <Expander IsVisible="{Binding HasFoldedScreenshot}" Header="Screenshot" Padding="8" HorizontalAlignment="Stretch">
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" />
+                  </Expander>
+
+                  <Expander IsVisible="{Binding HasResult}" Header="Output" Padding="8,4" HorizontalAlignment="Stretch">
+                    <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                  </Expander>
+                </StackPanel>
+              </Border>
             </DataTemplate>
 
             <DataTemplate DataType="vm:NoticeItem">

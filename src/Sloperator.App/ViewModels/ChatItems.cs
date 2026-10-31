@@ -366,7 +366,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public bool HasCommand => Command is { Length: > 0 };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(HeadText), nameof(IsError))]
+    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError))]
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
@@ -401,12 +401,12 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
 
     /// <summary>How a long call is getting on ("KSampler, step 3 of 20 · 1:12"), while it runs.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HeadText))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
     private string _progress = "";
 
     /// <summary>When the call ended, or the run stopped it. <see cref="ChatItemViewModel.At"/> is when it began to run (after an OK, if it waited for one).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HeadText))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
     private DateTime? _ended;
 
     private TimeSpan? Took => At is { } at && Ended is { } ended ? ended - at : null;
@@ -426,27 +426,11 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>"Running…", and after a few seconds for how long ("Running… 0:12"), as the wait for the model counts: a long command doesn't look stuck.</summary>
     private string RunningText => At is { } at && DateTime.UtcNow - at is { TotalSeconds: >= 3 } running ? $"Running… {ChatTimes.Stopwatch(running)}" : "Running…";
 
-    /// <summary>
-    /// Over the card, as over the model's step: when the call began to run and how it ended in how
-    /// long ("14:05:09 · Done in 1.2 s"). It was at the card's top right, where the thoughts' time is
-    /// over them on the left (the user, 2026-10-31).
-    /// </summary>
-    public string HeadText => At is { } at ? $"{ChatTimes.Clock(at)} · {StatusText}" : StatusText;
-
-    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(At))
-            OnPropertyChanged(nameof(HeadText));
-    }
-
     /// <summary>Called every second while a run is on, for the count in <see cref="StatusText"/>.</summary>
     public void Tick()
     {
-        if (State != ToolItemState.Running || Progress.Length > 0)
-            return;
-        OnPropertyChanged(nameof(StatusText));
-        OnPropertyChanged(nameof(HeadText));
+        if (State == ToolItemState.Running && Progress.Length == 0)
+            OnPropertyChanged(nameof(StatusText));
     }
 
     public Task<bool> WaitForApprovalAsync(CancellationToken ct)

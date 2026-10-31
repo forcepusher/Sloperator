@@ -1452,8 +1452,8 @@ check the list's own enumerator makes, and a copy made during a context reset co
 Every line of the chat shows when it happened, so where a task's time went can be read off it: a
 message the time it was sent, each step of the model when it was asked and how long it took
 ("14:05:09 · model 41 s"; its tooltip splits that into sending the request, waiting for the first
-words, and writing), each tool call when it began to run and how long it ran ("14:05:09 · Done in 1.2 s", over its card on the left as the model's line is over its thoughts; a
-wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
+words, and writing), each tool call how long it ran ("Done in 1.2 s", when it began in its tooltip:
+the step over it has the time; a wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
 and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s").
 The times are saved with the chat; a chat saved before they were kept shows none.
@@ -2759,14 +2759,13 @@ begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are
 addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
 only once it changed a file, so the first cards (a list, a read) would still show whole paths.
 
-The time and how the call ended moved out of the card's top right to over the card on the left
-(`ToolCallItem.HeadText`, "04:51:10 · Done in 1 ms"), as the model's step has its time over its
-thoughts (the user, 2026-10-31: one place for the times). The same `TextBlock.muted`, the same 6
-between it and the box as the step's `StackPanel`: measured in the app, 9 empty rows from the line's
-ink to the card's border at 100% and to the Thoughts' border alike, 11 and 11 at 125%. With nothing
-beside it now, the line has the card's width less the chip's. The chip and one line sit as a
-one-line card's did before (row for row the same at 100%). `ToolCardLayoutTests` checks the paths,
-one line with the whole in the tooltip, and the time over the card at its left edge. Rig (ignored by
+How the call ended in how long stays at the card's top right, without the clock time it had before
+it ("Done in 1.2 s"; the time it began to run is the tooltip): too many times in the chat, the user
+said the same evening, as the step over the card has one already. Only the chat's cards lost it; the
+saved chat and the logs keep it. (The line had been moved over the card on the left, as the model's
+step has its time over its thoughts, and was put back: "This was a mistake".) The chip and the line
+sit as a one-line card's did before. `ToolCardLayoutTests` checks the paths, one line with the whole
+in the tooltip, and no clock time on the card. Rig (ignored by
 git): `.dev/tool-summary-test` (build.sh before|after into <name>125 and a DPI-unaware <name>100,
 run.ps1 with a stand-in calling list_directory, read_file, run_shell, copy and a read with a long
 path, close.ps1 closes the panel Auto opens for the command, size.ps1, hdr.ps1/rows.ps1/gap.ps1

@@ -1,5 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -90,22 +89,17 @@ public sealed class ToolCardLayoutTests
     }
 
     [Fact]
-    public void The_time_and_how_the_call_ended_are_over_the_card_on_the_left_as_over_the_thoughts()
+    public void A_card_says_how_long_the_call_took_without_the_time_it_began()
     {
-        var item = new ToolCallItem("1", "read_file", @"Read C:\notes.txt") { At = new DateTime(2026, 10, 31, 4, 51, 10, DateTimeKind.Local).ToUniversalTime() };
-        item.Ended = item.At!.Value.AddMilliseconds(1.2);
-        item.State = ToolItemState.Done;
-        Assert.Equal("04:51:10 · Done in 1 ms", item.HeadText);
-        Assert.Equal("Waiting for your OK", new ToolCallItem("1", "read_file", "x") { At = null, State = ToolItemState.AwaitingApproval }.HeadText);
-
-        var (head, card) = HeadlessApp.Run(() => Shown(item, shown =>
+        var item = new ToolCallItem("1", "read_file", @"Read C:\notes.txt") { State = ToolItemState.Done };
+        item.Ended = item.At!.Value.AddMilliseconds(8);
+        var (texts, tip) = HeadlessApp.Run(() => Shown(item, card =>
         {
-            var line = shown.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == item.HeadText);
-            var border = shown.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card"));
-            return (line.TranslatePoint(default, shown)!.Value, border.TranslatePoint(default, shown)!.Value);
+            var shown = card.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).ToList();
+            return (shown.Select(t => t.Text).ToList(), ToolTip.GetTip(shown.Single(t => t.Text == "Done in 8 ms")));
         }));
-        Assert.Equal(card.X, head.X);
-        Assert.True(head.Y < card.Y);
+        Assert.DoesNotContain(texts, t => t?.Contains(item.TimeText, StringComparison.Ordinal) == true);
+        Assert.Equal(item.TimeTip, tip);
     }
 
     [Theory]
