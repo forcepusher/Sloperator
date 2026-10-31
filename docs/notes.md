@@ -896,7 +896,7 @@ will be more tools extending to the left side of the screen later."). The **Side
 tools are something else; the code's names followed in 1.2.0: `ISidePanel`, `SidePanelOption`, and on 2026-10-31, at the user's word that panels be panels in the code too, `SidePanelCard` (was `ToolCard`) and the comments that still called a panel a tool)
 takes the place of the second Sloperator logo and name under the title bar, an arrow pointing
 left beside it (outside the button since 2026-10-29, at the user's word), where its panels open: None or Video editor (`SidePanelOption`, `ISidePanel`, more to come); it
-now reads None, File changes, File inspector, Code editor, Image editor, Video editor, Web preview, Terminal (the user, 2026-10-26, and on 2026-11-01: "Put terminal last, and live preview before it"), each with a grey line of what it is. The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
+now reads None, Auto, File changes, File inspector, Code editor, Image editor, Video editor, Web preview, Terminal (the user, 2026-10-26, and on 2026-11-01: "Put terminal last, and live preview before it"; Auto after None, picked when a window opens: see Auto under Tools the agent has), each with a grey line of what it is. The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
 development" beside it (the user, 2026-10-24) went on 2026-10-29, at the user's word. Its
 arrows are solid triangles, the left one and the dropdown's, as History's and every dropdown's are
 (the user: "Arrows need consistency"; Fluent's thin chevron is replaced in App.axaml by a style
@@ -4028,6 +4028,72 @@ command ("…; exit 2\n$SloperatorOk = $? : Missing file"), and the position of 
 ("At line:2 char:1 + . $SloperatorCommand"), the one error that names it. A command now runs from a file past
 about 4,500 characters (Base64 in Base64 is longer), where it was about 12,000. Tests: `ToolTests`' Windows shell
 test checks the text and the line number; exit codes, stderr and the long command's file as before.
+
+### Auto
+**Auto** in the Side panel dropdown, right after None, and what a window opens with (the user, 2026-11-01: "a
+panel mode where relevant panels activate live for you to see everything happening as the model goes"; they had
+no rule in mind for which panel is the relevant one). It shows the panel of the agent's latest tool call that has
+one, and keeps it through the calls that have none (screenshots, clicks, reads, searches): one rule from the call
+alone, its tool, its arguments and what it made, the same for every model and server (`AutoRule`):
+- run_shell, ssh: **Terminal**, as the call starts, so the command's lines come in as it prints them.
+- write_file, edit_file, once the change is in File changes' list (`FileChanges.LastChange`, new since the last
+  call): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
+  there), in **Web preview**; a picture, animation, video, sound, 3D model or document (Word, Excel, PowerPoint,
+  PDF, an SVG elsewhere) in the **File inspector**, which draws it; any other file (code, text, Markdown, a table)
+  in **File changes**, its lines lit as with the panel open. A file on a server, or in Sloperator's own Data, isn't
+  in the list and shows nothing.
+- video: the **Video editor**, on the call's video (by its folder or its name in the videos folder, else the one
+  changed last, which the tool goes on with), as it starts, so the piece being made shows "Making it…"; and again
+  once it ends, which opens a video the call only then made.
+- comfyui: a run with save_to a picture of the Image editor's (a folder right in Data\pictures) in the **Image
+  editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
+  for one of its pictures). Looking things up (templates, models, status) shows nothing.
+
+Considered and left out: reads (exploring a project reads dozens of files, and the panel would flicker through
+them), the Code editor for edits (File changes shows what changed and every file changed, lit; the Code editor is
+for the user's own editing and needs 800), switching only at a call's end (a command's lines and a shot's progress
+are what is live). A coding loop does go File changes, Terminal, File changes: that is the work as it goes.
+
+**Nothing moves mid-task.** Auto's room is as narrow and as short as the widest and tallest of its panels needs
+(770, the Video editor's, and 633 tall; `WithAuto` takes them from the options), so a panel for another never
+resizes the window: `MainWindow.Dock` sees the same pick (`_dockedFor`) and only puts the new panel in the room,
+which keeps the width the splitter left it at. The dropdown keeps saying "Auto", so the chat's bar doesn't change
+either; each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the old
+panel's content, then the new one's.
+
+**No context of its own.** Auto never picks anything: it shows panels (`Follow`), and a message typed with it
+open goes as it is, as with every panel (see the Side panel under Videos: a card only of what the user picked). Before the agent has done anything a panel shows, the
+panel lists what Auto opens for what (`AutoPanelViewModel`, `AutoPanel`), and its `About` is null. While something
+picked in the panel shown waits in the box, Auto holds that panel, for the message about it, and goes on with the
+calls after (a switch would have taken the pick away, as another panel picked by hand does). A message from the
+panel shown (Make the video, Make again) says that panel's name (`ShownSidePanel`), not "Auto".
+
+**File changes is kept reading** while Auto is picked, shown or not (`_autoChanges`): opened only when a change
+came, its first read has no "just now", so nothing lit up and nothing was scrolled to. Every other panel is made
+anew when Auto goes to it and let go when Auto leaves it: Terminal shows the newest command, Web preview opens the
+page (`IFilePanel.Show`), the Video editor opens the video, the Image editor shows the picture (`Show`, which
+selects it without picking it: only a click picks).
+
+**A chat on screen** (opened from History, New chat, the current one deleted or its first message undone) shows
+the panel of its latest call that has one, read from its cards (`FromChat`; a chat from History keeps a call's
+arguments in the conversation, not on its card), else the list. Picking a panel by hand, or **Open in**/Inspect
+on a file, leaves Auto for that panel until Auto is picked again: the user's pick, which Auto would take away at the
+agent's next call. The × closes the panel as for any (None).
+
+**Opens with the window.** The view model starts on Auto, and `ChatWindows.Open` opens it (`OpenSidePanel`)
+before the window is first shown, so the window opens as wide as chat and panel are rather than growing to the
+left before the user's eyes. `Dock` before the window is shown sets its place directly (no cover, no layout of
+its own); opening centred (no place kept yet), the window is centred as wide as it is, and once shown the chat
+alone is taken as its right end at the width it was to be (`_centredChat`), so a window closed or set to None is
+the chat as wide as before, not as narrow as the screen squeezed it beside the panel. The choice isn't kept
+between runs: every window opens on Auto.
+
+Checked in the app (2026-11-01, laptop at 125%, a stand-in agent holding each call until the driver had captured
+the panel): Terminal for a command, File changes lit for stars.js (no page yet), Web preview running the game once
+index.html and game.js were written, File changes lit for a Python script and then its edit, the File inspector
+drawing an SVG mockup, the Video editor on the storyboard the call made, Terminal again; New chat showed the list,
+the chat opened from History showed Terminal (its last call). With a line of the script picked in the box, a
+command run after left File changes as it was. Tests: `AutoPanelTests` (the rule, the list's layout at 770).
 
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen

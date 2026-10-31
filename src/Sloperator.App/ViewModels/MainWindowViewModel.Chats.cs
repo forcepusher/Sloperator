@@ -146,6 +146,7 @@ public sealed partial class MainWindowViewModel
         // A chat that ended stopped can be carried on from where it stopped; an earlier stop it went on from can't.
         foreach (var notice in Items.OfType<NoticeItem>())
             notice.CanContinue = notice.Stopped && ReferenceEquals(notice, Items[^1]);
+        AutoChatChanged();
         MarkCurrentChat();
     }
 
@@ -163,7 +164,10 @@ public sealed partial class MainWindowViewModel
         var pasted = (_chats.Load(row.Id)?.Entries ?? []).Where(e => e.Kind == ChatEntryKind.User).SelectMany(e => e.Files ?? [])
             .Where(f => string.Equals(Path.GetDirectoryName(f), _paths.PastedDir, StringComparison.OrdinalIgnoreCase)).ToList();
         if (row.Id == _chatId)
+        {
             LeaveChat(save: false);
+            AutoChatChanged();
+        }
         _chatSaver.Forget(row.Id);
         _chats.Delete(row.Id);
         try { File.Delete(ChangesFile(row.Id)); }
@@ -263,6 +267,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(ChatTitle));
         ContextUsage = "";
+        AutoChatChanged();
         MarkCurrentChat();
     }
 

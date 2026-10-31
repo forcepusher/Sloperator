@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Auto** in the Side panel dropdown, after None, and what every window now opens with: the panel for
+  what the agent is doing opens as it does it. Terminal for the commands it runs, Web preview for a web
+  page it writes (and the scripts beside it), the File inspector for a picture, document or sound it
+  makes, File changes for the code and text it changes, the Video editor for a video, the Image editor
+  for a new version of a picture. Calls with no panel (clicks, screenshots, reading) leave it as it is,
+  and so does something you picked in the panel until you send it. Going from one panel to another
+  never resizes the window. Pick another panel, or open a file in one, to keep that one.
 - **Terminal** in the Side panel dropdown: the commands the agent runs, on this PC and over SSH, listed
   as they run with where they ran, their exit code and how long they took, and the one you pick shown
   whole as it prints, every line of it (the agent itself reads only the start and end of a long output).

@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.AutoPanel"
+             x:DataType="vm:AutoPanelViewModel"
+             Background="{StaticResource BbBackground}">
+
+  <DockPanel>
+    <!-- How Auto works, then × to close, as every panel's bar. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <TextBlock Classes="muted" Text="{Binding Hint}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Hint}" />
+      </DockPanel>
+    </Border>
+
+    <!-- Until the agent does something a panel shows: what it does, and the panel that opens for it. -->
+    <ItemsControl ItemsSource="{Binding Rows}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16" Grid.IsSharedSizeScope="True"
+                  AutomationProperties.Name="What Auto shows">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AutoRow">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" SharedSizeGroup="Does" />
+              <ColumnDefinition Width="16" />
+              <ColumnDefinition Width="Auto" SharedSizeGroup="Panel" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Classes="muted" Text="{Binding Does}" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="2" Text="{Binding Panel}" FontWeight="SemiBold" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </DockPanel>
+</UserControl>

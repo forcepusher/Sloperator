@@ -223,6 +223,7 @@ public sealed partial class MainWindowViewModel
         // Its time counts from here: a wait for the user's OK before it is not the call's.
         item.At = at;
         item.State = ToolItemState.Running;
+        AutoStarted(call);
     });
 
     void IAgentObserver.OnToolProgress(ToolCall call, string text) => Dispatcher.UIThread.Post(() =>
@@ -267,6 +268,7 @@ public sealed partial class MainWindowViewModel
                 item.State = AgentSession.IsCutShort(result.Text) ? ToolItemState.Stopped
                     : result.IsError ? ToolItemState.Error : ToolItemState.Done;
         }
+        AutoEnded(call, result);
     });
 
     /// <summary>Set when the run is ending on a bug (see <see cref="IAgentObserver.OnFailed"/>), whose stack trace went into the crash log.</summary>

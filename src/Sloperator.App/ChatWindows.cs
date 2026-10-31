@@ -89,6 +89,9 @@ public sealed class ChatWindows
         var vm = new MainWindowViewModel(_paths, store, settings, this);
         var window = new MainWindow { DataContext = vm };
         window.Restore(settings.Window, Front()?.Window);
+        // The side panel picked as it opens (Auto) is there from the start: opened once shown, the
+        // window would grow to the left before the user's eyes.
+        vm.OpenSidePanel();
         _open = [.. _open, (vm, window)];
         _notifyTags[vm] = $"window-{++_opened}";
         // In front, the window says what its notification said: that one has nothing more to tell.

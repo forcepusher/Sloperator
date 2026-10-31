@@ -212,6 +212,18 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         });
     }
 
+    /// <summary>
+    /// The picture in <paramref name="folder"/> shown, its newest version big (Auto, as the agent makes
+    /// one), without picking it: only a click on it picks it, for the box.
+    /// </summary>
+    public void Show(string folder)
+    {
+        Refresh();
+        if (Pictures.FirstOrDefault(p => string.Equals(p.Folder, Path.TrimEndingDirectorySeparator(folder), StringComparison.OrdinalIgnoreCase)) is { } picture
+            && !ReferenceEquals(picture, Selected))
+            Selected = picture;
+    }
+
     /// <summary>The pictures folder read again: new pictures in the list, new versions under the one shown (the newest then shown, as the agent's run makes it).</summary>
     public void Refresh()
     {

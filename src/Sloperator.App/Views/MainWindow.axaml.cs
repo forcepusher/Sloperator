@@ -172,6 +172,15 @@ public partial class MainWindow : Window
     {
         base.OnOpened(e);
         InputBox.Focus();
+        // Opened centred with its side panel: the chat alone is its right end, as wide as it was to be
+        // (the screen may have squeezed it), so closed or back to None it is that again, not narrower.
+        if (_centredChat is { } chat && _docked > 0 && WindowState == WindowState.Normal)
+        {
+            var scaling = (Screens.ScreenFromWindow(this) ?? Screens.Primary)?.Scaling ?? 1;
+            _beforeDock = (new PixelPoint(Position.X + (int)Math.Round((Width - chat) * scaling), Position.Y), chat);
+            _afterDock = (Position, Width);
+        }
+        _centredChat = null;
     }
 
     // ---- size and place, kept between runs -----------------------------------------------------
@@ -604,12 +613,19 @@ public partial class MainWindow : Window
     /// <summary>Where the window was and how wide before the side panel opened, and after: closed with the window as it was left, it goes back there.</summary>
     private (PixelPoint Position, double Width)? _beforeDock, _afterDock;
 
+    /// <summary>The dropdown's pick the panel's room was made for; null with none.</summary>
+    private SidePanelOption? _dockedFor;
+
+    /// <summary>How wide the chat was to be when the window, opening centred, was made wider for its side panel; null otherwise.</summary>
+    private double? _centredChat;
+
     /// <summary>
     /// A panel picked in the Side panel dropdown opens on the left of the chat: the window grows to the
     /// left by the panel's width, so the chat stays where it was on the screen (as far as the screen
     /// has room; else the window takes the screen's width, the panel and the chat sharing it). None
     /// gives the room back. A maximized window keeps its size, and the two share it. Made narrower,
     /// the panel gives way down to its least before the chat does (<see cref="SidePanelColumns"/>).
+    /// Before the window is first shown (Auto, as it opens), it is made that wide and opens so.
     /// </summary>
     private void Dock()
     {
@@ -620,6 +636,11 @@ public partial class MainWindow : Window
         // Set here, not bound: a binding could take it after this lays the window out, which then
         // showed the panel's place empty for a frame and drew the panel in the next.
         SidePanelContent.Content = Vm.SidePanel;
+        // Auto going from one panel to another: the room stays as it is, as wide as the splitter left it,
+        // and the window with it; only what is in it changes (the user: nothing moves mid-task).
+        if (option is not null && ReferenceEquals(option, _dockedFor) && _docked > 0)
+            return;
+        _dockedFor = width > 0 ? option : null;
         if (width <= 0 && _docked <= 0)
             return;
         // Picked, the dropdown's list goes before the window changes: left to the dropdown, it went
@@ -652,7 +673,11 @@ public partial class MainWindow : Window
                 var x = Math.Max(area.X, Math.Min(chat.Position.X - (int)(add * scaling), area.Right - outer));
                 place = (new PixelPoint(x, chat.Position.Y), wide);
             }
-            _beforeDock = place is null ? null : chat;
+            // Opening centred (no place kept yet), it is centred as wide as it is: where the chat alone is
+            // is known once it is shown (OnOpened).
+            var centred = place is not null && !IsVisible && WindowStartupLocation != WindowStartupLocation.Manual;
+            _centredChat = centred ? chat.Width : null;
+            _beforeDock = place is null || centred ? null : chat;
             _afterDock = null;
             // As narrow as the panel and the chat may both get, if the screen is as wide: lowered
             // before the window is resized, which it couldn't be below the least of the panel before.
@@ -668,7 +693,9 @@ public partial class MainWindow : Window
             _least = least;
             var size = place?.Width ?? Columns.Bounds.Width;
             FitColumns(size);
-            LayOut(size);
+            // Before it is first shown, the window lays itself out as it opens.
+            if (IsVisible)
+                LayOut(size);
             if (place is { } p)
             {
                 Place(p.Position, p.Width);
@@ -740,7 +767,7 @@ public partial class MainWindow : Window
             return;
 #if WINDOWS
         var fill = this.FindResource("BbBackground") is Avalonia.Media.ISolidColorBrush brush ? brush.Color.ToUInt32() & 0xFFFFFF : 0;
-        if (OperatingSystem.IsWindows() && TryGetPlatformHandle()?.Handle is { } hwnd && hwnd != 0
+        if (IsVisible && OperatingSystem.IsWindows() && TryGetPlatformHandle()?.Handle is { } hwnd && hwnd != 0
             && Platform.Windows.WindowsPlatform.MoveAndWiden(hwnd, position.X - Position.X, (int)Math.Round((width - Width) * RenderScaling), fill, Shot(fill, out var across), across))
         {
             // The window told Avalonia its new size as it changed; Width follows it, or the next
