@@ -53,8 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
 
 ### Changed
-- Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.
-- A picture picked in a side panel (an area marked in File inspector, Live preview or Image editor)
+- Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.- A picture picked in a side panel (an area marked in File inspector, Live preview or Image editor)
   shows itself on its card over the message box and in the sent message, in place of a file icon.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.

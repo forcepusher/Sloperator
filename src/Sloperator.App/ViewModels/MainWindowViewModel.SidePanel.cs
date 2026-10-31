@@ -87,15 +87,15 @@ public sealed partial class MainWindowViewModel
         new("Code editor", "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
+        new("Image editor", "Make pictures and redraw parts of them", 760, 0,
+            vm => new ImageEditorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
+        new("Video editor", "Plan and make a video shot by shot", 770, 633,
+            vm => new VideoEditorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
         new("Live preview", "Play a web page or game as it is built", 640, 0,
             vm => new LivePreviewViewModel(vm, vm._paths.PastedDir, vm._paths.WebViewDir),
             OpenIn: "Live preview", Opens: Core.Web.LivePage.IsPage),
         new("Terminal", "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
-        new("Image editor", "Make pictures and redraw parts of them", 760, 0,
-            vm => new ImageEditorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
-        new("Video editor", "Plan and make a video shot by shot", 770, 633,
-            vm => new VideoEditorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];
 
     private const string FileInspectorName = "File inspector", FileChangesName = "File changes";
