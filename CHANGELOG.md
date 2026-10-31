@@ -83,6 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The × that closes a side panel is read out as "Close the panel" by screen readers (it said "Close
   the tool").
 
+### Changed
+- A picture picked in a side panel (an area marked in File inspector or Picture generator) shows itself
+  on its card over the message box and in the sent message, in place of a file icon.
+
 ### Fixed
 - In the File inspector, a sound's playhead moves while it plays again, and playing a stretch you
   picked stops at its end. Animations (GIF, WebP, APNG) play there again too.
