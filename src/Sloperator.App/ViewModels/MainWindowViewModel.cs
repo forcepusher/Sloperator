@@ -90,7 +90,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             OnPropertyChanged(nameof(QueuedTitle));
             InterruptCommand.NotifyCanExecuteChanged();
         };
-        _selectedSidePanel = SidePanelOptions[0];
+        // Auto, the default (the user, 2026-11-01): the window opens with it (OpenSidePanel).
+        _selectedSidePanel = SidePanelOptions.First(o => o.Name == AutoName);
         UseChanges(new Core.Diffs.FileChanges());
     }
 
@@ -264,6 +265,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         _tick.Stop();
         // The side panel goes with the window: its players, the watch on its folder.
         SidePanel?.Dispose();
+        EndAuto(SidePanel);
         // A sound playing in the chat stops with it.
         foreach (var item in Items)
             item.DisposePreviews();
@@ -818,6 +820,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private void NewChat()
     {
         LeaveChat(save: true);
+        AutoChatChanged();
         MarkCurrentChat();
     }
 

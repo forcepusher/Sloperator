@@ -75,8 +75,8 @@ public sealed partial class MainWindowViewModel
 {
     // ---- the side panel, on the left of the chat ------------------------------------------------
 
-    /// <summary>What the Side panel dropdown offers: nothing, or a panel that opens on the left of the chat.</summary>
-    public IReadOnlyList<SidePanelOption> SidePanelOptions { get; } =
+    /// <summary>What the Side panel dropdown offers: nothing, Auto, or a panel that opens on the left of the chat.</summary>
+    public IReadOnlyList<SidePanelOption> SidePanelOptions { get; } = WithAuto(
     [
         new("None", "", 0, 0, null),
         new(FileChangesName, "Files the agent changed", 560, 0,
@@ -96,7 +96,20 @@ public sealed partial class MainWindowViewModel
             OpenIn: "Web preview", Opens: Core.Web.PreviewPage.IsPage),
         new("Terminal", "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
-    ];
+    ]);
+
+    /// <summary>
+    /// The panels, with Auto after None (the default, the user's 2026-11-01): it shows each panel
+    /// as the agent works in it (<see cref="AutoRule"/>), in a room as narrow and short as the widest
+    /// and tallest of those panels needs, so going from one to another never moves the window.
+    /// </summary>
+    private static List<SidePanelOption> WithAuto(List<SidePanelOption> options)
+    {
+        var shown = options.Where(o => AutoRule.Panels.Contains(o.Name)).ToList();
+        options.Insert(1, new(AutoName, "Follows the agent from panel to panel", shown.Max(o => o.MinWidth), shown.Max(o => o.MinHeight),
+            vm => vm.StartAuto()));
+        return options;
+    }
 
     private const string FileInspectorName = "File inspector", FileChangesName = "File changes";
 
@@ -110,7 +123,11 @@ public sealed partial class MainWindowViewModel
     internal IEnumerable<SidePanelOption> PanelsFor(string path) => SidePanelOptions.Where(o => o.OpenIn is not null && o.Opens?.Invoke(path) == true
         && !(ReferenceEquals(o, SelectedSidePanel) && SidePanel is IFilePanel { Path: { } shown } && string.Equals(shown, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)));
 
-    /// <summary>The file in that panel (a card's Inspect, Open in on its right-click menu), which opens in place of the panel open (if another).</summary>
+    /// <summary>
+    /// The file in that panel (a card's Inspect, Open in on its right-click menu), which opens in place
+    /// of the panel open (if another). Under Auto too: the user's own pick, it stays until they pick
+    /// Auto again, where Auto would take it away at the agent's next call.
+    /// </summary>
     internal void OpenIn(SidePanelOption panel, string path)
     {
         if (!ReferenceEquals(SelectedSidePanel, panel))
@@ -131,16 +148,28 @@ public sealed partial class MainWindowViewModel
 
     public bool HasSidePanel => SidePanel is not null;
 
-    partial void OnSelectedSidePanelChanged(SidePanelOption? value)
+    partial void OnSelectedSidePanelChanged(SidePanelOption? oldValue, SidePanelOption? newValue)
     {
         var old = SidePanel;
         // What it put in the box goes with it: about a video no longer open, it would be sent bare.
         foreach (var picked in Attachments.Where(a => a.Picked).ToList())
             RemoveAttachment(picked);
+        if (oldValue?.Name == AutoName)
+            EndAuto(old);
         // One panel for another in one change, so the window goes from the one to the other
         // without closing between.
-        SidePanel = value?.Open is { } open && !_closed ? open(this) : null;
+        SidePanel = newValue?.Open is { } open && !_closed ? open(this) : null;
         old?.Dispose();
+    }
+
+    /// <summary>
+    /// The panel picked when the window opens (Auto), before it is first shown: the window opens with
+    /// it, rather than growing to the left as it appears.
+    /// </summary>
+    internal void OpenSidePanel()
+    {
+        if (SidePanel is null && SelectedSidePanel?.Open is { } open && !_closed)
+            SidePanel = open(this);
     }
 
     /// <summary>
@@ -204,7 +233,7 @@ public sealed partial class MainWindowViewModel
             return input;
         var cards = Attachments.Where(a => a.Picked && picked.Contains(a.Path, StringComparer.OrdinalIgnoreCase))
             .Select(a => new SidePanelCard(a.Title, Path: a.Path)).ToList();
-        var name = SelectedSidePanel?.Name ?? "Side panel";
+        var name = ShownSidePanel?.Name ?? "Side panel";
         var about = sidePanel.About(picked) ?? (name, $"[The {name} panel is open beside the chat, with nothing in it yet.]");
         if (picked.Count > 0)
             sidePanel.Sent();
