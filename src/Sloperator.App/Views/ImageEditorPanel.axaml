@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Sloperator.App.ViewModels"
              xmlns:views="using:Sloperator.App.Views"
-             x:Class="Sloperator.App.Views.PictureGeneratorPanel"
-             x:DataType="vm:PictureGeneratorViewModel"
+             x:Class="Sloperator.App.Views.ImageEditorPanel"
+             x:DataType="vm:ImageEditorViewModel"
              Background="{StaticResource BbBackground}">
 
   <UserControl.Styles>

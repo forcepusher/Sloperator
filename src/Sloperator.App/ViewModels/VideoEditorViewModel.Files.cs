@@ -4,7 +4,7 @@ using Sloperator.Core.Video;
 
 namespace Sloperator.App.ViewModels;
 
-public sealed partial class VideoGeneratorViewModel
+public sealed partial class VideoEditorViewModel
 {
     // ---- saving --------------------------------------------------------------------------------------------
 

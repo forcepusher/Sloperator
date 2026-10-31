@@ -16,7 +16,7 @@ namespace Sloperator.App.Views;
 /// it shows: <c>FileMenu.Image</c>, the picture on screen; <c>FileMenu.Data</c>, the picture's bytes
 /// when no file has it (a screenshot); <c>FileMenu.File</c>, the file behind it. A right-click on it,
 /// or on anything in it without a menu of its own, opens the menu. A menu of its own (the Video
-/// generator's, File changes') takes <see cref="Items(Visual, IImage, byte[], string)"/> at its end.
+/// editor's, File changes') takes <see cref="Items(Visual, IImage, byte[], string)"/> at its end.
 /// </summary>
 public static class FileMenu
 {

@@ -5,7 +5,7 @@ using static Sloperator.Core.Strings;
 
 namespace Sloperator.App.ViewModels;
 
-public sealed partial class VideoGeneratorViewModel
+public sealed partial class VideoEditorViewModel
 {
     // ---- the pieces --------------------------------------------------------------------------------------------
 

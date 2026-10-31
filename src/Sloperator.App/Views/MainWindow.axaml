@@ -252,11 +252,11 @@
     </DataTemplate>
 
     <!-- The side panel, on the left of the chat. -->
-    <DataTemplate DataType="vm:VideoGeneratorViewModel">
-      <views:VideoGeneratorPanel />
+    <DataTemplate DataType="vm:VideoEditorViewModel">
+      <views:VideoEditorPanel />
     </DataTemplate>
-    <DataTemplate DataType="vm:PictureGeneratorViewModel">
-      <views:PictureGeneratorPanel />
+    <DataTemplate DataType="vm:ImageEditorViewModel">
+      <views:ImageEditorPanel />
     </DataTemplate>
     <DataTemplate DataType="vm:FileChangesViewModel">
       <views:FileChangesPanel />
@@ -267,8 +267,8 @@
     <DataTemplate DataType="vm:CodeEditorViewModel">
       <views:CodeEditorPanel />
     </DataTemplate>
-    <DataTemplate DataType="vm:LivePreviewViewModel">
-      <views:LivePreviewPanel />
+    <DataTemplate DataType="vm:WebPreviewViewModel">
+      <views:WebPreviewPanel />
     </DataTemplate>
     <DataTemplate DataType="vm:TerminalViewModel">
       <views:TerminalPanel />
@@ -323,7 +323,7 @@
       </views:WholeRow>
     </views:TitleBar.Status>
   </views:TitleBar>
-  <!-- A side panel (Video generator) in a column of its own on the left, the chat on the right.
+  <!-- A side panel (Video editor) in a column of its own on the left, the chat on the right.
        Shown and hidden by the window as it makes room for it (MainWindow.Dock). -->
   <Grid x:Name="Columns" ColumnDefinitions="0,0,*">
     <Border x:Name="SidePanelHost" Grid.Column="0" IsVisible="False">

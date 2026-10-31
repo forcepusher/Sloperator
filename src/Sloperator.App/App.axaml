@@ -255,7 +255,7 @@
     <Style Selector="TextBlock.muted.error, SelectableTextBlock.muted.error">
       <Setter Property="Foreground" Value="{StaticResource BbError}" />
     </Style>
-    <!-- What a field is, left of it: in the chat's top rows, Settings and Video generator's bar. -->
+    <!-- What a field is, left of it: in the chat's top rows, Settings and Video editor's bar. -->
     <Style Selector="TextBlock.label">
       <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
       <Setter Property="FontSize" Value="12" />

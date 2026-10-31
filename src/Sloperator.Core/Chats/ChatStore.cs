@@ -28,7 +28,7 @@ public sealed class ChatEntry
 
     public bool IsError { get; set; }
 
-    /// <summary>For a message of the user's written elsewhere than the chat's box: where ("Video generator · The Fox and the Moon · clip 2").</summary>
+    /// <summary>For a message of the user's written elsewhere than the chat's box: where ("Video editor · The Fox and the Moon · clip 2").</summary>
     public string? Via { get; set; }
 
     /// <summary>For such a message: what the model was told with it (see <see cref="UserInput.Context"/>), for Continue to send it again whole.</summary>

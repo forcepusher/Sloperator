@@ -2,7 +2,7 @@ using Avalonia.Media;
 
 namespace Sloperator.App.ViewModels;
 
-/// <summary>The icons of every player's buttons: the chat's cards, the viewer, the File inspector and the Video generator.</summary>
+/// <summary>The icons of every player's buttons: the chat's cards, the viewer, the File inspector and the Video editor.</summary>
 public static class PlayerIcons
 {
     private static readonly Geometry PlayShape = StreamGeometry.Parse("M8 5v14l11-7z");

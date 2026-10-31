@@ -10,7 +10,7 @@ namespace Sloperator.App.ViewModels;
 
 /// <summary>
 /// A panel that opens on the left of the chat window, picked in the Side panel dropdown at the top of
-/// it (Video generator, File changes). It works through the chat: what is picked in it goes into the
+/// it (Video editor, File changes). It works through the chat: what is picked in it goes into the
 /// chat's box, and what the user sends from there is done by the agent in the chat, in view.
 /// </summary>
 public interface ISidePanel : IDisposable
@@ -87,15 +87,15 @@ public sealed partial class MainWindowViewModel
         new("Code editor", "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
-        new("Live preview", "Play a web page or game as it is built", 640, 0,
-            vm => new LivePreviewViewModel(vm, vm._paths.PastedDir, vm._paths.WebViewDir),
-            OpenIn: "Live preview", Opens: Core.Web.LivePage.IsPage),
+        new("Image editor", "Make pictures and redraw parts of them", 760, 0,
+            vm => new ImageEditorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
+        new("Video editor", "Plan and make a video shot by shot", 770, 633,
+            vm => new VideoEditorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
+        new("Web preview", "Play a web page or game as it is built", 640, 0,
+            vm => new WebPreviewViewModel(vm, vm._paths.PastedDir, vm._paths.WebViewDir),
+            OpenIn: "Web preview", Opens: Core.Web.PreviewPage.IsPage),
         new("Terminal", "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
-        new("Picture generator", "Make pictures and redraw parts of them", 760, 0,
-            vm => new PictureGeneratorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
-        new("Video generator", "Plan and make a video shot by shot", 770, 633,
-            vm => new VideoGeneratorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
     ];
 
     private const string FileInspectorName = "File inspector", FileChangesName = "File changes";
@@ -222,7 +222,7 @@ public sealed partial class MainWindowViewModel
                      .Where(p => string.Equals(Path.GetFullPath(p.Path), path, StringComparison.OrdinalIgnoreCase)))
             if (preview.LetGo() is { } playback)
                 playing.Add(playback);
-        if (SidePanel is VideoGeneratorViewModel video && video.LetGo(path) is { } shown)
+        if (SidePanel is VideoEditorViewModel video && video.LetGo(path) is { } shown)
             playing.Add(shown);
         return playing;
     }

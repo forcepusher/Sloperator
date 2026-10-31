@@ -9,20 +9,20 @@ namespace Sloperator.Core.Tools;
 
 /// <summary>
 /// Videos from a storyboard (see <see cref="Storyboard"/>): the same video folder the user sees in
-/// the Video generator panel. The agent plans or changes it, makes its frames, songs and shots with
+/// the Video editor panel. The agent plans or changes it, makes its frames, songs and shots with
 /// ComfyUI (each with a fixed-seed workflow of its own), checks every shot against what it should
 /// show and fixes the ones that don't, joins them and checks the video. A check is numbers (does the
 /// clip start and end on its frames, does it move, does it jump) and a fresh look by the model at
 /// a sheet of its frames: the model that made a clip judged its own too kindly (four bunnies it
 /// called mature and true to the sheet, which the user saw as a chubby teenager).
 /// </summary>
-public sealed class VideoGeneratorTool : Tool
+public sealed class VideoEditorTool : Tool
 {
     public override string Name => "video";
 
     public override string Description =>
         "Make a video (a music video, a short story, an ad: anything longer than one shot) from a storyboard, with ComfyUI on this PC. " +
-        "The video is its folder, which the user also sees in Sloperator's Video generator panel beside the chat, from where they pick its pictures, clips and folders into their messages to you: " +
+        "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat, from where they pick its pictures, clips and folders into their messages to you: " +
         "References, with the pictures frames are made from (image files of the user's and generated images Sloperator makes) and the user's video files; Generated, with what Sloperator makes: each shot's frames and clip (s1.mp4) and the songs; and the joined video. The user calls the shots clips: clip 1 is the first. " +
         "Each file has a .json of its name beside it (what it is and how it was made: video.json for video.mp4) and the ComfyUI workflow that made it (video.workflow.json). " +
         "The storyboard is all of it at once: shots in order, each going from a first frame to an optional last frame in so many seconds, the pictures they start and end on, and the sounds over them. " +
@@ -40,7 +40,7 @@ public sealed class VideoGeneratorTool : Tool
         "Nothing is video-wide, so a change remakes only what it changes: write the video's look into every frame's and shot's prompt. " +
         "model is what one is made with: a model or workflow in words (\"z image turbo\", \"juggernaut xl\", \"my pony workflow\"), matched against what ComfyUI has installed, " +
         "or none for the best installed one; action=models lists what is installed for each kind of picture, video and song. " +
-        "Without path a new video goes into a folder of its own in Sloperator's Data\\videos, where the Video generator panel finds it " +
+        "Without path a new video goes into a folder of its own in Sloperator's Data\\videos, where the Video editor panel finds it " +
         "(Sloperator is portable: what it makes stays next to it). " +
         "A shot that starts on the last frame of the one before goes on with the same camera; " +
         "a new first frame is a cut to another scene or angle. Every shot starts on a frame: the video model animates a picture well and draws one badly. " +
@@ -55,7 +55,7 @@ public sealed class VideoGeneratorTool : Tool
         "action=frame id= makes a frame's picture (a reference's too) and has a fresh look at it; action=sound id= makes a song, a minute long at least (the video uses its start), the best of tries=3 by a judge " +
         "of how good music sounds (SongEval); write lyrics for the part the video uses; for foley it makes its sound from the clips under it, which are made first. action=shot id= makes a shot's clip and checks it (does it start and end on its frames, " +
         "how it moves, and a fresh look at what happens, faults and whether people stay the same); tries=N makes up to N tries with new seeds until one passes. " +
-        "What is made again keeps the one before as a version (in Versions, in its folder), which the user can put back in the Video generator panel. " +
+        "What is made again keeps the one before as a version (in Versions, in its folder), which the user can put back in the Video editor panel. " +
         "Fix a frame or shot the look finds wrong: a plainer prompt, another seed, frames closer to each other, or a new frame. " +
         "action=join puts the shots and the sounds together into the video; action=check looks at a frame or shot (id) or, without id, the whole video. " +
         "Order: frames (those others are made from first), the shots, the songs and foley, then join and check the video. " +
@@ -148,7 +148,7 @@ public sealed class VideoGeneratorTool : Tool
         var given = path is { Length: > 0 } ? ctx.ResolvePath(path) : _lastFolder;
         // A video's name alone ("Spaghetti Days"), or any path not from a drive, is its folder in
         // the videos folder, new or not: from the working folder, a new "lighthouse" was made in the
-        // user's home, out of Sloperator's Data, where the Video generator panel doesn't list it.
+        // user's home, out of Sloperator's Data, where the Video editor panel doesn't list it.
         if (path is { Length: > 0 } && !Path.IsPathRooted(path) && !Exists(given))
             given = Path.Combine(root, path);
         var change = args["storyboard"] as JsonObject;
@@ -156,7 +156,7 @@ public sealed class VideoGeneratorTool : Tool
         // this task, once that one says what is in it: "two ads, coffee and tea" wrote the tea ad
         // over the coffee one. Whole: shots that each say what happens, none taken out. A new title
         // alone, or with changes to some pieces, renames and changes the video in use, and the
-        // Video generator panel's new video (its empty s1, f1 and f2) is laid out in place.
+        // Video editor panel's new video (its empty s1, f1 and f2) is laid out in place.
         if (create && path is not { Length: > 0 } && Exists(given) && change?["title"] is JsonValue t && t.TryGetValue<string>(out var newTitle) &&
             newTitle.Trim().Length > 0 && change["shots"] is JsonArray { Count: > 0 } shots &&
             shots.All(s => s is JsonObject o && o["delete"] is null && o["prompt"] is JsonValue p && p.ToString().Trim().Length > 0) &&
@@ -264,7 +264,7 @@ public sealed class VideoGeneratorTool : Tool
             _maker = new VideoMaker(hub, ctx.Media) { Judge = ctx.ToolsDirectory is { } tools ? new SongJudge(Path.Combine(tools, "songeval")) : null };
             // From before it may be started: when the task is over, a ComfyUI Sloperator started is closed.
             _maker.Use();
-            ctx.AfterRun(nameof(VideoGeneratorTool), () =>
+            ctx.AfterRun(nameof(VideoEditorTool), () =>
             {
                 var maker = _maker;
                 _maker = null;
@@ -282,11 +282,11 @@ public sealed class VideoGeneratorTool : Tool
         if (changed)
         {
             // Every shot starts on a picture a picture model makes: one written without gets its own
-            // now, so the Video generator panel shows it, and it can be changed before it is made.
+            // now, so the Video editor panel shows it, and it can be changed before it is made.
             var added = board.AddFirstFrames();
             if (added.Count > 0)
                 board.Save();
-            line = $"Saved the video in {board.Folder}: each piece in References or Generated with its settings in a .json beside it. The user sees it in the Video generator panel (Side panel, at the top left of Sloperator).\n" +
+            line = $"Saved the video in {board.Folder}: each piece in References or Generated with its settings in a .json beside it. The user sees it in the Video editor panel (Side panel, at the top left of Sloperator).\n" +
                    (added.Count == 0 ? "" : $"Shots without a first frame got one each from their prompts ({string.Join(", ", added.Select(f => f.Id))}): " +
                                             "rewrite each as the still picture the shot starts on, with who is in it as the references show them.\n");
         }
@@ -466,7 +466,7 @@ public sealed class VideoGeneratorTool : Tool
 
     /// <summary>
     /// A fresh look at a frame (the model that wrote its prompt judges it too kindly), kept in its
-    /// workflow file for the Video generator panel to show, with what to fix; null when it couldn't be had.
+    /// workflow file for the Video editor panel to show, with what to fix; null when it couldn't be had.
     /// </summary>
     private static async Task<string?> LookAtFrameAsync(Storyboard board, VideoFrame frame, ToolContext ctx, CancellationToken ct)
     {
@@ -484,7 +484,7 @@ public sealed class VideoGeneratorTool : Tool
     }
 
     /// <summary>
-    /// What a fresh look found, kept in the piece's workflow file: the Video generator panel shows it with
+    /// What a fresh look found, kept in the piece's workflow file: the Video editor panel shows it with
     /// the piece, and it goes when the piece is made again.
     /// </summary>
     private static void RememberLook(string? workflow, string answer, IReadOnlyList<string> faults)
@@ -515,7 +515,7 @@ public sealed class VideoGeneratorTool : Tool
 
     /// <summary>
     /// Saves what a long job settled (a seed) onto the storyboard as it is on the disk now: saved
-    /// whole, the board read at the call's start wrote over what the user changed in the Video generator
+    /// whole, the board read at the call's start wrote over what the user changed in the Video editor
     /// window during minutes of tries, and the window then showed the tool's version.
     /// </summary>
     private static void SaveSettled(Storyboard board, Action<Storyboard> settle)
@@ -541,7 +541,7 @@ public sealed class VideoGeneratorTool : Tool
             return await FoleyAsync(board, sound, ctx, ct).ConfigureAwait(false);
         var songSeed = sound.Seed;
         var made = await KeepingVersionAsync(board, VideoPiece.Of(sound), () => Maker(ctx).MakeSongAsync(board, sound, ctx.Progress, ctx.UserMessage, ct, tries)).ConfigureAwait(false);
-        // The seed of the song kept; not over a seed the Video generator panel gave meanwhile.
+        // The seed of the song kept; not over a seed the Video editor panel gave meanwhile.
         SaveSettled(board, fresh =>
         {
             if (fresh.Sound(sound.Id) is { } kept && kept.Seed == songSeed) kept.Seed = sound.Seed;
@@ -632,7 +632,7 @@ public sealed class VideoGeneratorTool : Tool
             shot.Seed = best.Seed;
             SaveSettled(board, fresh =>
             {
-                // Not over a seed the Video generator panel gave meanwhile: the version it
+                // Not over a seed the Video editor panel gave meanwhile: the version it
                 // asked for was made again with the best one's, the same clip once more.
                 if (fresh.Shot(shot.Id) is { } kept && kept.Seed == startSeed)
                     kept.Seed = best.Seed;
@@ -652,7 +652,7 @@ public sealed class VideoGeneratorTool : Tool
         var head = $"Shot {shot.Id}: {attempts.Count} tr{(attempts.Count == 1 ? "y" : "ies")}; " +
                    (best.Verdict == "good" && best.Look.Faults.Count == 0 ? $"try {attempts.IndexOf(best) + 1} passed" : $"none passed, try {attempts.IndexOf(best) + 1} was the best") +
                    $" and is the shot's clip now: {board.ShotVideo(shot)} (seed {best.Seed}, saved in the storyboard)." +
-                   (attempts.Count > 1 ? " The others are kept as versions of the shot, which the user can put back in the Video generator panel: " +
+                   (attempts.Count > 1 ? " The others are kept as versions of the shot, which the user can put back in the Video editor panel: " +
                                       string.Join("; ", attempts.Where(t => t != best).Select(t => $"try {attempts.IndexOf(t) + 1} {t.Verdict ?? "no verdict"}" +
                                                                                                 (t.Look.Faults.Count > 0 ? $" ({string.Join(", ", t.Look.Faults)})" : ""))) + "." : "");
         return Result(board, shot, head, notes, best.Look, board.ShotVideo(shot));

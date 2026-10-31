@@ -9,8 +9,8 @@ using Xunit;
 
 namespace Sloperator.App.Tests;
 
-/// <summary>The Picture generator panel: its pictures and versions, what a pick tells the model, a part marked to redraw.</summary>
-public sealed class PictureGeneratorTests : IDisposable
+/// <summary>The Image editor panel: its pictures and versions, what a pick tells the model, a part marked to redraw.</summary>
+public sealed class ImageEditorTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-picture-gen-").FullName;
     private string Root => Path.Combine(_dir, "pictures");
@@ -39,7 +39,7 @@ public sealed class PictureGeneratorTests : IDisposable
     {
         HeadlessApp.Run(() =>
         {
-            using var vm = new PictureGeneratorViewModel(null, Root, Picks);
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
             Assert.False(vm.HasPictures);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
             vm.NewPictureCommand.Execute(null);
@@ -47,7 +47,7 @@ public sealed class PictureGeneratorTests : IDisposable
             Assert.Same(picture, vm.Selected);
             Assert.Equal("Untitled picture · not made yet", vm.Title);
             var (via, context) = vm.About([picture.Folder])!.Value;
-            Assert.Equal("Picture generator · Untitled picture · new", via);
+            Assert.Equal("Image editor · Untitled picture · new", via);
             Assert.Contains($"save_to set to the picture's folder, \"{picture.Folder}\"", context);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
             return 0;
@@ -63,7 +63,7 @@ public sealed class PictureGeneratorTests : IDisposable
         Png(Path.Combine(folder, "b.png"), 5);
         HeadlessApp.Run(() =>
         {
-            using var vm = new PictureGeneratorViewModel(null, Root, Picks);
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
             var picture = Assert.Single(vm.Pictures);
             Assert.Equal("2 versions", picture.Count);
             vm.Pick(picture);
@@ -76,7 +76,7 @@ public sealed class PictureGeneratorTests : IDisposable
             vm.Pick(picture, vm.Versions[0]);
             Assert.True(vm.Versions[0].IsShown);
             var (via, context) = vm.About([vm.Versions[0].Path])!.Value;
-            Assert.Equal("Picture generator · Lighthouse · version 1", via);
+            Assert.Equal("Image editor · Lighthouse · version 1", via);
             Assert.Contains("version 1 of 2", context);
             Assert.Contains($"2: {Path.Combine(folder, "b.png")}", context);
 
@@ -100,7 +100,7 @@ public sealed class PictureGeneratorTests : IDisposable
         Png(version, 1);
         HeadlessApp.Run(() =>
         {
-            using var vm = new PictureGeneratorViewModel(null, Root, Picks);
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
             vm.Pick(vm.Pictures[0]);
             Wait(() => vm.HasPicture);
             vm.PickArea(new DocumentArea(0.5, 0, 1, 0.5));
@@ -110,7 +110,7 @@ public sealed class PictureGeneratorTests : IDisposable
             Assert.Equal((32, 24), PictureFolder.SizeOf(crop));
             Assert.Equal((64, 48), PictureFolder.SizeOf(mask));
             var (via, context) = vm.About([crop])!.Value;
-            Assert.Equal("Picture generator · House · area of version 1", via);
+            Assert.Equal("Image editor · House · area of version 1", via);
             Assert.Contains("x 32-64, y 0-24 of the 64x48 pixels", context);
             Assert.Contains("name=sloperator/redraw_area", context);
             Assert.Contains($"5.image to the mask \"{mask}\"", context);
@@ -127,8 +127,8 @@ public sealed class PictureGeneratorTests : IDisposable
     {
         HeadlessApp.Run(() =>
         {
-            using var vm = new PictureGeneratorViewModel(null, Root, Picks);
-            var window = new Window { Width = 880, Height = 600, Content = new PictureGeneratorPanel { DataContext = vm } };
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var window = new Window { Width = 880, Height = 600, Content = new ImageEditorPanel { DataContext = vm } };
             window.Show();
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("No pictures yet", vm.EmptyText);

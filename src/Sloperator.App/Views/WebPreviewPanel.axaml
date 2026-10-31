@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Sloperator.App.ViewModels"
              xmlns:views="using:Sloperator.App.Views"
-             x:Class="Sloperator.App.Views.LivePreviewPanel"
-             x:DataType="vm:LivePreviewViewModel"
+             x:Class="Sloperator.App.Views.WebPreviewPanel"
+             x:DataType="vm:WebPreviewViewModel"
              Background="{StaticResource BbBackground}">
   <DockPanel>
     <!-- Area at the left, as the File inspector's; the page's name and the folder served; Reload, Open file
@@ -60,8 +60,8 @@
         <!-- WebView2 isn't on the PC: what to get, in place of the page. -->
         <StackPanel IsVisible="{Binding Missing}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="360">
           <TextBlock TextWrapping="Wrap" TextAlignment="Center"
-                     Text="Live preview shows pages with Microsoft's WebView2, which isn't installed on this PC. Install the Evergreen runtime, then open the panel again." />
-          <Button Classes="ghost" HorizontalAlignment="Center" Click="OnGetRuntime" ToolTip.Tip="{x:Static vm:LivePreviewViewModel.RuntimeAddress}"
+                     Text="Web preview shows pages with Microsoft's WebView2, which isn't installed on this PC. Install the Evergreen runtime, then open the panel again." />
+          <Button Classes="ghost" HorizontalAlignment="Center" Click="OnGetRuntime" ToolTip.Tip="{x:Static vm:WebPreviewViewModel.RuntimeAddress}"
                   AutomationProperties.Name="Get WebView2">
             <TextBlock Text="Get WebView2" VerticalAlignment="Center" />
           </Button>

@@ -7,7 +7,7 @@ using Xunit;
 namespace Sloperator.App.Tests;
 
 /// <summary>
-/// A sound line's volume in the Video generator moves in steps of 5%: dragged, it landed on 111%
+/// A sound line's volume in the Video editor moves in steps of 5%: dragged, it landed on 111%
 /// (the user, 2026-10-30).
 /// </summary>
 public sealed class VolumeSliderTests
@@ -18,7 +18,7 @@ public sealed class VolumeSliderTests
         // The panel's own styles, on a slider as the timeline has one.
         var slider = new Slider { Minimum = 0, Maximum = 2, Value = 1.11, SmallChange = 0.05, LargeChange = 0.25 };
         slider.Classes.Add("volume");
-        var panel = new VideoGeneratorPanel { Content = slider };
+        var panel = new VideoEditorPanel { Content = slider };
         var window = new Window { Width = 400, Height = 200, Content = panel };
         window.Show();
         Dispatcher.UIThread.RunJobs();

@@ -385,7 +385,7 @@ public sealed class PanelSettings
     /// <summary>Code editor: the language picked for a kind of file, by its extension (or its name with none), in place of the one its extension says; "Plain text" for none.</summary>
     public Dictionary<string, string> CodeLanguages { get; set; } = [];
 
-    /// <summary>Live preview: the web page the agent writes opens, and the page reloads when files in its folder change.</summary>
+    /// <summary>Web preview: the web page the agent writes opens, and the page reloads when files in its folder change.</summary>
     public bool WatchPreview { get; set; } = true;
 
     /// <summary>Terminal: the newest command is shown as it starts, its output kept at its end.</summary>

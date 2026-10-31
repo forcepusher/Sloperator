@@ -9,7 +9,7 @@ using Sloperator.Core.Web;
 
 namespace Sloperator.App.ViewModels;
 
-/// <summary>A line of the page's console in the Live preview panel: an error its script hit.</summary>
+/// <summary>A line of the page's console in the Web preview panel: an error its script hit.</summary>
 public sealed class ConsoleItem(ConsoleError error, int number)
 {
     public ConsoleError Error { get; } = error;
@@ -27,14 +27,14 @@ public sealed class ConsoleItem(ConsoleError error, int number)
 }
 
 /// <summary>
-/// The Live preview panel, beside the chat: a web page or web game the agent is building, shown in
-/// WebView2 as a browser would show it (its folder served at https://<see cref="LivePage.Host"/>), so the
+/// The Web preview panel, beside the chat: a web page or web game the agent is building, shown in
+/// WebView2 as a browser would show it (its folder served at https://<see cref="PreviewPage.Host"/>), so the
 /// user plays it and points at what is wrong. Opened with Open file, a page dropped on the panel or Open in
-/// Live preview on a page's right-click menu; with Watch on, the page the agent writes opens and the page
+/// Web preview on a page's right-click menu; with Watch on, the page the agent writes opens and the page
 /// reloads as files in its folder change. Its script errors are listed under it; error lines selected go
 /// into the chat's box, and so does an area marked on the page frozen by Area, as a picture of it.
 /// </summary>
-public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
+public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
 {
     private readonly MainWindowViewModel? _chat;
 
@@ -53,7 +53,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     /// <param name="chat">The chat the panel is beside: the agent's pages, and where what is picked goes; null in tests of the page alone.</param>
     /// <param name="areasDir">Where pictures of marked areas are saved.</param>
     /// <param name="profileDir">WebView2's user data, kept in Data with the rest of the portable app.</param>
-    public LivePreviewViewModel(MainWindowViewModel? chat, string? areasDir, string profileDir)
+    public WebPreviewViewModel(MainWindowViewModel? chat, string? areasDir, string profileDir)
     {
         _chat = chat;
         _areasDir = areasDir;
@@ -76,7 +76,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
         chat.ChangesUpdated += OnChangesUpdated;
         // A change made before the panel opened isn't followed, but the page the agent wrote last is shown.
         (_followedList, _followedNumber) = (chat.Changes, chat.Changes.LastChange?.Number ?? 0);
-        if (Watch && chat.Changes.Last(LivePage.IsPage) is { } page && File.Exists(page))
+        if (Watch && chat.Changes.Last(PreviewPage.IsPage) is { } page && File.Exists(page))
             Show(page);
     }
 
@@ -94,7 +94,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     public string FileName => System.IO.Path.GetFileName(Path ?? "");
     public bool HasFile => Path is not null;
 
-    /// <summary>The folder served at <see cref="LivePage.Host"/>: the page's project, else its folder.</summary>
+    /// <summary>The folder served at <see cref="PreviewPage.Host"/>: the page's project, else its folder.</summary>
     [ObservableProperty]
     private string? _folder;
 
@@ -127,11 +127,11 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     /// <summary>Microsoft's page for the WebView2 runtime.</summary>
     public const string RuntimeAddress = "https://developer.microsoft.com/microsoft-edge/webview2/";
 
-    /// <summary>Shows <paramref name="path"/> (Open file, a page dropped, Open in Live preview, the agent's page with Watch on).</summary>
+    /// <summary>Shows <paramref name="path"/> (Open file, a page dropped, Open in Web preview, the agent's page with Watch on).</summary>
     public void Show(string path)
     {
         path = System.IO.Path.GetFullPath(path);
-        var folder = LivePage.Folder(path);
+        var folder = PreviewPage.Folder(path);
         Unpick();
         AreaMode = false;
         Path = path;
@@ -140,7 +140,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
             WatchFolder(own);
         PageFolder = own;
         Folder = folder;
-        var address = LivePage.Address(path, folder);
+        var address = PreviewPage.Address(path, folder);
         if (address == Address)
             Reload();
         else
@@ -168,7 +168,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     {
         _loads++;
         Errors.Clear();
-        if (Folder is { } folder && LivePage.PathOf(address, folder) is { } path && !string.Equals(path, Path, StringComparison.OrdinalIgnoreCase))
+        if (Folder is { } folder && PreviewPage.PathOf(address, folder) is { } path && !string.Equals(path, Path, StringComparison.OrdinalIgnoreCase))
         {
             Unpick();
             Path = path;
@@ -191,7 +191,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
         _chat.Panels.WatchPreview = value;
         _chat.SavePanels();
         // Turned on, it goes to the agent's last page.
-        if (value && _chat.Changes.Last(LivePage.IsPage) is { } page && File.Exists(page) && !string.Equals(page, Path, StringComparison.OrdinalIgnoreCase))
+        if (value && _chat.Changes.Last(PreviewPage.IsPage) is { } page && File.Exists(page) && !string.Equals(page, Path, StringComparison.OrdinalIgnoreCase))
             Show(page);
     }
 
@@ -209,7 +209,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
         if (changes.LastChange is not { } last || last.Number == _followedNumber)
             return;
         _followedNumber = last.Number;
-        if (Watch && LivePage.IsPage(last.Path) && File.Exists(last.Path) && !string.Equals(last.Path, Path, StringComparison.OrdinalIgnoreCase))
+        if (Watch && PreviewPage.IsPage(last.Path) && File.Exists(last.Path) && !string.Equals(last.Path, Path, StringComparison.OrdinalIgnoreCase))
             Show(last.Path);
     }
 
@@ -243,7 +243,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     private void OnDisk(object? sender, FileSystemEventArgs e)
     {
         // A folder's own date changing says nothing a file in it doesn't.
-        if (e.ChangeType == WatcherChangeTypes.Changed && Directory.Exists(e.FullPath) || PageFolder is not { } folder || !LivePage.Reloads(e.FullPath, folder))
+        if (e.ChangeType == WatcherChangeTypes.Changed && Directory.Exists(e.FullPath) || PageFolder is not { } folder || !PreviewPage.Reloads(e.FullPath, folder))
             return;
         Dispatcher.UIThread.Post(Changed);
     }
@@ -270,10 +270,10 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     /// <summary>What the empty list says.</summary>
     public string NoErrorsText => HasFile ? "No errors since the page loaded" : "The page's script errors show here";
 
-    /// <summary>A message the page's start script posted (<see cref="LivePage.ConsoleScript"/>).</summary>
+    /// <summary>A message the page's start script posted (<see cref="PreviewPage.ConsoleScript"/>).</summary>
     public void Message(string? body)
     {
-        if (LivePage.Parse(body, Folder) is { } error)
+        if (PreviewPage.Parse(body, Folder) is { } error)
             Errors.Add(new ConsoleItem(error, Errors.Count + 1));
     }
 
@@ -487,19 +487,19 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     {
         if (Path is not { } path)
             return null;
-        var opening = $"[The Live preview panel is open beside the chat, showing the web page {path} in a browser (WebView2), served from the folder {Folder} at https://{LivePage.Host}/. ";
+        var opening = $"[The Web preview panel is open beside the chat, showing the web page {path} in a browser (WebView2), served from the folder {Folder} at https://{PreviewPage.Host}/. ";
         if (_area is { } area && files.Contains(area.Picture, StringComparer.OrdinalIgnoreCase))
-            return ($"Live preview · {FileName} · area",
+            return ($"Web preview · {FileName} · area",
                 $"{opening}{area.Told}. The picture {area.Picture} attached below is that area, cut from it, which is what they refer to.]");
         if (_pickedErrors.Count == 0 || !files.Contains(path, StringComparer.OrdinalIgnoreCase))
-            return ("Live preview · " + FileName, opening + "What they say is about this page unless they say otherwise.]");
+            return ("Web preview · " + FileName, opening + "What they say is about this page unless they say otherwise.]");
         var caption = ErrorsCaption(_pickedErrors);
         var context = new System.Text.StringBuilder(opening)
             .Append($"They picked {(_pickedErrors.Count == 1 ? "this error" : "these errors")} from the page's console (its script errors since it last loaded, numbered from 1), which is what they refer to:\n");
         var told = string.Join("\n", _pickedErrors.Select(e => $"{e.Number}. {e.Error.Told}"));
         context.Append(told.Length <= MaxPickedChars ? told : told[..MaxPickedChars] + $"\n[... {told.Length - MaxPickedChars:N0} more characters]");
         context.Append("\n]");
-        return ($"Live preview · {FileName} · {char.ToLowerInvariant(caption[0])}{caption[1..]}", context.ToString());
+        return ($"Web preview · {FileName} · {char.ToLowerInvariant(caption[0])}{caption[1..]}", context.ToString());
     }
 
     /// <summary>The message went with what was picked: it is no longer picked (an area's picture went with it, and stays).</summary>
@@ -517,7 +517,7 @@ public sealed partial class LivePreviewViewModel : ObservableObject, IFilePanel
     /// <summary>A page dropped on the panel is shown (the first of several); other files go with the next message.</summary>
     public bool Drop(IReadOnlyList<string> paths)
     {
-        if (paths.FirstOrDefault(p => LivePage.IsPage(p) && File.Exists(p)) is not { } page)
+        if (paths.FirstOrDefault(p => PreviewPage.IsPage(p) && File.Exists(p)) is not { } page)
             return false;
         Show(page);
         return true;

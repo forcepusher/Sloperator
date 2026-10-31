@@ -36,7 +36,7 @@ Sloperator/
                pasted/ (pictures pasted into the chat, see Files in a message),
                videos/ (a folder per video: storyboard, frames, shots, song and the video, see Videos),
                index/ (the indexes of the folders the agent indexed, a file each, see Folder index),
-               webview/ (the Live preview panel's WebView2 profile, see Live preview),
+               webview/ (the Web preview panel's WebView2 profile, see Web preview),
                crash.log (errors no code caught, see below), errors.log (every error shown, see below),
                sloperator.png (the notifications' icon, see Notify me when done),
                update-check.txt (when Sloperator last asked GitHub for a new version, see Updates)
@@ -53,7 +53,7 @@ with the message box under the taskbar.
 
 Every error Sloperator shows also goes into `Data/errors.log`: when, where it was shown (the chat,
 named by its title and its file in `Data/chats`; the banner under the top bar, with the server's
-address; Video generator, with the video's folder; a start that failed), what it said, and the
+address; Video editor, with the video's folder; a start that failed), what it said, and the
 whole exception behind it, stack trace and all. That covers the red lines in the chat (a run that
 ended on a server's answer or a bug, a run that couldn't start, settings or a pasted picture that
 couldn't be saved, MCP servers that failed), the lines about a server's failure a run went on
@@ -376,7 +376,7 @@ writes don't, and read_file shows none (the agent reads many READMEs while it wo
 A video plays by itself while it is on screen, over and over and without its sound, as a GIF
 would; scrolled away, under the full-screen viewer or with the window minimized it pauses, so a
 long chat decodes only what can be seen (a third of its height showing, or 120 pixels of a tall one,
-counts as on screen). Its pause button holds it until it is played again. The Video generator panel's
+counts as on screen). Its pause button holds it until it is played again. The Video editor panel's
 players are not touched by this: they play with sound when asked. Playing, a video holds its file
 open, so a file the video tool is about to write over (a shot made again, the song, the video joined
 again, a version put back) is let go of first (`MediaRelease`): every window's players of it stop, and
@@ -390,7 +390,7 @@ click between that and its own size (from twice its size its pixels stay square,
 video plays with its sound (M or the speaker turns it off), Space plays or pauses. The arrow keys
 and the side buttons go through the chat's other pictures and videos, Esc, × or a click beside the
 picture goes back. The agent's clicks step it aside as they do the chat's window, and its keys go to
-the window under both (before, from the chat they could go to the Video generator window there was then).
+the window under both (before, from the chat they could go to the Video editor window there was then).
 
 **Prompt metadata** in the File inspector panel, over the file's corner ("Prompt" in the panel's bar until 2026-10-31, when the user found the name unclear and the button no selection; see [File inspector](#file-inspector)), for a picture,
 animation, video, sound or 3D model made with ComfyUI, shows the prompts it was made with and
@@ -419,7 +419,7 @@ file editing tools, and a code editing tool if the format is text-based", that i
 and Open in Code editor). A view says what it shows with attached properties: `FileMenu.Image` (the
 picture on screen), `FileMenu.Data` (its bytes when no file has it: a screenshot) and `FileMenu.File`;
 a right-click on it or on anything in it without a menu of its own opens the menu. Menus of their own
-(the Video generator's card, clip, frame and sound menus, File changes' file menu) take
+(the Video editor's card, clip, frame and sound menus, File changes' file menu) take
 `FileMenu.Items` at their end. The chat's own menu (`MainWindow.OnChatMenu`) leaves a control with
 either alone.
 
@@ -433,7 +433,7 @@ either alone.
   viewer closes first, as it covers the panel (`MediaViewer.Chat` is the chat it was opened from).
   Whether a path is a folder or a nameless kind is text is looked up on this PC's own drives only.
 - **Copy image**, on a picture or on whatever shows one (a video's frame, a document's peek, a PDF
-  page, the frozen view of Area, the Video generator's frames, cards and clip strips, the logo): the
+  page, the frozen view of Area, the Video editor's frames, cards and clip strips, the logo): the
   picture at its full size, not the size it is shown at, decoded from its file or bytes. A picture
   file goes with it, so Paint, Word or a chat app's box paste the picture and Explorer or mail the
   file. A video's frame is the one on screen at the click, copied before anything is awaited, as the
@@ -450,7 +450,7 @@ paste. Where a right drag pans (a picture or frame in the File inspector, a 3D m
 drag of 4 DIPs or more opens no menu; a right-click that moved nothing does. Where it is: previews in the
 chat and the full-screen viewer (and its title bar), a tool's screenshot open or folded, files in a
 message and under the box, the File inspector (its file and its title bar; text keeps its own Copy),
-the Video generator's viewer and timeline, and File changes' files.
+the Video editor's viewer and timeline, and File changes' files.
 
 A chat video that played nothing (its file deleted or no longer readable) no longer starts again
 by itself, which it did at once, for ever, opening the decoder and ffmpeg each time. Opening the
@@ -582,9 +582,10 @@ checkpoint, which needed six tries for one lighthouse. Without a tool the agent 
 half minutes getting ComfyUI to stay up and wrote an SD 1.5 workflow from memory. It still sets
 comfyui-mcp up by itself when the user asks for it.
 
-### The Picture generator panel
-**Picture generator** in the Side panel dropdown (`PictureGeneratorViewModel`, `PictureGeneratorPanel`; least 760),
-a sibling of the Video generator for single pictures (the user's request through the coordinator, 2026-11-01).
+### The Image editor panel
+**Image editor** in the Side panel dropdown (`ImageEditorViewModel`, `ImageEditorPanel`; least 760),
+a sibling of the Video editor for single pictures (the user's request through the coordinator, 2026-11-01; named
+Picture generator until the user asked for Image editor the same day, and the code's names with it).
 Its pictures are folders in Data\pictures (`AppPaths.PicturesDir`, beside Data\videos), a folder each, and a
 picture's **versions** are the picture files in its folder, oldest first by when they were written
 (`PictureFolder.Versions`). Nothing else is kept: the agent makes a version by running the comfyui tool with
@@ -642,9 +643,9 @@ the Takes folders of a day before; it names References and Generated now.)
 
 A video of more than one shot (a music video, a story, an ad) is planned as a **storyboard** and
 made piece by piece with ComfyUI: one video model run can't hold a story together for more than
-a few seconds, and not every video is one continuous camera shot. **Video generator**, picked in the
+a few seconds, and not every video is one continuous camera shot. **Video editor**, picked in the
 **Side panel** dropdown at the top left of the chat window, opens in a panel on the left of the chat
-(see "The Video generator panel" below): what the user picks in it goes into the chat's box, they say
+(see "The Video editor panel" below): what the user picks in it goes into the chat's box, they say
 there what to do with it, and the agent does it with its `video` tool, which reads and writes the
 same video the panel shows. A video can start in either and go on in the other.
 
@@ -653,7 +654,7 @@ folder-driven", and "We don't need the film file storyboard.json anymore right?"
 `Data/videos/<title>` next to the exe like the rest of Sloperator's data (the user's choice: it is
 portable; the first build put videos in the PC's Videos folder). A path the model gives that isn't
 from a drive ("lighthouse") is a folder in `Data/videos` too: taken from the working folder, as until
-2026-10-23, qwen3.8's "lighthouse" was made in the user's home, where Video generator doesn't look.
+2026-10-23, qwen3.8's "lighthouse" was made in the user's home, where Video editor doesn't look.
 **Its title is the folder's name** (2026-10-24, with the user's "I want it to work just like a file
 explorer, where you can right click and rename films"): reading a video takes it from the folder, so
 one renamed in Explorer or in the panel is; the video's own .json no longer holds one. A new title
@@ -887,15 +888,15 @@ saw as a chubby teenager). `tries=N` makes up to N tries with new seeds until on
 the best. The whole video is checked from a frame of each shot side by side and the joins where the
 camera should go on.
 
-**The Video generator panel** ("Filmmaking" until the user renamed it Video editor on 2026-10-25, and Video generator on 2026-10-26; 2026-10-24, the user's design: "Filmmaking window should extend current
+**The Video editor panel** ("Filmmaking" until the user renamed it Video editor on 2026-10-25, Video generator on 2026-10-26, and Video editor again on 2026-11-01 with the code's names: `VideoEditorViewModel`, `VideoEditorPanel`, `VideoEditorTool`; 2026-10-24, the user's design: "Filmmaking window should extend current
 window to the left side instead of opening a new separate window... Use the main chat for film
 making... Put filmmaking button under Toolkit dropdown menu with None and Filmmaking options. There
 will be more tools extending to the left side of the screen later."). The **Side panel** dropdown
 ("Toolkit" until 2026-10-29: the user found it said nothing of what it does, and the agent's own
 tools are something else; the code's names followed in 1.2.0: `ISidePanel`, `SidePanelOption`, and on 2026-10-31, at the user's word that panels be panels in the code too, `SidePanelCard` (was `ToolCard`) and the comments that still called a panel a tool)
 takes the place of the second Sloperator logo and name under the title bar, an arrow pointing
-left beside it (outside the button since 2026-10-29, at the user's word), where its panels open: None or Video generator (`SidePanelOption`, `ISidePanel`, more to come); it
-now reads None, File changes, File inspector, Video generator (the user, 2026-10-26), each with a grey line of what it is. The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
+left beside it (outside the button since 2026-10-29, at the user's word), where its panels open: None or Video editor (`SidePanelOption`, `ISidePanel`, more to come); it
+now reads None, File changes, File inspector, Code editor, Image editor, Video editor, Web preview, Terminal (the user, 2026-10-26, and on 2026-11-01: "Put terminal last, and live preview before it"), each with a grey line of what it is. The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
 development" beside it (the user, 2026-10-24) went on 2026-10-29, at the user's word. Its
 arrows are solid triangles, the left one and the dropdown's, as History's and every dropdown's are
 (the user: "Arrows need consistency"; Fluent's thin chevron is replaced in App.axaml by a style
@@ -922,14 +923,14 @@ one's width to the other's: the view model sets the new tool in one change (it w
 and the window shrank to the chat and grew back), the window sets the panel's content itself (a
 binding took it after the layout), and the dropdown's list is closed first (it lingered a frame over
 the resized window). Measured after: popup closed, then one frame with all of the switch, for every
-pick of None, Video generator and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Live preview or Picture generator) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
+pick of None, Video editor and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Web preview or Image editor) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
 `MainWindow.FitColumns` on the columns' SizeChanged): down to its least (`SidePanelOption.MinWidth`,
-splitter included: Video generator 770, where its top bar still fits in one row with the video's name cut
+splitter included: Video editor 770, where its top bar still fits in one row with the video's name cut
 short; File changes 560), then the window stops, at the panel's least plus the chat's 660 (no more than
 the screen is wide). It goes back to the width it opened at, or was dragged to, as the window widens
 again; the splitter stops at both leasts. Before (bug of 2026-10-24) the window's least counted any
-panel as 480 while Video generator kept its 960, so the chat was squeezed to a few letters across, and
-opening on a narrow screen left the chat only 330. Video generator also needs the window 633 tall
+panel as 480 while Video editor kept its 960, so the chat was squeezed to a few letters across, and
+opening on a narrow screen left the chat only 330. Video editor also needs the window 633 tall
 (`SidePanelOption.MinHeight`; the chat alone 513; both with the title bar, see Title bar), else its viewer is squeezed to nothing over the
 timeline; a shorter window grows to it as the panel opens. The video's name was in a StackPanel across,
 which gives a TextBlock all the room it wants: it was never cut short and pushed the fields over the
@@ -993,7 +994,7 @@ the status line has something to say: nothing showed the menu was there (the use
 **Looks as the other panels** (2026-10-31, a review asked for by the user through the coordinator, after
 the File inspector's and Code editor's bars: grey buttons, a bar's buttons always there, nothing coming,
 going or moving mid-task, greyed with a tip when they don't apply). What changed:
-- How the piece shown was made is a column right of the viewer, `VideoGeneratorViewModel.DetailsWidth`
+- How the piece shown was made is a column right of the viewer, `VideoEditorViewModel.DetailsWidth`
   (280) wide, always there, scrolling past its height, with a grey line while nothing is picked. Under the
   viewer, shown only with something picked and as tall as its text (at most 190), it moved the picture
   with every pick (item 6 of the audit of UI changing mid-task proposed a fixed height there instead; a
@@ -1110,9 +1111,9 @@ message goes without the video (the user, 2026-10-28; from 2026-10-25 a chip of 
 there, `ISidePanel.Whole`, and the model was told the message was about it). A panel's cards, this one or the picks, come before the user's own files, over
 the box and in the sent bubble, and each has a small muted ◀ at its left, pointing at the panel it
 comes from (the user, 2026-10-26; style `PathIcon.toolArrow`, 8 px, 4 px from the icon). Checked in
-the app on 2026-10-26 with File inspector and Video generator open and a pasted file of the user's.
-A message sent while Video generator is open carries
-the video (`ISidePanel.About`): over its bubble (`UserInput.Via`, "Video generator · The Fox and the Moon ·
+the app on 2026-10-26 with File inspector and Video editor open and a pasted file of the user's.
+A message sent while Video editor is open carries
+the video (`ISidePanel.About`): over its bubble (`UserInput.Via`, "Video editor · The Fox and the Moon ·
 shot 2"), and for the model before the words (`UserInput.Context`) the video's folder, what each
 pick is in it (shot s2, the 2nd of 3, from 5 to 9 s, its clip or its folder; frame f1, the start of
 shot 1; the reference "Fox"; a reference's folder, with its pictures and how to name them; a
@@ -1138,8 +1139,8 @@ weighs, not a rule: the user's way of steering it.
 During a run they wait above the box as anything typed in the chat does. The user watches every step
 in the chat, with each frame and clip as it is made, and stops it there. One still waiting when the
 run is stopped, or the chat is left, goes back into the box as any typed message does, and sent
-again while Video generator is open carries the video again. Its context is saved with the message, so
-Continue on one the model never had sends it whole. A chat begun with Video generator open is named after
+again while Video editor is open carries the video again. Its context is saved with the message, so
+Continue on one the model never had sends it whole. A chat begun with Video editor open is named after
 the words and the video and picks ("Make it. (Fox Test · start of shot 1)"), not "Make it." alone.
 
 The model writes prompts as Sloperator's storyboard guide says (`Comfy/Guides/storyboards.md`, which
@@ -1674,7 +1675,7 @@ committed). Found and fixed:
 - The arrow left of Side panel, 12.5 px at 125%, rounded a pixel under the dropdown's word there:
   0.5 under it rounds to nothing at 100% and a pixel at 125%. A nudge that is a pixel at one scale and
   none at the other has to round that way (Avalonia rounds each margin to whole pixels, half to even).
-- File… and Generate on the Video generator's cards were a pixel high at 125%: they have a height of
+- File… and Generate on the Video editor's cards were a pixel high at 125%: they have a height of
   their own (17.6) and half a pixel over the word; paddings that lowered them at 125% lowered them at
   100% too, or made them a pixel taller.
 - Settings' labels sat a pixel under their dropdowns' words at 125% (`Grid.form > TextBlock.label`,
@@ -1722,7 +1723,7 @@ Servers' lists unlike the dropdowns'):
   was 9 in (8 at 100%), History's and the buttons' 9, the fields' 11 and the dropdowns' 12. Wider
   buttons leave the top bar's server status less room at the window's MinWidth, where it was cut
   short already ("Conne…", and with a side panel open only its dot; now it is whole or gone, see
-  Several windows); Video generator's names column
+  Several windows); Video editor's names column
   is 120 (was 112) for "+ Sound line" with a button's 12.
 - **Sizes**: a button, dropdown or text box is 32 high, as Fluent's text boxes and dropdowns are; a
   small button (in a card, under a preview, in a player, over the diff) 24. `Button` (and the app's
@@ -1762,7 +1763,7 @@ Servers' lists unlike the dropdowns'):
   mid-task, greyed with a tip saying why when they don't apply). A button whose word changes shows it
   in a `SlotText`: a slot as wide as the widest word it can show (`Slot`, unseen under it), so the
   button keeps its size and those beside it their place. The zoom between − and + in the File
-  inspector, Code editor and Video generator ("Fit", "125%", tabular figures: `ZoomSlot`) and the
+  inspector, Code editor and Video editor ("Fit", "125%", tabular figures: `ZoomSlot`) and the
   Code editor's Language, Encoding and Line breaks (`LanguageSlot` etc., their no-file words
   included) use it. Before (found driving the real app, 2026-10-31), + slid right as the zoom grew
   ("Fit" 60 → "125%" 76 → "1000%" 85 px at 125%), and the three menus shrank from "Language",
@@ -1780,14 +1781,14 @@ Servers' lists unlike the dropdowns'):
   in a `[TabStripPlacement=Top]` style, which outranks a selector without a condition (the header sat
   4 left of the text), so the override has the same condition.
 - **Labels** left of a field are `TextBlock.label` (grey, 12, centred on the field): the chat's
-  Server, API key, Model and Context, Settings' (which were 14 and white) and Video generator's.
+  Server, API key, Model and Context, Settings' (which were 14 and white) and Video editor's.
 - **Spacing** goes in steps of 4, whole pixels at 100, 125, 150 and 175%: bars, cards (12 all
   round; was 12 and 10), the chat's lines and the intro's cards (12 apart; were 10 and 14), the
   composer (8 round the box; was 6). The space between lines of text (1 to 6) and the nudges that
   centre text (File changes' code, the tool's name on a card) are left as they are.
 - Scrollbars are the full one everywhere (see Scrollbars); Settings' sits on the window's edge, as
   the chat's does, rather than 16 in. Every side panel opens 880 wide (`SidePanelColumns.PanelWidth`).
-  The Video generator's menu says Show in folder, as the chat's cards and File changes do (it said
+  The Video editor's menu says Show in folder, as the chat's cards and File changes do (it said
   Show in Explorer).
 Measured on the laptop at 125% with the real app off the screen (PrintWindow, UI Automation; the
 screen is shared with benchmarks): every bar control 40 px high (were 38 in the bars, 40 in the server
@@ -1857,8 +1858,8 @@ takes its look from its kind:
   header is 40 high (was 34) on the card's colour, the thoughts under it on #191919 in muted 14 on
   lines of 20 (were 12), 16 in and 12 over and under (were 8 and 4). Every expander's header (Output,
   Screenshot too) lights as a button does under the pointer, its word to the main text's.
-- Left as they were: popups and menus (Fluent's #2B2B2B, already neutral), the Video generator's
-  sound blocks (#2A3A4A, a colour, not a grey) and the waveform on them. The Video generator's own
+- Left as they were: popups and menus (Fluent's #2B2B2B, already neutral), the Video editor's
+  sound blocks (#2A3A4A, a colour, not a grey) and the waveform on them. The Video editor's own
   greys, the timeline's and the 3D view's are the neutral ones nearest them.
 
 ## Title bar
@@ -1942,7 +1943,7 @@ closed as 900 x 760 it was saved as 914.4 x 797.6, more at each start. `WindowsP
 now lays the frame out again before the window is first shown, the client as big as it was, so
 Width and Height are the client with the bar in it. They were the content under Windows' bar, so
 every height grew by the bar's 33 (`TitleBar.Room`: 32 strip and the line): the main window
-900 x 793 (least 513), Settings 733 (least 513), Video generator's least 633, and the content is as
+900 x 793 (least 513), Settings 733 (least 513), Video editor's least 633, and the content is as
 tall as before (950 px at 125%; the window 3 px taller than with Windows' bar, whose 38 were 30.4).
 A saved height without `WithTitleBar` (from before) grows by 33 once as the window opens, and is
 saved with it: 760 opened as 793, was saved as 792.8 (991 px) and stayed there. The window is as
@@ -1968,7 +1969,7 @@ other window).
 and MCP servers. (It was an icon at first, to keep the bar within the narrowest window, and went
 unnoticed; now the server's status text is what gives way in a narrow window.) It goes whole or
 not at all (`WholeRow`, the user, 2026-10-30): cut to "Conne…" at the window's MinWidth, and to the
-dot and "…" beside Video generator's longer name in the Side panel dropdown, it read as broken. Each
+dot and "…" beside the longest panel name in the Side panel dropdown (Video generator then), it read as broken. Each
 part shows only if it and all before it fit in full: the context's use ("· 35k of 100k used") goes
 first, then the status word, and the dot stays, 12 from History, the status in the row's tooltip.
 Measured, not a width breakpoint, as the status words and the dropdown's name differ in length.
@@ -2002,7 +2003,7 @@ window in front, at its size, kept on the screen, as Windows cascades windows: r
 a second window looked as if nothing had opened. A window closed where it opened beside another
 doesn't save its place, so Sloperator doesn't creep down a step with every second window. The title
 bar names the chat ("keys 6 - Sloperator"), to tell the windows apart on the taskbar. A window's
-Video generator panel and full-screen viewer close with it, and so does all it had going: its run
+Video editor panel and full-screen viewer close with it, and so does all it had going: its run
 stops (the chat says so, with Continue, when it is opened again; it ended without a word before),
 what that run still reports is dropped (another window may open the chat meanwhile), the
 sounds in its chat stop, and no run or MCP server of its starts again. Its videos hold still while
@@ -2023,7 +2024,7 @@ What they share, and how they keep out of each other's way:
   every row keep the same buttons), and picking it brings that window forward. History rereads the folder whenever it opens,
   for the chats other windows started. One saver writes every window's chats, so a window opening a
   chat another just left waits for its last version.
-- **The screen.** Every window, Video generator, the viewer and a dialog is the process's own, so all of
+- **The screen.** Every window, Video editor, the viewer and a dialog is the process's own, so all of
   them are left out of every agent's screenshots, and a click that lands on any of them pushes it to
   the bottom for the click, as for the chat alone.
 - **The mouse and keyboard.** One agent at a time (`DesktopTurn`): from its first click or key
@@ -2239,7 +2240,7 @@ it stick out on the left (61 px at 125% with a 47-character name).
 
 **Where lists open** (the user, 2026-10-30): every list opened by a click hangs under its button,
 flush with the button's left edge, from one place (`Views/Dropdown.cs`, `Dropdown.Placement`): the
-ComboBoxes (a style in App.axaml), History and Servers (their flyouts) and the Video generator's
+ComboBoxes (a style in App.axaml), History and Servers (their flyouts) and the Video editor's
 videos menu (`MenuButton`). A right-click's menu opens at the pointer. Measured at 125% before:
 the videos menu, a right-click menu opened from a click, sat where the pointer was (82 px right of
 the button's edge, over "Frame size"), and History and Servers hung from their right edge (334 and
@@ -2811,7 +2812,7 @@ prints the traceback and exits with 0.
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
 | `comfyui` | Pictures, video, sound, music, speech and 3D models with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
-| `video` | Videos from a storyboard (the video's folder Video generator shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg (see Videos) |
+| `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg (see Videos) |
 | `run_shell` | PowerShell on Windows, `sh` elsewhere |
 | `ssh` | Commands on another computer over SSH, in a terminal that stays open between calls (see below) |
 | `copy` | Files and folders between this PC and an SSH host, or from one host to another (`user@host:/path`, as for scp), byte for byte |
@@ -3352,7 +3353,7 @@ in `Data/chats/changes/<id>.json` (written after each call, deleted with the cha
 again from History shows it again; a new chat starts empty.
 
 **The panel** (Side panel, File changes; "Diff", then "Code diff", then "Code changes", until the user renamed it on
-2026-10-24 and 2026-10-25) opens on the left of the chat as Video generator does, with the changed files listed on the
+2026-10-24 and 2026-10-25) opens on the left of the chat as Video editor does, with the changed files listed on the
 left and their diff beside them. It opens only when picked in the Side panel dropdown: from 2026-10-27 it opened by
 itself on the agent's first file change in a chat (with a setting to turn that off), until the user found it
 "flat out bad" (2026-10-31): it widened the window, to the whole screen, in the middle of a task. It reads them again 250 ms after a call that may have changed files (a file written in
@@ -3365,7 +3366,7 @@ says only that these are the lines the user refers to, not that they are to be c
 picks lines to ask about them as much as to have them changed (the user, 2026-10-24). Sent, they
 are no longer picked. A click in the
 panel away from the lines (below the last, a header or divider, the bar at the top, the file list
-below its files) unpicks them all, as Esc does there, like the Video generator's click away (the user,
+below its files) unpicks them all, as Esc does there, like the Video editor's click away (the user,
 2026-10-25). What keeps them: a click on a file in the list (it only goes there, so lines are picked
 in two files), Shift or Ctrl held (they add), and any click in the chat, as the box is clicked to
 ask about them. A plain click on a picked line picks only it; clicked again it stays picked. Lines
@@ -3383,7 +3384,7 @@ on 2026-10-26 (a 201-line new file): 7 to 12 and back up, Ctrl+drag, past both e
 on a half-shown @@ line still unpicks.
 A right-click on a file in the list offers **Show in folder** (the user, 2026-10-25): Explorer
 opens on its folder with it selected, through the file cards' `FilePreview.ShowInFolder`; greyed
-out for a deleted file. The menu is a plain `ContextMenu`, as the Video generator's are; checked
+out for a deleted file. The menu is a plain `ContextMenu`, as the Video editor's are; checked
 with a real right-click on 2026-10-26.
 **With no lines picked, the files selected in the list** are what a message is about (the user,
 2026-10-25: "currently selected changed file should be visible in the chat context"): a pick each in the
@@ -3646,7 +3647,7 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   previewer, or when it fails, the panel shows the file's text as read_file gives the agent
   (`DocumentText`; Word's and PowerPoint's as Markdown), a web page its source.
 
-**Selected text into the message** (the user's request, 2026-10-25, as Video generator and File changes
+**Selected text into the message** (the user's request, 2026-10-25, as Video editor and File changes
 do). With a file shown and nothing selected, the file is a card over the chat's box ("notes.md ·
 whole document", `ISidePanel.Whole`, which now also gives the card's tooltip and icon). Text selected
 in what Sloperator draws (Markdown, a table, text) goes into the box as a pick (`MainWindowViewModel.Pick`)
@@ -3874,11 +3875,13 @@ long lines wrap inside the panel under their own start (AvaloniaEdit's `WordWrap
 picks and Watch's lines are as before; off, a long line scrolls sideways. Checked by a click in the app:
 Game.cs's long summary line wrapped, and off, the setting was saved false.
 
-### Live preview
-**Live preview** in the Side panel dropdown (`LivePreviewViewModel`, `LivePreviewPanel`; least 640, where the bar still shows a short page name such as index.html whole beside Area, Reload,
+### Web preview
+**Web preview** in the Side panel dropdown (`WebPreviewViewModel`, `WebPreviewPanel`; least 640, where the bar still shows a short page name such as index.html whole beside Area, Reload,
 Open file, Watch and ×; at 560 it was cut to "index.ht…") runs the
 web page or web game the agent is building beside the chat, so the user plays it and points at what is
-wrong (the user's request through the coordinator, 2026-11-01). It is Avalonia's own web view,
+wrong (the user's request through the coordinator, 2026-11-01; named Live preview until the user renamed it the same
+day, as an Auto panel to come will be the live view of the model's work; the code's names followed, `LivePage` became
+`PreviewPage`). It is Avalonia's own web view,
 `Avalonia.Controls.WebView` 12.1.1 (MIT; `NativeWebView`, WebView2 on Windows, trim-safe): no browser in the
 exe, WebView2 being Windows' own Edge runtime: the published exe grew 0.24 MB (28,141,496 to 28,384,893 bytes
 against develop 4d0fd59, no trim warnings), and the trimmed exe ran the panel as the Debug build did. Its profile (cookies, cache, local storage) is kept in
@@ -3887,25 +3890,25 @@ stays portable.
 
 **Ways in.** Open file in its bar (a picker of .html and .htm, in the shown page's folder), a page dropped on
 the panel (`Drop`: the first web page of the files; other files go with the next message), and **Open in
-Live preview** on every web page's right-click menu (`IFilePanel`, `Opens: LivePage.IsPage`; left out on the
+Web preview** on every web page's right-click menu (`IFilePanel`, `Opens: PreviewPage.IsPage`; left out on the
 page already shown). With **Watch** on (`panels.watchPreview`, on by default), the panel opens on the page the
-agent wrote last in the chat (`FileChanges.Last(LivePage.IsPage)`), the page of each new write_file or
+agent wrote last in the chat (`FileChanges.Last(PreviewPage.IsPage)`), the page of each new write_file or
 edit_file call on a web page opens (`FileChanges.LastChange`, as the Code editor follows), and the page
 reloads 250 ms after files in its folder (and folders under it) stop changing (`FileSystemWatcher`, the
 Code editor's debounce): a game written in three files reloads once the last is written. A change under
-.git, node_modules and the other folders the folder index leaves out doesn't reload it (`LivePage.Reloads`),
+.git, node_modules and the other folders the folder index leaves out doesn't reload it (`PreviewPage.Reloads`),
 as a commit or an install would. **Reload** in the bar does it by hand. Every bar button is there from the
 start, greyed with a tip while it has nothing to do (no page, no WebView2).
 
 **Served, not opened as a file.** A page opened at file:// can't load an ES module (`<script type="module">`
 is refused across file:// origins) nor fetch its own JSON, which is how web games are written now. So the
 page's folder is served at https://page.sloperator.example/ through WebView2's
-`SetVirtualHostNameToFolderMapping` (`LivePage.Host`; .example is reserved, never a real site), and the page
-is shown at its address there (`LivePage.Address`). The folder served is the page's project
+`SetVirtualHostNameToFolderMapping` (`PreviewPage.Host`; .example is reserved, never a real site), and the page
+is shown at its address there (`PreviewPage.Address`). The folder served is the page's project
 (`ProjectRoot`: a git repository, a package.json…) when the page is in one, so a page in src\ reaches
-../assets, else the page's folder (`LivePage.Folder`); the bar shows the page's own folder, which is also the
+../assets, else the page's folder (`PreviewPage.Folder`); the bar shows the page's own folder, which is also the
 one watched. A link the user follows to another page of the folder makes that the page shown
-(`LivePage.PathOf`); a WebView2 too old for folder mapping shows the file:// address. Checked in the app: a
+(`PreviewPage.PathOf`); a WebView2 too old for folder mapping shows the file:// address. Checked in the app: a
 made-up three-file game (index.html loading game.js as a module, which imports stars.js) ran in the panel.
 
 **What Avalonia's web view doesn't pass on** is asked of WebView2 itself (`Platform.Windows.WebView2Page`),
@@ -3916,10 +3919,10 @@ WebView2.h's; Avalonia's own interop in the package declares the same interfaces
 where they were checked. CapturePreview's completion handler is made by hand as the toasts' handler is.
 
 **The page's errors** are listed under it (a 160 high part under a splitter, "Errors" and their count over
-it): a script given to every document before its own (`LivePage.ConsoleScript`) posts uncaught errors (with
+it): a script given to every document before its own (`PreviewPage.ConsoleScript`) posts uncaught errors (with
 the file, line and column the browser gives), failed promise rejections, files that failed to load (an
 `<img>`, a script) and console.error, through `chrome.webview.postMessage`, as JSON the panel reads back
-(`LivePage.Parse`; the web view may hand a string over in quotes). The page's own addresses in what an error
+(`PreviewPage.Parse`; the web view may hand a string over in quotes). The page's own addresses in what an error
 says become paths in the folder ("Failed to load sprites/basket.png", "game.js:30:29"). A row shows the
 error's first line in the error colour, Cascadia Mono 12 as code, and where it was thrown at its right; its
 tooltip is the whole of it. The list starts again whenever the page loads (`NavigationStarted`).
@@ -3946,7 +3949,7 @@ place, with **Get WebView2**, which opens Microsoft's WebView2 page, and the pag
 ("WebView2 isn't installed"). Whether it is there is Avalonia's own look-up
 (`WebViewAdapterInfo.GetAdapterInfo(WebView2).IsInstalled`), which reads the registry, not
 WEBVIEW2_BROWSER_EXECUTABLE_FOLDER, so on this laptop (Windows 10 LTSC 2021, WebView2 156 installed) the
-state was checked headless only (`LivePreviewTests`), not in the running app. The web view isn't told to use
+state was checked headless only (`WebPreviewTests`), not in the running app. The web view isn't told to use
 WebView2 only: under Avalonia's headless platform that made the tests start WebView2 on a thread it refuses
 (RPC_E_CHANGED_MODE); the tests pick Avalonia's headless web view instead.
 
@@ -4301,7 +4304,7 @@ as if "Continue." had been sent (a stop before the model had the message runs th
 A chat that ended stopped shows it again when opened from History. Sloperator
 stays on screen while it works but is left out of the agent's screenshots, and steps behind other
 windows for the moment a click lands on it: all of its windows (every chat window, the viewer,
-Video generator, a dialog), found by their process (see Several windows). It is left out only for the instant each screenshot is
+Video editor, a dialog), found by their process (see Several windows). It is left out only for the instant each screenshot is
 taken, so screen recorders and screen sharing show it the rest of the time (before, an option hid
 it from them for good). Every click and key press the agent makes shows up in a
 log in the bottom-right corner that fades after 15 seconds, with a ring where it clicked. The agent

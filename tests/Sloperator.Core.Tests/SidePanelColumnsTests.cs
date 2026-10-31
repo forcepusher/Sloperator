@@ -11,7 +11,7 @@ namespace Sloperator.Core.Tests;
 public class SidePanelColumnsTests
 {
     [Theory]
-    [InlineData(SidePanelColumns.PanelWidth, 770)] // Video generator
+    [InlineData(SidePanelColumns.PanelWidth, 770)] // Video editor
     [InlineData(SidePanelColumns.PanelWidth, 560)] // File changes
     [InlineData(SidePanelColumns.PanelWidth, 420)] // File inspector
     public void At_the_least_width_with_a_panel_open_both_keep_their_least(double opened, double least)

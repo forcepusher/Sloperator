@@ -11,16 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole as it prints, every line of it (the agent itself reads only the start and end of a long output).
   **Wrap** wraps long lines; **Watch** shows the newest command as it starts. Select lines to ask about
   them. A chat opened again from History shows its commands.
-- **Picture generator** in the Side panel dropdown, beside Video generator: your pictures, each with its
+- **Image editor** in the Side panel dropdown, beside Video editor: your pictures, each with its
   versions (a redo is a new version and the earlier ones stay), the one you pick shown big with how it was
   made. **New picture** starts one: say in the chat what it shows. **Make again** makes a new version. Click
   a picture or a version to ask about it; drag a box over a part of it and say what to change, and the
   agent redraws only that part. ComfyUI gets a new built-in workflow for it, sloperator/redraw_area.
-- Video generator's timeline shows the time under the pointer on its ruler, and a grey line where the
+- Video editor's timeline shows the time under the pointer on its ruler, and a grey line where the
   video ends, with its length.
-- **Live preview** in the Side panel dropdown: a web page or web game the agent is building, running
+- **Web preview** in the Side panel dropdown: a web page or web game the agent is building, running
   beside the chat in Microsoft's WebView2, served from its folder as a web server would (ES modules and
-  fetch work). Open one with Open file, by dropping it on the panel, or with **Open in Live preview** on
+  fetch work). Open one with Open file, by dropping it on the panel, or with **Open in Web preview** on
   an HTML file's right-click menu. **Watch** opens the page the agent writes and reloads it as files in
   its folder change; Reload does it by hand. The page's script errors are listed under it: select some
   to ask about them. **Area** freezes the page to drag over a part of it, which goes into the message
@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The agent can put pictures side by side to compare them (before and after, light and dark, a few
   options), labelled in your language. It can show a picture file it made the same way.
 - Right-click any file (a card in the chat, a file in a message, the full-screen viewer, File changes,
-  the Video generator) for **Open in Inspector**, which shows it in the File inspector panel.
+  the Video editor) for **Open in Inspector**, which shows it in the File inspector panel.
 - SVG files show as pictures: in the chat, full screen, and in File inspector, where they stay sharp
   however far you zoom and **Code** shows their source to select lines of. The agent sees what an SVG
   draws when it reads one, and writes design mockups as SVG files, so you see a mockup right in the
@@ -53,21 +53,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
 
 ### Changed
-- A picture picked in a side panel (an area marked in File inspector, Live preview or Picture generator)
+- Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.
+- A picture picked in a side panel (an area marked in File inspector, Web preview or Image editor)
   shows itself on its card over the message box and in the sent message, in place of a file icon.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.
 - Settings → Safety: the dropdown for when Sloperator asks before acting is labelled
   **Tool call approval** (it read "Ask me first", next to choices like "Never ask").
-- Video generator looks like the other side panels: how the piece shown was made sits in a column
+- Video editor looks like the other side panels: how the piece shown was made sits in a column
   beside the viewer that is always there, so the picture no longer jumps with every pick; play and the
   playhead's time sit beside the timeline's seconds, the zoom (− / % / +) and the status line in a bar
   under the timeline; the viewer's play buttons and the clips' edges are grey rather than yellow; Make the
   video, + Sound line, Use this version and the zoom buttons stay in place and are greyed, with a tip
   saying why, when they can't be used.
-- Video generator's **Make the video** is a grey button like the others in its bar, no longer lit
+- Video editor's **Make the video** is a grey button like the others in its bar, no longer lit
   yellow all the time.
-- The zoom buttons under the File inspector, Code editor and Video generator stay in place as you
+- The zoom buttons under the File inspector, Code editor and Video editor stay in place as you
   zoom, and the Code editor's language, encoding and line-break buttons keep their size when a file
   opens. Greyed, those three look like the other greyed buttons, and the Code editor's greyed buttons
   say why in their tips. The Code editor panel's narrowest width is a little wider so they all fit.

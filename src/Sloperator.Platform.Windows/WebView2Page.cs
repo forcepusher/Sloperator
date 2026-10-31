@@ -7,7 +7,7 @@ using static Sloperator.Platform.Windows.ComAbi;
 namespace Sloperator.Platform.Windows;
 
 /// <summary>
-/// What the Live preview panel asks of WebView2 that Avalonia's web view doesn't offer: a script run
+/// What the Web preview panel asks of WebView2 that Avalonia's web view doesn't offer: a script run
 /// before each page's own, a folder served under an https host, and a picture of the page. Called on
 /// the ICoreWebView2 the web view hands over, through its vtable (<see cref="ComAbi"/>), on the window's
 /// thread as WebView2 wants; the slots are those of WebView2.h, the same Avalonia's own interop declares.

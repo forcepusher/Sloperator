@@ -10,7 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace Sloperator.App.ViewModels;
 
 /// <summary>
-/// Video generator, one of the chat window's side panels, in a panel on the left of the chat: a viewer,
+/// Video editor, one of the chat window's side panels, in a panel on the left of the chat: a viewer,
 /// and the video on one timeline under one horizontal scroll, where all work on it is done (the
 /// user's call, 2026-10-24: "work on the film should be done entirely in the timeline"): the
 /// References row (image files and generated images), the clips on the Video clips row, the lines, and the
@@ -19,7 +19,7 @@ namespace Sloperator.App.ViewModels;
 /// chat, in view. The video is its folder (References and Generated, each file with its .json), and
 /// what the agent changes and makes there shows here as it happens.
 /// </summary>
-public sealed partial class VideoGeneratorViewModel : ObservableObject, ISidePanel
+public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
 {
     private readonly PreviewServices _previews;
     private readonly MainWindowViewModel _chat;
@@ -37,7 +37,7 @@ public sealed partial class VideoGeneratorViewModel : ObservableObject, ISidePan
     /// <param name="chat">The chat the panel is open in, where what is said about the video runs.</param>
     /// <param name="videosRoot">Where videos go (Sloperator's Data\videos).</param>
     /// <param name="folder">The video to open; the latest changed one when null.</param>
-    public VideoGeneratorViewModel(PreviewServices previews, MainWindowViewModel chat, string videosRoot, string? folder)
+    public VideoEditorViewModel(PreviewServices previews, MainWindowViewModel chat, string videosRoot, string? folder)
     {
         _videosRoot = videosRoot;
         _previews = previews;

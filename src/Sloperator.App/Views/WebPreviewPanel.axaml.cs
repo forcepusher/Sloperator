@@ -13,12 +13,12 @@ using Sloperator.Core.Web;
 namespace Sloperator.App.Views;
 
 /// <summary>
-/// The Live preview panel, on the left of the chat window: the page in Avalonia's web view (WebView2 on
+/// The Web preview panel, on the left of the chat window: the page in Avalonia's web view (WebView2 on
 /// Windows, its profile in Data\webview), its errors under it. What WebView2 does that the web view doesn't
 /// pass on (a script before the page's own, its folder served at an https host, a picture of the page) is
 /// asked of WebView2 itself (<see cref="Platform.Windows.WebView2Page"/>).
 /// </summary>
-public partial class LivePreviewPanel : UserControl
+public partial class WebPreviewPanel : UserControl
 {
     /// <summary>
     /// The web view: WebView2 on Windows (Avalonia's first choice there). Without WebView2 the panel says
@@ -27,18 +27,18 @@ public partial class LivePreviewPanel : UserControl
     /// </summary>
     private readonly NativeWebView _web = new();
 
-    private LivePreviewViewModel? _vm;
+    private WebPreviewViewModel? _vm;
 
     /// <summary>The page's ICoreWebView2 once WebView2 is up; 0 before.</summary>
     private nint _core;
 
-    /// <summary>The folder served at <see cref="LivePage.Host"/>, null while none is.</summary>
+    /// <summary>The folder served at <see cref="PreviewPage.Host"/>, null while none is.</summary>
     private string? _served;
 
     /// <summary>Set while the list's selection is cleared from the view model, so it isn't taken as the user's.</summary>
     private bool _clearing;
 
-    public LivePreviewPanel()
+    public WebPreviewPanel()
     {
         InitializeComponent();
         _web.EnvironmentRequested += OnEnvironmentRequested;
@@ -65,7 +65,7 @@ public partial class LivePreviewPanel : UserControl
             _vm.ReloadRequested -= OnReload;
             _vm.Unpicked -= ClearSelection;
         }
-        _vm = DataContext as LivePreviewViewModel;
+        _vm = DataContext as WebPreviewViewModel;
         if (_vm is null)
             return;
         _vm.PropertyChanged += OnVmChanged;
@@ -101,7 +101,7 @@ public partial class LivePreviewPanel : UserControl
         if (OperatingSystem.IsWindows() && e.TryGetPlatformHandle() is IWindowsWebView2PlatformHandle handle && handle.CoreWebView2 != 0)
         {
             _core = handle.CoreWebView2;
-            try { Platform.Windows.WebView2Page.AddStartScript(_core, LivePage.ConsoleScript); }
+            try { Platform.Windows.WebView2Page.AddStartScript(_core, PreviewPage.ConsoleScript); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { }
         }
 #endif
@@ -113,9 +113,9 @@ public partial class LivePreviewPanel : UserControl
     {
         if (_vm is null)
             return;
-        if (e.PropertyName == nameof(LivePreviewViewModel.Address))
+        if (e.PropertyName == nameof(WebPreviewViewModel.Address))
             Go();
-        else if (e.PropertyName == nameof(LivePreviewViewModel.AreaMode) && _vm is { AreaMode: true, Frozen: null })
+        else if (e.PropertyName == nameof(WebPreviewViewModel.AreaMode) && _vm is { AreaMode: true, Frozen: null })
             _ = FreezeAsync();
     }
 
@@ -129,7 +129,7 @@ public partial class LivePreviewPanel : UserControl
             return;
         if (!string.Equals(_served, folder, StringComparison.OrdinalIgnoreCase))
         {
-            try { _served = Platform.Windows.WebView2Page.Serve(_core, LivePage.Host, folder) ? folder : null; }
+            try { _served = Platform.Windows.WebView2Page.Serve(_core, PreviewPage.Host, folder) ? folder : null; }
             catch (Exception ex) when (ex is not OutOfMemoryException) { _served = null; }
         }
         _web.Navigate(_served is null ? new Uri(path) : address);
@@ -158,7 +158,7 @@ public partial class LivePreviewPanel : UserControl
         if (_vm is null)
             return;
         Core.Platform.RawImage? pixels = null;
-        LivePreviewViewModel.PageView? view = null;
+        WebPreviewViewModel.PageView? view = null;
 #if WINDOWS
         if (OperatingSystem.IsWindows() && _core != 0)
         {
@@ -175,7 +175,7 @@ public partial class LivePreviewPanel : UserControl
     }
 
     /// <summary>[width, height, scrollX, scrollY] as the script gave it back (the script's result is JSON, a string here).</summary>
-    private static LivePreviewViewModel.PageView? View(string? result)
+    private static WebPreviewViewModel.PageView? View(string? result)
     {
         try
         {
@@ -184,7 +184,7 @@ public partial class LivePreviewPanel : UserControl
             if (JsonNode.Parse(result) is JsonValue quoted && quoted.TryGetValue<string>(out var inner))
                 result = inner;
             return JsonNode.Parse(result) is JsonArray { Count: 4 } a
-                ? new LivePreviewViewModel.PageView(a[0]!.GetValue<double>(), a[1]!.GetValue<double>(), a[2]!.GetValue<double>(), a[3]!.GetValue<double>())
+                ? new WebPreviewViewModel.PageView(a[0]!.GetValue<double>(), a[1]!.GetValue<double>(), a[2]!.GetValue<double>(), a[3]!.GetValue<double>())
                 : null;
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
@@ -229,7 +229,7 @@ public partial class LivePreviewPanel : UserControl
         var start = _vm.Path is { } shown ? await storage.TryGetFolderFromPathAsync(System.IO.Path.GetDirectoryName(shown)!) : null;
         var picked = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open a web page in Live preview",
+            Title = "Open a web page in Web preview",
             FileTypeFilter = [new FilePickerFileType("Web pages") { Patterns = ["*.html", "*.htm"] }],
             SuggestedStartLocation = start,
         });
@@ -240,6 +240,6 @@ public partial class LivePreviewPanel : UserControl
     private void OnGetRuntime(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
-            _ = launcher.LaunchUriAsync(new Uri(LivePreviewViewModel.RuntimeAddress));
+            _ = launcher.LaunchUriAsync(new Uri(WebPreviewViewModel.RuntimeAddress));
     }
 }
