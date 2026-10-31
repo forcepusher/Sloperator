@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
 
 ### Changed
+- With a side panel open, the title bar's text stays over the chat, and the panel's name is in the
+  title bar over the panel.
 - Video generator is called **Video editor**, in the Side panel dropdown and wherever Sloperator names it.
 - A picture picked in a side panel (an area marked in File inspector, Web preview or Image editor)
   shows itself on its card over the message box and in the sent message, in place of a file icon.

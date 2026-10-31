@@ -108,6 +108,15 @@ public partial class MainWindow : Window
             if (_docked > 0)
                 _docked = SidePanelWidth;
         };
+        // The title bar's title over the chat wherever the chat starts (the panel and the splitter
+        // left of it), the panel's name in the room before it. After the layout pass: set during it
+        // (the panel opening at 100%), the bar kept the room's width from a step before and drew the
+        // name and the title 50 and 100 too far right.
+        ChatColumn.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                Dispatcher.UIThread.Post(() => Bar.Inset = ChatColumn.Bounds.X);
+        };
     }
 
     private double MaxOffset => Math.Max(0, ChatScroll.Extent.Height - ChatScroll.Viewport.Height);

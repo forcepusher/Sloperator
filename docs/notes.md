@@ -1895,7 +1895,15 @@ never move; the chat's title moves as the context's use comes after the first re
 number grows. The status is docked before the chat's title and measured first, so a long chat title
 is cut short with "…" before any of it; with no room left the `WholeRow` gives way, the context's
 use first, then the light, the word staying. Settings has neither and
-its title at 12 as before. The row is as tall as the strip and each part centred in it, as the
+its title at 12 as before.
+With a side panel open, all of that starts over the chat, 12 in from the chat's left as without one,
+and the panel's name (`TitleBar.Caption`, the title's look, `SidePanelCaption`: the panel Auto shows
+under Auto) is 12 in from the window's left, over the panel, cut with "…" in the panel's width (the
+user, 2026-10-31: the title had slid over the panel). `TitleBar.Inset` is the chat's column's left
+(the panel and the splitter), set from that column's bounds after the layout pass: set during it,
+at 100% as the panel opened, the bar kept the room's width from a step before and drew the name 50
+and the title 100 too far right. Measured: "Sloperator" starts 6 px (100%) and 7 px (125%) left of the
+header's arrow with the Terminal open and without a panel alike. The row is as tall as the strip and each part centred in it, as the
 title is: the words share the title's baseline and the 8 x 8 dot (9 x 9 before, 11.25 px at 125%) is
 exactly in the middle at 100% and 125% (12 rows over and under it; 15 at 125%). Measured on the
 laptop's 100% (unaware) and 125% builds. The row is part of the caption, as the title is: the window

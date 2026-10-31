@@ -30,6 +30,12 @@ public partial class TitleBar : UserControl
     public static readonly StyledProperty<string?> SubtitleProperty =
         AvaloniaProperty.Register<TitleBar, string?>(nameof(Subtitle));
 
+    public static readonly StyledProperty<double> InsetProperty =
+        AvaloniaProperty.Register<TitleBar, double>(nameof(Inset));
+
+    public static readonly StyledProperty<string?> CaptionProperty =
+        AvaloniaProperty.Register<TitleBar, string?>(nameof(Caption));
+
     private Window? _window;
 
     public TitleBar()
@@ -62,10 +68,34 @@ public partial class TitleBar : UserControl
         set => SetValue(SubtitleProperty, value);
     }
 
+    /// <summary>
+    /// How far in from the left the title starts: as wide as a side panel on the left of the window,
+    /// so the title stays over the chat as the panel opens. 0 with none.
+    /// </summary>
+    public double Inset
+    {
+        get => GetValue(InsetProperty);
+        set => SetValue(InsetProperty, value);
+    }
+
+    /// <summary>In the room the inset leaves, in the title's look: the side panel's name.</summary>
+    public string? Caption
+    {
+        get => GetValue(CaptionProperty);
+        set => SetValue(CaptionProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == StatusProperty)
+        if (change.Property == InsetProperty)
+        {
+            CaptionHost.Width = Inset;
+            CaptionHost.IsVisible = Inset > 0;
+        }
+        else if (change.Property == CaptionProperty)
+            CaptionText.Text = change.NewValue as string;
+        else if (change.Property == StatusProperty)
         {
             StatusHost.Content = change.NewValue;
             Classes.Set("status", change.NewValue is not null);
