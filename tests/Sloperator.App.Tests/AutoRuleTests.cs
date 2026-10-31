@@ -5,7 +5,7 @@ using Xunit;
 namespace Sloperator.App.Tests;
 
 /// <summary>Auto in the Side panel dropdown: which panel it shows for each call the agent makes.</summary>
-public sealed class AutoPanelTests : IDisposable
+public sealed class AutoRuleTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-auto-panel-").FullName;
     private string Pictures => Path.Combine(_dir, "pictures");

@@ -4129,7 +4129,7 @@ command run after left File changes as it was. With the Code editor (same day, t
 two new files opened in the Code editor in the project's tree, lit whole, the second by its Watch; edits to Ship.cs and
 Game.cs, which were there, in File changes with the edit lit; an edit to the agent's own Shield.cs back in the Code
 editor, which lights all the agent wrote in that file in the chat, as its Watch does on going to another file (not
-only the last edit). Tests: `AutoPanelTests` (the rule), `FileChangesTests` (`IsNew`).
+only the last edit). Tests: `AutoRuleTests` (the rule), `FileChangesTests` (`IsNew`).
 
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen
