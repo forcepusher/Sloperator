@@ -12,7 +12,9 @@ public sealed partial class CommandItem(CommandRun run) : ObservableObject
     public CommandRun Run { get; } = run;
 
     /// <summary>The command's first line, as the list shows it.</summary>
-    public string Command { get; } = run.Command.Trim().Split('\n')[0].TrimEnd('\r');
+    public string Command { get; } = FirstLine(run.Command);
+
+    internal static string FirstLine(string command) => command.Trim().Split('\n')[0].TrimEnd('\r');
 
     /// <summary>"This PC · exit 0 · 1.2 s", "admin@web1 · running · 0:12".</summary>
     [ObservableProperty]
@@ -45,10 +47,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
 {
     private readonly MainWindowViewModel? _chat;
     private readonly string? _picksDir;
-    private bool _picking;
-
-    /// <summary>Characters of the lines picked the model is given at most, with the count of the rest (as the other panels' picks).</summary>
-    private const int MaxPickedChars = 20_000;
+    private readonly BoxPicks _box;
 
     /// <param name="chat">The chat whose commands it shows, where what is picked goes; null to show <paramref name="log"/> alone (tests).</param>
     /// <param name="picksDir">Where lines picked are saved as a text file for the message (the chat's pasted files).</param>
@@ -56,6 +55,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
     {
         _chat = chat;
         _picksDir = picksDir;
+        _box = new BoxPicks(chat, OnTakenOff);
         _watch = chat?.Panels.WatchTerminal ?? true;
         ByAuto = chat?.IsAuto == true;
         _wrap = chat?.Panels.WrapTerminal ?? true;
@@ -67,10 +67,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
                 OnPropertyChanged(nameof(Details));
         });
         if (chat is not null)
-        {
             chat.CommandsUpdated += Refresh;
-            chat.Attachments.CollectionChanged += OnBoxChanged;
-        }
         _log = log ?? chat?.Commands;
         // Without a chat to pass its notes on, the log is listened to here, on the window's thread.
         if (chat is null && log is not null)
@@ -213,7 +210,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         set => Watch = value;
     }
 
-    public string WatchTip => ByAuto ? AutoWatch.Tip : "Follow the agent's changes as they happen";
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Show the newest command as it starts, scrolled to its end";
 
     partial void OnWatchChanged(bool value)
     {
@@ -258,11 +255,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         string file;
         try
         {
-            Directory.CreateDirectory(_picksDir);
-            var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", CultureInfo.InvariantCulture);
-            file = Path.Combine(_picksDir, $"Terminal {stamp}.txt");
-            for (var n = 2; File.Exists(file); n++)
-                file = Path.Combine(_picksDir, $"Terminal {stamp} ({n}).txt");
+            file = Core.Chats.PastedFiles.NewPath(_picksDir, "Terminal", ".txt");
             File.WriteAllText(file, text);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -272,9 +265,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         }
         DropPick();
         _pick = (file, run, from, to, text);
-        _picking = true;
-        try { _chat?.Pick([(file, $"{Place(from, to)} · {Short(run.Command)}")]); }
-        finally { _picking = false; }
+        _box.Put([(file, $"{Place(from, to)} · {Short(run.Command)}")]);
     }
 
     /// <summary>"Lines 3-9", "Line 4".</summary>
@@ -283,7 +274,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
     /// <summary>A command's first line, cut to what a card's caption holds.</summary>
     public static string Short(string command)
     {
-        var line = command.Trim().Split('\n')[0].TrimEnd('\r');
+        var line = CommandItem.FirstLine(command);
         return line.Length <= 40 ? line : line[..39] + "…";
     }
 
@@ -291,10 +282,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
     private void DropPick()
     {
         if (_pick is { } pick)
-        {
-            try { File.Delete(pick.File); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+            Core.Chats.PastedFiles.TryDelete(pick.File);
         _pick = null;
     }
 
@@ -304,18 +292,15 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         if (_pick is null)
             return false;
         DropPick();
-        _picking = true;
-        try { _chat?.Pick([]); }
-        finally { _picking = false; }
+        _box.Put([]);
         Unpicked?.Invoke();
         return true;
     }
 
-    private void OnBoxChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    /// <summary>The lines' card taken off the box (its ×): they are no longer picked here either.</summary>
+    private void OnTakenOff()
     {
-        if (_picking || _pick is null || e.OldItems is null || !e.OldItems.OfType<AttachmentItem>().Any(a => a.Picked))
-            return;
-        if (_chat?.Attachments.Any(a => a.Picked) == true)
+        if (_pick is null)
             return;
         DropPick();
         Unpicked?.Invoke();
@@ -330,15 +315,16 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         if (_pick is not { } pick || !files.Contains(pick.File, StringComparer.OrdinalIgnoreCase))
             return null;
         var run = pick.Run;
+        var place = Place(pick.From, pick.To);
+        place = char.ToLowerInvariant(place[0]) + place[1..];
         var context = new System.Text.StringBuilder(
             $"[The Terminal panel is open beside the chat, showing the output of a command you ran ({run.Where}{(run.Folder is { } f ? ", in " + f : "")}, {Ended(run)}, " +
             $"{Lines(run.LineCount)} in all, which the panel keeps whole):\n{run.Command.Trim()}\n" +
-            $"They selected {char.ToLowerInvariant(Place(pick.From, pick.To)[0])}{Place(pick.From, pick.To)[1..]} of its output (numbered from 1), which is what they refer to " +
+            $"They selected {place} of its output (numbered from 1), which is what they refer to " +
             $"(also in the file {pick.File} attached below):\n");
         var numbered = string.Join("\n", pick.Text.Split('\n').Select((l, i) => $"{pick.From + i}: {l.TrimEnd('\r')}"));
-        context.Append(numbered.Length <= MaxPickedChars ? numbered : numbered[..MaxPickedChars] + $"\n[... {numbered.Length - MaxPickedChars:N0} more characters]");
-        context.Append("\n]");
-        return ($"Terminal · {Short(run.Command)} · {char.ToLowerInvariant(Place(pick.From, pick.To)[0])}{Place(pick.From, pick.To)[1..]}", context.ToString());
+        context.Append(BoxPicks.Capped(numbered)).Append("\n]");
+        return ($"Terminal · {Short(run.Command)} · {place}", context.ToString());
     }
 
     /// <summary>The message went with the lines: they are no longer picked (their file went with it, and stays).</summary>
@@ -360,10 +346,8 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         _closed = true;
         _clock.Stop();
         if (_chat is not null)
-        {
             _chat.CommandsUpdated -= Refresh;
-            _chat.Attachments.CollectionChanged -= OnBoxChanged;
-        }
+        _box.Dispose();
         DropPick();
     }
 }

@@ -33,13 +33,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
 {
     private readonly PreviewServices _previews;
     private readonly MainWindowViewModel? _chat;
-    private bool _picking;
+    private readonly BoxPicks _box;
 
     /// <summary>How wide a picture is decoded at most: as it is, so zoomed in its pixels show, up to this.</summary>
     private const int MaxPictureWidth = 8192;
-
-    /// <summary>Characters of a selection the model is given at most, with the count of the rest.</summary>
-    private const int MaxPickedChars = 20_000;
 
     /// <summary>Where a picture of a marked area is saved for the model: the folder of pasted pictures, which go with their chat.</summary>
     private readonly string? _areasDir;
@@ -51,8 +48,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         _previews = previews;
         _chat = chat;
         _areasDir = areasDir;
-        if (chat is not null)
-            chat.Attachments.CollectionChanged += OnBoxChanged;
+        _box = new BoxPicks(chat, OnTakenOff);
     }
 
     /// <summary>In the panel, with a chat to ask in: what is selected or marked goes into its box. Not in the full-screen viewer.</summary>
@@ -704,9 +700,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         }
         DropArea();
         _pick = pick;
-        _picking = true;
-        try { _chat?.Pick([(path, $"{Capital(Where(pick))} · {FileName}")]); }
-        finally { _picking = false; }
+        _box.Put([(path, $"{Capital(Where(pick))} · {FileName}")]);
     }
 
     /// <summary>"lines 12-20", "cells B4:C4"; "selected text" in a document's text, whose lines aren't the file's.</summary>
@@ -820,15 +814,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
                     // Another area marked meanwhile, or another file shown, or the mark taken off: it isn't wanted.
                     if (load != _loading || _disposed || !Equals(Mark, area))
                     {
-                        TryDelete(file);
+                        Core.Chats.PastedFiles.TryDelete(file);
                         return;
                     }
                     _pick = null;
                     DropArea();
                     _area = shows is null ? new PickedArea(file, where, told, Frozen is not null) : new PickedArea(file, where, told, Frozen is not null, shows);
-                    _picking = true;
-                    try { _chat?.Pick([(file, $"{Capital(where)} · {name}")]); }
-                    finally { _picking = false; }
+                    _box.Put([(file, $"{Capital(where)} · {name}")]);
                 });
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -842,14 +834,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     private void DropArea()
     {
         if (_area is { } area)
-            TryDelete(area.Picture);
+            Core.Chats.PastedFiles.TryDelete(area.Picture);
         _area = null;
-    }
-
-    private static void TryDelete(string file)
-    {
-        try { File.Delete(file); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>A click in the panel that selects nothing, or Esc: the selection leaves the box. False when there was none.</summary>
@@ -860,19 +846,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
             return false;
         _pick = null;
         DropArea();
-        _picking = true;
-        try { _chat?.Pick([]); }
-        finally { _picking = false; }
+        _box.Put([]);
         Unpicked?.Invoke();
         return true;
     }
 
     /// <summary>The selection taken off the box (its ×): it is no longer selected here either.</summary>
-    private void OnBoxChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    private void OnTakenOff()
     {
-        if (_picking || _pick is null && _area is null || e.OldItems is null || !e.OldItems.OfType<AttachmentItem>().Any(a => a.Picked))
-            return;
-        if (_chat?.Attachments.Any(a => a.Picked) == true)
+        if (_pick is null && _area is null)
             return;
         _pick = null;
         DropArea();
@@ -910,7 +892,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
             _ => $"They selected {where} of it",
         }).Append(", which is what they refer to:\n");
         var text = pick.Text.TrimEnd('\r', '\n');
-        context.Append(text.Length <= MaxPickedChars ? text : text[..MaxPickedChars] + $"\n[... {text.Length - MaxPickedChars:N0} more selected characters]");
+        context.Append(BoxPicks.Capped(text, "selected characters"));
         context.Append("\n]");
         return ($"File inspector · {FileName} · {where}", context.ToString());
     }
@@ -940,8 +922,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
 
     public void Dispose()
     {
-        if (_chat is not null)
-            _chat.Attachments.CollectionChanged -= OnBoxChanged;
+        _box.Dispose();
         // An area marked and not sent: its picture goes.
         DropArea();
         _disposed = true;

@@ -98,10 +98,8 @@ public sealed class CommandLog
         }
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            var temp = file + ".tmp";
-            File.WriteAllText(temp, new JsonObject { ["commands"] = commands }.ToJsonString());
-            File.Move(temp, file, overwrite: true);
+            // Two commands may end at once, each saving: every write has a temporary file of its own.
+            Settings.AtomicFile.Write(file, new JsonObject { ["commands"] = commands }.ToJsonString());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

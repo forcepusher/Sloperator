@@ -28,7 +28,7 @@ public sealed class TerminalPanelTests : IDisposable
             var first = log.Start("dir", "This PC", @"C:\work");
             first.Add("a.txt");
             first.End(0);
-            Refresh(vm);
+            Refresh();
             Assert.Single(vm.Commands);
             Assert.Same(vm.Commands[0], vm.Selected);
             Assert.Equal("a.txt", vm.Document!.Text);
@@ -37,18 +37,18 @@ public sealed class TerminalPanelTests : IDisposable
             // A second one, on a server, still running: shown as it starts (Watch), its lines as they come.
             var second = log.Start("journalctl -n 3\nuptime", "admin@web1", "/var/log");
             second.Add("one");
-            Refresh(vm);
+            Refresh();
             Assert.Same(vm.Commands[1], vm.Selected);
             Assert.Equal("journalctl -n 3", vm.Commands[1].Command);
             Assert.StartsWith("admin@web1 · running", vm.Commands[1].Status);
             second.Add("two");
             second.Add("three");
-            Refresh(vm);
+            Refresh();
             Assert.Equal("one\ntwo\nthree", vm.Document!.Text);
             Assert.Contains("3 lines", vm.Details);
 
             second.End(1);
-            Refresh(vm);
+            Refresh();
             Assert.True(vm.Commands[1].Failed);
             Assert.False(vm.Commands[0].Failed);
 
@@ -56,7 +56,7 @@ public sealed class TerminalPanelTests : IDisposable
             vm.Watch = false;
             vm.Selected = vm.Commands[0];
             log.Start("ver", "This PC", null).End(0);
-            Refresh(vm);
+            Refresh();
             Assert.Equal(3, vm.Commands.Count);
             Assert.Same(vm.Commands[0], vm.Selected);
             return 0;
@@ -74,7 +74,7 @@ public sealed class TerminalPanelTests : IDisposable
             foreach (var line in new[] { "> test", "PASS a", "FAIL b", "  expected 3", "done" })
                 run.Add(line);
             run.End(1);
-            Refresh(vm);
+            Refresh();
 
             vm.PickLines(3, 4);
             var file = Assert.Single(Directory.GetFiles(_dir));
@@ -128,7 +128,7 @@ public sealed class TerminalPanelTests : IDisposable
             vm.Watch = false;
             vm.Selected = vm.Commands[0];
             log.Start("ver", "This PC", null).End(0);
-            Refresh(vm);
+            Refresh();
             // Auto follows the agent: the new command shows though Watch is off, and Watch stays off underneath.
             Assert.Same(vm.Commands[1], vm.Selected);
             Assert.False(vm.Watch);
@@ -147,5 +147,5 @@ public sealed class TerminalPanelTests : IDisposable
     }
 
     /// <summary>The notes the log posted to the window's thread, taken.</summary>
-    private static void Refresh(TerminalViewModel vm) => Dispatcher.UIThread.RunJobs();
+    private static void Refresh() => Dispatcher.UIThread.RunJobs();
 }

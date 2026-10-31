@@ -8,10 +8,8 @@ public sealed partial class MainWindowViewModel
 {
     // ---- Auto: the side panel follows the agent's work ------------------------------------------
 
-    private const string AutoName = "Auto";
-
     /// <summary>Auto is picked in the Side panel dropdown: the panel shown follows what the agent does (<see cref="AutoRule"/>).</summary>
-    internal bool IsAuto => SelectedSidePanel?.Name == AutoName;
+    internal bool IsAuto => SelectedSidePanel?.Name == SidePanelNames.Auto;
 
     /// <summary>The panel Auto shows now; null before the first (a new window, until the agent does something a panel shows) and after its ×.</summary>
     private SidePanelOption? _autoShown;
@@ -33,10 +31,10 @@ public sealed partial class MainWindowViewModel
     /// What the Side panel dropdown says: under Auto, the panel it shows, "Auto (Terminal)", or "Auto" with
     /// none (the user, 2026-11-01: so the panel open can be told); else the pick's own word.
     /// </summary>
-    public string SidePanelCaption => IsAuto ? AutoShown is { } shown ? $"{AutoName} ({shown.Name})" : AutoName : SelectedSidePanel?.Label ?? "Side panel";
+    public string SidePanelCaption => IsAuto ? AutoShown is { } shown ? $"{SidePanelNames.Auto} ({shown.Name})" : SidePanelNames.Auto : SelectedSidePanel?.Label ?? "Side panel";
 
     /// <summary>Every caption Auto can show, so the dropdown is as wide for all of them: it doesn't change width mid-task as Auto goes from panel to panel.</summary>
-    private static readonly IReadOnlyList<string> AutoCaptions = [AutoName, .. AutoRule.Panels.Select(p => $"{AutoName} ({p})")];
+    private static readonly IReadOnlyList<string> AutoCaptions = [SidePanelNames.Auto, .. AutoRule.Panels.Select(p => $"{SidePanelNames.Auto} ({p})")];
 
     /// <summary>The captions the dropdown is as wide as: Auto's all, while Auto is picked; else the pick's own.</summary>
     public IReadOnlyList<string> SidePanelCaptionSlot => IsAuto ? AutoCaptions : [SidePanelCaption];
@@ -163,11 +161,11 @@ public sealed partial class MainWindowViewModel
     }
 
     private SidePanelOption? OptionOf(AutoTarget? target) =>
-        target is null ? null : SidePanelOptions.FirstOrDefault(o => o.Name == target.Panel && o.Open is not null && o.Name != AutoName);
+        target is null ? null : SidePanelOptions.FirstOrDefault(o => o.Name == target.Panel && o.Open is not null && o.Name != SidePanelNames.Auto);
 
     /// <summary>A panel for Auto to show: File changes the one kept reading, any other new.</summary>
     private ISidePanel OpenForAuto(SidePanelOption option) =>
-        option.Name == FileChangesName ? _autoChanges ??= new FileChangesViewModel(this) : option.Open!(this)!;
+        option.Name == SidePanelNames.FileChanges ? _autoChanges ??= new FileChangesViewModel(this) : option.Open!(this)!;
 
     /// <summary>
     /// The file, page, picture or video Auto shows in the panel, unless it shows it already. The Code
@@ -232,7 +230,7 @@ public sealed partial class MainWindowViewModel
     private string? WrittenPath(string tool, System.Text.Json.Nodes.JsonObject args)
     {
         // On a server (host given) the file isn't in the list.
-        if (tool is not ("write_file" or "edit_file") || Arg("host") is not null || Arg("path") is not { } path)
+        if (tool is not ("write_file" or "edit_file") || AutoRule.Arg(args, "host") is not null || AutoRule.Arg(args, "path") is not { } path)
             return null;
         try
         {
@@ -246,7 +244,5 @@ public sealed partial class MainWindowViewModel
         // Relative to the folder the agent worked in: the changed file it names.
         var tail = Path.DirectorySeparatorChar + path.Replace('/', Path.DirectorySeparatorChar).TrimStart('.', Path.DirectorySeparatorChar);
         return Changes.Last(p => p.EndsWith(tail, StringComparison.OrdinalIgnoreCase));
-
-        string? Arg(string name) => args[name] is System.Text.Json.Nodes.JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Trim('"').Length > 0 ? s.Trim().Trim('"') : null;
     }
 }

@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json.Nodes;
-using Sloperator.Core.Agent;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Diffs;
 using Sloperator.Core.Projects;

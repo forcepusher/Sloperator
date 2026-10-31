@@ -26,11 +26,9 @@ public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? La
 /// </summary>
 public static class AutoRule
 {
-    public const string FileChanges = "File changes", FileInspector = "File inspector", CodeEditor = "Code editor", ImageEditor = "Image editor",
-        VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal";
-
     /// <summary>The panels Auto may show; the room it opens is as narrow and short as the widest and tallest of them needs.</summary>
-    public static readonly IReadOnlyList<string> Panels = [FileChanges, FileInspector, CodeEditor, ImageEditor, VideoEditor, WebPreview, Terminal];
+    public static readonly IReadOnlyList<string> Panels =
+        [SidePanelNames.FileChanges, SidePanelNames.FileInspector, SidePanelNames.CodeEditor, SidePanelNames.ImageEditor, SidePanelNames.VideoEditor, SidePanelNames.WebPreview, SidePanelNames.Terminal];
 
     /// <summary>Beside a web page the agent wrote, the files it loads: written, the page reloads in the Web preview, which is where to see them.</summary>
     private static readonly string[] PageFiles = [".css", ".js", ".mjs", ".json", ".svg"];
@@ -42,9 +40,9 @@ public static class AutoRule
     /// </summary>
     public static AutoTarget? AtStart(string tool, JsonObject args, AutoPlaces places) => tool switch
     {
-        "run_shell" or "ssh" => new(Terminal),
-        "video" => new(VideoEditor, VideoFolder(args, places.VideosDir)),
-        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, places.PicturesDir) is { } picture => new(ImageEditor, picture),
+        "run_shell" or "ssh" => new(SidePanelNames.Terminal),
+        "video" => new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir)),
+        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, places.PicturesDir) is { } picture => new(SidePanelNames.ImageEditor, picture),
         _ => null,
     };
 
@@ -64,11 +62,11 @@ public static class AutoRule
             case "write_file" or "edit_file" when written is not null:
                 return ForFile(written, places);
             case "video":
-                return new(VideoEditor, VideoFolder(args, places.VideosDir));
+                return new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir));
             case "comfyui" when made is [var first, ..]:
                 return Path.GetDirectoryName(first) is { } folder && PictureOf(folder, places.PicturesDir) is { } picture
-                    ? new(ImageEditor, picture)
-                    : new(FileInspector, first);
+                    ? new(SidePanelNames.ImageEditor, picture)
+                    : new(SidePanelNames.FileInspector, first);
             default:
                 return null;
         }
@@ -86,17 +84,17 @@ public static class AutoRule
     {
         var path = Path.GetFullPath(written.Path);
         if (PreviewPage.IsPage(path))
-            return new(WebPreview, path);
+            return new(SidePanelNames.WebPreview, path);
         if (places.LastPage is { } page && PageFiles.Contains(Path.GetExtension(path).ToLowerInvariant())
-            && PreviewPage.IsIn(path, Path.GetDirectoryName(Path.GetFullPath(page))!))
-            return new(WebPreview, page);
+            && Core.Projects.FolderPath.IsIn(path, Path.GetDirectoryName(Path.GetFullPath(page))!))
+            return new(SidePanelNames.WebPreview, page);
         if (Core.Documents.FileInspector.KindOf(path) is InspectorKind.Picture or InspectorKind.Animation or InspectorKind.Video or InspectorKind.Sound
             or InspectorKind.Model or InspectorKind.Document)
-            return new(FileInspector, path);
-        return written.Made && places.EditorFolder is { } folder && PreviewPage.IsIn(path, Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)))
+            return new(SidePanelNames.FileInspector, path);
+        return written.Made && places.EditorFolder is { } folder && Core.Projects.FolderPath.IsIn(path, Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)))
                && Core.Documents.FileInspector.IsText(path)
-            ? new(CodeEditor, path)
-            : new(FileChanges, path);
+            ? new(SidePanelNames.CodeEditor, path)
+            : new(SidePanelNames.FileChanges, path);
     }
 
     /// <summary>A call's arguments as the model gave them; empty when they don't read as an object.</summary>
@@ -112,8 +110,9 @@ public static class AutoRule
         }
     }
 
-    private static string? Arg(JsonObject args, string name) =>
-        args[name] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Length > 0 ? s.Trim().Trim('"') : null;
+    /// <summary>A string argument as the model gave it, without spaces or quotes round it; null when it isn't one or is blank.</summary>
+    internal static string? Arg(JsonObject args, string name) =>
+        args[name] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Trim('"') is { Length: > 0 } text ? text : null;
 
     /// <summary>A picture of the Image editor's: a folder right in <paramref name="picturesDir"/>; null for any other.</summary>
     private static string? PictureOf(string folder, string picturesDir)

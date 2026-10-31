@@ -91,7 +91,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             InterruptCommand.NotifyCanExecuteChanged();
         };
         // Auto, the default (the user, 2026-11-01): the window opens with it (OpenSidePanel).
-        _selectedSidePanel = SidePanelOptions.First(o => o.Name == AutoName);
+        _selectedSidePanel = SidePanelOptions.First(o => o.Name == SidePanelNames.Auto);
         UseChanges(new Core.Diffs.FileChanges());
     }
 
@@ -324,11 +324,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     {
         try
         {
-            Directory.CreateDirectory(_paths.PastedDir);
-            var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", System.Globalization.CultureInfo.InvariantCulture);
-            var path = Path.Combine(_paths.PastedDir, $"Pasted {stamp}.png");
-            for (var n = 2; File.Exists(path); n++)
-                path = Path.Combine(_paths.PastedDir, $"Pasted {stamp} ({n}).png");
+            var path = Core.Chats.PastedFiles.NewPath(_paths.PastedDir, "Pasted", ".png");
             write(path);
             Attach([path]);
         }

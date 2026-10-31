@@ -83,8 +83,9 @@ public sealed partial class ShellTool : Tool
         {
             if (binary > 0)
             {
-                output.Add(Ssh.TerminalText.BinaryNote(binary));
-                run?.Add(Ssh.TerminalText.BinaryNote(binary));
+                var note = Ssh.TerminalText.BinaryNote(binary);
+                output.Add(note);
+                run?.Add(note);
             }
             binary = 0;
         }

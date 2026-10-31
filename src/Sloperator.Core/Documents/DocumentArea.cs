@@ -87,11 +87,7 @@ public sealed record DocumentArea(double Left, double Top, double Right, double 
     /// </summary>
     public static string SaveNew(RawImage image, string dir)
     {
-        Directory.CreateDirectory(dir);
-        var stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", CultureInfo.InvariantCulture);
-        var file = Path.Combine(dir, $"Area {stamp}.png");
-        for (var n = 2; File.Exists(file); n++)
-            file = Path.Combine(dir, $"Area {stamp} ({n}).png");
+        var file = Chats.PastedFiles.NewPath(dir, "Area", ".png");
         SavePng(image, file);
         return file;
     }

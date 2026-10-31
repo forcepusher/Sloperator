@@ -452,6 +452,7 @@ public sealed partial class SshHost : IDisposable
         _signal.Release();
     }
 
+    /// <summary>
     /// Kills what runs in the terminal: every process on its tty except its bash. What runs as
     /// root (under sudo) is killed with sudo.
     /// </summary>
