@@ -13,7 +13,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>Auto is picked in the Side panel dropdown: the panel shown follows what the agent does (<see cref="AutoRule"/>).</summary>
     internal bool IsAuto => SelectedSidePanel?.Name == AutoName;
 
-    /// <summary>The panel Auto shows now; null while it shows what it will (<see cref="AutoPanelViewModel"/>).</summary>
+    /// <summary>The panel Auto shows now; null before the first (a new window, until the agent does something a panel shows).</summary>
     private SidePanelOption? _autoShown;
 
     /// <summary>
@@ -32,13 +32,19 @@ public sealed partial class MainWindowViewModel
     /// <summary>The newest change of the chat's list (<see cref="Core.Diffs.FileChanges.LastChange"/>) that Auto has seen.</summary>
     private int _autoSeen;
 
-    /// <summary>Auto picked: File changes starts reading, and the panel of the chat's latest call that has one opens, else what Auto will show.</summary>
-    private ISidePanel StartAuto()
+    /// <summary>
+    /// Auto picked: File changes starts reading, and the panel of the chat's latest call that has one
+    /// opens; with none, no panel (the user, 2026-11-01: an empty panel as the window opened "looks
+    /// clunky"), until the agent does something a panel shows.
+    /// </summary>
+    private ISidePanel? StartAuto()
     {
         _autoChanges = new FileChangesViewModel(this);
         _autoSeen = Changes.LastChange?.Number ?? 0;
         var target = FromChat();
         _autoShown = OptionOf(target);
+        if (_autoShown is null)
+            return null;
         var panel = OpenForAuto(_autoShown);
         ShowIn(panel, target?.Path, opened: true);
         return panel;
@@ -75,37 +81,42 @@ public sealed partial class MainWindowViewModel
     /// <summary>Where Auto's panels look: the pictures and videos folders, the chat's last web page, the Code editor's folder (as it picks it).</summary>
     private AutoPlaces Places() => new(_paths.PicturesDir, _paths.VideosDir, Changes.Last(PreviewPage.IsPage), EditorFolder ?? Changes.Project());
 
-    /// <summary>Another chat on screen (opened, new, its first message undone): under Auto, the panel of its latest call that has one.</summary>
+    /// <summary>
+    /// Another chat on screen (opened, new, its first message undone): under Auto, the panel of its latest
+    /// call that has one; with none (New chat), the panel open stays, showing the new chat, as a panel picked
+    /// by hand does, and the window keeps its size.
+    /// </summary>
     private void AutoChatChanged()
     {
         _autoSeen = Changes.LastChange?.Number ?? 0;
-        if (IsAuto && SidePanel is not null)
-            Follow(FromChat(), always: true);
+        if (IsAuto)
+            Follow(FromChat());
     }
 
     /// <summary>
-    /// Auto shows <paramref name="target"/>'s panel (what Auto will show with none): the panel open
-    /// already shows the file, page or video in it; else the new one takes its place, in the same room,
-    /// so the window and the bars of the chat stay as they are. It never puts anything in the box nor
-    /// tells the model anything: a message goes as typed, as with every panel. While something picked
-    /// in the panel waits in the box, the panel stays, for the message about it; Auto goes on after.
+    /// Auto shows <paramref name="target"/>'s panel; with none (a call no panel shows) the panel stays as
+    /// it is. The panel open already shows the file, page or video in it; else the new one takes its place,
+    /// in the same room, so the window and the bars of the chat stay as they are. With no panel yet (a new
+    /// window), the first opens as a panel picked by hand does, the window growing to the left, once: the
+    /// room then stays. It never puts anything in the box nor tells the model anything: a message goes as
+    /// typed, as with every panel. While something picked in the panel waits in the box, the panel stays,
+    /// for the message about it; Auto goes on after.
     /// </summary>
-    /// <param name="always">Even to no panel (a chat with nothing a panel shows); a call with none keeps the panel as it is.</param>
-    private void Follow(AutoTarget? target, bool always = false)
+    private void Follow(AutoTarget? target)
     {
-        if (!IsAuto || _closed || SidePanel is not { } old || target is null && !always || Attachments.Any(a => a.Picked))
+        if (!IsAuto || _closed || target is null || Attachments.Any(a => a.Picked) || OptionOf(target) is not { } option)
             return;
-        var option = OptionOf(target);
-        if (ReferenceEquals(option, _autoShown))
+        var old = SidePanel;
+        if (ReferenceEquals(option, _autoShown) && old is not null)
         {
-            ShowIn(old, target?.Path);
+            ShowIn(old, target.Path);
             return;
         }
         var panel = OpenForAuto(option);
-        ShowIn(panel, target?.Path, opened: true);
+        ShowIn(panel, target.Path, opened: true);
         _autoShown = option;
         SidePanel = panel;
-        if (!ReferenceEquals(old, _autoChanges))
+        if (old is not null && !ReferenceEquals(old, _autoChanges))
             old.Dispose();
     }
 
@@ -113,10 +124,8 @@ public sealed partial class MainWindowViewModel
         target is null ? null : SidePanelOptions.FirstOrDefault(o => o.Name == target.Panel && o.Open is not null && o.Name != AutoName);
 
     /// <summary>A panel for Auto to show: File changes the one kept reading, any other new.</summary>
-    private ISidePanel OpenForAuto(SidePanelOption? option) =>
-        option is null ? new AutoPanelViewModel()
-        : option.Name == FileChangesName ? _autoChanges ??= new FileChangesViewModel(this)
-        : option.Open!(this);
+    private ISidePanel OpenForAuto(SidePanelOption option) =>
+        option.Name == FileChangesName ? _autoChanges ??= new FileChangesViewModel(this) : option.Open!(this)!;
 
     /// <summary>
     /// The file, page, picture or video Auto shows in the panel, unless it shows it already. The Code

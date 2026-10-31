@@ -1,15 +1,11 @@
 using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
-using Sloperator.App.Views;
 using Xunit;
 
 namespace Sloperator.App.Tests;
 
-/// <summary>Auto in the Side panel dropdown: which panel it shows for each call the agent makes, and its panel before any.</summary>
-public sealed class AutoPanelTests : IDisposable
+/// <summary>Auto in the Side panel dropdown: which panel it shows for each call the agent makes.</summary>
+public sealed class AutoRuleTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-auto-panel-").FullName;
     private string Pictures => Path.Combine(_dir, "pictures");
@@ -133,30 +129,6 @@ public sealed class AutoPanelTests : IDisposable
     {
         var names = new[] { "File changes", "File inspector", "Code editor", "Image editor", "Video editor", "Web preview", "Terminal" };
         Assert.All(AutoRule.Panels, p => Assert.Contains(p, names));
-        Assert.All(new AutoPanelViewModel().Rows, r => Assert.Contains(r.Panel, AutoRule.Panels));
-    }
-
-    [Fact]
-    public void The_list_before_any_call_fits_the_least_width_with_its_panels_in_a_column()
-    {
-        var (rows, panels, width) = HeadlessApp.Run(() =>
-        {
-            // The room Auto opens at its least: the Code editor's 800, splitter included.
-            var view = new AutoPanel { DataContext = new AutoPanelViewModel() };
-            var window = new Window { Width = 800 - 4, Height = 633, Content = view };
-            window.Show();
-            window.UpdateLayout();
-            var texts = view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.FindAncestorOfType<ItemsControl>() is not null).ToList();
-            var right = texts.Where(t => t.Classes.Contains("muted")).Select(t => t.TranslatePoint(new(t.Bounds.Width, 0), view)!.Value.X).ToList();
-            var left = texts.Where(t => !t.Classes.Contains("muted")).Select(t => t.TranslatePoint(new(0, 0), view)!.Value.X).ToList();
-            var widest = texts.Max(t => t.TranslatePoint(new(t.Bounds.Width, 0), view)!.Value.X);
-            window.Close();
-            return (right, left, widest);
-        });
-        Assert.Equal(7, rows.Count);
-        Assert.All(rows, x => Assert.Equal(rows[0], x, 0.5));
-        Assert.All(panels, x => Assert.Equal(panels[0], x, 0.5));
-        Assert.True(width < 800 - 4 - 16, $"The list runs to {width}.");
     }
 
     private string Video(string name)

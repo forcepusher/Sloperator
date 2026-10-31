@@ -4074,8 +4074,7 @@ either; each panel's own bar is that panel's, from the start, as always. A switc
 panel's content, then the new one's.
 
 **No context of its own.** Auto never picks anything: it shows panels (`Follow`), and a message typed with it
-open goes as it is, as with every panel (see the Side panel under Videos: a card only of what the user picked). Before the agent has done anything a panel shows, the
-panel lists what Auto opens for what (`AutoPanelViewModel`, `AutoPanel`), and its `About` is null. While something
+open goes as it is, as with every panel (see the Side panel under Videos: a card only of what the user picked). While something
 picked in the panel shown waits in the box, Auto holds that panel, for the message about it, and goes on with the
 calls after (a switch would have taken the pick away, as another panel picked by hand does). A message from the
 panel shown (Make the video, Make again) says that panel's name (`ShownSidePanel`), not "Auto".
@@ -4101,28 +4100,36 @@ selects it without picking it: only a click picks).
 
 **A chat on screen** (opened from History, New chat, the current one deleted or its first message undone) shows
 the panel of its latest call that has one, read from its cards (`FromChat`; a chat from History keeps a call's
-arguments in the conversation, not on its card), else the list. Picking a panel by hand, or **Open in**/Inspect
+arguments in the conversation, not on its card); with none (New chat), the panel open stays, showing the new chat
+as a panel picked by hand does, and the window keeps its size. Picking a panel by hand, or **Open in**/Inspect
 on a file, leaves Auto for that panel until Auto is picked again: the user's pick, which Auto would take away at the
 agent's next call. The × closes the panel as for any (None).
 
-**Opens with the window.** The view model starts on Auto, and `ChatWindows.Open` opens it (`OpenSidePanel`)
-before the window is first shown, so the window opens as wide as chat and panel are rather than growing to the
-left before the user's eyes. `Dock` before the window is shown sets its place directly (no cover, no layout of
-its own); opening centred (no place kept yet), the window is centred as wide as it is, and once shown the chat
-alone is taken as its right end at the width it was to be (`_centredChat`), so a window closed or set to None is
-the chat as wide as before, not as narrow as the screen squeezed it beside the panel. The choice isn't kept
-between runs: every window opens on Auto.
+**No panel until there is something to show.** Every window opens with Auto picked (the dropdown says "Auto"),
+but as the chat alone: Auto opens a panel only for the agent's first call that has one, already showing it, and
+the window grows to the left then, once, as for a panel picked by hand; from there a panel for another only
+fills the room, and once open it stays (New chat keeps it). A plain question never opens one. The user, 2026-11-01,
+of the first version, which opened with an empty panel listing what Auto shows: "I kinda don't like that it starts
+opened. Looks clunky", then "New window starts a closed panel as well", and of a placeholder for New chat: "Just
+remove that placeholder". That empty panel (`AutoPanelViewModel`, `AutoPanel`) is gone. Opening by itself mid-task is
+what they disliked in File changes' auto-open (2026-10-31); here it is once per window, with the panel already
+showing the work, under the Auto they picked.
+`ChatWindows.Open` starts Auto (`OpenSidePanel`) before the window is first shown, so its File changes is reading
+from the start (the first change is lit); a panel it had then would open with the window. `Dock` before the window
+is shown sets its place directly (no cover, no layout of its own); opening centred (no place kept yet), the window
+is centred as wide as it is, and once shown the chat alone is taken as its right end at the width it was to be
+(`_centredChat`). The choice isn't kept between runs: every window opens on Auto.
 
 Checked in the app (2026-11-01, laptop at 125%, a stand-in agent holding each call until the driver had captured
 the panel): Terminal for a command, File changes lit for stars.js (no page yet), Web preview running the game once
 index.html and game.js were written, File changes lit for a Python script and then its edit, the File inspector
-drawing an SVG mockup, the Video editor on the storyboard the call made, Terminal again; New chat showed the list,
+drawing an SVG mockup, the Video editor on the storyboard the call made, Terminal again; New chat showed the list (no panel since),
 the chat opened from History showed Terminal (its last call). With a line of the script picked in the box, a
 command run after left File changes as it was. With the Code editor (same day, the space-rocks sample copied to %TEMP%):
 two new files opened in the Code editor in the project's tree, lit whole, the second by its Watch; edits to Ship.cs and
 Game.cs, which were there, in File changes with the edit lit; an edit to the agent's own Shield.cs back in the Code
 editor, which lights all the agent wrote in that file in the chat, as its Watch does on going to another file (not
-only the last edit). Tests: `AutoPanelTests` (the rule, the list's layout at 800), `FileChangesTests` (`IsNew`).
+only the last edit). Tests: `AutoRuleTests` (the rule), `FileChangesTests` (`IsNew`).
 
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen
