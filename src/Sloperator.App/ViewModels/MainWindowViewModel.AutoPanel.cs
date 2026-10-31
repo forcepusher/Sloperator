@@ -13,8 +13,49 @@ public sealed partial class MainWindowViewModel
     /// <summary>Auto is picked in the Side panel dropdown: the panel shown follows what the agent does (<see cref="AutoRule"/>).</summary>
     internal bool IsAuto => SelectedSidePanel?.Name == AutoName;
 
-    /// <summary>The panel Auto shows now; null before the first (a new window, until the agent does something a panel shows).</summary>
+    /// <summary>The panel Auto shows now; null before the first (a new window, until the agent does something a panel shows) and after its ×.</summary>
     private SidePanelOption? _autoShown;
+
+    private SidePanelOption? AutoShown
+    {
+        get => _autoShown;
+        set
+        {
+            if (ReferenceEquals(_autoShown, value))
+                return;
+            _autoShown = value;
+            OnPropertyChanged(nameof(SidePanelCaption));
+        }
+    }
+
+    /// <summary>
+    /// What the Side panel dropdown says: under Auto, the panel it shows, "Auto (Terminal)", or "Auto" with
+    /// none (the user, 2026-11-01: so the panel open can be told); else the pick's own word.
+    /// </summary>
+    public string SidePanelCaption => IsAuto ? AutoShown is { } shown ? $"{AutoName} ({shown.Name})" : AutoName : SelectedSidePanel?.Label ?? "Side panel";
+
+    /// <summary>Every caption Auto can show, so the dropdown is as wide for all of them: it doesn't change width mid-task as Auto goes from panel to panel.</summary>
+    private static readonly IReadOnlyList<string> AutoCaptions = [AutoName, .. AutoRule.Panels.Select(p => $"{AutoName} ({p})")];
+
+    /// <summary>The captions the dropdown is as wide as: Auto's all, while Auto is picked; else the pick's own.</summary>
+    public IReadOnlyList<string> SidePanelCaptionSlot => IsAuto ? AutoCaptions : [SidePanelCaption];
+
+    /// <summary>
+    /// The × under Auto: the panel closes and Auto stays picked (the user, 2026-11-01: × "should not switch
+    /// the side panel to None mode"); it opens one again for the agent's next work a panel shows. What the
+    /// panel put in the box goes with it, as when any panel closes.
+    /// </summary>
+    private void CloseAutoPanel()
+    {
+        if (SidePanel is not { } old)
+            return;
+        foreach (var picked in Attachments.Where(a => a.Picked).ToList())
+            RemoveAttachment(picked);
+        AutoShown = null;
+        SidePanel = null;
+        if (!ReferenceEquals(old, _autoChanges))
+            old.Dispose();
+    }
 
     /// <summary>
     /// The panel on screen: the one picked in the dropdown, or under Auto the one Auto shows (null
@@ -42,10 +83,10 @@ public sealed partial class MainWindowViewModel
         _autoChanges = new FileChangesViewModel(this);
         _autoSeen = Changes.LastChange?.Number ?? 0;
         var target = FromChat();
-        _autoShown = OptionOf(target);
-        if (_autoShown is null)
+        AutoShown = OptionOf(target);
+        if (AutoShown is null)
             return null;
-        var panel = OpenForAuto(_autoShown);
+        var panel = OpenForAuto(AutoShown);
         ShowIn(panel, target?.Path, opened: true);
         return panel;
     }
@@ -56,7 +97,7 @@ public sealed partial class MainWindowViewModel
         if (_autoChanges is { } changes && !ReferenceEquals(changes, leaving))
             changes.Dispose();
         _autoChanges = null;
-        _autoShown = null;
+        AutoShown = null;
     }
 
     /// <summary>A call started: under Auto, the panel that shows it as it goes (a command's lines, a shot being made).</summary>
@@ -114,7 +155,7 @@ public sealed partial class MainWindowViewModel
         }
         var panel = OpenForAuto(option);
         ShowIn(panel, target.Path, opened: true);
-        _autoShown = option;
+        AutoShown = option;
         SidePanel = panel;
         if (old is not null && !ReferenceEquals(old, _autoChanges))
             old.Dispose();

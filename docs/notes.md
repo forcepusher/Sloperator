@@ -4069,9 +4069,14 @@ go Code editor or File changes, Terminal, and back: that is the work as it goes.
 **Nothing moves mid-task.** Auto's room is as narrow and as short as the widest and tallest of its panels needs
 (800, the Code editor's, and 633 tall, the Video editor's; `WithAuto` takes them from the options), so a panel for another never
 resizes the window: `MainWindow.Dock` sees the same pick (`_dockedFor`) and only puts the new panel in the room,
-which keeps the width the splitter left it at. The dropdown keeps saying "Auto", so the chat's bar doesn't change
-either; each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the old
-panel's content, then the new one's.
+which keeps the width the splitter left it at. The dropdown names the panel Auto shows, "Auto (Terminal)", and
+"Auto" with none (`SidePanelCaption`; the user, 2026-11-01: "so we have an idea of what panel is currently open";
+it said "Auto" alone before), in a `SlotText` as wide as every caption Auto has (`SidePanelCaptionSlot`, "Auto (File
+inspector)" the widest), so the chat's bar doesn't move as Auto goes from panel to panel: "Auto" alone leaves room
+before the arrow. It is the window's caption, not the pick's word (the ComboBox's selection box binds to the window's
+view model). At the chat's least width (660) the bar still has History, New chat, New window and Settings in one row
+beside it. Each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the
+old panel's content, then the new one's.
 
 **No context of its own.** Auto never picks anything: it shows panels (`Follow`), and a message typed with it
 open goes as it is, as with every panel (see the Side panel under Videos: a card only of what the user picked). While something
@@ -4103,7 +4108,10 @@ the panel of its latest call that has one, read from its cards (`FromChat`; a ch
 arguments in the conversation, not on its card); with none (New chat), the panel open stays, showing the new chat
 as a panel picked by hand does, and the window keeps its size. Picking a panel by hand, or **Open in**/Inspect
 on a file, leaves Auto for that panel until Auto is picked again: the user's pick, which Auto would take away at the
-agent's next call. The × closes the panel as for any (None).
+agent's next call. **The ×** closes the panel and Auto stays picked (`CloseAutoPanel`; the user, 2026-11-01: × "should
+not switch the side panel to None mode"), as at the window's start: the agent's next work a panel shows opens one
+again. What the panel put in the box goes with it. A panel picked by hand closes to None as before, there being
+nothing else to go back to.
 
 **No panel until there is something to show.** Every window opens with Auto picked (the dropdown says "Auto"),
 but as the chat alone: Auto opens a panel only for the agent's first call that has one, already showing it, and

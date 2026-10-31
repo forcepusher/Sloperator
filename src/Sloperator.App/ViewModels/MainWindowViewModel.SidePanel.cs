@@ -155,10 +155,17 @@ public sealed partial class MainWindowViewModel
         (SidePanel as IFilePanel)?.Show(path);
     }
 
-    /// <summary>The × on the open panel: None in the dropdown.</summary>
-    internal void CloseSidePanel() => SelectedSidePanel = SidePanelOptions[0];
+    /// <summary>The × on the open panel: None in the dropdown; under Auto the panel closes and Auto stays.</summary>
+    internal void CloseSidePanel()
+    {
+        if (IsAuto)
+            CloseAutoPanel();
+        else
+            SelectedSidePanel = SidePanelOptions[0];
+    }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SidePanelCaption), nameof(SidePanelCaptionSlot))]
     private SidePanelOption? _selectedSidePanel;
 
     /// <summary>The open panel, on the left of the chat; null with none.</summary>
