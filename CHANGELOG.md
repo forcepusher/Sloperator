@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for a new version of a picture. Calls with no panel (clicks, screenshots, reading) leave it as it is,
   and so does something you picked in the panel until you send it. Going from one panel to another
   never resizes the window. Under Auto every panel follows the agent, its Watch on and greyed; your
-  Watch setting comes back when you pick a panel yourself. Pick another panel, or open a file in one,
-  to keep that one.
+  Watch setting comes back when you pick a panel yourself. The dropdown says which panel Auto shows,
+  as "Auto (Terminal)". The panel's × closes it and Auto stays on, opening one again for the agent's next
+  work. Pick another panel, or open a file in one, to keep that one.
 - **Terminal** in the Side panel dropdown: the commands the agent runs, on this PC and over SSH, listed
   as they run with where they ran, their exit code and how long they took, and the one you pick shown
   whole as it prints, every line of it (the agent itself reads only the start and end of a long output).
