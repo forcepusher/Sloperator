@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
@@ -111,6 +112,35 @@ public sealed class TerminalPanelTests : IDisposable
             var output = window.GetVisualDescendants().OfType<CodeView>().Single();
             Assert.True(output.IsReadOnly);
             Assert.Equal("hi", output.Document.Text);
+            window.Close();
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void Under_Auto_the_newest_command_shows_with_Watch_off_and_Watch_shows_on_greyed()
+    {
+        HeadlessApp.Run(() =>
+        {
+            var log = new CommandLog();
+            log.Start("dir", "This PC", null).End(0);
+            using var vm = new TerminalViewModel(null, _dir, log) { ByAuto = true };
+            vm.Watch = false;
+            vm.Selected = vm.Commands[0];
+            log.Start("ver", "This PC", null).End(0);
+            Refresh(vm);
+            // Auto follows the agent: the new command shows though Watch is off, and Watch stays off underneath.
+            Assert.Same(vm.Commands[1], vm.Selected);
+            Assert.False(vm.Watch);
+            Assert.True(vm.WatchShown);
+            Assert.Equal(AutoWatch.Tip, vm.WatchTip);
+
+            var window = new Window { Width = 880, Height = 500, Content = new TerminalPanel { DataContext = vm } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var watch = window.GetVisualDescendants().OfType<ToggleButton>().Single(t => Avalonia.Automation.AutomationProperties.GetName(t) == "Watch");
+            Assert.True(watch.IsChecked);
+            Assert.False(watch.IsEnabled);
             window.Close();
             return 0;
         });

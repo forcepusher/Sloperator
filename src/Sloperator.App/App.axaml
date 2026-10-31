@@ -751,6 +751,16 @@
     <Style Selector="Button.act:disabled, ToggleButton.ghost:disabled">
       <Setter Property="Opacity" Value="0.6" />
     </Style>
+    <!-- On but not the user's to change (Watch while Auto follows the agent): a toggle on, dimmed as every
+         greyed control is, so it still reads as on. -->
+    <Style Selector="ToggleButton.ghost:checked:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushChecked}" />
+      <Setter Property="Foreground" Value="{StaticResource BbOnAccent}" />
+    </Style>
+    <Style Selector="ToggleButton.ghost:checked:disabled PathIcon">
+      <Setter Property="Foreground" Value="{StaticResource BbOnAccent}" />
+    </Style>
     <!-- A list's row (File changes' files) lights to a card's colour under the pointer, a button's
          pressed; a picked one keeps its tint (Fluent's). -->
     <Style Selector="ListBoxItem:not(:selected):pointerover /template/ ContentPresenter#PART_ContentPresenter">

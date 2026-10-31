@@ -73,7 +73,7 @@ public partial class TerminalPanel : UserControl
     /// <summary>Watching, the output is kept at its last line as lines come; scrolled away from it with Watch off, it stays.</summary>
     private void FollowEnd()
     {
-        if (_vm is not { Watch: true } || Output.Document is not { LineCount: > 0 } document)
+        if (_vm is not { Following: true } || Output.Document is not { LineCount: > 0 } document)
             return;
         Dispatcher.UIThread.Post(() => Output.ScrollToLine(document.LineCount), DispatcherPriority.Background);
     }

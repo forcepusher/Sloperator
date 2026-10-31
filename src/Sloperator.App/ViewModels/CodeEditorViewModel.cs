@@ -65,6 +65,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             _ = OnDiskChangedAsync();
         });
         _watch = chat.Panels.WatchCode;
+        ByAuto = chat.IsAuto;
         _wrap = chat.Panels.WrapCode;
         _fontSize = Math.Clamp(chat.Panels.CodeFontSize, MinFontSize, MaxFontSize);
         // A change made before the panel opened isn't followed: only the agent's next one.
@@ -196,7 +197,21 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
 
     /// <summary>Watch (the user, 2026-10-31, as File changes has it): the file the agent edits opens at the lines it changed, lit a moment. Kept in settings.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchShown))]
     private bool _watch;
+
+    public bool ByAuto { get; }
+
+    /// <summary>The panel follows the agent's edits now: Watch, or Auto showing it.</summary>
+    private bool Following => Watch || ByAuto;
+
+    public bool WatchShown
+    {
+        get => Following;
+        set => Watch = value;
+    }
+
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Follow the agent's changes as they happen";
 
     partial void OnWatchChanged(bool value)
     {
@@ -230,7 +245,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             return;
         _followedNumber = last.Number;
         var path = last.Path;
-        if (!Watch || Folder is not { } folder || !IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
+        if (!Following || Folder is not { } folder || !IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
             return;
         if (string.Equals(path, OpenPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -769,7 +784,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         var (start, length) = Replace(document, text);
         document.UndoStack.MarkAsOriginalFile();
         // Watching, the new lines are lit (a deletion: the line where it was).
-        if (Watch)
+        if (Following)
         {
             var from = document.GetLineByOffset(start);
             var end = document.GetLineByOffset(start + length);

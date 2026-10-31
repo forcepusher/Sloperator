@@ -4080,6 +4080,19 @@ picked in the panel shown waits in the box, Auto holds that panel, for the messa
 calls after (a switch would have taken the pick away, as another panel picked by hand does). A message from the
 panel shown (Make the video, Make again) says that panel's name (`ShownSidePanel`), not "Auto".
 
+**Watch under Auto** (the user, 2026-11-01: "Are the Watch buttons auto-activated when we use Auto mode?"; they
+weren't, so a panel whose Watch the user had turned off came up under Auto and then didn't follow). Now a panel
+Auto shows follows the agent whatever Watch says (`IWatchPanel.ByAuto`, set from `IsAuto` as the panel is made;
+each panel's own `Following` = Watch or ByAuto where it read Watch: File changes scrolling to the change, the
+Terminal's newest command and its output kept at its end, the Code editor's following and lit lines, the Web
+preview's page and reload). Its Watch button shows on and greyed (`WatchShown`, `IsEnabled` = !ByAuto, the tip
+"Auto follows the agent. Pick this panel in the dropdown to turn Watch off.", `AutoWatch.Tip`), in the place it
+always has, so the bar doesn't change; `ToggleButton.ghost:checked:disabled` keeps a toggle's yellow, dimmed as
+every greyed control is (it went transparent, which read as off). Watch itself keeps the user's setting, saved as
+it was, for the panel picked by hand. Checked in the app with every Watch off in settings: under Auto the Code
+editor followed the second new file and File changes scrolled to the edit, lit, both Watch buttons on and greyed;
+Terminal picked by hand showed Watch off and clickable; settings.json still had all four off.
+
 **File changes is kept reading** while Auto is picked, shown or not (`_autoChanges`): opened only when a change
 came, its first read has no "just now", so nothing lit up and nothing was scrolled to. Every other panel is made
 anew when Auto goes to it and let go when Auto leaves it: Terminal shows the newest command, Web preview opens the

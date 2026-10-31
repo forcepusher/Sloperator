@@ -57,6 +57,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         _chat = chat;
         _picksDir = picksDir;
         _watch = chat?.Panels.WatchTerminal ?? true;
+        ByAuto = chat?.IsAuto == true;
         _wrap = chat?.Panels.WrapTerminal ?? true;
         _clock = new Avalonia.Threading.DispatcherTimer(TimeSpan.FromSeconds(1), Avalonia.Threading.DispatcherPriority.Background, (_, _) =>
         {
@@ -171,7 +172,7 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
             item.Update();
         OnPropertyChanged(nameof(HasCommands));
         // Watching, the newest command is shown as it starts; with none shown, the newest anyway.
-        if (Commands.Count > 0 && (Selected is null || added && Watch))
+        if (Commands.Count > 0 && (Selected is null || added && Following))
             Selected = Commands[^1];
         else
             Append();
@@ -198,7 +199,21 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
 
     /// <summary>The newest command is shown as it starts, its output kept scrolled to its end; kept in settings.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchShown))]
     private bool _watch;
+
+    public bool ByAuto { get; init; }
+
+    /// <summary>The newest command shows as it starts and its output is kept at its end: Watch, or Auto showing the panel.</summary>
+    internal bool Following => Watch || ByAuto;
+
+    public bool WatchShown
+    {
+        get => Following;
+        set => Watch = value;
+    }
+
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Follow the agent's changes as they happen";
 
     partial void OnWatchChanged(bool value)
     {
