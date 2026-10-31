@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-11-01
 ### Added
 - **Auto** in the Side panel dropdown, after None, and picked in every window: no panel until the agent
   does something one shows, then the panel for what it is doing opens as it does it (the window widens
@@ -709,7 +711,8 @@ The first release.
 - A command-line runner, and benchmarks: desktop tasks, 2048 and Unity 2048, clicks, a sysadmin
   lab, a chat stand-in lab and ComfyUI requests.
 
-[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.2.0...HEAD
+[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/forcepusher/Sloperator/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/forcepusher/Sloperator/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/forcepusher/Sloperator/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/forcepusher/Sloperator/releases/tag/1.0.0
