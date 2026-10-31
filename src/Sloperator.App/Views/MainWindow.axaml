@@ -286,20 +286,19 @@
 
   <!-- The title bar over all of it (TitleBar), the side panel's column too. -->
   <DockPanel x:Name="Root">
-  <!-- The title bar reads "Sloperator · ● Connected · 15k of 256k used · <chat>" (the user, 2026-10-31);
-       the window's title, "<chat> - Sloperator", is the taskbar's. The state: the dot, the status
-       word, the context's use, each part whole or not at all (WholeRow): in a narrow window the
-       context's use goes first, then the word, and the dot stays, the word in the row's tooltip. -->
+  <!-- The title bar reads "Sloperator · Connected ● 15k of 256k used · <chat>" (the user, 2026-10-31):
+       the status light stands where a dot would, 4 on each side as the dots have. The window's
+       title, "<chat> - Sloperator", is the taskbar's. The state: the status word, the light, the
+       context's use, each part whole or not at all (WholeRow): in a narrow window the context's use
+       goes first, then the light, and the word stays. -->
   <views:TitleBar DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}">
     <views:TitleBar.Status>
-      <views:WholeRow Background="Transparent" ToolTip.Tip="{Binding ServerStatusText}">
+      <views:WholeRow Background="Transparent">
+        <TextBlock Classes="muted" Text="{Binding ServerStatusText}" VerticalAlignment="Center" />
         <Ellipse Classes="status" Classes.checking="{Binding IsChecking}" Classes.connected="{Binding IsConnected}" Classes.failed="{Binding IsFailed}"
-                 Width="8" Height="8" VerticalAlignment="Center" />
-        <TextBlock Classes="muted" Text="{Binding ServerStatusText}" VerticalAlignment="Center" Margin="8,0,0,0" />
-        <StackPanel Orientation="Horizontal" IsVisible="{Binding HasContextUsage}" ToolTip.Tip="{Binding ContextUsageTip}">
-          <TextBlock Classes="muted titleDot" />
-          <TextBlock Classes="muted" Text="{Binding ContextUsage}" VerticalAlignment="Center" />
-        </StackPanel>
+                 Width="8" Height="8" VerticalAlignment="Center" Margin="4,0" />
+        <TextBlock Classes="muted" Text="{Binding ContextUsage}" IsVisible="{Binding HasContextUsage}" ToolTip.Tip="{Binding ContextUsageTip}"
+                   VerticalAlignment="Center" />
       </views:WholeRow>
     </views:TitleBar.Status>
   </views:TitleBar>

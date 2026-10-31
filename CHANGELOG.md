@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   draws when it reads one, and writes design mockups as SVG files, so you see a mockup right in the
   chat. Pictures an SVG links on the web aren't fetched. Sloperator.exe is about 1.5 MB bigger.
 
-  bar into the window's title bar: Sloperator · ● Connected · context used · the chat's title.
+  bar into the window's title bar: Sloperator · Connected ● context used · the chat's title.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.
 - Settings → Safety: the dropdown for when Sloperator asks before acting is labelled

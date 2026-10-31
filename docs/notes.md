@@ -1823,23 +1823,27 @@ signs #808080 while the window isn't active. Windows 10 drew its own grey bar wh
 The bar had the blob 16x16 at 12 from the left and the title 8 after it until 2026-10-31, when
 the user asked for it to go: the title took its place at 12, and the exe, taskbar and Alt+Tab keep
 the icon.
-A chat window's bar reads "Sloperator · ● Connected · 15k of 256k used · <chat>" since 2026-10-31
+A chat window's bar reads "Sloperator · Connected ● 15k of 256k used · <chat>" since 2026-10-31
 (the user: the status was in the top bar under it, between the Side panel dropdown and History; put
 first beside minimize, then after the window's title, then first with the title last, then "Separate
 Sloperator word from the chat title. Put Sloperator word first", then "Separate all of those with
-that same dot"): the bar's own title (`TitleBar.Text`, "Sloperator"; the window's title,
-"<chat> - Sloperator", stays the taskbar's), the server's state (`TitleBar.Status`: the dot, the
-status word 8 after it and the context's use, in the muted 12, faint while the window isn't active),
-and the chat's title (`TitleBar.Subtitle`, the title's look; nothing before the first message), each
-part after the first behind the same "·" (`TextBlock.titleDot`, muted, 4 on each side: 5 clear
-pixels each side at 100%, 6 to 8 at 125%, with the letters' own sides). The TitleBar shows its dots
-by its `status` and `subtitle` classes. The margins that end the title and the chat's title at the
-dots name the `title` class in their selectors: a class in a selector makes it a trigger in Avalonia,
-which outranks a selector without one whatever the order (`TextBlock.title`'s 12 won at first). The dot and the word
+that same dot", then "replace the dot after Connected with that green status indicator, use it as a
+dot"): the bar's own title (`TitleBar.Text`, "Sloperator"; the window's title,
+"<chat> - Sloperator", stays the taskbar's), the server's state (`TitleBar.Status`: the status word,
+the status light 8 x 8 with 4 on each side as a dot has, and the context's use, in the muted 12,
+faint while the window isn't active), and the chat's title (`TitleBar.Subtitle`, the title's look;
+nothing before the first message). The status and the chat's title follow the same "·"
+(`TextBlock.titleDot`, muted, 4 on each side: 5 clear pixels each side at 100%, 6 to 8 at 125%, with
+the letters' own sides; the light has 5 before it and 4 after at 100%, the digit after it starting
+at its own edge). The TitleBar shows its dots by its `status` and `subtitle` classes. The margins
+that end the title and the chat's title at the dots name the `title` class in their selectors: a
+class in a selector makes it a trigger in Avalonia, which outranks a selector without one whatever
+the order (`TextBlock.title`'s 12 won at first). Until the first reply the light ends the status, so
+from the first message to it the bar reads "Connected ● · <chat>". The word and the light
 never move; the chat's title moves as the context's use comes after the first reply and as its
 number grows. The status is docked before the chat's title and measured first, so a long chat title
 is cut short with "…" before any of it; with no room left the `WholeRow` gives way, the context's
-use first, then the word, the dot staying (the word in the row's tooltip). Settings has neither and
+use first, then the light, the word staying. Settings has neither and
 its title at 12 as before. The row is as tall as the strip and each part centred in it, as the
 title is: the words share the title's baseline and the 8 x 8 dot (9 x 9 before, 11.25 px at 125%) is
 exactly in the middle at 100% and 125% (12 rows over and under it; 15 at 125%). Measured on the
