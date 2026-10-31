@@ -74,9 +74,10 @@ public sealed partial class ShellTool : Tool
                 }
                 FlushBinary();
                 output.Add(line);
+                // An error record ends in a line break: no empty line after it in the Terminal panel.
                 if (run is not null)
-                    foreach (var part in line.Split('\n'))
-                        run.Add(part);
+                    foreach (var part in line.TrimEnd('\r', '\n').Split('\n'))
+                        run.Add(part.TrimEnd('\r'));
             }
         }
         void FlushBinary()
