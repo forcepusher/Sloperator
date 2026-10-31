@@ -4565,10 +4565,11 @@ A folder Sloperator can't write to (Program Files, a locked folder; a file made 
 tells) gets no download: the line says "Sloperator 1.2.0 is out" with **Download**, the release's
 page. Only the single-file exe publish.ps1 makes (the one with the embedded runtime) updates itself:
 a debug or folder build would be replaced by a lone exe; there, **Check for updates** says so and
-nothing checks by itself. Settings → Advanced → Updates shows the running version ("Version 1.2.0", the
-exe's file version the checks compare against, `Updater.VersionText`), **Check for updates** (checks now: "Checking…", then
-"Up to date", the ready or out version, or what went wrong) and **Check automatically**, on by
-default; off, Sloperator never contacts GitHub by itself. `SLOPERATOR_RELEASES_SERVER` points the
+nothing checks by itself. Settings → Advanced → Updates has **Check automatically**, on by default,
+and **Check for updates** (checks now) with one line beside it, `Updater.StatusLine`: the running version
+(the exe's file version the checks compare against), then what the last check found. "Version 1.2.0"
+before any check, then "Version 1.2.0 · Checking…", "Version 1.2.0 · Up to date", the ready or out
+version, or what went wrong. Off, Sloperator never contacts GitHub by itself. `SLOPERATOR_RELEASES_SERVER` points the
 lookup at a stand-in for GitHub's API and pages, for tests only.
 
 ## Build

@@ -82,12 +82,11 @@
         <ScrollViewer>
           <StackPanel Spacing="4" Margin="16,8,28,24">
             <TextBlock Classes="h2" Text="Updates" />
-            <TextBlock Classes="muted" Text="{Binding Updater.VersionText}" />
             <CheckBox IsChecked="{Binding Updates.Automatic}" Content="Check automatically"
                       ToolTip.Tip="At start and once an hour Sloperator asks GitHub for a new version and downloads it. Off, it never contacts GitHub by itself." />
             <StackPanel Orientation="Horizontal" Spacing="12">
               <Button Classes="ghost" Content="Check for updates" Command="{Binding CheckForUpdatesCommand}" />
-              <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding Updater.Status}" />
+              <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding Updater.StatusLine}" />
             </StackPanel>
 
             <TextBlock Classes="h2" Text="Screenshots" />
