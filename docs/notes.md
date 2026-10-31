@@ -4039,9 +4039,13 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - write_file, edit_file, once the change is in File changes' list (`FileChanges.LastChange`, new since the last
   call): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
   there), in **Web preview**; a picture, animation, video, sound, 3D model or document (Word, Excel, PowerPoint,
-  PDF, an SVG elsewhere) in the **File inspector**, which draws it; any other file (code, text, Markdown, a table)
-  in **File changes**, its lines lit as with the panel open. A file on a server, or in Sloperator's own Data, isn't
-  in the list and shows nothing.
+  PDF, an SVG elsewhere) in the **File inspector**, which draws it. Code and text (Markdown and tables too) by whose
+  file it is (`FileChanges.IsNew`: it wasn't there before the agent first changed it): one the agent made in this
+  chat, inside the folder the Code editor shows (the user's, else the agent's project), in the **Code editor**,
+  opened at what the agent wrote in it, lit (`CodeEditorViewModel.OpenLit`, then its Watch follows the next
+  writes); a file that was there before (the user's code) in **File changes**, where what the agent took out shows
+  beside what it put in, lit as with the panel open, with Discard and Stage; a new file outside the editor's folder
+  in File changes too. A file on a server, or in Sloperator's own Data, isn't in the list and shows nothing.
 - video: the **Video editor**, on the call's video (by its folder or its name in the videos folder, else the one
   changed last, which the tool goes on with), as it starts, so the piece being made shows "Making it…"; and again
   once it ends, which opens a video the call only then made.
@@ -4049,13 +4053,21 @@ alone, its tool, its arguments and what it made, the same for every model and se
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
 
+**Code editor or File changes** (the user, 2026-11-01, on the first version, which sent every edit to File changes:
+"This choice can't be trivialized"; the Code editor lights what the agent writes too). Each shows a change well in
+its own way: the Code editor the whole file in its project's tree, lit as written, but not what was removed and only
+in its one folder; File changes what was removed beside what was added, for every file, against what was there. A
+file the agent made has no "before", so its diff is the file in green: the editor shows the same with its project
+around it. A file that was there is the user's, and what the agent took out of it matters. Put to the user with two
+other ways (by the tool: write_file to the editor, edit_file to File changes, which loses what a rewrite removed; by
+phase: the editor during a turn, File changes as its review at the end); "by whose file" was built while they chose.
+
 Considered and left out: reads (exploring a project reads dozens of files, and the panel would flicker through
-them), the Code editor for edits (File changes shows what changed and every file changed, lit; the Code editor is
-for the user's own editing and needs 800), switching only at a call's end (a command's lines and a shot's progress
-are what is live). A coding loop does go File changes, Terminal, File changes: that is the work as it goes.
+them), switching only at a call's end (a command's lines and a shot's progress are what is live). A coding loop does
+go Code editor or File changes, Terminal, and back: that is the work as it goes.
 
 **Nothing moves mid-task.** Auto's room is as narrow and as short as the widest and tallest of its panels needs
-(770, the Video editor's, and 633 tall; `WithAuto` takes them from the options), so a panel for another never
+(800, the Code editor's, and 633 tall, the Video editor's; `WithAuto` takes them from the options), so a panel for another never
 resizes the window: `MainWindow.Dock` sees the same pick (`_dockedFor`) and only puts the new panel in the room,
 which keeps the width the splitter left it at. The dropdown keeps saying "Auto", so the chat's bar doesn't change
 either; each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the old
@@ -4093,7 +4105,11 @@ the panel): Terminal for a command, File changes lit for stars.js (no page yet),
 index.html and game.js were written, File changes lit for a Python script and then its edit, the File inspector
 drawing an SVG mockup, the Video editor on the storyboard the call made, Terminal again; New chat showed the list,
 the chat opened from History showed Terminal (its last call). With a line of the script picked in the box, a
-command run after left File changes as it was. Tests: `AutoPanelTests` (the rule, the list's layout at 770).
+command run after left File changes as it was. With the Code editor (same day, the space-rocks sample copied to %TEMP%):
+two new files opened in the Code editor in the project's tree, lit whole, the second by its Watch; edits to Ship.cs and
+Game.cs, which were there, in File changes with the edit lit; an edit to the agent's own Shield.cs back in the Code
+editor, which lights all the agent wrote in that file in the chat, as its Watch does on going to another file (not
+only the last edit). Tests: `AutoPanelTests` (the rule, the list's layout at 800), `FileChangesTests` (`IsNew`).
 
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen

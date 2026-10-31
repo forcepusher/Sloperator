@@ -114,7 +114,34 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             folder = null;
         if (!string.Equals(folder, Folder, StringComparison.OrdinalIgnoreCase))
             ShowFolder(folder);
+        if (_openLit is { } file)
+        {
+            _openLit = null;
+            if (Folder is { } shown && IsIn(file, shown))
+            {
+                // What the agent changed before is followed now: Watch goes on from its next change.
+                _followedNumber = changes.LastChange?.Number ?? 0;
+                await OpenAsync(file);
+                if (string.Equals(file, OpenPath, StringComparison.OrdinalIgnoreCase))
+                    await LightChatChangesAsync(file);
+                return;
+            }
+        }
         await FollowAgentAsync(again: false);
+    }
+
+    /// <summary>A file the agent made in this chat, to open lit once the folder is read (<see cref="OpenLit"/>); null with none.</summary>
+    private string? _openLit;
+
+    /// <summary>
+    /// Auto brought the panel up for a file the agent made in this chat: it opens in the chat's folder
+    /// (never one of its own, which would be kept with the chat as the user's), at what the agent wrote
+    /// in it, lit, as Watch shows a change with the panel open; from then on Watch follows.
+    /// </summary>
+    internal void OpenLit(string path)
+    {
+        _openLit = Path.GetFullPath(path);
+        _ = FollowChatAsync();
     }
 
     // ---- Watch: following the agent's edits -----------------------------------------------------

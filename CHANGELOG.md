@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto** in the Side panel dropdown, after None, and what every window now opens with: the panel for
   what the agent is doing opens as it does it. Terminal for the commands it runs, Web preview for a web
   page it writes (and the scripts beside it), the File inspector for a picture, document or sound it
-  makes, File changes for the code and text it changes, the Video editor for a video, the Image editor
+  makes, the Code editor for a code or text file it writes new (lit as it is written), File changes for
+  a file that was already there (what it took out beside what it put in), the Video editor for a video, the Image editor
   for a new version of a picture. Calls with no panel (clicks, screenshots, reading) leave it as it is,
   and so does something you picked in the panel until you send it. Going from one panel to another
   never resizes the window. Pick another panel, or open a file in one, to keep that one.

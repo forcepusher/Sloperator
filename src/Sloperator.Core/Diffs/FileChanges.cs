@@ -71,6 +71,17 @@ public sealed class FileChanges
     }
 
     /// <summary>
+    /// Whether the agent made <paramref name="path"/> in this chat: it wasn't there before the agent first
+    /// changed it. False for a file that was there, and one not in the list.
+    /// </summary>
+    public bool IsNew(string path)
+    {
+        path = Path.GetFullPath(path);
+        lock (_gate)
+            return _versions.TryGetValue(path, out var versions) && !versions[0].Content.Exists;
+    }
+
+    /// <summary>
     /// The project the agent worked in, for the Code editor panel: that of the first file it changed
     /// (its git repository, solution or package, see <see cref="Projects.ProjectRoot"/>); for a file in
     /// the folder of its own that what the agent makes gets in Documents\Sloperator (<see cref="Agent.AgentSetup.MadeDirectory"/>),

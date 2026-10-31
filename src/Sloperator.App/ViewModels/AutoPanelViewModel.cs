@@ -9,6 +9,16 @@ namespace Sloperator.App.ViewModels;
 /// <summary>A panel Auto shows (by its name in the Side panel dropdown), and what in it: a file, a page, a picture's or a video's folder; null for the panel as it opens.</summary>
 public sealed record AutoTarget(string Panel, string? Path = null);
 
+/// <summary>A file a write_file or edit_file call changed, as File changes has it, and whether the agent made it in this chat (it wasn't there before).</summary>
+public sealed record AutoWritten(string Path, bool Made);
+
+/// <summary>
+/// Where the panels Auto shows look: the Image editor's pictures (Data\pictures), the Video editor's videos
+/// (Data\videos), the web page the agent wrote last in the chat (null before one), and the folder the Code
+/// editor shows (the one the user opened, else the agent's project; null before either).
+/// </summary>
+public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? LastPage = null, string? EditorFolder = null);
+
 /// <summary>
 /// Which panel Auto shows for what the agent does: the panel of its latest tool call that has one,
 /// kept through the calls that have none (a screenshot, a click, a file read, a search). One rule for
@@ -16,11 +26,11 @@ public sealed record AutoTarget(string Panel, string? Path = null);
 /// </summary>
 public static class AutoRule
 {
-    public const string FileChanges = "File changes", FileInspector = "File inspector", ImageEditor = "Image editor",
+    public const string FileChanges = "File changes", FileInspector = "File inspector", CodeEditor = "Code editor", ImageEditor = "Image editor",
         VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal";
 
     /// <summary>The panels Auto may show; the room it opens is as narrow and short as the widest and tallest of them needs.</summary>
-    public static readonly IReadOnlyList<string> Panels = [FileChanges, FileInspector, ImageEditor, VideoEditor, WebPreview, Terminal];
+    public static readonly IReadOnlyList<string> Panels = [FileChanges, FileInspector, CodeEditor, ImageEditor, VideoEditor, WebPreview, Terminal];
 
     /// <summary>Beside a web page the agent wrote, the files it loads: written, the page reloads in the Web preview, which is where to see them.</summary>
     private static readonly string[] PageFiles = [".css", ".js", ".mjs", ".json", ".svg"];
@@ -30,38 +40,33 @@ public static class AutoRule
     /// the piece of a video being made (Video editor), a picture of the Image editor being made again.
     /// Null for a call whose panel shows it once it has ended, or that has none.
     /// </summary>
-    /// <param name="picturesDir">The Image editor's pictures (Data\pictures).</param>
-    /// <param name="videosDir">The Video editor's videos (Data\videos).</param>
-    public static AutoTarget? AtStart(string tool, JsonObject args, string picturesDir, string videosDir) => tool switch
+    public static AutoTarget? AtStart(string tool, JsonObject args, AutoPlaces places) => tool switch
     {
         "run_shell" or "ssh" => new(Terminal),
-        "video" => new(VideoEditor, VideoFolder(args, videosDir)),
-        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, picturesDir) is { } picture => new(ImageEditor, picture),
+        "video" => new(VideoEditor, VideoFolder(args, places.VideosDir)),
+        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, places.PicturesDir) is { } picture => new(ImageEditor, picture),
         _ => null,
     };
 
     /// <summary>
-    /// Once a call has ended, for what it left: the file a write_file or edit_file call changed (a web
-    /// page or a file it loads in the Web preview, a picture, document, sound or 3D model in the File
-    /// inspector, code and text in File changes), what a ComfyUI run made, the video worked on. Null for a
-    /// call that failed, or one with no panel.
+    /// Once a call has ended, for what it left: the file a write_file or edit_file call changed (see
+    /// <see cref="ForFile"/>), what a ComfyUI run made, the video worked on. Null for a call that failed,
+    /// or one with no panel.
     /// </summary>
-    /// <param name="written">The file a write_file or edit_file call changed, as File changes has it; null when it has none (a file on a server, Sloperator's own).</param>
+    /// <param name="written">The file a write_file or edit_file call changed; null when File changes has none (a file on a server, Sloperator's own).</param>
     /// <param name="made">The files the call made or showed (a ComfyUI run's).</param>
-    /// <param name="lastPage">The web page the agent wrote last in the chat; null before one.</param>
-    public static AutoTarget? AtEnd(string tool, JsonObject args, bool failed, string? written, IReadOnlyList<string>? made, string? lastPage,
-        string picturesDir, string videosDir)
+    public static AutoTarget? AtEnd(string tool, JsonObject args, bool failed, AutoWritten? written, IReadOnlyList<string>? made, AutoPlaces places)
     {
         if (failed)
             return null;
         switch (tool)
         {
             case "write_file" or "edit_file" when written is not null:
-                return ForFile(written, lastPage);
+                return ForFile(written, places);
             case "video":
-                return new(VideoEditor, VideoFolder(args, videosDir));
+                return new(VideoEditor, VideoFolder(args, places.VideosDir));
             case "comfyui" when made is [var first, ..]:
-                return Path.GetDirectoryName(first) is { } folder && PictureOf(folder, picturesDir) is { } picture
+                return Path.GetDirectoryName(first) is { } folder && PictureOf(folder, places.PicturesDir) is { } picture
                     ? new(ImageEditor, picture)
                     : new(FileInspector, first);
             default:
@@ -69,18 +74,28 @@ public static class AutoRule
         }
     }
 
-    /// <summary>The panel for a file the agent changed.</summary>
-    public static AutoTarget ForFile(string path, string? lastPage)
+    /// <summary>
+    /// The panel for a file the agent changed: a web page, or a file it loads beside the page written
+    /// last, in the Web preview (it reloads there); a picture, document, sound or 3D model in the File
+    /// inspector, which draws it. Code and text by whose it is: a file the agent made in this chat, in the
+    /// Code editor's folder, in the Code editor (there is no "before" to show: the file is the change,
+    /// whole, in its project's tree, lit as it is written); a file that was there before, the user's, in
+    /// File changes, where what the agent took out shows beside what it put in, with Discard and Stage.
+    /// </summary>
+    public static AutoTarget ForFile(AutoWritten written, AutoPlaces places)
     {
-        path = Path.GetFullPath(path);
+        var path = Path.GetFullPath(written.Path);
         if (PreviewPage.IsPage(path))
             return new(WebPreview, path);
-        if (lastPage is not null && PageFiles.Contains(Path.GetExtension(path).ToLowerInvariant())
-            && PreviewPage.IsIn(path, Path.GetDirectoryName(Path.GetFullPath(lastPage))!))
-            return new(WebPreview, lastPage);
-        return Core.Documents.FileInspector.KindOf(path) is InspectorKind.Picture or InspectorKind.Animation or InspectorKind.Video or InspectorKind.Sound
-            or InspectorKind.Model or InspectorKind.Document
-            ? new(FileInspector, path)
+        if (places.LastPage is { } page && PageFiles.Contains(Path.GetExtension(path).ToLowerInvariant())
+            && PreviewPage.IsIn(path, Path.GetDirectoryName(Path.GetFullPath(page))!))
+            return new(WebPreview, page);
+        if (Core.Documents.FileInspector.KindOf(path) is InspectorKind.Picture or InspectorKind.Animation or InspectorKind.Video or InspectorKind.Sound
+            or InspectorKind.Model or InspectorKind.Document)
+            return new(FileInspector, path);
+        return written.Made && places.EditorFolder is { } folder && PreviewPage.IsIn(path, Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)))
+               && Core.Documents.FileInspector.IsText(path)
+            ? new(CodeEditor, path)
             : new(FileChanges, path);
     }
 
@@ -153,7 +168,8 @@ public sealed class AutoPanelViewModel : ISidePanel
     public IReadOnlyList<AutoRow> Rows { get; } =
     [
         new("Runs a command", AutoRule.Terminal),
-        new("Changes code or text", AutoRule.FileChanges),
+        new("Writes a new code or text file", AutoRule.CodeEditor),
+        new("Changes a file that was already there", AutoRule.FileChanges),
         new("Writes a web page or its scripts", AutoRule.WebPreview),
         new("Makes a picture, document or sound", AutoRule.FileInspector),
         new("Makes a new version of a picture", AutoRule.ImageEditor),
