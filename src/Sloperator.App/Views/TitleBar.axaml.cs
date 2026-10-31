@@ -66,9 +66,15 @@ public partial class TitleBar : UserControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == StatusProperty)
+        {
             StatusHost.Content = change.NewValue;
+            Classes.Set("status", change.NewValue is not null);
+        }
         else if (change.Property == SubtitleProperty)
+        {
             SubtitleText.Text = change.NewValue as string;
+            Classes.Set("subtitle", !string.IsNullOrEmpty(change.NewValue as string));
+        }
         else if (change.Property == TextProperty && _window is { } window)
             ShowTitle(window);
     }
