@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chat. Pictures an SVG links on the web aren't fetched. Sloperator.exe is about 1.5 MB bigger.
 
 ### Changed
+- A picture picked in a side panel (an area marked in File inspector or Live preview) shows itself on
+  its card over the message box and in the sent message, in place of a file icon.
 - The server's status (the coloured dot, Connected and how much context is used) moved from the top
   bar into the window's title bar, which reads Sloperator, the status, then the chat's title.
 - Settings → Safety: the dropdown for when Sloperator asks before acting is labelled

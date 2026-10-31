@@ -96,8 +96,14 @@ public sealed partial class AttachmentItem : ObservableObject, IDisposable
     public Avalonia.Media.Geometry Icon => IsFolder ? FolderShape : FileShape;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsName))]
+    [NotifyPropertyChangedFor(nameof(ShowsName), nameof(HasThumbnail))]
     private Bitmap? _thumbnail;
+
+    /// <summary>
+    /// A picture's thumbnail is there: a picture picked in a side panel shows it small in place of the file
+    /// icon, beside what it is there ("Area · index.html"), as a picture shows itself elsewhere.
+    /// </summary>
+    public bool HasThumbnail => Thumbnail is not null;
 
     /// <summary>"1920x1080, 1.2 MB", "220 KB", "folder".</summary>
     [ObservableProperty]
