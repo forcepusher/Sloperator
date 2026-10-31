@@ -253,7 +253,7 @@ public sealed partial class AgentSession
     {
         var plain = Chats.ChatStore.ForSaving(History);
         foreach (var m in plain)
-            m.Reasoning = null;
+            (m.Reasoning, m.ReasoningDetails, m.ThinkingBlocks) = (null, null, null);
         var budget = Math.Max(8_192, contextTokens / 2);
         var start = plain.Count;
         for (var used = 0; start > 0 && used + EstimateTokens(plain[start - 1]) <= budget; start--)
@@ -273,7 +273,7 @@ public sealed partial class AgentSession
         var assistants = History.Where(m => m.Role == ChatRole.Assistant && m.Reasoning is not null).ToList();
         foreach (var m in assistants.Take(Math.Max(0, assistants.Count - 3)))
         {
-            m.Reasoning = null;
+            (m.Reasoning, m.ReasoningDetails, m.ThinkingBlocks) = (null, null, null);
             if (EstimateTokens() <= budget) return;
         }
     }

@@ -2212,10 +2212,16 @@ otherwise, saying why in its tooltip:
   their own `reasoning: {effort}` (tried 2026-10-29: Haiku 5.5 thought 283 tokens at low, 856 at
   max). Asked for none, Haiku 5.5 through OpenRouter thinks anyway but sends only an empty, signed
   entry, so no thinking showed. Whatever thinking a server sends (`reasoning_content`,
-  `reasoning_details` with Claude's signature) goes back with the reply as it came; without
-  `reasoning_details` OpenRouter leaves Claude's earlier thinking out of the prompt after a tool
-  call (no error). A refusal naming the signature sends the request again without it. Gemini's
-  signed thinking goes back the same way, untried.
+  `reasoning_details` with Claude's signature, LiteLLM's `thinking_blocks` with it) goes back with
+  the reply as it came, under the name it came by; without `reasoning_details` OpenRouter leaves
+  Claude's earlier thinking out of the prompt after a tool call (no error), and so does proxyapi.ru
+  without `thinking_blocks` (2026-11-01, Haiku 5.5: the prompt after a tool call was 465 tokens
+  with `reasoning_content` alone, 499 with the blocks; a block whose signature was changed got
+  "Invalid `signature` in `thinking` block"). `thinking_blocks` come a piece at a time with no
+  index, the signature in a last empty piece: a piece goes on the block before it until that one is
+  signed, and a block cut off before its signature isn't kept. A refusal naming the signature sends
+  the request again without the earlier thinking, for the rest of the run. Gemini's signed thinking
+  goes back the same way, untried.
 - LM Studio 0.4 lists `capabilities.reasoning.allowed_options` (gpt-oss: low, medium, high; a model
   that only turns thinking on and off takes none); it goes as `reasoning_effort`. The test server's
   LM Studio lists no reasoning options for qwen3.8 (its switches, `reasoning_effort` among them,
@@ -2228,13 +2234,19 @@ High); the picked one stays saved for the next model. The command-line runner ta
 Thinking models get their earlier reasoning sent back each step (`reasoning_content`,
 `preserve_thinking`), as the Qwen3.5+ and Gemma 4 templates expect.
 
-A strict server that answers 400/422 to one of these fields gets it left out from then on. When its
-error names fields of ours (`chat_template_kwargs: Extra inputs are not permitted`, `Unrecognized
-request argument supplied: top_k`, `messages.1.reasoning_content: …`), only those go; when it names
-none, all of them do (effort, `stream_options`, the extras and the earlier thinking). proxyapi.ru
-(2026-11-01, anthropic/claude-opus-5-5) refuses `chat_template_kwargs` and takes the rest: when
-everything was dropped with it, Claude still thought but sent only an empty block with a signature,
-as through OpenRouter with no effort, so no thinking showed.
+A strict server that answers 400/422 to one of these fields gets it left out. When its error names
+fields of ours (`chat_template_kwargs: Extra inputs are not permitted`, `Unrecognized request
+argument supplied: top_k`, `messages.1.reasoning_content: …`, matched as whole words), only those
+go, for that server and model until Sloperator is closed: each message starts a run with a client of
+its own, which would be turned down once more first. When it names none, all of ours go (effort,
+`stream_options`, the extras and the earlier thinking), for that run only, since the words it is
+told by ("unexpected", "extra", "reasoning") could be about something else. proxyapi.ru (2026-11-01,
+anthropic/claude-opus-5-5) refuses `chat_template_kwargs` and takes the rest: when everything was
+dropped with it, Claude still thought but sent only an empty block with a signature, as through
+OpenRouter with no effort, so no thinking showed. The same server's own Anthropic endpoint
+(`https://api.proxyapi.ru/anthropic/v1`, the same key) takes Sloperator's Messages path instead (see
+Claude through Anthropic's API): Haiku 5.5 there ran two turns with a tool call each, thinking
+signed, no refusals (2026-11-01).
 
 **The agent connects it too**: asked to connect, switch to or use another model (LM Studio on this PC,
 Claude, OpenRouter, a server the user names), the agent uses its `model_server` tool. `connect` takes

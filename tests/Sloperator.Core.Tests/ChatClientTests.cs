@@ -76,6 +76,51 @@ public class ChatClientTests
     }
 
     [Fact]
+    public async Task Thinking_blocks_are_put_together_and_sent_back()
+    {
+        // As proxyapi.ru streamed Haiku 5.5's thinking on 2026-11-01: reasoning_content and a
+        // thinking_blocks piece in each chunk (the same again under provider_specific_fields), no
+        // index, the signature in a last empty piece.
+        static string Chunk(string text, string? signature = null)
+        {
+            var piece = new JsonObject { ["type"] = "thinking", ["thinking"] = text };
+            if (signature is not null) piece["signature"] = signature;
+            var delta = new JsonObject
+            {
+                ["reasoning_content"] = text,
+                ["thinking_blocks"] = new JsonArray(piece.DeepClone()),
+                ["provider_specific_fields"] = new JsonObject { ["thinking_blocks"] = new JsonArray(piece.DeepClone()) },
+                ["content"] = "",
+            };
+            return "data: " + new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["index"] = 0, ["delta"] = delta }) }.ToJsonString();
+        }
+        var sse = string.Join("\n", Chunk("17*23:"), Chunk(" 340+51."), Chunk("", "c2lnbmVk"),
+            """data: {"choices":[{"index":0,"delta":{"content":"391"},"finish_reason":"stop"}]}""", "data: [DONE]");
+        var msg = await OpenAiChatClient.ReadStreamAsync(new StringReader(sse), null, CancellationToken.None);
+        Assert.Equal("17*23: 340+51.", msg.Reasoning);
+        var block = Assert.Single(msg.ThinkingBlocks!)!;
+        Assert.Equal("thinking", (string)block["type"]!);
+        Assert.Equal("17*23: 340+51.", (string)block["thinking"]!);
+        Assert.Equal("c2lnbmVk", (string)block["signature"]!);
+        Assert.Null(msg.ReasoningDetails);
+
+        var sent = OpenAiChatClient.BuildRequest([ChatMessage.User("17*23?"), msg, ChatMessage.User("Thanks")], [], new ChatRequestOptions { Model = "anthropic/claude-haiku-5-5" }, sendReasoning: true);
+        Assert.Equal(block.ToJsonString(), sent["messages"]![1]!["thinking_blocks"]![0]!.ToJsonString());
+        Assert.Equal("17*23: 340+51.", (string)sent["messages"]![1]!["reasoning_content"]!);
+        Assert.Null(OpenAiChatClient.BuildRequest([msg], [], new ChatRequestOptions(), sendReasoning: false)["messages"]![0]!["thinking_blocks"]);
+
+        // Two blocks, a redacted one between them, and a third cut off before its signature.
+        var several = await OpenAiChatClient.ReadStreamAsync(new StringReader(string.Join("\n",
+            Chunk("First."), Chunk("", "c2lnMQ=="),
+            """data: {"choices":[{"delta":{"thinking_blocks":[{"type":"redacted_thinking","data":"ZW5j"}]}}]}""",
+            Chunk("Second."), Chunk("", "c2lnMg=="), Chunk("Third, cut"),
+            """data: {"choices":[{"delta":{},"finish_reason":"length"}]}""", "data: [DONE]")), null, CancellationToken.None);
+        Assert.Equal(["First.", null, "Second."], several.ThinkingBlocks!.Select(b => (string?)b!["thinking"]));
+        Assert.Equal(["c2lnMQ==", null, "c2lnMg=="], several.ThinkingBlocks!.Select(b => (string?)b!["signature"]));
+        Assert.Equal("ZW5j", (string)several.ThinkingBlocks![1]!["data"]!);
+    }
+
+    [Fact]
     public async Task Stream_cut_off_without_done_is_reported_as_a_drop()
     {
         var sse = """data: {"choices":[{"delta":{"content":"Half a sent"}}]}""";

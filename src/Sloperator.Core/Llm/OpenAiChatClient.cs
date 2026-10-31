@@ -185,11 +185,17 @@ public sealed partial class OpenAiChatClient
 
     public string BaseUrl => _baseUrl;
 
-    // Set once the server rejected our non-standard fields, so later requests stay plain.
+    // Set once the server rejected our non-standard fields without naming them (or Claude's
+    // signed thinking), so the rest of this run's requests stay plain.
     private bool _reasoningRejected;
     private bool _extrasRejected;
-    // Our own fields the server refused by name; only these are left out of later requests.
-    private readonly HashSet<string> _refusedFields = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Our own fields a server refused by name, by server and model, for as long as Sloperator
+    /// runs: each run makes a client of its own, and each would be refused once again. Only these
+    /// are left out (see <see cref="RefusedFields"/>).
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), System.Collections.Immutable.ImmutableHashSet<string>> RefusedByServer = new();
 
     /// <summary>
     /// How long sending a request may go without any of it getting through before the connection
@@ -268,7 +274,8 @@ public sealed partial class OpenAiChatClient
             return await CompleteClaudeAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
         var sendReasoning = options.SendReasoning && !_reasoningRejected;
         var sendExtras = !_extrasRejected;
-        var request = BuildRequest(messages, tools, options, sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl), _refusedFields);
+        var request = BuildRequest(messages, tools, options, sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl),
+            RefusedByServer.GetValueOrDefault((_baseUrl, options.Model)));
         var payload = Encoding.UTF8.GetBytes(request.ToJsonString());
         // Cancelled when sending stalls. Once the request is out, only Stop ends the wait: a
         // server reading a long prompt sends nothing for minutes.
@@ -296,21 +303,24 @@ public sealed partial class OpenAiChatClient
                 // Strict providers reject fields they do not know. Drop ours and try once more.
                 // Claude's thinking sent back through a gateway and refused (its signature no longer
                 // matches): the run goes on without the earlier thinking.
-                if (status == 400 && sendReasoning && messages.Any(m => m.ReasoningDetails is { Count: > 0 })
+                if (status == 400 && sendReasoning && messages.Any(m => m.ReasoningDetails is { Count: > 0 } || m.ThinkingBlocks is { Count: > 0 })
                     && err.Contains("signature", StringComparison.OrdinalIgnoreCase))
                 {
                     _reasoningRejected = true;
                     return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 }
-                if (status is 400 or 422 && (sendReasoning || sendExtras) && LooksLikeUnknownField(err))
+                if (status is 400 or 422 && OurFields(request, options).Count > 0 && LooksLikeUnknownField(err))
                 {
-                    // A server that names the field it refuses gets only that one left out:
-                    // proxyapi.ru refuses chat_template_kwargs ("Extra inputs are not permitted") but
-                    // takes reasoning_effort, and with all of them gone Claude's thinking came as an
-                    // empty block with a signature. Otherwise all of ours go.
+                    // A server that names the field it refuses gets only that one left out, from
+                    // then on: proxyapi.ru refuses chat_template_kwargs ("Extra inputs are not
+                    // permitted") but takes reasoning_effort, and with all of them gone Claude's
+                    // thinking came as an empty block with a signature. Otherwise all of ours go,
+                    // for this run.
                     var named = RefusedFields(request, options, err);
                     if (named.Count > 0)
-                        _refusedFields.UnionWith(named);
+                        RefusedByServer.AddOrUpdate((_baseUrl, options.Model),
+                            _ => System.Collections.Immutable.ImmutableHashSet.CreateRange(StringComparer.Ordinal, named),
+                            (_, before) => before.Union(named));
                     else
                     {
                         _reasoningRejected |= sendReasoning;
@@ -400,6 +410,7 @@ public sealed partial class OpenAiChatClient
         var reasoning = new StringBuilder();
         var calls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();
         var details = new SortedDictionary<int, JsonObject>();
+        var blocks = new List<JsonObject>();
         var finished = false;
         string? finishReason = null;
         int? promptTokens = null, completionTokens = null;
@@ -486,6 +497,25 @@ public sealed partial class OpenAiChatClient
                 }
             }
 
+            // LiteLLM-style gateways (proxyapi.ru) send Claude's thinking as thinking_blocks: a few
+            // words at a time and the signature last, with no index, so a piece goes on the block
+            // before it until that one is signed.
+            if (delta["thinking_blocks"] is JsonArray thinking)
+            {
+                foreach (var piece in thinking.OfType<JsonObject>())
+                {
+                    if (GetString(piece, "type") == "thinking" && blocks.LastOrDefault() is { } open
+                        && GetString(open, "type") == "thinking" && GetString(open, "signature") is not { Length: > 0 })
+                    {
+                        open["thinking"] = GetString(open, "thinking") + GetString(piece, "thinking");
+                        if (GetString(piece, "signature") is { Length: > 0 } signature)
+                            open["signature"] = signature;
+                    }
+                    else
+                        blocks.Add((JsonObject)piece.DeepClone());
+                }
+            }
+
             if (GetString(delta, "content") is { Length: > 0 } c)
             {
                 content.Append(c);
@@ -546,6 +576,9 @@ public sealed partial class OpenAiChatClient
         var signed = details.Values.Where(d => GetString(d, "format")?.StartsWith("anthropic", StringComparison.Ordinal) != true || GetString(d, "signature") is { Length: > 0 } || GetString(d, "type") == "reasoning.encrypted").ToList();
         if (signed.Count > 0)
             message.ReasoningDetails = new JsonArray(signed.ToArray<JsonNode?>());
+        var whole = blocks.Where(b => GetString(b, "signature") is { Length: > 0 } || GetString(b, "type") == "redacted_thinking" && GetString(b, "data") is { Length: > 0 }).ToList();
+        if (whole.Count > 0)
+            message.ThinkingBlocks = new JsonArray(whole.ToArray<JsonNode?>());
         if (calls.Count > 0)
         {
             message.ToolCalls = calls.Values
@@ -626,20 +659,21 @@ public sealed partial class OpenAiChatClient
     }
 
     /// <summary>
-    /// Those of our own fields in <paramref name="request"/> (not the standard ones) that the
-    /// error names: "chat_template_kwargs: Extra inputs are not permitted", "Unrecognized request
-    /// argument supplied: top_k", "messages.1.reasoning_content: …".
+    /// Those of our own fields in <paramref name="request"/> that the error names:
+    /// "chat_template_kwargs: Extra inputs are not permitted", "Unrecognized request argument
+    /// supplied: top_k", "messages.1.reasoning_content: …".
     /// </summary>
-    internal static List<string> RefusedFields(JsonObject request, ChatRequestOptions options, string err)
+    internal static List<string> RefusedFields(JsonObject request, ChatRequestOptions options, string err) =>
+        OurFields(request, options).Where(f => Regex.IsMatch(err, $@"(?<![\w]){Regex.Escape(f)}(?![\w])")).ToList();
+
+    /// <summary>The fields of <paramref name="request"/> and its messages that are Sloperator's own, not the standard ones.</summary>
+    internal static List<string> OurFields(JsonObject request, ChatRequestOptions options)
     {
-        var ours = new List<string> { "stream_options", "reasoning_effort", "reasoning_content", "reasoning_details" };
+        var ours = new List<string> { "stream_options", "reasoning_effort", "reasoning_content", "reasoning_details", "thinking_blocks" };
         if (options.Extra is not null)
             ours.AddRange(options.Extra.Select(e => e.Key));
-        var sent = request["messages"] is JsonArray msgs ? msgs.OfType<JsonObject>().SelectMany(m => m.Select(f => f.Key)) : [];
-        return ours.Distinct()
-            .Where(f => request.ContainsKey(f) || sent.Contains(f))
-            .Where(f => Regex.IsMatch(err, $@"(?<![\w]){Regex.Escape(f)}(?![\w])"))
-            .ToList();
+        var sent = request["messages"] is JsonArray msgs ? msgs.OfType<JsonObject>().SelectMany(m => m.Select(f => f.Key)).ToHashSet() : [];
+        return ours.Distinct().Where(f => request.ContainsKey(f) || sent.Contains(f)).ToList();
     }
 
     private static JsonObject SerializeMessage(ChatMessage m, bool sendReasoning)
@@ -703,6 +737,10 @@ public sealed partial class OpenAiChatClient
             obj["reasoning_content"] = m.Reasoning;
         if (sendReasoning && m.Role == ChatRole.Assistant && m.ReasoningDetails is { Count: > 0 } details)
             obj["reasoning_details"] = details.DeepClone();
+        // Without them proxyapi.ru leaves Claude's earlier thinking out of the prompt, as OpenRouter
+        // does without reasoning_details: reasoning_content alone is dropped (tried 2026-11-01).
+        if (sendReasoning && m.Role == ChatRole.Assistant && m.ThinkingBlocks is { Count: > 0 } thinkingBlocks)
+            obj["thinking_blocks"] = thinkingBlocks.DeepClone();
 
         return obj;
     }

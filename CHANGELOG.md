@@ -85,7 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   up to a tenth of a second late, in the File inspector and the chat's players.
 - Claude's thinking shows again through servers that turn down one of Sloperator's request fields by
   name (proxyapi.ru refuses `chat_template_kwargs`): only that field is left out now, so the effort
-  and the earlier thinking still go.
+  and the earlier thinking still go. The field stays out until Sloperator is closed, so a new
+  message isn't turned down again first.
+- Through proxyapi.ru, Claude keeps its earlier thinking from step to step: it goes back as the
+  server sent it (signed `thinking_blocks`), as it already did through OpenRouter. Before, the
+  server left it out of the prompt.
 
 ### Removed
 - The blob logo is gone from the window's title bar; the title starts where it was. The taskbar
