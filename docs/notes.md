@@ -3797,6 +3797,23 @@ one's lines coming in one by one while "running · 10 s" ticked; lines 2980-2981
 model numbered; the chat opened again from History showed all four. ssh's lines were checked by
 `TerminalLinesTests` only: there is no SSH server on this laptop.
 
+**A failed PowerShell command's error** showed Sloperator's own lines in that run (the coordinator, from the
+shot of the failed command): run_shell's script was the setup ([Console]::OutputEncoding, $ProgressPreference,
+the curl alias), the command, then the exit-code line, one script, and Windows PowerShell names a top-level
+script by its text, so Write-Error's message began with all three ("[Console]::OutputEncoding = …\nWrite-Output
+…; Write-Error …\nif (-not $?) … : Missing file: config.json"), and every other error's "At line" was one more
+than the command's own; the model got the same. Now `PowerShellScript.Wrap` (Core, used by
+`WindowsPlatform.CreateShellStartInfo`) runs the command as a script block of its own: its text in Base64 inside
+the script (so no quote or '@ in it can end the string it is in), dot-sourced so it runs in the script's scope
+as before, its last line `$SloperatorOk = $?`, which the exit-code line after it reads ($? after the block
+itself is always true: Get-Item of a missing folder and cmd /c exit 3 both came back 0 without it). An error's
+position is then in the command's own lines; what of Sloperator's still shows is taken out by
+`PowerShellScript.Tidy` as run_shell decodes the error record: that last line, which Write-Error names with the
+command ("…; exit 2\n$SloperatorOk = $? : Missing file"), and the position of the line that runs the block
+("At line:2 char:1 + . $SloperatorCommand"), the one error that names it. A command now runs from a file past
+about 4,500 characters (Base64 in Base64 is longer), where it was about 12,000. Tests: `ToolTests`' Windows shell
+test checks the text and the line number; exit codes, stderr and the long command's file as before.
+
 ### SVG
 SVG files are pictures: the chat's preview (drawn to fit twice the chat's width, sharp on a screen
 scaled to 200%), the full-screen viewer, a picked file's thumbnail, File inspector (as shapes, see

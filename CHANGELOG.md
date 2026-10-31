@@ -84,6 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tool").
 
 ### Fixed
+- A PowerShell command that fails no longer shows Sloperator's own setup lines in its error, and the
+  error's line numbers are the command's own.
 - In the File inspector, a sound's playhead moves while it plays again, and playing a stretch you
   picked stops at its end. Animations (GIF, WebP, APNG) play there again too.
 - A sound plays from exactly where you start it: an MP3 started up to half a second off and a FLAC

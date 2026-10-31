@@ -932,6 +932,20 @@ public class ToolTests
         Assert.Contains("no such <thing>", failed.Text);
         Assert.Contains("after", failed.Text);
 
+        // A failure names the command and its own lines, not Sloperator's setup and exit-code lines around it
+        // (they came first in Write-Error's text, and every "At line" was one more than the command's).
+        var written = await new ShellTool().ExecuteAsync(
+            new JsonObject { ["command"] = "Write-Output 'Reading config.json'; Write-Error 'Missing file: config.json'; exit 2" }, Ctx(platform), CancellationToken.None);
+        Assert.Contains("Exit code 2", written.Text);
+        Assert.Contains("Write-Output 'Reading config.json'; Write-Error 'Missing file: config.json'; exit 2 : Missing file: config.json", written.Text);
+        foreach (var wrapper in new[] { "OutputEncoding", "Alias:curl", "LASTEXITCODE", "Sloperator" })
+            Assert.DoesNotContain(wrapper, written.Text);
+        var second = await new ShellTool().ExecuteAsync(
+            new JsonObject { ["command"] = "Write-Output first\nGet-Item 'C:\\no such folder here'" }, Ctx(platform), CancellationToken.None);
+        Assert.Contains("Exit code 1", second.Text);
+        Assert.Contains("At line:2 char:1\n+ Get-Item 'C:\\no such folder here'", second.Text.Replace("\r\n", "\n"));
+        Assert.DoesNotContain("Sloperator", second.Text);
+
         // Bytes of an image printed to the console come back as a one-line note, not 30,000 characters of noise.
         var binary = await new ShellTool().ExecuteAsync(new JsonObject
         {

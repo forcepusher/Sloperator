@@ -61,7 +61,9 @@ public sealed partial class ShellTool : Tool
         void Append(string? line)
         {
             if (line is null || line == ClixmlMarker) return;
-            line = DecodeClixml(line);
+            // An error record, as text: without what of Sloperator's wrapper PowerShell quotes in it.
+            if (DecodeClixml(line) is var decoded && !ReferenceEquals(decoded, line))
+                line = PowerShellScript.Tidy(decoded);
             lock (gate)
             {
                 // An image or an archive printed as text says nothing and would fill the context.
