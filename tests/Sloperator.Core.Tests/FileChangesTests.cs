@@ -59,6 +59,12 @@ public class FileChangesTests : IDisposable
         Assert.Contains(new DiffLine(DiffLineKind.Added, null, 3, "THREE"), edited.Lines);
         Assert.True(diff.NewIsOnDisk);
         Assert.Equal(made, diff.FullPath(diff.Files[0]));
+        // Made by the agent in this chat, edited again after or not, against one that was there (Auto's Code editor or File changes).
+        await Run(new EditFileTool(), new JsonObject { ["path"] = made, ["old_text"] = "b", ["new_text"] = "B" }, ctx);
+        Assert.True(changes.IsNew(made));
+        Assert.False(changes.IsNew(old));
+        Assert.False(changes.IsNew(Path.Combine(_root, "never.txt")));
+        await Run(new EditFileTool(), new JsonObject { ["path"] = made, ["old_text"] = "B", ["new_text"] = "b" }, ctx);
 
         // Put back as it was, a file leaves the list; deleted, it shows as deleted.
         await Run(new EditFileTool(), new JsonObject { ["path"] = old, ["old_text"] = "TWO\nTHREE", ["new_text"] = "two\nthree" }, ctx);

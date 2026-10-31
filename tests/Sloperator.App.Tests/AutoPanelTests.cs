@@ -19,10 +19,11 @@ public sealed class AutoPanelTests : IDisposable
 
     private static JsonObject Args(string json) => AutoRule.Args(json);
 
-    private AutoTarget? AtStart(string tool, string args = "{}") => AutoRule.AtStart(tool, Args(args), Pictures, Videos);
+    private AutoTarget? AtStart(string tool, string args = "{}") => AutoRule.AtStart(tool, Args(args), new AutoPlaces(Pictures, Videos));
 
-    private AutoTarget? AtEnd(string tool, string args = "{}", string? written = null, IReadOnlyList<string>? made = null, string? lastPage = null, bool failed = false) =>
-        AutoRule.AtEnd(tool, Args(args), failed, written, made, lastPage, Pictures, Videos);
+    private AutoTarget? AtEnd(string tool, string args = "{}", string? written = null, IReadOnlyList<string>? made = null, string? lastPage = null, bool failed = false,
+        bool isNew = false, string? editor = null) =>
+        AutoRule.AtEnd(tool, Args(args), failed, written is null ? null : new AutoWritten(written, isNew), made, new AutoPlaces(Pictures, Videos, lastPage, editor));
 
     [Fact]
     public void A_command_shows_the_terminal_as_it_starts()
@@ -56,6 +57,29 @@ public sealed class AutoPanelTests : IDisposable
         Assert.Null(AtStart("write_file", """{"path":"index.html"}"""));
         Assert.Null(AtEnd("write_file", written: page, failed: true));
         Assert.Null(AtEnd("write_file", """{"path":"index.html","host":"web1"}"""));
+    }
+
+    [Fact]
+    public void Code_the_agent_wrote_new_shows_in_the_code_editor_and_changes_to_files_that_were_there_in_file_changes()
+    {
+        var project = Path.Combine(_dir, "space-rocks");
+        var game = Path.Combine(project, "src", "game.py");
+        // A file the agent made in this chat, in the folder the Code editor shows: there, whole, lit as it is written.
+        Assert.Equal(new AutoTarget(AutoRule.CodeEditor, game), AtEnd("write_file", written: game, isNew: true, editor: project));
+        Assert.Equal(new AutoTarget(AutoRule.CodeEditor, game), AtEnd("edit_file", written: game, isNew: true, editor: project + Path.DirectorySeparatorChar));
+        Assert.Equal(AutoRule.CodeEditor, AtEnd("write_file", written: Path.Combine(project, "README.md"), isNew: true, editor: project)!.Panel);
+        // One that was there before (the user's): what was taken out beside what was put in.
+        Assert.Equal(new AutoTarget(AutoRule.FileChanges, game), AtEnd("edit_file", written: game, isNew: false, editor: project));
+        Assert.Equal(new AutoTarget(AutoRule.FileChanges, game), AtEnd("write_file", written: game, isNew: false, editor: project));
+        // New, but outside the folder the Code editor shows, or with no folder yet: File changes, which shows every file.
+        var elsewhere = Path.Combine(_dir, "tools", "make_levels.py");
+        Assert.Equal(new AutoTarget(AutoRule.FileChanges, elsewhere), AtEnd("write_file", written: elsewhere, isNew: true, editor: project));
+        Assert.Equal(AutoRule.FileChanges, AtEnd("write_file", written: game, isNew: true)!.Panel);
+        Assert.Equal(AutoRule.FileChanges, AtEnd("write_file", written: Path.Combine(_dir, "space-rocks-old", "a.py"), isNew: true, editor: project)!.Panel);
+        // New pages, pictures and documents still go where they are drawn.
+        Assert.Equal(AutoRule.WebPreview, AtEnd("write_file", written: Path.Combine(project, "index.html"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(project, "logo.svg"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(project, "plan.docx"), isNew: true, editor: project)!.Panel);
     }
 
     [Fact]
@@ -117,9 +141,9 @@ public sealed class AutoPanelTests : IDisposable
     {
         var (rows, panels, width) = HeadlessApp.Run(() =>
         {
-            // The room Auto opens at its least: Video editor's 770, splitter included.
+            // The room Auto opens at its least: the Code editor's 800, splitter included.
             var view = new AutoPanel { DataContext = new AutoPanelViewModel() };
-            var window = new Window { Width = 770 - 4, Height = 633, Content = view };
+            var window = new Window { Width = 800 - 4, Height = 633, Content = view };
             window.Show();
             window.UpdateLayout();
             var texts = view.GetVisualDescendants().OfType<TextBlock>().Where(t => t.FindAncestorOfType<ItemsControl>() is not null).ToList();
@@ -129,10 +153,10 @@ public sealed class AutoPanelTests : IDisposable
             window.Close();
             return (right, left, widest);
         });
-        Assert.Equal(6, rows.Count);
+        Assert.Equal(7, rows.Count);
         Assert.All(rows, x => Assert.Equal(rows[0], x, 0.5));
         Assert.All(panels, x => Assert.Equal(panels[0], x, 0.5));
-        Assert.True(width < 770 - 4 - 16, $"The list runs to {width}.");
+        Assert.True(width < 800 - 4 - 16, $"The list runs to {width}.");
     }
 
     private string Video(string name)

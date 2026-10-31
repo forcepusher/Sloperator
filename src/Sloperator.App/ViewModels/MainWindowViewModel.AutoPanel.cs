@@ -40,7 +40,7 @@ public sealed partial class MainWindowViewModel
         var target = FromChat();
         _autoShown = OptionOf(target);
         var panel = OpenForAuto(_autoShown);
-        ShowIn(panel, target?.Path);
+        ShowIn(panel, target?.Path, opened: true);
         return panel;
     }
 
@@ -56,7 +56,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>A call started: under Auto, the panel that shows it as it goes (a command's lines, a shot being made).</summary>
     private void AutoStarted(ToolCall call)
     {
-        if (IsAuto && AutoRule.AtStart(call.Name, AutoRule.Args(call.Arguments), _paths.PicturesDir, _paths.VideosDir) is { } target)
+        if (IsAuto && AutoRule.AtStart(call.Name, AutoRule.Args(call.Arguments), new AutoPlaces(_paths.PicturesDir, _paths.VideosDir)) is { } target)
             Follow(target);
     }
 
@@ -65,13 +65,15 @@ public sealed partial class MainWindowViewModel
     {
         // The file a write_file or edit_file call changed is the list's newest change, new since the
         // last call (its list was kept before the call's end was told).
-        string? written = null;
+        AutoWritten? written = null;
         if (Changes.LastChange is { } last && last.Number != _autoSeen)
-            (written, _autoSeen) = (last.Path, last.Number);
-        if (IsAuto && AutoRule.AtEnd(call.Name, AutoRule.Args(call.Arguments), result.IsError, written, result.Files,
-                Changes.Last(PreviewPage.IsPage), _paths.PicturesDir, _paths.VideosDir) is { } target)
+            (written, _autoSeen) = (new AutoWritten(last.Path, Changes.IsNew(last.Path)), last.Number);
+        if (IsAuto && AutoRule.AtEnd(call.Name, AutoRule.Args(call.Arguments), result.IsError, written, result.Files, Places()) is { } target)
             Follow(target);
     }
+
+    /// <summary>Where Auto's panels look: the pictures and videos folders, the chat's last web page, the Code editor's folder (as it picks it).</summary>
+    private AutoPlaces Places() => new(_paths.PicturesDir, _paths.VideosDir, Changes.Last(PreviewPage.IsPage), EditorFolder ?? Changes.Project());
 
     /// <summary>Another chat on screen (opened, new, its first message undone): under Auto, the panel of its latest call that has one.</summary>
     private void AutoChatChanged()
@@ -100,7 +102,7 @@ public sealed partial class MainWindowViewModel
             return;
         }
         var panel = OpenForAuto(option);
-        ShowIn(panel, target?.Path);
+        ShowIn(panel, target?.Path, opened: true);
         _autoShown = option;
         SidePanel = panel;
         if (!ReferenceEquals(old, _autoChanges))
@@ -116,13 +118,21 @@ public sealed partial class MainWindowViewModel
         : option.Name == FileChangesName ? _autoChanges ??= new FileChangesViewModel(this)
         : option.Open!(this);
 
-    /// <summary>The file, page, picture or video Auto shows in the panel, unless it shows it already.</summary>
-    private static void ShowIn(ISidePanel panel, string? path)
+    /// <summary>
+    /// The file, page, picture or video Auto shows in the panel, unless it shows it already. The Code
+    /// editor opens the agent's file in the chat's folder when Auto brings it up (<paramref name="opened"/>);
+    /// shown already, its Watch follows the agent's writes itself.
+    /// </summary>
+    private static void ShowIn(ISidePanel panel, string? path, bool opened = false)
     {
         if (path is null)
             return;
         switch (panel)
         {
+            case CodeEditorViewModel editor:
+                if (opened)
+                    editor.OpenLit(path);
+                break;
             case IFilePanel file when !string.Equals(file.Path, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase):
                 file.Show(path);
                 break;
@@ -143,7 +153,7 @@ public sealed partial class MainWindowViewModel
     {
         // A chat opened from History keeps its calls' arguments in the conversation, not on their cards.
         Dictionary<string, string>? given = null;
-        var lastPage = Changes.Last(PreviewPage.IsPage);
+        var places = Places();
         foreach (var call in Items.OfType<ToolCallItem>().Reverse())
         {
             if (call.State == ToolItemState.Denied)
@@ -156,9 +166,8 @@ public sealed partial class MainWindowViewModel
                 arguments = given.GetValueOrDefault(call.CallId, "");
             }
             var args = AutoRule.Args(arguments);
-            var target = AutoRule.AtEnd(call.Name, args, call.State == ToolItemState.Error, Written(call.Name, args), call.SavedFiles, lastPage,
-                             _paths.PicturesDir, _paths.VideosDir)
-                         ?? AutoRule.AtStart(call.Name, args, _paths.PicturesDir, _paths.VideosDir);
+            var target = AutoRule.AtEnd(call.Name, args, call.State == ToolItemState.Error, Written(call.Name, args), call.SavedFiles, places)
+                         ?? AutoRule.AtStart(call.Name, args, places);
             if (target is not null)
                 return target;
         }
@@ -166,7 +175,10 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>The file an earlier write_file or edit_file call changed, as the chat's list of changes has it; null when it has none.</summary>
-    private string? Written(string tool, System.Text.Json.Nodes.JsonObject args)
+    private AutoWritten? Written(string tool, System.Text.Json.Nodes.JsonObject args) =>
+        WrittenPath(tool, args) is { } path ? new AutoWritten(path, Changes.IsNew(path)) : null;
+
+    private string? WrittenPath(string tool, System.Text.Json.Nodes.JsonObject args)
     {
         // On a server (host given) the file isn't in the list.
         if (tool is not ("write_file" or "edit_file") || Arg("host") is not null || Arg("path") is not { } path)

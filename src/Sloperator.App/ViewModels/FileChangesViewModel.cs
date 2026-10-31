@@ -177,6 +177,7 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
     public FileChangesViewModel(MainWindowViewModel chat)
     {
         _chat = chat;
+        ByAuto = chat.IsAuto;
         Selection = new SelectionModel<DiffRow> { SingleSelect = false };
         Selection.SelectionChanged += (_, e) => OnPicked(e.SelectedItems.OfType<DiffRow>().ToList());
         // Calls that come one after another (a file written in parts) are read once.
@@ -475,7 +476,7 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
         SummaryFiles = count == 0 ? "" : $"{count} {(count == 1 ? "file" : "files")}" + (counts.Length > 0 ? " · " : "");
         Summary = SummaryFiles + counts;
         ActionsChanged();
-        if (Watch && now.Count > 0)
+        if (Following && now.Count > 0)
             ShowRow?.Invoke(_latest[0].Index);
     }
 
@@ -535,11 +536,25 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
                 return;
             _chat.Panels.WatchChanges = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(WatchShown));
             _chat.SavePanels();
             if (value)
                 GoToLatest();
         }
     }
+
+    public bool ByAuto { get; }
+
+    /// <summary>The diff follows the agent now: Watch, or Auto showing the panel.</summary>
+    private bool Following => Watch || ByAuto;
+
+    public bool WatchShown
+    {
+        get => Following;
+        set => Watch = value;
+    }
+
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Follow the agent's changes as they happen";
 
     /// <summary>The lines the agent changed last, lit up while they are fresh; empty before it changed one with the panel open.</summary>
     private List<DiffRow> _latest = [];

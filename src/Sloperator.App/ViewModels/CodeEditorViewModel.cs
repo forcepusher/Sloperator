@@ -65,6 +65,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             _ = OnDiskChangedAsync();
         });
         _watch = chat.Panels.WatchCode;
+        ByAuto = chat.IsAuto;
         _wrap = chat.Panels.WrapCode;
         _fontSize = Math.Clamp(chat.Panels.CodeFontSize, MinFontSize, MaxFontSize);
         // A change made before the panel opened isn't followed: only the agent's next one.
@@ -114,7 +115,34 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             folder = null;
         if (!string.Equals(folder, Folder, StringComparison.OrdinalIgnoreCase))
             ShowFolder(folder);
+        if (_openLit is { } file)
+        {
+            _openLit = null;
+            if (Folder is { } shown && IsIn(file, shown))
+            {
+                // What the agent changed before is followed now: Watch goes on from its next change.
+                _followedNumber = changes.LastChange?.Number ?? 0;
+                await OpenAsync(file);
+                if (string.Equals(file, OpenPath, StringComparison.OrdinalIgnoreCase))
+                    await LightChatChangesAsync(file);
+                return;
+            }
+        }
         await FollowAgentAsync(again: false);
+    }
+
+    /// <summary>A file the agent made in this chat, to open lit once the folder is read (<see cref="OpenLit"/>); null with none.</summary>
+    private string? _openLit;
+
+    /// <summary>
+    /// Auto brought the panel up for a file the agent made in this chat: it opens in the chat's folder
+    /// (never one of its own, which would be kept with the chat as the user's), at what the agent wrote
+    /// in it, lit, as Watch shows a change with the panel open; from then on Watch follows.
+    /// </summary>
+    internal void OpenLit(string path)
+    {
+        _openLit = Path.GetFullPath(path);
+        _ = FollowChatAsync();
     }
 
     // ---- Watch: following the agent's edits -----------------------------------------------------
@@ -169,7 +197,21 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
 
     /// <summary>Watch (the user, 2026-10-31, as File changes has it): the file the agent edits opens at the lines it changed, lit a moment. Kept in settings.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchShown))]
     private bool _watch;
+
+    public bool ByAuto { get; }
+
+    /// <summary>The panel follows the agent's edits now: Watch, or Auto showing it.</summary>
+    private bool Following => Watch || ByAuto;
+
+    public bool WatchShown
+    {
+        get => Following;
+        set => Watch = value;
+    }
+
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Follow the agent's changes as they happen";
 
     partial void OnWatchChanged(bool value)
     {
@@ -203,7 +245,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             return;
         _followedNumber = last.Number;
         var path = last.Path;
-        if (!Watch || Folder is not { } folder || !IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
+        if (!Following || Folder is not { } folder || !IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
             return;
         if (string.Equals(path, OpenPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -742,7 +784,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         var (start, length) = Replace(document, text);
         document.UndoStack.MarkAsOriginalFile();
         // Watching, the new lines are lit (a deletion: the line where it was).
-        if (Watch)
+        if (Following)
         {
             var from = document.GetLineByOffset(start);
             var end = document.GetLineByOffset(start + length);

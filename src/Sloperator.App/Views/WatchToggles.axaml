@@ -13,7 +13,9 @@
         <TextBlock Text="Wrap" VerticalAlignment="Center" />
       </StackPanel>
     </ToggleButton>
-    <ToggleButton Classes="ghost" IsChecked="{Binding Watch}" ToolTip.Tip="Follow the agent's changes as they happen" AutomationProperties.Name="Watch">
+    <!-- Under Auto it shows on, greyed with why: Auto is what follows the agent then (IWatchPanel.ByAuto). -->
+    <ToggleButton Classes="ghost" IsChecked="{Binding WatchShown}" IsEnabled="{Binding !ByAuto}" ToolTip.ShowOnDisabled="True" ToolTip.Tip="{Binding WatchTip}"
+                  AutomationProperties.Name="Watch">
       <StackPanel Orientation="Horizontal" Spacing="8">
         <PathIcon Width="14" Height="14" Data="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
         <TextBlock Text="Watch" VerticalAlignment="Center" />

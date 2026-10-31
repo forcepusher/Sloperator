@@ -65,6 +65,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
                 Reload();
         });
         _watch = chat?.Panels.WatchPreview ?? true;
+        ByAuto = chat?.IsAuto == true;
         Errors.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasErrors));
@@ -76,7 +77,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         chat.ChangesUpdated += OnChangesUpdated;
         // A change made before the panel opened isn't followed, but the page the agent wrote last is shown.
         (_followedList, _followedNumber) = (chat.Changes, chat.Changes.LastChange?.Number ?? 0);
-        if (Watch && chat.Changes.Last(PreviewPage.IsPage) is { } page && File.Exists(page))
+        if (Following && chat.Changes.Last(PreviewPage.IsPage) is { } page && File.Exists(page))
             Show(page);
     }
 
@@ -182,7 +183,23 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     /// stop changing (as the Code editor reads its folder again). Kept in settings.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchShown))]
     private bool _watch;
+
+    /// <summary>Shown by Auto: the panel follows the agent whatever Watch says; its Watch button shows on, greyed (see <see cref="IWatchPanel.ByAuto"/>).</summary>
+    public bool ByAuto { get; }
+
+    /// <summary>The agent's page opens and reloads as its files change: Watch, or Auto showing the panel.</summary>
+    private bool Following => Watch || ByAuto;
+
+    /// <summary>What the Watch button shows: on under Auto, else Watch; set by its click.</summary>
+    public bool WatchShown
+    {
+        get => Following;
+        set => Watch = value;
+    }
+
+    public string WatchTip => ByAuto ? AutoWatch.Tip : "Open the page the agent writes and reload it as its files change";
 
     partial void OnWatchChanged(bool value)
     {
@@ -209,7 +226,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         if (changes.LastChange is not { } last || last.Number == _followedNumber)
             return;
         _followedNumber = last.Number;
-        if (Watch && PreviewPage.IsPage(last.Path) && File.Exists(last.Path) && !string.Equals(last.Path, Path, StringComparison.OrdinalIgnoreCase))
+        if (Following && PreviewPage.IsPage(last.Path) && File.Exists(last.Path) && !string.Equals(last.Path, Path, StringComparison.OrdinalIgnoreCase))
             Show(last.Path);
     }
 
@@ -251,7 +268,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     /// <summary>A file in the folder changed: with Watch on, the page reloads once the changes rest.</summary>
     internal void Changed()
     {
-        if (!Watch || _closed || Missing)
+        if (!Following || _closed || Missing)
             return;
         _reloadTimer.Stop();
         _reloadTimer.Start();

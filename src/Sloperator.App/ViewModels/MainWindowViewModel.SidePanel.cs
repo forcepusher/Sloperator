@@ -37,6 +37,25 @@ public interface IWatchPanel : ISidePanel
 
     /// <summary>The panel goes to what the agent changes as it changes it; kept in settings.</summary>
     bool Watch { get; set; }
+
+    /// <summary>
+    /// Shown by Auto: the panel follows the agent whatever Watch says, as Auto is what follows it (the user,
+    /// 2026-11-01). Its Watch button shows on, greyed, with why; Watch keeps the user's own setting, for the
+    /// panel picked by hand.
+    /// </summary>
+    bool ByAuto { get; }
+
+    /// <summary>What the Watch button shows: on under Auto, else Watch; set by its click.</summary>
+    bool WatchShown { get; set; }
+
+    /// <summary>The Watch button's tooltip, which says why it is greyed under Auto.</summary>
+    string WatchTip { get; }
+}
+
+/// <summary>The Watch button's words under Auto, for every panel that has one.</summary>
+public static class AutoWatch
+{
+    public const string Tip = "Auto follows the agent. Pick this panel in the dropdown to turn Watch off.";
 }
 
 /// <summary>A side panel that shows one file, which a file's right-click menu opens in it (File inspector, Code editor).</summary>
