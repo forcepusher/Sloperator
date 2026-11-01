@@ -2974,6 +2974,22 @@ model named it and the part from the window's corner, or the box on the screen),
 where it is now, the same part of it. An app run again for the after opens where it likes, and a box
 in screen coordinates then crops the wrong spot; the after needs no coordinates of its own.
 There are no boxes around what changed: the user asked for the pictures alone (31 October 2026).
+**Documents** (the user, 1 November 2026: pictures of documents for before/after, as of an app's
+window): `file` takes a PDF, Word, Excel or PowerPoint file (and .doc/.xls/.ppt, OpenDocument), and
+`page` (from 1) picks the page. It is drawn as it prints (`DocumentPictures`): a PDF by Windows' PDF
+renderer at 150 dpi; the others turned into a PDF first by Office running hidden (`OfficePdf`: Word,
+Excel or PowerPoint through automation from Windows PowerShell, as the trimmed build has no COM
+interop; no window or taskbar button, read-only, Word ~3-5 s cold, Excel ~1.5 s), else LibreOffice
+headless with a profile of its own. Excel's pages print with their grid and row and column headings so
+they look like the sheet, and Excel works the formulas out (Windows' previewer for the File inspector
+showed them blank). A copy of Office that shows or holds files of its own (the user's) is used and left
+open, only a fresh hidden one is quit: Quit and Close are called bare, as PowerShell refuses a plain 0
+for their by-reference arguments, and the first try left Word running hidden. A file marked as
+downloaded from the internet isn't opened (Office would open it in Protected View only: a remote
+template can send the sign-in hash). Pages are cut to what is on them, 24 px of white around, so a short
+table isn't a sheet of paper. The capture keeps the file and page (`capture-N.json`), so the after of a
+before is `compare` alone: the same page of the same document drawn again. Why a document can't be drawn
+(no Office or LibreOffice, a page it hasn't) is an argument error for the model.
 The before/after is for the user to see what the work changed visually (a button from red to green),
 wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
 at the start, in its own rule after "Start GUI tasks with a screenshot", also when the mouse and

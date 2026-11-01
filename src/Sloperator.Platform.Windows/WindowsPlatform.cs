@@ -20,6 +20,8 @@ public sealed class WindowsPlatform : IPlatformServices
         Input = new OverlayInputController(_input, _overlay);
         // PDF pages are drawn by Windows' own renderer.
         Core.Documents.PdfPages.Opener ??= WindowsPdf.Open;
+        // Office's documents turned into PDFs, for pictures of them: by Office running hidden, else LibreOffice.
+        Core.Documents.DocumentPictures.Converter ??= OfficePdf.Convert;
     }
 
     public string Name => $"Windows {Environment.OSVersion.Version}";

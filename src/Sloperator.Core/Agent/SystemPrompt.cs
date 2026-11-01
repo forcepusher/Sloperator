@@ -91,8 +91,9 @@ public static class SystemPrompt
         // stitch ended with frames side by side. Without the mouse and keyboard the agent still runs
         // what it changes, and captures it.
         if (screen is not null)
-            sb.AppendLine("- When the task changes how something looks (a button from red to green, a page's layout, a chart), the user wants to see that change: " +
-                          "before your first change, capture how it looks with capture_result (open or run it first if it isn't showing); " +
+            sb.AppendLine("- When the task changes how something looks (a button from red to green, a page's layout, a chart, a document's formatting), the user wants to see that change: " +
+                          "before your first change, capture how it looks with capture_result (a document as file, which needs no program open; " +
+                          "anything else opened or run first if it isn't showing); " +
                           "at the end, capture the result with its number in compare, which takes the same view again.");
         if (screen is not null && control)
         {
@@ -184,7 +185,8 @@ public static class SystemPrompt
                       "or measure what it does (count what a scene or file holds once it is worked out, play what you made, run what you built). " +
                       "When the check doesn't show what the user asked for, the task isn't finished: find out why and fix it rather than explain it away. " +
                       "A check you can do yourself is part of the task, not an optional extra: do it rather than leave it to the user. " +
-                      (screen is not null ? "When the task was to make something to look at (an app, a page, a game, a chart), show it to the user with capture_result (run or open it if it isn't showing), " +
+                      (screen is not null ? "When the task was to make something to look at (an app, a page, a game, a chart, a document), show it to the user with capture_result " +
+                                         "(a document as file; anything else run or opened if it isn't showing), " +
                                          "cropped to what you made (its window, or the part of it in a box); the whole screen only when that is the point. " : "") +
                       "Then reply with a short summary of what you did and how you checked it.");
         sb.AppendLine("- The user can write to you while you work; such a message arrives between your steps. Take it into account at once: it may change the task, add to it or ask you something. " +

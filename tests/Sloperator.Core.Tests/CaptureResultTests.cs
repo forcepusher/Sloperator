@@ -243,7 +243,7 @@ public class CaptureResultTests : IDisposable
         Assert.Equal(ToolRisk.ReadOnly, new CaptureResultTool().Risk);
 
         var screens = new[] { new ScreenSpace(Plain, (1600, 896)) };
-        Assert.Contains("show it to the user with capture_result (run or open it if it isn't showing), cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
+        Assert.Contains("show it to the user with capture_result (a document as file; anything else run or opened if it isn't showing), cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
         Assert.Contains("before your first change, capture how it looks with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
         Assert.Contains("at the end, capture the result with its number in compare, which takes the same view again", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
         Assert.Contains("before your first change", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
