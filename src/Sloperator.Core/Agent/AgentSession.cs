@@ -731,7 +731,7 @@ public sealed partial class AgentSession(
         string summary;
         try
         {
-            args = ToolCallRepair.ParseArguments(call.Arguments);
+            args = ToolCallRepair.ParseArguments(call.Arguments, tool);
             // The conversation keeps the call as repaired: sent back as it came, arguments that
             // aren't JSON can make a server's chat template fail every request after it.
             if (!ToolCallRepair.IsWholeJson(call.Arguments))
@@ -740,9 +740,11 @@ public sealed partial class AgentSession(
             ToolCallRepair.NormalizeArguments(args, tool);
             summary = tool.Describe(args);
         }
-        catch (ToolArgumentException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var bad = ToolResult.Error($"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}");
+            // Arguments the tool can't take are the model's to fix, as whatever goes wrong while it runs:
+            // anything else thrown here ended the whole run.
+            var bad = ToolResult.Error(ex is ToolArgumentException ? $"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}" : ex.Message);
             observer.OnToolStarted(call, call.Name);
             observer.OnToolFinished(call, bad);
             return bad;

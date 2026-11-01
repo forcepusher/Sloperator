@@ -439,6 +439,32 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public async Task A_call_with_a_key_given_twice_runs_and_goes_back_with_it_once()
+    {
+        // Claude wrote a file's second part under "append", then "append": true; reading it ended the run.
+        var dir = Directory.CreateTempSubdirectory("bb-twice-").FullName;
+        await File.WriteAllTextAsync(Path.Combine(dir, "a.txt"), "part 1\n", TestContext.Current.CancellationToken);
+        var server = new ScriptedServer(
+            Sse.ToolCall("c1", "write_file", """{"path": "a.txt", "append": "part 2\n", "append": true}"""),
+            Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, dir, new FakePlatform());
+        try
+        {
+            await session.RunAsync("write it", observer, TestContext.Current.CancellationToken);
+
+            Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+            Assert.Equal("part 1\npart 2\n", await File.ReadAllTextAsync(Path.Combine(dir, "a.txt"), TestContext.Current.CancellationToken));
+            var call = server.Requests[1]["messages"]!.AsArray().Single(m => m!["tool_calls"] is not null)!["tool_calls"]![0]!;
+            var sent = JsonNode.Parse(call["function"]!["arguments"]!.GetValue<string>())!.AsObject();
+            Assert.Equal(["path", "append", "content"], sent.Select(p => p.Key));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Without_a_wait_named_the_waits_grow_to_five_minutes()
     {
         Assert.Equal(TimeSpan.FromSeconds(2), AgentSession.RateLimitWait(null, 1)); // a server that was only busy

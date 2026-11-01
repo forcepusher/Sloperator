@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Sloperator.Core.Agent;
@@ -385,13 +384,6 @@ public sealed partial class MainWindowViewModel
     {
         if (!IsBusy || Items.OfType<ToolCallItem>().LastOrDefault(t => t.State == ToolItemState.Running) is not { Name: "video" } call)
             return null;
-        try
-        {
-            return JsonNode.Parse(call.Arguments) is JsonObject args ? (args, call.Progress) : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        return ToolCallRepair.AsObject(call.Arguments) is { } args ? (args, call.Progress) : null;
     }
 }

@@ -565,6 +565,28 @@ public class ChatClientTests
     }
 
     [Fact]
+    public void A_key_given_twice_goes_where_its_value_fits()
+    {
+        // Claude (Haiku 5.5) wrote the second part of a file under "append" and then "append": true.
+        // JsonObject threw "An item with the same key has already been added" and the run ended.
+        const string raw = """{"path": "MainWindow.axaml", "append": "    </Grid>\n</Window>\n", "append": true}""";
+        var write = Registry.Find("write_file")!;
+        var args = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments(raw, write), write);
+        Assert.True(args["append"]!.GetValue<bool>());
+        Assert.Equal("    </Grid>\n</Window>\n", args["content"]!.GetValue<string>());
+        Assert.Equal("Append to MainWindow.axaml (22 chars)", write.Describe(args));
+        Assert.False(ToolCallRepair.IsWholeJson(raw));
+
+        // With no tool to go by, or nowhere for the other value to go, the last one wins.
+        Assert.True(ToolCallRepair.ParseArguments(raw)["append"]!.GetValue<bool>());
+        Assert.Equal(2, ToolCallRepair.AsObject("""{"x": 1, "x": 2, "y": {"z": 3, "z": 4}}""")!["x"]!.GetValue<int>());
+        Assert.Equal(4, ToolCallRepair.AsObject("""{"x": 1, "y": [{"z": 3, "z": 4}]}""")!["y"]![0]!["z"]!.GetValue<int>());
+        Assert.Equal("echo b", ToolCallRepair.ParseArguments("""{"command": "echo a", "command": "echo b"}""", Registry.Find("run_shell")!)["command"]!.GetValue<string>());
+        Assert.True(ToolCallRepair.IsWholeJson("""{"path": "a.txt", "content": "x"}"""));
+        Assert.Empty(AnthropicMessages.Input("""{"command": "dir", "command": "echo"}"""));
+    }
+
+    [Fact]
     public void Coordinates_and_aliases_are_normalized()
     {
         var click = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments("""{"coordinate": [5, 6]}"""), Registry.Find("mouse_click")!);
