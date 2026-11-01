@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The command-line runner says how much of each prompt the server read from its cache.
 - A thin yellow frame round the screen shows the agent has the mouse and keyboard, from its first click
   or key press until the task ends.
+- A series of key presses can wait between steps and keep a key down while others are pressed, so the
+  agent can walk, jump and walk on in a game in one go.
 
 ### Changed
 - The agent waits until you have left the mouse and keyboard alone for a second before each click or

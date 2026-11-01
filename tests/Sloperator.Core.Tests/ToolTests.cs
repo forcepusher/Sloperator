@@ -428,6 +428,42 @@ public class ToolTests
     }
 
     [Fact]
+    public async Task Press_keys_sequence_can_wait_and_hold_keys_across_steps()
+    {
+        var platform = new FakePlatform();
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var args = new JsonObject { ["sequence"] = new JsonArray("hold shift+w", "wait 0.3", "space", "release w", "e"), ["gap_ms"] = 0 };
+        var result = await new PressKeysTool().ExecuteAsync(args, Ctx(platform), CancellationToken.None);
+        // Keys are held one by one, so a release can let go of one of them; the rest come up at the end.
+        Assert.Equal(["hold shift", "hold w", "keys space", "release w", "keys e", "release shift"], platform.Actions);
+        Assert.True(started.ElapsedMilliseconds >= 280, $"waited {started.ElapsedMilliseconds} ms");
+        Assert.Equal("Keys: hold shift+w, wait 0.3, space, release w, e done.", result.Text);
+
+        // Stopped mid-wait: held keys still come up.
+        platform.Actions.Clear();
+        using var stop = new CancellationTokenSource(100);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("hold w", "wait 10") }, Ctx(platform), stop.Token));
+        Assert.Equal(["hold w", "release w"], platform.Actions);
+
+        // A key of the user's mid-wait ends it there, says so, and held keys still come up; even as the last step.
+        var user = new FakeUserInput();
+        var shared = new FakePlatform { UserInput = user };
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        var walking = new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("hold w", "wait 10") }, Ctx(shared), CancellationToken.None);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        user.Press();
+        result = await walking;
+        Assert.Equal("Did 2 of 2 steps, the last cut short; the rest was not done, as the user pressed a key or clicked meanwhile.", result.Text);
+        Assert.Equal(["hold w", "release w"], shared.Actions);
+        Assert.True(waited.Elapsed < TimeSpan.FromSeconds(5), $"waited {waited.ElapsedMilliseconds} ms");
+
+        // A wait without seconds is caught before anything is pressed.
+        platform.Actions.Clear();
+        await Assert.ThrowsAsync<ToolArgumentException>(() => new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("w", "wait soon") }, Ctx(platform), CancellationToken.None));
+        Assert.Empty(platform.Actions);
+    }
+
+    [Fact]
     public async Task Write_file_appends_parts()
     {
         var path = Path.Combine(Path.GetTempPath(), "bb-append-" + Guid.NewGuid().ToString("N") + ".txt");
