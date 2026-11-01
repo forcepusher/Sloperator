@@ -187,7 +187,7 @@ public class ClickAccuracyTests
                     connection.Options.Extra!["temperature"] = double.Parse(temperature, System.Globalization.CultureInfo.InvariantCulture);
                 var prompt = SystemPrompt.Build(platform.Name, ctx.ScreenSpaces(), Path.GetTempPath(), Env("BB_CLICK_RULE") ?? "", findText: findText);
                 var tools = ToolRegistry.CreateDefault(true).All.Where(t => t is ScreenshotTool or MouseClickTool or MouseMoveTool or MouseDragTool or ScrollTool
-                    or TypeTextTool or PressKeysTool or WaitTool || (zoom && t is ZoomTool) || (findText && t is FindTextTool));
+                    or TypeTextTool or PressKeysTool or WaitTool or WaitUntilChangeTool || (zoom && t is ZoomTool) || (findText && t is FindTextTool));
                 var session = new AgentSession(connection.Client, connection.Options, new ToolRegistry(tools), ctx, prompt, contextTokens: context ?? 0);
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5 * Math.Max(1, looks / 4.0)));

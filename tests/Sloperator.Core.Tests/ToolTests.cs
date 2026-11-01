@@ -286,7 +286,7 @@ public class ToolTests
     [Fact]
     public void Settings_take_away_the_screen_or_only_the_mouse_and_keyboard()
     {
-        string[] look = ["screenshot", "zoom", "find_text", "wait"], act = ["mouse_click", "mouse_move", "mouse_drag", "scroll", "type_text", "press_keys"];
+        string[] look = ["screenshot", "zoom", "find_text", "wait", "wait_until_change"], act = ["mouse_click", "mouse_move", "mouse_drag", "scroll", "type_text", "press_keys"];
         bool Has(ToolRegistry r, string name) => r.Find(name) is not null;
 
         var all = ToolRegistry.CreateDefault(includeScreenTools: true);
@@ -371,11 +371,26 @@ public class ToolTests
     }
 
     [Fact]
-    public async Task Wait_can_stop_as_soon_as_the_screen_changes()
+    public async Task Wait_takes_a_screenshot_only_when_asked()
     {
         var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, 320, 160), Desktop = new RawImage(320, 160, new byte[320 * 160 * 4]) };
         var ctx = Ctx(platform);
         var wait = new WaitTool();
+
+        var plain = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 0.2 }, ctx, CancellationToken.None);
+        Assert.Equal("Waited 0.2s.", plain.Text);
+        Assert.Null(plain.Image);
+        var shown = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 0.2, ["screenshot_on_end"] = true }, ctx, CancellationToken.None);
+        Assert.StartsWith("Waited 0.2s.\n", shown.Text);
+        Assert.NotNull(shown.Image);
+    }
+
+    [Fact]
+    public async Task Wait_until_change_stops_as_soon_as_the_screen_changes()
+    {
+        var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, 320, 160), Desktop = new RawImage(320, 160, new byte[320 * 160 * 4]) };
+        var ctx = Ctx(platform);
+        var wait = new WaitUntilChangeTool();
 
         // A message arrives in a chat 300 ms in: a block of new pixels.
         var arrive = Task.Run(async () =>
@@ -384,7 +399,7 @@ public class ToolTests
             for (var y = 100; y < 140; y++) for (var x = 20; x < 220; x++) platform.Desktop!.Bgra[(y * 320 + x) * 4 + 1] = 200;
         }, TestContext.Current.CancellationToken);
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var changed = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 60, ["until_change"] = true }, ctx, CancellationToken.None);
+        var changed = await wait.ExecuteAsync([], ctx, CancellationToken.None);
         await arrive;
         Assert.StartsWith("The screen changed after", changed.Text);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"took {clock.Elapsed}");
@@ -392,22 +407,15 @@ public class ToolTests
 
         // A tiny change (a blinking caret) isn't one.
         var caret = Task.Run(async () => { await Task.Delay(200); platform.Desktop!.Bgra[(10 * 320 + 10) * 4] = 255; }, TestContext.Current.CancellationToken);
-        var quiet = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 1.5, ["until_change"] = true }, ctx, CancellationToken.None);
+        var quiet = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 1.5 }, ctx, CancellationToken.None);
         await caret;
         Assert.StartsWith("Waited 1.5s; nothing on the screen changed.", quiet.Text);
+        Assert.NotNull(quiet.Image);
 
-        // A message that arrived while the model was deciding to wait: the screen already differs from
-        // the screenshot it decided on, so the wait ends at once rather than sleeping through it.
+        // It compares with the screen as the wait starts, never with the model's last screenshot.
         ctx.Seen = (platform.ScreenBounds, new RawImage(320, 160, new byte[320 * 160 * 4]));
-        clock.Restart();
-        var already = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 60, ["until_change"] = true }, ctx, CancellationToken.None);
-        Assert.StartsWith("The screen had already changed since your last screenshot", already.Text);
-        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"took {clock.Elapsed}");
-
-        // The same screen as the one it decided on: it waits as before.
-        ctx.Seen = (platform.ScreenBounds, platform.Screen.Capture(platform.ScreenBounds, includeCursor: false));
         Assert.StartsWith("Waited 1s; nothing on the screen changed.",
-            (await wait.ExecuteAsync(new JsonObject { ["seconds"] = 1, ["until_change"] = true }, ctx, CancellationToken.None)).Text);
+            (await wait.ExecuteAsync(new JsonObject { ["seconds"] = 1 }, ctx, CancellationToken.None)).Text);
     }
 
     [Fact]

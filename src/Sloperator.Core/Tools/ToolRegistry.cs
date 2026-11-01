@@ -40,9 +40,12 @@ public sealed class ToolRegistry
             yield return new TypeTextTool();
             yield return new PressKeysTool();
         }
-        // Looks at the screen while it waits; last, where it was before the mouse and keyboard could be turned off.
+        // Last, where they were before the mouse and keyboard could be turned off.
         if (includeScreenTools)
+        {
             yield return new WaitTool();
+            yield return new WaitUntilChangeTool();
+        }
         yield return new ReadFileTool();
         yield return new WriteFileTool();
         yield return new EditFileTool();

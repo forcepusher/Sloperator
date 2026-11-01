@@ -105,6 +105,7 @@ public sealed class ToolCardLayoutTests
     [Theory]
     [InlineData("mouse_click", false)]
     [InlineData("wait", false)]
+    [InlineData("wait_until_change", false)]
     [InlineData("press_keys", false)]
     [InlineData("screenshot", true)]
     [InlineData("zoom", true)]
