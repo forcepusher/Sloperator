@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- After the agent clicks through Sloperator's window to the app behind it, the window comes back on top
+  instead of staying behind every other window.
 
 ## [1.3.0] - 2026-11-01
 ### Added

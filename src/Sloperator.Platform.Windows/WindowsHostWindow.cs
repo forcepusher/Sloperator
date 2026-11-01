@@ -21,13 +21,15 @@ internal sealed class WindowsHostWindow : IHostWindow
         EnsurePhysicalPixels();
         // Top to bottom, as EnumWindows lists them; each one left out of the screenshots, so the
         // model aimed at what is behind it.
-        var moved = new List<nint>();
+        var moved = new List<(nint Hwnd, bool Topmost)>();
         foreach (var hwnd in SloperatorWindows())
         {
             if (!GetWindowRect(hwnd, out var r) || !points.Any(p => p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom))
                 continue;
+            // HWND_BOTTOM takes a window's always-on-top away; it gets it back afterwards.
+            var topmost = (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & (nint)WS_EX_TOPMOST) != 0;
             SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            moved.Add(hwnd);
+            moved.Add((hwnd, topmost));
         }
         if (moved.Count == 0)
             return Restore.None;
@@ -88,18 +90,32 @@ internal sealed class WindowsHostWindow : IHostWindow
         return 0;
     }
 
-    private sealed class Restore(List<nint> windows) : IDisposable
+    private sealed class Restore(List<(nint Hwnd, bool Topmost)> windows) : IDisposable
     {
         public static readonly IDisposable None = new Restore([]);
+        private static readonly nint HWND_NOTOPMOST = -2;
 
         public void Dispose()
         {
             if (windows.Count == 0) return;
             // Give the target a moment to react (open a menu, gain focus) before coming back on top.
             Thread.Sleep(150);
-            // The lowest first, so the viewer that was over the chat ends up over it again.
+            // Once the click has made another app's window the active one, Windows ignores HWND_TOP
+            // from Sloperator (it returns true and nothing moves), and Sloperator stayed behind every
+            // window. Always-on-top for a moment is allowed, and taking it away again leaves the window
+            // over every other that isn't always-on-top, the clicked one still active.
+            // The lowest first, so the viewer that was over the chat ends up over it again; those that
+            // were always-on-top last, as taking it from a window takes it from the windows it owns.
+            const uint flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
             for (var i = windows.Count - 1; i >= 0; i--)
-                SetWindowPos(windows[i], HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                if (!windows[i].Topmost)
+                {
+                    SetWindowPos(windows[i].Hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
+                    SetWindowPos(windows[i].Hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+                }
+            for (var i = windows.Count - 1; i >= 0; i--)
+                if (windows[i].Topmost)
+                    SetWindowPos(windows[i].Hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
         }
     }
 }
