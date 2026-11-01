@@ -180,6 +180,46 @@ trim warnings) ran the same stand-in steps to the Code editor, nothing in errors
 The workstation's part of this pass (two monitors, ShadowPlay during a run, the second-monitor tasks with
 hands-off, the release exe on Qwen) follows below when it has run.
 
+### On the workstation
+
+Release builds of 727ad37 (the merge), then of 0a9aec7 (the Auto fix) for the runs in the published exe;
+two monitors (2560x1080 primary, 1920x1080 to its right), Qwen 3.8 27B q6_k_xl on the user's server and
+Claude Haiku 5.5 through OpenRouter. The frame and the lock were watched from outside: a script read the
+screens' edges with BitBlt + CAPTUREBLT every 200 ms for the frame's colour, and moved the mouse a pixel
+with SendInput, untagged as a user's input comes, to see whether it got through.
+
+| Test | Result |
+|---|---|
+| Unit suites with `BB_DESKTOP_TESTS`, the SSH lab (a 3 GB copy each way, a reboot), real MCP servers through npx and `BB_COMFY_ONLINE`, on 727ad37 | App 303 of 303, Core 1248 of 1264 (16 skipped: they need a server key); the two pause-key tests that failed there before passed |
+| The lock and the agent's clicks on each screen (`UserInputTests`, `ClickLandsTests`, pointed at screen 2 by a local edit, then at screen 1) | 3 of 3 on each |
+| Second-monitor tasks (`agent-tasks.ps1` mm-*, the CLI built Release) | Qwen 4 of 4 (88-237 s, 1 tool error), Haiku 5.5 4 of 4 (15-43 s, 0 tool errors) |
+| ShadowPlay with Instant Replay on, Haiku 5.5 in the published exe (0a9aec7) | Instant Replay recorded throughout; Sloperator's window not in the agent's screenshots |
+| A real Qwen task in the published exe, 727ad37 and 0a9aec7 | the frame from the first click to the end; the agent waited while the mouse moved; Pause/Break gave the input back at once |
+| App suite on 0a9aec7 | 303 of 303 |
+
+- The frame in the second-monitor tasks: on screen 2, where the window to work in was, from the first
+  click or key press (screenshots, zooms and commands before it put none up) until the run ended, and gone
+  after. In mm-move it went up on screen 1 with the first drag and went over to screen 2 with the first
+  action after a screenshot of screen 2. The agent waited where the mouse had moved less than a second
+  before ("Waiting for you to leave the mouse and keyboard" in the CLI's log), and a nudge sent during one
+  of Qwen's clicks didn't move the mouse.
+- ShadowPlay: CaptureCore.log had Instant Replay started a few minutes before the run (Telegram had
+  stopped it earlier in the day with its protected content; it was closed for this) and no DVR stop or
+  protected-content line from then until after the run. The task, a sum on the Calculator's buttons typed
+  into Notepad, took 42 s with a screenshot after each click. A capture from outside had Sloperator's
+  window over Notepad; the agent's screenshot of the same screen shows Notepad and the desktop there.
+- The real Qwen task (the same sum, 6912, and "6912 is the sum" in Notepad, right both times): no frame
+  during the first screenshot and capture, the frame on screen 1 from the first click, gone when the
+  reply came. On 0a9aec7 the mouse was moved from outside every 150 ms from the third second after the
+  frame: the next click's card read "Waiting for you to leave the mouse and keyboard · 0:00", still at
+  0:04 when the moves stopped, and it clicked 1.7 s later. No move was held back while the agent was
+  thinking.
+- Pause/Break during long typing (the numbers 1 to 800 asked for in one type_text): a nudge then went
+  nowhere; Pause/Break pressed, a nudge 31 ms later moved the mouse; the card "Stopped after 622 ms", the
+  chat "Stopped with Pause/Break.", the frame gone. Notepad ended with 400 characters, two of type_text's
+  200-character pieces: it stops between pieces, so the piece under way when the key came is finished
+  (about 0.2 s of typing at most; Notepad showed 178 characters at the key, behind what had been sent).
+
 ## Left as they are
 
 - With no context use known yet (a chat opened again, before its next request) the title bar reads
