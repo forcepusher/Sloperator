@@ -3994,6 +3994,16 @@ their colour). PrintWindow with PW_RENDERFULLCONTENT captures the page with the 
 `.dev/live-preview-test/` (run.ps1 with a stand-in agent writing the game into %TEMP%, shots.ps1, drive.ps1
 clickat/dragat; CLICK_FACTOR 1.25 for the DPI-unaware build, which reads posted points as if scaled).
 
+**A panel gone before WebView2 is up.** Each Web preview makes its own web view, and Auto can put
+another panel in its place a moment after the agent wrote a page (index.html, then a command: Terminal).
+Avalonia's web view (12.1.1, its latest) then gives up on starting WebView2, and the E_ABORT
+COMException from its start is thrown where nothing can catch it: on the window's thread and again as a
+task nobody waited for. It said "Something went wrong in Sloperator's window: COMException: Operation
+aborted" in the chat and went into crash.log, twice in one Tauri task (chat 20261101-171229-f4b4fa, the
+user taking it for a crash on switching to Anthropic's API). Nothing is lost, the next Web preview
+starting a WebView2 of its own, so that one is neither written down nor said (`CrashLog.IsWebViewGivenUp`).
+Taken onto 1.3.0 from develop's 9130104 before the release.
+
 ### Terminal
 **Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
 the agent runs, live (the user's request through the coordinator, 2026-11-01): run_shell on this PC and ssh
