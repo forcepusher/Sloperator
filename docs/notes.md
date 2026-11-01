@@ -2641,14 +2641,21 @@ and the last screenshot (not a picture a tool opened), a few thousand tokens. Wh
 reports, not guessed. If the model can't write the note, a record of its last steps is used
 instead; a reply cut off by the context limit, or a server's "context length exceeded" error,
 triggers the same reset and a retry. A reply cut off by a reply-length limit set on the server
-(the token counts show the context isn't full) is kept, and the model is asked to go on. From then
-on in the run, each request asks for as long a reply as the context has room for (`max_tokens`, at
-most the 64k asked of Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's
-LiteLLM gives Claude 4k or so, and it cut eight replies in a quarter of an hour of writing a Tauri app,
-each thought through again (chat 20261101-171229-f4b4fa). Nothing is asked before a cut, so a server
-that never cuts gets the requests it always did. A model that takes less says so ("max_tokens: 64000 >
-32000", "supports at most 16384 completion tokens"): the largest number the error names under the one
-asked is its limit from then on; an error naming max_tokens with no such number leaves it out.
+(the token counts show the context isn't full) is kept, and the model is asked to go on. Each
+request asks for as long a reply as the context has room for (`max_tokens`, at most the 64k asked of
+Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's LiteLLM gives Claude 4k or
+so, and it cut eight replies in a quarter of an hour of writing a Tauri app, each thought through
+again (chat 20261101-171229-f4b4fa). It was asked only after a first cut until 2026-11-01. A high one
+costs nothing: only written tokens are billed, Anthropic's output rate limit counts only those, and
+OpenRouter holds credit for a request's max_tokens while it runs (a fixed cap with none). The model's
+own limit caps it: an OpenRouter-style list's `top_provider.max_completion_tokens`
+(`ServerProbe.TryContextAsync`), or a refusal naming a smaller number ("max_tokens: 64000 > 32000",
+"supports at most 16384 completion tokens", OpenRouter's 402 "can only afford 61303" on little
+credit): the largest number the error names under the one asked is its limit from then on; an error
+naming max_tokens with no such number leaves it out, but a 402, which then says the credit is used up.
+A server whose real context is smaller than assumed and refuses the room on top of a conversation
+that fits ("66000 tokens (2000 in the messages, 64000 in the completion)") gets the step again with
+the room that size leaves, with no reset.
 A kept reply that said nothing and called nothing (cut off in its thinking) isn't sent back: LiteLLM
 filled the empty turn with "[System: Empty message content sanitised to satisfy protocol]", and
 Claude took to writing that line in its own next replies. Its thinking goes with it, so the model
