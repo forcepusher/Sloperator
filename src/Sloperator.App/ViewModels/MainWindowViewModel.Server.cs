@@ -301,8 +301,11 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     {
         get
         {
-            // Not one server's name by its port (the user, 2026-11-01: LM Studio named in messages "weird").
-            return CanSetEffort ? "How hard the model thinks. More is slower and costs more." : "The server takes no effort setting for this model";
+            if (CanSetEffort)
+                return "How hard the model thinks. More is slower and costs more.";
+            var server = _settings.Server;
+            var lmStudio = !OpenAiChatClient.IsAnthropic(server.BaseUrl) && Uri.TryCreate(OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl), UriKind.Absolute, out var uri) && uri.Port == 1234;
+            return lmStudio ? "Effort is set in LM Studio for this model" : "This model has no effort setting";
         }
     }
 
@@ -394,7 +397,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         }
         if (!probe.Reachable)
         {
-            SetStatus(ServerState.Failed, "Offline", $"{probe.Message} Check the address and that the server is running.");
+            SetStatus(ServerState.Failed, "Offline", $"{probe.Message}{ServerAppHint(server.BaseUrl)} Check the address and that the server is running.");
             return probe;
         }
         if (probe.Model is null)
@@ -470,6 +473,22 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
             i++;
         models.Insert(i, model);
     }
+
+    /// <summary>
+    /// For a server that doesn't answer on LM Studio's or Ollama's own port, how to turn it on:
+    /// LM Studio installed and a model downloaded, its server still stays off until switched on.
+    /// The port is what names the program (the user, 2026-11-01: other messages name none).
+    /// </summary>
+    private static string ServerAppHint(string address) =>
+        Core.Llm.ServerAddress.Candidates(address).FirstOrDefault() is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            ? uri.Port switch
+            {
+                1234 => " If it is LM Studio, its server has to be switched on: in LM Studio's Developer tab, set Status to Running" +
+                        (uri.IsLoopback ? "." : ", and turn on Serve on Local Network for other PCs to reach it."),
+                11434 => " If it is Ollama, start the Ollama app.",
+                _ => "",
+            }
+            : "";
 
     private const string NotConnectedTitle = "Sloperator isn't connected to a model yet";
 

@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust highlighting in the Code editor.
 
 ### Changed
-- Sloperator's messages about the model server no longer name LM Studio or Ollama: the note about a
-  reply cut off at the server's length limit, the hints when nothing answers, the Effort tooltip, and
-  the notes about a too small context or a server with no models.
+- Sloperator's messages about the model server no longer name LM Studio or Ollama unless the server's
+  port does: the note about a reply cut off at the server's length limit and the notes about a too
+  small context or a server with no models say "the server".
 
 ### Fixed
 - NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
