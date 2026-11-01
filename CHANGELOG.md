@@ -5,44 +5,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
-- Text selected in the chat goes with your next message, so the model knows what you mean: while it
-  is selected, its card shows over the box. It stays selected while you type; click elsewhere in the
-  chat or press Esc to let it go.
-- Rust highlighting in the Code editor.
-- The command-line runner says how much of each prompt the server read from its cache.
-- A thin yellow frame round the screen shows the agent has the mouse and keyboard, from its first click
-  or key press until the task ends.
-- A series of key presses can wait between steps and keep a key down while others are pressed, so the
-  agent can walk, jump and walk on in a game in one go.
-
-### Changed
-- The agent waits until you have left the mouse and keyboard alone for a second before each click or
-  key press, and locks them for the moment it acts, so your mouse can't move its click and your keys
-  can't land in its typing. Pause/Break still stops it and gives them back at once.
-- When you clicked or typed while the agent was thinking, it looks at the screen again before acting on
-  what you may have changed: before any key press, and before a click where the screen changed around it.
-- Long typing and a series of key presses stop when you press a key or click during them.
-- Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
-  one it is: the note about a reply cut off at the server's length limit and the notes about a too
-  small context or a server with no models say "the server".
-
-### Fixed
-- Claude through OpenRouter, proxyapi.ru and other OpenAI-format servers costs several times less on
-  long tasks: each step reads the earlier ones from the server's prompt cache instead of paying for the
-  whole conversation again.
-- A click holds the mouse button down for 50 ms: games that read the mouse once a frame could miss it.
-- NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
-  leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
-- A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator
-  asks for replies as long as the context has room for.
-- Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
-  protocol]" in its replies: a reply cut off before it said anything isn't sent back, and one that only
-  called tools goes back with no text rather than an empty one.
-- No more "Something went wrong in Sloperator's window: COMException: Operation aborted" when Auto
-  swaps the Web preview for another panel while the page is still loading.
-- After the agent clicks through Sloperator's window to the app behind it, the window comes back on top
-  instead of staying behind every other window.
 
 ## [1.3.0] - 2026-11-01
 ### Added
@@ -104,6 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   would need (how to build or test it, what failed and what worked, a choice you made), it adds a
   line under "Notes" at the end, makes the file if there is none, and says so in its reply. It reads
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
+- Text selected in the chat goes with your next message, so the model knows what you mean: while it
+  is selected, its card shows over the box. It stays selected while you type; click elsewhere in the
+  chat or press Esc to let it go.
+- Rust highlighting in the Code editor.
+- The command-line runner says how much of each prompt the server read from its cache.
+- A thin yellow frame round the screen shows the agent has the mouse and keyboard, from its first click
+  or key press until the task ends.
+- A series of key presses can wait between steps and keep a key down while others are pressed, so the
+  agent can walk, jump and walk on in a game in one go.
 
 ### Changed
 - A tool call's card says what it does on one line, with files and folders by their names ("Read
@@ -160,6 +131,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wider one: they no longer grow and shrink as the window is resized.
 - The × that closes a side panel is read out as "Close the panel" by screen readers (it said "Close
   the tool").
+- The agent waits until you have left the mouse and keyboard alone for a second before each click or
+  key press, and locks them for the moment it acts, so your mouse can't move its click and your keys
+  can't land in its typing. Pause/Break still stops it and gives them back at once.
+- When you clicked or typed while the agent was thinking, it looks at the screen again before acting on
+  what you may have changed: before any key press, and before a click where the screen changed around it.
+- Long typing and a series of key presses stop when you press a key or click during them.
+- Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
+  one it is: the note about a reply cut off at the server's length limit and the notes about a too
+  small context or a server with no models say "the server".
 
 ### Fixed
 - A PowerShell command that fails no longer shows Sloperator's own setup lines in its error, and the
@@ -175,6 +155,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Through proxyapi.ru, Claude keeps its earlier thinking from step to step: it goes back as the
   server sent it (signed `thinking_blocks`), as it already did through OpenRouter. Before, the
   server left it out of the prompt.
+- Claude through OpenRouter, proxyapi.ru and other OpenAI-format servers costs several times less on
+  long tasks: each step reads the earlier ones from the server's prompt cache instead of paying for the
+  whole conversation again.
+- A click holds the mouse button down for 50 ms: games that read the mouse once a frame could miss it.
+- NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
+  leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
+- A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator
+  asks for replies as long as the context has room for.
+- Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
+  protocol]" in its replies: a reply cut off before it said anything isn't sent back, and one that only
+  called tools goes back with no text rather than an empty one.
+- After the agent clicks through Sloperator's window to the app behind it, the window comes back on top
+  instead of staying behind every other window.
 
 ### Removed
 - The blob logo is gone from the window's title bar; the title starts where it was. The taskbar

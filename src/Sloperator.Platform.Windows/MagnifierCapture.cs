@@ -147,7 +147,7 @@ internal static unsafe partial class MagnifierCapture
         var pixels = new byte[row * into.Height];
         fixed (byte* to = pixels)
             for (var y = 0; y < into.Height; y++)
-                Buffer.MemoryCopy((byte*)source + header.offset + (long)y * header.stride, to + (long)y * row, row, row);
+                Buffer.MemoryCopy((byte*)source + header.offset + y * header.stride, to + (long)y * row, row, row);
         into.Pixels = pixels;
         return 1;
     }

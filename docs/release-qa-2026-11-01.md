@@ -1,6 +1,6 @@
 # Release check, 1 November 2026
 
-A last pass before 1.3.0, branch `release/1.3.0` off develop 36ae5f8: a clean-up of what changed since
+A last pass before 1.3.0, branch `release/1.3.0` off develop 36ae5f8 (and again for develop e4abe7f, see Second pass): a clean-up of what changed since
 1.2.0, the unit suites, the new panels and the rest of this version's changes driven in the published exe
 on the laptop, a Unity 2048 run as a sanity check of the agent, and on the workstation what needs its
 programs, its GPU, its second monitor or the Qwen server.
@@ -17,6 +17,8 @@ programs, its GPU, its second monitor or the Qwen server.
 | Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 12 min 51 s: 61 model calls, 66 tool calls, played to 132 and to Game Over in Play mode, built and checked the exe |
 | This version's changes in the published exe (a stand-in agent) | laptop | all as the changelog says; one empty line after a PowerShell error in the Terminal, fixed |
 | ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
+| Second pass: the day's later changes (hands-off, caching, capture, chat selection, key steps) | laptop | App 303 of 303, Core 1241 of 1241; Auto stuck on the Terminal after a command and a file in one go, fixed; Unity 2048 on Haiku passed again (14 min 6 s) |
+| Second pass on two monitors, ShadowPlay and Qwen | workstation | suites with the opt-in tests on: App 303 of 303, Core 1248 of 1264 (16 need a key); second-monitor tasks Qwen 4 of 4, Haiku 4 of 4; Instant Replay recorded throughout; hands-off and Pause/Break as meant |
 
 ## Clean-up
 
@@ -135,6 +137,89 @@ user's server), Release builds of the branch.
 - On 0439af3, three more failed, none a product bug, all fixed in 61c6e2c: the ANSI code page test
   (that PC's code page is 1251; it uses the PC's own now), ComfyOnlineTests beside the Civitai stand-ins
   (one collection now), ImageEditorTests deleting its folder while a thumbnail was read (waits and retries).
+
+## Second pass: what came after
+
+1.3.0 wasn't tagged when seven more merges reached develop the same day (hands-off: the agent waits for the
+user to leave the mouse and keyboard, locks them for each action and shows a yellow frame; prompt caching
+on OpenAI-format servers; screenshots through the magnifier, so ShadowPlay keeps recording; selected chat
+text as context; timed key steps; max_tokens after a length cut; the window back on top after a click
+through it; the Web preview's WebView2 notice). The user wanted them in 1.3.0, so develop e4abe7f was
+merged into the release branch and the pass made again for them.
+
+- The new code was already tidy: the analyzers found one redundant cast. Their changelog lines went into
+  the 1.3.0 section; "No more COMException when Auto swaps the Web preview" went, as no released version
+  had Auto or the Web preview.
+- Unit suites on the merge: App 303 of 303, Core 1241 of 1241, twice, and again on the fix below. PictureFolderTests' mask test failed
+  once while the exe was being published beside the suite (seen once before at 1.3.0's first pass), and
+  passed alone and in the two full runs after.
+- Found and fixed: Auto opened the panel of a written file by the chat's newest change since the last call.
+  A command and then a file in one go (two calls of one reply), with the window's thread still opening the
+  Terminal when both had ended, gave the file to the command, and Auto stayed on the Terminal where the
+  Code editor was due. It goes by the call's own path now. Reproduced with a stand-in agent (a page, a
+  command, a Rust file, no waits between them) and traced in a Debug build; after the fix the same run
+  ends on the Code editor. It was in the first pass's build too.
+
+Checked in the app, with a stand-in agent that waits for nothing between calls:
+
+| Change | What was seen |
+|---|---|
+| A reply cut at the server's length limit (finish_reason "length", the usage reported) | "The server stopped the reply at its length limit; asking the model to go on. From now on it is asked for replies of up to 64k tokens."; every request after it had max_tokens 64000. Without usage in the reply it is taken for the context running out, as before |
+| Screenshots | the picture the model got has the desktop where Sloperator's window was |
+| Hands-off | a press_keys and a mouse_move while a script nudged the mouse a pixel every 300 ms (SendInput, untagged): the move waited until a second after the nudges stopped (6.4 s); the yellow frame round the screen in a capture meanwhile, and not in the agent's own screenshots |
+| Chat selection | part of the reply dragged over: "Selected in the chat" over the box, and the model told "[The user selected this in the chat, which is what they refer to: …]" |
+| Key steps | a series of only "wait 0.3" pressed no key, its card "Keys: wait 0.3" (the live Notepad check was its own thread's) |
+| Rust | main.rs opened in the Code editor as Rust |
+| The Web preview swapped out as WebView2 starts | no notice in the chat, nothing in crash.log or errors.log |
+
+Unity 2048 on the laptop again (Haiku 5.5 through OpenRouter), as hands-off changes how every action is
+made: passed in 14 min 6 s, 69 model calls, 112 tool calls, 3 tool errors (its own setup, Unity exiting 1
+on a first scene and build run), no action held back. Played to 148 in Play mode, a full board to Game
+Over (2424), R, and the built Unity2048.exe checked. The published exe after the fix (28,513,846 bytes, no
+trim warnings) ran the same stand-in steps to the Code editor, nothing in errors.log.
+
+The workstation's part of this pass (two monitors, ShadowPlay during a run, the second-monitor tasks with
+hands-off, the release exe on Qwen) is below.
+
+### On the workstation
+
+Release builds of 727ad37 (the merge), then of 0a9aec7 (the Auto fix) for the runs in the published exe;
+two monitors (2560x1080 primary, 1920x1080 to its right), Qwen 3.8 27B q6_k_xl on the user's server and
+Claude Haiku 5.5 through OpenRouter. The frame and the lock were watched from outside: a script read the
+screens' edges with BitBlt + CAPTUREBLT every 200 ms for the frame's colour, and moved the mouse a pixel
+with SendInput, untagged as a user's input comes, to see whether it got through.
+
+| Test | Result |
+|---|---|
+| Unit suites with `BB_DESKTOP_TESTS`, the SSH lab (a 3 GB copy each way, a reboot), real MCP servers through npx and `BB_COMFY_ONLINE`, on 727ad37 | App 303 of 303, Core 1248 of 1264 (16 skipped: they need a server key); the two pause-key tests that failed there before passed |
+| The lock and the agent's clicks on each screen (`UserInputTests`, `ClickLandsTests`, pointed at screen 2 by a local edit, then at screen 1) | 3 of 3 on each |
+| Second-monitor tasks (`agent-tasks.ps1` mm-*, the CLI built Release) | Qwen 4 of 4 (88-237 s, 1 tool error), Haiku 5.5 4 of 4 (15-43 s, 0 tool errors) |
+| ShadowPlay with Instant Replay on, Haiku 5.5 in the published exe (0a9aec7) | Instant Replay recorded throughout; Sloperator's window not in the agent's screenshots |
+| A real Qwen task in the published exe, 727ad37 and 0a9aec7 | the frame from the first click to the end; the agent waited while the mouse moved; Pause/Break gave the input back at once |
+| App suite on 0a9aec7 | 303 of 303 |
+
+- The frame in the second-monitor tasks: on screen 2, where the window to work in was, from the first
+  click or key press (screenshots, zooms and commands before it put none up) until the run ended, and gone
+  after. In mm-move it went up on screen 1 with the first drag and went over to screen 2 with the first
+  action after a screenshot of screen 2. The agent waited where the mouse had moved less than a second
+  before ("Waiting for you to leave the mouse and keyboard" in the CLI's log), and a nudge sent during one
+  of Qwen's clicks didn't move the mouse.
+- ShadowPlay: CaptureCore.log had Instant Replay started a few minutes before the run (Telegram had
+  stopped it earlier in the day with its protected content; it was closed for this) and no DVR stop or
+  protected-content line from then until after the run. The task, a sum on the Calculator's buttons typed
+  into Notepad, took 42 s with a screenshot after each click. A capture from outside had Sloperator's
+  window over Notepad; the agent's screenshot of the same screen shows Notepad and the desktop there.
+- The real Qwen task (the same sum, 6912, and "6912 is the sum" in Notepad, right both times): no frame
+  during the first screenshot and capture, the frame on screen 1 from the first click, gone when the
+  reply came. On 0a9aec7 the mouse was moved from outside every 150 ms from the third second after the
+  frame: the next click's card read "Waiting for you to leave the mouse and keyboard · 0:00", still at
+  0:04 when the moves stopped, and it clicked 1.7 s later. No move was held back while the agent was
+  thinking.
+- Pause/Break during long typing (the numbers 1 to 800 asked for in one type_text): a nudge then went
+  nowhere; Pause/Break pressed, a nudge 31 ms later moved the mouse; the card "Stopped after 622 ms", the
+  chat "Stopped with Pause/Break.", the frame gone. Notepad ended with 400 characters, two of type_text's
+  200-character pieces: it stops between pieces, so the piece under way when the key came is finished
+  (about 0.2 s of typing at most; Notepad showed 178 characters at the key, behind what had been sent).
 
 ## Left as they are
 

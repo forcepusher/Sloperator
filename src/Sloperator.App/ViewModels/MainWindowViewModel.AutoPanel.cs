@@ -69,9 +69,6 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     private FileChangesViewModel? _autoChanges;
 
-    /// <summary>The newest change of the chat's list (<see cref="Core.Diffs.FileChanges.LastChange"/>) that Auto has seen.</summary>
-    private int _autoSeen;
-
     /// <summary>
     /// Auto picked: File changes starts reading, and the panel of the chat's latest call that has one
     /// opens; with none, no panel (the user, 2026-11-01: an empty panel as the window opened "looks
@@ -80,7 +77,6 @@ public sealed partial class MainWindowViewModel
     private ISidePanel? StartAuto()
     {
         _autoChanges = new FileChangesViewModel(this);
-        _autoSeen = Changes.LastChange?.Number ?? 0;
         var target = FromChat();
         AutoShown = OptionOf(target);
         if (AutoShown is null)
@@ -109,12 +105,12 @@ public sealed partial class MainWindowViewModel
     /// <summary>A call ended: under Auto, the panel that shows what it left (the file it changed, what it made).</summary>
     private void AutoEnded(ToolCall call, ToolResult result)
     {
-        // The file a write_file or edit_file call changed is the list's newest change, new since the
-        // last call (its list was kept before the call's end was told).
-        AutoWritten? written = null;
-        if (Changes.LastChange is { } last && last.Number != _autoSeen)
-            (written, _autoSeen) = (new AutoWritten(last.Path, Changes.IsNew(last.Path)), last.Number);
-        if (IsAuto && AutoRule.AtEnd(call.Name, AutoRule.Args(call.Arguments), result.IsError, written, result.Files, Places()) is { } target)
+        // The file the call wrote, by the path it was given. Not the list's newest change, which may be the
+        // next call's already: a command then a file, the window's thread still opening the Terminal when
+        // both had ended, and the file was taken for the command's, Auto staying on the Terminal (release
+        // check, 2026-11-01).
+        var args = AutoRule.Args(call.Arguments);
+        if (IsAuto && AutoRule.AtEnd(call.Name, args, result.IsError, Written(call.Name, args), result.Files, Places()) is { } target)
             Follow(target);
     }
 
@@ -128,7 +124,6 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     private void AutoChatChanged()
     {
-        _autoSeen = Changes.LastChange?.Number ?? 0;
         if (IsAuto)
             Follow(FromChat());
     }
@@ -223,9 +218,14 @@ public sealed partial class MainWindowViewModel
         return null;
     }
 
-    /// <summary>The file an earlier write_file or edit_file call changed, as the chat's list of changes has it; null when it has none.</summary>
+    /// <summary>
+    /// The file a write_file or edit_file call changed, as the chat's list of changes has it; null when it has
+    /// none (a file on a server, Sloperator's own, one the call didn't get to write).
+    /// </summary>
     private AutoWritten? Written(string tool, System.Text.Json.Nodes.JsonObject args) =>
-        WrittenPath(tool, args) is { } path ? new AutoWritten(path, Changes.IsNew(path)) : null;
+        WrittenPath(tool, args) is { } path && Changes.Last(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)) is not null
+            ? new AutoWritten(path, Changes.IsNew(path))
+            : null;
 
     private string? WrittenPath(string tool, System.Text.Json.Nodes.JsonObject args)
     {
