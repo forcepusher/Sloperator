@@ -23,11 +23,9 @@ public sealed partial class CaptureResultTool : Tool
     public override string Description =>
         "Show the user what the task made or changed, as a picture under your final reply, which you see too: " +
         "a window or a box on the screen, or a picture file that is the result (an edit, an upscale) as file. " +
-        "When the task changes something the user can already see (cells in an open workbook, a page's look, a drawing, a program's settings), " +
-        "capture it before your first change: that is the before. " +
-        "A task that makes something new (a file, a video, a program) or only works with files and the shell has no before. " +
-        "When you're done and the result can be seen on screen, capture it cropped to the work (its window, or a box around the cells, the dialog, the drawing), " +
-        "with the before's number in compare when there is one: the user gets them side by side. " +
+        "When the task changes something already on screen, capture it before your first change: that is the before. " +
+        "When you're done, capture the result cropped to the work (its window, or a box around the cells, the dialog, the drawing), " +
+        "with the before's number in compare: the user gets them side by side. " +
         "Leave window and box out only when the whole screen is the point. " +
         "Pictures you only check (a video's frames, a step on the way) aren't for the user: look at them with read_file.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
