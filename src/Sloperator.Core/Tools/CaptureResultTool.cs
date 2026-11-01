@@ -22,34 +22,37 @@ public sealed partial class CaptureResultTool : Tool
     public override string Name => "capture_result";
     public override string Description =>
         "Show the user your work as a picture under your final reply, which you see too: " +
-        "a window or a box on the screen, or a picture file that is the result (an edit, an upscale) as file. " +
+        "a window, part of one (window and a box), a box on the screen, or a picture file that is the result (an edit, an upscale) as file. " +
         "When the task changes how something looks (a button from red to green, a layout, a chart), the user wants to see that change: " +
         "capture how it looks before your first change (open or run it first if it isn't showing), " +
-        "then the same view of the result with the before's number in compare: the user gets them side by side. " +
-        "Crop to the work (its window, or a box around the cells, the dialog, the drawing); leave window and box out only when the whole screen is the point. " +
+        "then capture the result with the before's number in compare and no window or box: the same part of the same window is taken again, " +
+        "wherever the window is, and the user gets the two side by side. " +
+        "Crop to the work: its window, with a box around the button, the cells or the dialog when only they changed; leave window and box out only when the whole screen is the point. " +
         "Pictures you only check (a video's frames, a step on the way) aren't for the user: look at them with read_file.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
-        ("window", Str("Part of the title of the window to capture, e.g. \"Paint\" or \"Budget.xlsx\""), false),
+        ("window", Str("Part of the title of the window to capture, e.g. \"Paint\" or \"Budget.xlsx\"; with a box, only the part of it in the box"), false),
         ("x", Num("Left edge of the box to capture, in screenshot coordinates"), false),
         ("y", Num("Top edge of the box, in screenshot coordinates"), false),
         ("width", Num("The box's width, in screenshot coordinates"), false),
         ("height", Num("The box's height, in screenshot coordinates"), false),
         ("caption", Str("One line for the user, shown under the picture"), false),
         ("file", Str("A picture file to show as the result instead of the screen"), false),
-        ("compare", StrArray("Earlier captures' numbers (each capture says its number) or picture files' paths, shown before this one in this order"), false),
+        ("compare", StrArray("Earlier captures' numbers (each capture says its number) or picture files' paths, shown before this one in this order. " +
+                             "With no window, box or file, this capture takes what the first of them took: the same part of the same window, wherever it is now"), false),
         ("labels", StrArray("Short labels, one per picture with this one last, in the user's language, e.g. [\"Before\", \"After\"] or [\"Light\", \"Dark\"]. Default: Before and After for two, numbers for more"), false),
         ("columns", Int("How many compared pictures go in a row: 1 stacks them, their number puts them all side by side. Default: the layout nearest 4:3"), false));
 
     public override string Describe(JsonObject args)
     {
-        var what = GetString(args, "file") is { Length: > 0 } file ? $"Show the result: {Path.GetFileName(file.Trim())}"
-            : GetString(args, "window") is { Length: > 0 } window ? $"Capture the result: {window.Trim()}"
-            : HasBox(args) ? string.Create(CultureInfo.InvariantCulture,
-                $"Capture the result at ({GetNumber(args, "x")}, {GetNumber(args, "y")}), {GetNumber(args, "width")}x{GetNumber(args, "height")}")
-            : "Capture the result: the whole screen";
+        var box = string.Create(CultureInfo.InvariantCulture, $"({GetNumber(args, "x")}, {GetNumber(args, "y")}), {GetNumber(args, "width")}x{GetNumber(args, "height")}");
         var compare = Items(args, "compare");
-        return compare.Count == 0 ? what
+        var what = GetString(args, "file") is { Length: > 0 } file ? $"Show the result: {Path.GetFileName(file.Trim())}"
+            : GetString(args, "window") is { Length: > 0 } window ? $"Capture the result: {window.Trim()}" + (HasBox(args) ? $", at {box} in it" : "")
+            : HasBox(args) ? $"Capture the result at {box}"
+            : compare.Count > 0 && CaptureNumber(compare[0]) is { } before ? $"Capture the result like capture {before}" + (compare.Count == 1 ? ", beside it" : "")
+            : "Capture the result: the whole screen";
+        return compare.Count == 0 || what.EndsWith("beside it") ? what
             : what + ", beside " + string.Join(", ", compare.Select(c => CaptureNumber(c) is { } n ? $"capture {n}" : Path.GetFileName(c)));
     }
 
@@ -60,18 +63,23 @@ public sealed partial class CaptureResultTool : Tool
         var window = GetString(args, "window")?.Trim();
         var picture = GetString(args, "file")?.Trim() is { Length: > 0 } given ? given : null;
         if (picture is not null && (window is { Length: > 0 } || HasBox(args)))
-            throw new ToolArgumentException("Give one of file, window or a box (x, y, width, height), not more.");
-        if (window is { Length: > 0 } && HasBox(args))
-            throw new ToolArgumentException("Give either window or a box (x, y, width, height), not both.");
+            throw new ToolArgumentException("Give one of file, window or a box (x, y, width, height), not more; window and a box together take the part of the window in the box.");
         var folder = ctx.ChatDirectory ?? Path.Combine(ctx.ScratchDirectory ?? Path.GetTempPath(), "captures");
         // A picture file the model made goes in as it is, at its own size; the screen is captured.
         var shownFile = picture is null ? null : PicturePath(picture, ctx);
-        var (region, screen, what) = shownFile is not null ? (default, ctx.CurrentScreen, $"the picture {Path.GetFileName(shownFile)}")
-            : window is { Length: > 0 } ? WindowRegion(ctx, window)
+        var compare = Items(args, "compare");
+        // The after of a before: with no other place named, what the first capture compared took, found
+        // again where it is now (the app may open elsewhere on its second run).
+        var same = shownFile is null && !HasBox(args) && compare.Count > 0 && CaptureNumber(compare[0]) is { } before
+            && ReadView(folder, before) is { } taken && (window is not { Length: > 0 } || string.Equals(window, taken.Window, StringComparison.OrdinalIgnoreCase))
+            ? (before, taken) : ((int Number, View View)?)null;
+        var (region, screen, what, view) = shownFile is not null ? (default, ctx.CurrentScreen, $"the picture {Path.GetFileName(shownFile)}", null)
+            : same is { } sameAs ? SameRegion(ctx, sameAs.View, sameAs.Number)
+            : window is { Length: > 0 } ? WindowRegion(ctx, window, HasBox(args) ? BoxRegion(ctx, args).Region : null)
             : HasBox(args) ? BoxRegion(ctx, args)
-            : (ctx.GetScreenSpace().Screen, ctx.CurrentScreen, "the screen");
+            : (ctx.GetScreenSpace().Screen, ctx.CurrentScreen, "the screen", new View(null, ctx.CurrentScreen, null));
         // Read before anything is captured: an earlier picture that isn't there is the model's to fix first.
-        var earlier = Items(args, "compare").Select(c => Earlier(c, folder, ctx)).ToList();
+        var earlier = compare.Select(c => Earlier(c, folder, ctx)).ToList();
         var labels = Labels(args, earlier.Count);
         var columns = GetNumber(args, "columns") is { } wanted
             ? wanted < 1 ? throw new ToolArgumentException("columns is how many pictures go in a row: 1 or more.") : (int)Math.Min(wanted, earlier.Count + 1)
@@ -84,14 +92,23 @@ public sealed partial class CaptureResultTool : Tool
         try
         {
             var (file, number) = SaveNext(image, folder);
+            if (view is not null)
+                WriteView(folder, number, view);
             var caption = GetString(args, "caption")?.Trim();
             var captioned = caption is { Length: > 0 } ? $", captioned \"{caption}\"" : "";
             if (earlier.Count == 0)
             {
+                var again = view switch
+                {
+                    null => "",
+                    { Window: not null, Part: not null } => "; with no window or box, the same part of the same window is taken again, wherever the window is then",
+                    { Window: not null } => "; with no window or box, the same window is taken again, wherever it is then",
+                    _ => "; with no window or box, the same is taken again",
+                };
                 var text = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}. " +
                            $"The user sees it at full size in the chat, the last you capture under your final reply{captioned}. " +
                            $"If it doesn't show what they asked for, fix that and capture it again. Taken before a change, pass compare=[{number}] " +
-                           "when you capture the result, to show them side by side.";
+                           $"when you capture the result, to show them side by side{again}.";
                 return Task.FromResult(new ToolResult(text, ForModel(image, ctx.GetScreenSpace(screen)), ImageCaption: "What the user now sees of your work:", Files: [file]));
             }
             using var all = CaptureCompare.Compose([.. earlier.Select((e, i) => (e.Picture, labels[i])), (frame, labels[^1])], columns);
@@ -110,8 +127,49 @@ public sealed partial class CaptureResultTool : Tool
         }
     }
 
-    /// <summary>The frontmost window whose title is <paramref name="title"/> or has it in it, cut to the screen it is mostly on.</summary>
-    private static (ScreenRect Region, int Screen, string What) WindowRegion(ToolContext ctx, string title)
+    /// <summary>
+    /// What a screen capture took, kept beside it (capture-N.json) for the after of a before: the
+    /// window as the model named it and the part of it (from the window's corner, in screen pixels),
+    /// or a box on the screen; no part for the whole window or screen.
+    /// </summary>
+    private sealed record View(string? Window, int Screen, ScreenRect? Part);
+
+    /// <summary>
+    /// The window <paramref name="title"/> names, cut to the screen it is mostly on, or the part of it
+    /// in <paramref name="box"/> (screen pixels); an argument error for a box that misses it.
+    /// </summary>
+    private static (ScreenRect Region, int Screen, string What, View? View) WindowRegion(ToolContext ctx, string title, ScreenRect? box)
+    {
+        var (found, best) = FindWindow(ctx, title);
+        if (box is not { } b)
+            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", new View(title, best, null));
+        var part = Intersect(b, found.Bounds);
+        if (part.Width == 0 || part.Height == 0)
+            throw new ToolArgumentException($"The box isn't on the window \"{found.Title}\": give one inside it, in screenshot coordinates.");
+        return (part, ctx.CurrentScreen, $"part of the window \"{found.Title}\"",
+            new View(title, ctx.CurrentScreen, part with { X = part.X - found.Bounds.X, Y = part.Y - found.Bounds.Y }));
+    }
+
+    /// <summary>What capture <paramref name="number"/> took, again: its window found where it is now, and the same part of it.</summary>
+    private static (ScreenRect Region, int Screen, string What, View? View) SameRegion(ToolContext ctx, View view, int number)
+    {
+        if (view.Window is not { } title)
+        {
+            var screen = view.Screen < ctx.Screens.Count ? view.Screen : ctx.CurrentScreen;
+            return (view.Part ?? ctx.Screens[screen], screen, view.Part is null ? "the screen" : $"the box capture {number} took", view);
+        }
+        var (found, best) = FindWindow(ctx, title);
+        if (view.Part is not { } p)
+            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", view);
+        var part = Intersect(Intersect(new ScreenRect(found.Bounds.X + p.X, found.Bounds.Y + p.Y, p.Width, p.Height), found.Bounds), ctx.Screens[best]);
+        if (part.Width == 0 || part.Height == 0)
+            throw new ToolArgumentException($"The window \"{found.Title}\" no longer has the part capture {number} took ({p.Width}x{p.Height} at {p.X}, {p.Y} from its corner; " +
+                                            $"it is {found.Bounds.Width}x{found.Bounds.Height} now): give the window and a box.");
+        return (part, best, $"the same part of the window \"{found.Title}\"", view);
+    }
+
+    /// <summary>The frontmost window whose title is <paramref name="title"/> or has it in it, and the screen it is mostly on.</summary>
+    private static (ScreenWindow Window, int Screen) FindWindow(ToolContext ctx, string title)
     {
         var windows = ctx.Platform.Screen.GetWindows();
         var found = windows.FirstOrDefault(w => w.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } exact ? exact
@@ -128,11 +186,11 @@ public sealed partial class CaptureResultTool : Tool
                 (best, area) = (i, (long)part.Width * part.Height);
         if (best < 0)
             throw new ToolArgumentException($"The window \"{found.Title}\" is off the screen: move it onto the screen first.");
-        return (Intersect(found.Bounds, screens[best]), best, $"the window \"{found.Title}\"");
+        return (found, best);
     }
 
     /// <summary>The box the model gave, in screenshot coordinates of the screen it looks at, cut to that screen.</summary>
-    private static (ScreenRect Region, int Screen, string What) BoxRegion(ToolContext ctx, JsonObject args)
+    private static (ScreenRect Region, int Screen, string What, View? View) BoxRegion(ToolContext ctx, JsonObject args)
     {
         var (x, y, width, height) = (GetNumber(args, "x"), GetNumber(args, "y"), GetNumber(args, "width"), GetNumber(args, "height"));
         if (x is null || y is null || width is null || height is null)
@@ -144,7 +202,39 @@ public sealed partial class CaptureResultTool : Tool
         if (region.Width == 0 || region.Height == 0)
             throw new ToolArgumentException(string.Create(CultureInfo.InvariantCulture,
                 $"The box ({x}, {y}), {width}x{height} is off the screen, which is {space.ImageWidth}x{space.ImageHeight} in screenshot coordinates."));
-        return (region, ctx.CurrentScreen, string.Create(CultureInfo.InvariantCulture, $"the box at ({x}, {y}), {width}x{height}"));
+        return (region, ctx.CurrentScreen, string.Create(CultureInfo.InvariantCulture, $"the box at ({x}, {y}), {width}x{height}"), new View(null, ctx.CurrentScreen, region));
+    }
+
+    private static string ViewPath(string folder, int number) => Path.Combine(folder, $"capture-{number}.json");
+
+    private static void WriteView(string folder, int number, View view)
+    {
+        var json = new JsonObject { ["window"] = view.Window, ["screen"] = view.Screen };
+        if (view.Part is { } p)
+        {
+            json["x"] = p.X;
+            json["y"] = p.Y;
+            json["width"] = p.Width;
+            json["height"] = p.Height;
+        }
+        File.WriteAllText(ViewPath(folder, number), json.ToJsonString());
+    }
+
+    /// <summary>What capture <paramref name="number"/> took; null for a picture file, or a capture from before views were kept.</summary>
+    private static View? ReadView(string folder, int number)
+    {
+        try
+        {
+            if (JsonNode.Parse(File.ReadAllText(ViewPath(folder, number))) is not JsonObject json)
+                return null;
+            var part = json["width"] is null ? (ScreenRect?)null
+                : new ScreenRect((int)json["x"]!, (int)json["y"]!, (int)json["width"]!, (int)json["height"]!);
+            return new View((string?)json["window"], (int?)json["screen"] ?? 0, part);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or FormatException)
+        {
+            return null;
+        }
     }
 
     private static ScreenRect Intersect(ScreenRect a, ScreenRect b)

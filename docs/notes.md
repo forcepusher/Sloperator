@@ -2959,6 +2959,12 @@ After for two by default, numbers for more), shaped with HarfBuzz in Segoe UI or
 for a script it lacks (CJK, Hangul), so Arabic joins and runs right to left; a long one is cut with
 "…" to its picture's width. An earlier picture that isn't there, or labels that don't match the count,
 are argument errors before anything is captured.
+`window` and a box together take the part of the window in the box (the box in screenshot
+coordinates). Each screen capture keeps what it took beside it (`capture-N.json`: the window as the
+model named it and the part from the window's corner, or the box on the screen), and a capture with
+`compare` and no window, box or file takes what the first one compared took again: the window found
+where it is now, the same part of it. An app run again for the after opens where it likes, and a box
+in screen coordinates then crops the wrong spot; the after needs no coordinates of its own.
 There are no boxes around what changed: the user asked for the pictures alone (31 October 2026).
 The before/after is for the user to see what the work changed visually (a button from red to green),
 wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
