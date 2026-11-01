@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
 
 ### Changed
+- Settings → Advanced → Updates shows the version beside **Check for updates**, with what the last
+  check found after it ("Version 1.2.0 · Up to date"), in place of a line of its own.
 - A tool call's card says what it does on one line, with files and folders by their names ("Read
   hello.py" in place of the whole path over three lines); the whole line is in its tooltip.
 - A tool call's card says how long it took without the time it began ("Done in 8 ms"); the time is
