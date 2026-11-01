@@ -21,12 +21,13 @@ public sealed partial class CaptureResultTool : Tool
 
     public override string Name => "capture_result";
     public override string Description =>
-        "Capture a window or a box on the screen as a picture for the user, which you see too. " +
-        "Before your first change to something already on screen, capture it: that is the before. " +
+        "Show the user what the task made or changed, as a picture under your final reply, which you see too: " +
+        "a window or a box on the screen, or a picture file that is the result (an edit, an upscale) as file. " +
+        "When the task changes something already on screen, capture it before your first change: that is the before. " +
         "When you're done, capture the result cropped to the work (its window, or a box around the cells, the dialog, the drawing), " +
-        "with the before's number in compare: the user gets them side by side under your final reply. " +
+        "with the before's number in compare: the user gets them side by side. " +
         "Leave window and box out only when the whole screen is the point. " +
-        "To show a picture file you made (an edit, an upscale), pass it as file instead of capturing the screen.";
+        "Pictures you only check (a video's frames, a step on the way) aren't for the user: look at them with read_file.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("window", Str("Part of the title of the window to capture, e.g. \"Paint\" or \"Budget.xlsx\""), false),
