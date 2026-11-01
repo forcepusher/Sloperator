@@ -263,7 +263,9 @@ merged in, its changelog line moved into 1.3.0's Added. Suites App 307 of 307, C
 test among them). In the app, four waits of a stand-in agent: with `screenshot: false` the result had no
 picture and its card no Screenshot, with until_change too; without it, the screenshot came as before.
 Unity 2048 on Haiku, which waits through Unity's compiles and builds: passed in 9 min 42 s, 65 model
-calls, 100 tool calls, 0 tool errors; 34 waits, 4 with until_change, none without the screenshot.
+calls, 100 tool calls, 0 tool errors; 34 waits, 4 with until_change, none without the screenshot. As no
+model used it, the user had it taken out of 1.3.0 again (the merge reverted on the release branch); the
+build is then a3585fd's, whose checks above stand.
 
 ## Left as they are
 
