@@ -2914,7 +2914,7 @@ prints the traceback and exits with 0.
 | `capture_result` | A picture of what the agent made for the user: a window (`window`, part of its title), a box (`x`, `y`, `width`, `height`) or the whole screen, with a `caption`; `file` shows a picture file instead; `compare` (earlier captures or picture files) with `labels` and `columns` puts them all in one picture, the new one last (see below) |
 | `mouse_move`, `mouse_drag`, `scroll` | Mouse control in screenshot coordinates; a drag can hold `modifiers` too |
 | `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held |
-| `wait` | Waits up to 10 minutes, then screenshots; with `until_change` it stops as soon as the screen changes (a reply in a chat, a window or page that finished loading); `screenshot: false` gives only the text, for a build or a download the agent checks another way (see below) |
+| `wait` | Waits up to 10 minutes, then screenshots; with `until_change` it stops as soon as the screen changes (a reply in a chat, a window or page that finished loading) |
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
@@ -4986,10 +4986,7 @@ What the runs showed and what changed:
   had closed, and closed the chat instead (see the fresh look above).
 - `wait` with `until_change` slept through a message that arrived while the model was deciding to
   wait (three minutes); it now ends at once when the screen already differs from the screenshot
-  the model decided on. A wait with `screenshot: false` (2026-11-02, for builds and downloads the
-  agent checks with the shell or files, so a 10-minute wait doesn't cost a picture) compares with
-  the screen at its own start only: it leaves the model's screenshot as it was, so after any change
-  each such wait would otherwise end at once, again and again.
+  the model decided on.
 
 The evening watch crossed a context reset: the handoff note listed every reply and the thank-yous
 it had rightly left alone, nobody was answered twice, and after the reset it again told Sam the
