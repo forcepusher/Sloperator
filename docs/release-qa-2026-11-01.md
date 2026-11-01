@@ -18,6 +18,7 @@ programs, its GPU, its second monitor or the Qwen server.
 | This version's changes in the published exe (a stand-in agent) | laptop | all as the changelog says; one empty line after a PowerShell error in the Terminal, fixed |
 | ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
 | Second pass: the day's later changes (hands-off, caching, capture, chat selection, key steps) | laptop | App 303 of 303, Core 1241 of 1241; Auto stuck on the Terminal after a command and a file in one go, fixed; Unity 2048 on Haiku passed again (14 min 6 s) |
+| Second pass on two monitors, ShadowPlay and Qwen | workstation | suites with the opt-in tests on: App 303 of 303, Core 1248 of 1264 (16 need a key); second-monitor tasks Qwen 4 of 4, Haiku 4 of 4; Instant Replay recorded throughout; hands-off and Pause/Break as meant |
 
 ## Clean-up
 
@@ -178,7 +179,7 @@ Over (2424), R, and the built Unity2048.exe checked. The published exe after the
 trim warnings) ran the same stand-in steps to the Code editor, nothing in errors.log.
 
 The workstation's part of this pass (two monitors, ShadowPlay during a run, the second-monitor tasks with
-hands-off, the release exe on Qwen) follows below when it has run.
+hands-off, the release exe on Qwen) is below.
 
 ### On the workstation
 
