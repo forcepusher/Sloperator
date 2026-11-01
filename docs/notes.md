@@ -4474,6 +4474,17 @@ mouse moves a second for as long as the log showed, with the pointer still (meas
 2026 with a logging text box in another app, against a scripted stand-in model; after the change, none).
 Focus never left that text box, with Sloperator beside it or over the click point.
 
+After a click that lands where Sloperator is, it comes back over the window it stepped behind, which
+keeps the focus the click gave it. Until 1 November 2026 it stayed behind every window instead: once
+the click has made another app's window the active one, Windows ignores `HWND_TOP` from Sloperator
+(`SetWindowPos` returns true and nothing moves), in the real app and with a bare WinForms window alike
+(over a console window the raise did work). `WindowsHostWindow` now makes each such window
+always-on-top and takes it away again (`HWND_TOPMOST`, then `HWND_NOTOPMOST`, neither activating it),
+which Windows allows and which leaves it over every window that isn't always-on-top; one that was
+always-on-top gets that back. Measured on the laptop with a stand-in model clicking a green window
+under Sloperator: the click reached it, Sloperator was back on top some 150 ms later, the green window
+stayed the active one, and Sloperator wasn't left always-on-top.
+
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
 reads the message before its next step, and a `wait` it is in ends for it. While you type there,
 its clicks and key presses hold off (for up to a minute), so they don't land in your typing. That
