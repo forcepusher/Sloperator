@@ -345,17 +345,13 @@ public sealed partial class MainWindowViewModel
         reply.ShowCaptures(shown.Select(i => (captures[i].SavedFiles![0], CaptionOf(captures[i].Arguments))), previews);
     }
 
-    private static System.Text.Json.Nodes.JsonObject? ArgumentsOf(string arguments)
-    {
-        try { return System.Text.Json.Nodes.JsonNode.Parse(arguments) as System.Text.Json.Nodes.JsonObject; }
-        catch (System.Text.Json.JsonException) { return null; }
-    }
+    private static System.Text.Json.Nodes.JsonObject? ArgumentsOf(string arguments) => ToolCallRepair.AsObject(arguments);
 
     /// <summary>The caption a capture_result call was given; null for none.</summary>
     private static string? CaptionOf(string arguments)
     {
-        try { return System.Text.Json.Nodes.JsonNode.Parse(arguments)?["caption"]?.GetValue<string>(); }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException) { return null; }
+        try { return ToolCallRepair.AsObject(arguments)?["caption"]?.GetValue<string>(); }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException) { return null; }
     }
 
     /// <summary>

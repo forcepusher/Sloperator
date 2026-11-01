@@ -288,18 +288,8 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     private static partial Regex Introspects();
 
     /// <summary>The action argument of a call's arguments, if it has one.</summary>
-    internal static string? ActionOf(string arguments)
-    {
-        try
-        {
-            return JsonNode.Parse(arguments) is JsonObject args && args["action"] is JsonValue v && v.TryGetValue<string>(out var a)
-                ? a.Trim().ToLowerInvariant() : null;
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            return null;
-        }
-    }
+    internal static string? ActionOf(string arguments) =>
+        ToolCallRepair.AsObject(arguments)?["action"] is JsonValue v && v.TryGetValue<string>(out var a) ? a.Trim().ToLowerInvariant() : null;
 
     /// <summary>
     /// The last question in a reply's thinking or text about how something is done, what it is

@@ -1,5 +1,5 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
+using Sloperator.Core.Agent;
 using Sloperator.Core.Documents;
 using Sloperator.Core.Video;
 using Sloperator.Core.Web;
@@ -98,17 +98,7 @@ public static class AutoRule
     }
 
     /// <summary>A call's arguments as the model gave them; empty when they don't read as an object.</summary>
-    public static JsonObject Args(string arguments)
-    {
-        try
-        {
-            return JsonNode.Parse(arguments) as JsonObject ?? [];
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
+    public static JsonObject Args(string arguments) => ToolCallRepair.AsObject(arguments) ?? [];
 
     /// <summary>A string argument as the model gave it, without spaces or quotes round it; null when it isn't one or is blank.</summary>
     internal static string? Arg(JsonObject args, string name) =>

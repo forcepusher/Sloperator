@@ -76,10 +76,10 @@ internal sealed partial class ProjectNudge
                     continue;
                 try
                 {
-                    if (JsonNode.Parse(call.Arguments) is JsonObject args && Arg(args, "path") is { } path)
+                    if (ToolCallRepair.AsObject(call.Arguments) is { } args && Arg(args, "path") is { } path)
                         paths.Add(FolderIndex.Normalize(ctx.ResolvePath(path)));
                 }
-                catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException or NotSupportedException or PathTooLongException) { }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { }
             }
             var text = message.Content ?? string.Join("\n", message.Parts?.Select(p => p.Text) ?? []);
             foreach (Match said in SaidNote().Matches(text))
@@ -113,7 +113,7 @@ internal sealed partial class ProjectNudge
         if (tool is null)
             return null;
         JsonObject args;
-        try { args = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments(arguments), tool); }
+        try { args = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments(arguments, tool), tool); }
         catch (ToolArgumentException) { return null; }
         if (tool is IndexFolderTool)
         {
