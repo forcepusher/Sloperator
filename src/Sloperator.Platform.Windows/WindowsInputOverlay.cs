@@ -7,8 +7,9 @@ using static Sloperator.Platform.Windows.Native;
 namespace Sloperator.Platform.Windows;
 
 /// <summary>
-/// The on-screen input log: two small layered windows on their own UI thread, one listing the
-/// latest inputs in the bottom-right corner, one drawing an accent-coloured ring where the agent clicked.
+/// The on-screen input log: small layered windows on their own UI thread, one listing the latest
+/// inputs in the bottom-right corner, one drawing an accent-coloured ring where the agent clicked,
+/// and four drawing a thin accent frame round the screen an agent is at work on.
 /// </summary>
 /// <remarks>
 /// Both windows are click-through (WS_EX_TRANSPARENT), never activated (WS_EX_NOACTIVATE) and
@@ -23,19 +24,22 @@ namespace Sloperator.Platform.Windows;
 internal sealed class WindowsInputOverlay : IInputOverlay
 {
     private const double FadeSeconds = 1.5, MarkerSeconds = 3, MarkerFadeSeconds = 1;
-    private const int MaxLines = 8, PanelWidth = 460, LineHeight = 34, MarkerSize = 200;
+    private const int MaxLines = 8, PanelWidth = 460, LineHeight = 34, MarkerSize = 200, FrameWidth = 4;
     private const uint WM_APP_REFRESH = WM_APP + 1;
     private const uint ColorKey = 0x00FF00FF; // magenta, as COLORREF (0x00BBGGRR)
 
     private readonly object _lock = new();
     private readonly List<Entry> _entries = [];
     private (int X, int Y, DateTime At)? _marker;
+    private (object Owner, ScreenRect Screen)? _frame;
+    private ScreenRect? _frameShown; // on the overlay's thread
     private volatile bool _enabled;
     private double _logSeconds = 15;
     private SKColor _markerColor = new(0xFC, 0xC2, 0x1B); // the accent, until the app hands over its own
     private Thread? _thread;
     private uint _threadId;
     private nint _logWindow, _markerWindow;
+    private nint[] _frameWindows = []; // top, bottom, left, right
     private bool _timerOn;
     private WndProc? _wndProc; // kept alive for the window class
 
@@ -51,7 +55,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
                 EnsureStarted();
             else
             {
-                lock (_lock) { _entries.Clear(); _marker = null; }
+                lock (_lock) { _entries.Clear(); _marker = null; _frame = null; }
                 Refresh();
             }
         }
@@ -89,6 +93,21 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         Refresh();
     }
 
+    public void Frame(object owner, ScreenRect? screen)
+    {
+        lock (_lock)
+        {
+            if (screen is { } on)
+                _frame = (owner, on);
+            else if (_frame is { } shown && ReferenceEquals(shown.Owner, owner))
+                _frame = null;
+            else
+                return;
+        }
+        if (_enabled)
+            Refresh();
+    }
+
     private void Refresh()
     {
         if (_threadId != 0)
@@ -121,6 +140,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         RegisterClassEx(ref wc);
         _logWindow = CreateOverlayWindow(wc.hInstance);
         _markerWindow = CreateOverlayWindow(wc.hInstance);
+        _frameWindows = [.. Enumerable.Range(0, 4).Select(_ => CreateOverlayWindow(wc.hInstance))];
         ready.Set();
 
         while (GetMessage(out var msg, 0, 0, 0) > 0)
@@ -151,8 +171,10 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         var now = DateTime.UtcNow;
         List<(Entry Entry, double Alpha)> lines;
         (int X, int Y, double Age)? marker = null;
+        ScreenRect? frame;
         lock (_lock)
         {
+            frame = _frame?.Screen;
             _entries.RemoveAll(e => (now - e.At).TotalSeconds >= _logSeconds);
             lines = _entries.Select(e => (e, Fade((now - e.At).TotalSeconds))).ToList();
             if (_marker is { } m && (now - m.At).TotalSeconds < MarkerSeconds)
@@ -161,6 +183,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
 
         if (lines.Count > 0) DrawLog(lines); else ShowWindow(_logWindow, SW_HIDE);
         if (marker is { } mk) DrawMarker(mk.X, mk.Y, mk.Age); else ShowWindow(_markerWindow, SW_HIDE);
+        if (frame != _frameShown) DrawFrame(frame);
 
         // Animate only while something is on screen.
         var active = lines.Count > 0 || marker is not null;
@@ -223,6 +246,31 @@ internal sealed class WindowsInputOverlay : IInputOverlay
             canvas.DrawCircle(c, c, 10, dotOutline);
             canvas.DrawCircle(c, c, 6, dot);
         });
+    }
+
+    /// <summary>The frame round <paramref name="screen"/>, in four strips over its edges; none for null. It doesn't move, so it is drawn only when it changes.</summary>
+    private void DrawFrame(ScreenRect? screen)
+    {
+        _frameShown = screen;
+        if (screen is not { } r)
+        {
+            foreach (var hwnd in _frameWindows)
+                ShowWindow(hwnd, SW_HIDE);
+            return;
+        }
+        const int w = FrameWidth;
+        (int X, int Y, int Width, int Height)[] strips =
+        [
+            (r.X, r.Y, r.Width, w),
+            (r.X, r.Y + r.Height - w, r.Width, w),
+            (r.X, r.Y + w, w, r.Height - 2 * w),
+            (r.X + r.Width - w, r.Y + w, w, r.Height - 2 * w),
+        ];
+        for (var i = 0; i < strips.Length; i++)
+        {
+            var (x, y, width, height) = strips[i];
+            Paint(_frameWindows[i], x, y, width, height, 255, canvas => canvas.Clear(_markerColor));
+        }
     }
 
     private static SKColor Blend(SKColor from, SKColor to, double t) => new(

@@ -855,7 +855,7 @@ public class ToolTests
     private sealed class KeysPastTheStopKey : IDisposable
     {
         private const uint LLKHF_INJECTED = 0x10;
-        private readonly Native.LowLevelKeyboardProc _proc; // kept alive for as long as the hook is installed
+        private readonly Native.LowLevelHookProc _proc; // kept alive for as long as the hook is installed
         private readonly System.Collections.Concurrent.ConcurrentQueue<string> _seen = new();
         private uint _threadId;
 

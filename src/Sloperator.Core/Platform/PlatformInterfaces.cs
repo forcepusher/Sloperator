@@ -119,6 +119,13 @@ public interface IInputOverlay
     /// <param name="text">What happened, e.g. "Left click" or "Keys: Ctrl+S".</param>
     /// <param name="point">Where on the screen (physical pixels), for a marker; null for keyboard input.</param>
     void Show(string text, (int X, int Y)? point = null);
+
+    /// <summary>
+    /// A thin frame in the marker colour around <paramref name="screen"/>, which tells the user an
+    /// agent is at work there; null takes it away. A later owner's frame takes the place of an
+    /// earlier one's, and only the owner of the frame shown takes it away.
+    /// </summary>
+    void Frame(object owner, ScreenRect? screen) { }
 }
 
 public sealed class NoInputOverlay : IInputOverlay
@@ -128,6 +135,48 @@ public sealed class NoInputOverlay : IInputOverlay
     public TimeSpan Duration { get; set; }
     public (byte R, byte G, byte B) MarkerColor { get; set; }
     public void Show(string text, (int X, int Y)? point = null) { }
+}
+
+/// <summary>
+/// The user's own mouse and keyboard, which the agent shares with them: its actions wait until the
+/// user leaves them alone, lock them for the moment an action takes, and look again when the user
+/// changed the screen since the model saw it. Sloperator's own input doesn't count.
+/// </summary>
+public interface IUserInput
+{
+    /// <summary>Watches the user's input until disposed: for a run that works on the desktop.</summary>
+    IDisposable Watch();
+
+    /// <summary>How long since the user last moved the mouse or pressed anything, locked out or not.</summary>
+    TimeSpan SinceLastInput { get; }
+
+    /// <summary>Whether the user holds a key or a mouse button down.</summary>
+    bool Holding { get; }
+
+    /// <summary>How many times the user pressed a key or a mouse button or turned the wheel, locked out or not; moves don't count.</summary>
+    long Presses { get; }
+
+    /// <summary>
+    /// Locks the user's mouse and keyboard until disposed: what they do goes nowhere, but for
+    /// Pause/Break, which ends the lock too, and Ctrl+Alt+Del, which Windows keeps for itself.
+    /// </summary>
+    IDisposable Lock();
+}
+
+public sealed class NoUserInput : IUserInput
+{
+    public static readonly NoUserInput Instance = new();
+    public IDisposable Watch() => Nothing.Instance;
+    public TimeSpan SinceLastInput => TimeSpan.MaxValue;
+    public bool Holding => false;
+    public long Presses => 0;
+    public IDisposable Lock() => Nothing.Instance;
+
+    private sealed class Nothing : IDisposable
+    {
+        public static readonly Nothing Instance = new();
+        public void Dispose() { }
+    }
 }
 
 /// <summary>
@@ -161,6 +210,9 @@ public interface IPlatformServices
     IScreenCapture Screen { get; }
     IInputController Input { get; }
     IStopKey StopKey { get; }
+
+    /// <summary>The user's own mouse and keyboard; none to watch where the OS has no way.</summary>
+    IUserInput UserInput => NoUserInput.Instance;
 
     IHostWindow HostWindow { get; }
 

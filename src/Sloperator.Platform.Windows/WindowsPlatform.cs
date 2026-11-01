@@ -28,6 +28,7 @@ public sealed class WindowsPlatform : IPlatformServices
     public IHostWindow HostWindow { get; } = new WindowsHostWindow();
     public IInputOverlay InputOverlay => _overlay;
     public IStopKey StopKey { get; } = new WindowsStopKey();
+    public IUserInput UserInput { get; } = new WindowsUserInput();
     public Core.Media.IMediaDecoder? Media { get; } = new MediaFoundationDecoder();
     public Core.Media.IAudioOutput? CreateAudioOutput() => new WaveOutPlayer();
     public INotifications? Notifications { get; } = new WindowsToasts();
