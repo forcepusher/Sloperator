@@ -351,11 +351,12 @@
         <ComboBox x:Name="SidePanelBox" DockPanel.Dock="Left" Classes="ghost" ItemsSource="{Binding SidePanelOptions}" SelectedItem="{Binding SelectedSidePanel}"
                   VerticalAlignment="Center" AutomationProperties.Name="Side panel">
           <!-- The window's caption, not the pick's word: under Auto it names the panel shown ("Auto (Terminal)"),
-               in a slot as wide as every caption Auto has, so the bar doesn't move as Auto changes panel. -->
+               in a slot as wide as every caption Auto has, whatever is picked, so the bar doesn't move as Auto changes panel
+               or as another panel is picked. -->
           <ComboBox.SelectionBoxItemTemplate>
             <DataTemplate x:DataType="vm:SidePanelOption">
               <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).SidePanelCaption}"
-                              Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).SidePanelCaptionSlot}"
+                              Slot="{x:Static vm:MainWindowViewModel.SidePanelCaptionSlot}"
                               TextElement.FontWeight="SemiBold" VerticalAlignment="Center" />
             </DataTemplate>
           </ComboBox.SelectionBoxItemTemplate>

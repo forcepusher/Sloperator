@@ -4280,7 +4280,9 @@ which keeps the width the splitter left it at. The dropdown names the panel Auto
 "Auto" with none (`SidePanelCaption`; the user, 2026-11-01: "so we have an idea of what panel is currently open";
 it said "Auto" alone before), in a `SlotText` as wide as every caption Auto has (`SidePanelCaptionSlot`, "Auto (File
 inspector)" the widest), so the chat's bar doesn't move as Auto goes from panel to panel: "Auto" alone leaves room
-before the arrow. It is the window's caption, not the pick's word (the ComboBox's selection box binds to the window's
+before the arrow. The slot is the same whatever is picked (the user, 2026-11-02: outside Auto it was as wide as the pick's
+word, so the dropdown changed width with its label); every other caption is shorter, so none is trimmed, and
+`SidePanelBoxTests` fails if one would widen it. It is the window's caption, not the pick's word (the ComboBox's selection box binds to the window's
 view model). At the chat's least width (660) the bar still has History, New chat, New window and Settings in one row
 beside it. Each panel's own bar is that panel's, from the start, as always. A switch is Avalonia's next frame: the
 old panel's content, then the new one's.

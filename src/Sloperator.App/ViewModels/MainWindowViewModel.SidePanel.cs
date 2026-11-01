@@ -169,7 +169,7 @@ public sealed partial class MainWindowViewModel
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SidePanelCaption), nameof(SidePanelCaptionSlot))]
+    [NotifyPropertyChangedFor(nameof(SidePanelCaption))]
     private SidePanelOption? _selectedSidePanel;
 
     /// <summary>The open panel, on the left of the chat; null with none.</summary>
