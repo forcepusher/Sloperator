@@ -5,7 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Rust highlighting in the Code editor.
+
 ### Fixed
+- NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
+  leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
+- A server that cuts replies short on its own (proxyapi.ru for Claude, LM Studio's Limit Response
+  Length) cuts one reply per task at most: after it, Sloperator asks for replies as long as the
+  context has room for.
+- Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
+  protocol]" as its reply: a reply cut off before it said anything isn't sent back as an empty one.
+- No more "Something went wrong in Sloperator's window: COMException: Operation aborted" when Auto
+  swaps the Web preview for another panel while the page is still loading.
 - After the agent clicks through Sloperator's window to the app behind it, the window comes back on top
   instead of staying behind every other window.
 

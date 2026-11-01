@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<!-- Rust, which AvaloniaEdit doesn't come with. The colours are named as AvaloniaEdit's own
+     definitions name theirs, so CodeView's DarkColorizer draws each in the app's colour for it;
+     the ones given here are for a white page and aren't used. -->
+<SyntaxDefinition name="Rust" extensions=".rs" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="Green" />
+  <Color name="String" foreground="Brown" />
+  <Color name="Char" foreground="Brown" />
+  <Color name="Number" foreground="DarkBlue" />
+  <Color name="Preprocessor" foreground="Gray" />
+  <Color name="Keywords" foreground="Blue" />
+  <Color name="ValueTypeKeywords" foreground="Blue" />
+  <Color name="TypeName" foreground="Teal" />
+  <Color name="LifetimeType" foreground="Teal" />
+  <Color name="MethodCall" foreground="MidnightBlue" />
+  <Color name="MacroFunction" foreground="MidnightBlue" />
+
+  <RuleSet>
+    <Span color="Comment" begin="//" />
+    <Span color="Comment" multiline="true" begin="/\*" end="\*/" />
+
+    <!-- #[derive(Debug)], #![allow(dead_code)] -->
+    <Span color="Preprocessor" begin="\#!?\[" end="\]" />
+
+    <!-- Raw strings first (r"…", r#"…"#, br"…"), where a backslash is just a backslash. -->
+    <Span color="String" multiline="true" begin="\bb?r\#+&quot;" end="&quot;\#+" />
+    <Span color="String" multiline="true" begin="\bb?r&quot;" end="&quot;" />
+    <Span color="String" multiline="true">
+      <Begin>(?:\b[bc])?"</Begin>
+      <End>"</End>
+      <RuleSet>
+        <Span begin="\\" end="." />
+      </RuleSet>
+    </Span>
+
+    <!-- 'a', '\n', b'x', '\u{1F600}' before a lifetime ('a, 'static). -->
+    <Rule color="Char">(?:\bb)?'(?:\\(?:u\{[0-9a-fA-F]{1,6}\}|x[0-9a-fA-F]{2}|.)|[^'\\])'</Rule>
+    <Rule color="LifetimeType">'[A-Za-z_]\w*\b(?!')</Rule>
+
+    <Keywords color="Keywords">
+      <Word>as</Word>
+      <Word>async</Word>
+      <Word>await</Word>
+      <Word>break</Word>
+      <Word>const</Word>
+      <Word>continue</Word>
+      <Word>crate</Word>
+      <Word>dyn</Word>
+      <Word>else</Word>
+      <Word>enum</Word>
+      <Word>extern</Word>
+      <Word>false</Word>
+      <Word>fn</Word>
+      <Word>for</Word>
+      <Word>if</Word>
+      <Word>impl</Word>
+      <Word>in</Word>
+      <Word>let</Word>
+      <Word>loop</Word>
+      <Word>match</Word>
+      <Word>mod</Word>
+      <Word>move</Word>
+      <Word>mut</Word>
+      <Word>pub</Word>
+      <Word>ref</Word>
+      <Word>return</Word>
+      <Word>self</Word>
+      <Word>Self</Word>
+      <Word>static</Word>
+      <Word>struct</Word>
+      <Word>super</Word>
+      <Word>trait</Word>
+      <Word>true</Word>
+      <Word>type</Word>
+      <Word>union</Word>
+      <Word>unsafe</Word>
+      <Word>use</Word>
+      <Word>where</Word>
+      <Word>while</Word>
+      <Word>yield</Word>
+    </Keywords>
+
+    <Keywords color="ValueTypeKeywords">
+      <Word>bool</Word>
+      <Word>char</Word>
+      <Word>str</Word>
+      <Word>i8</Word>
+      <Word>i16</Word>
+      <Word>i32</Word>
+      <Word>i64</Word>
+      <Word>i128</Word>
+      <Word>isize</Word>
+      <Word>u8</Word>
+      <Word>u16</Word>
+      <Word>u32</Word>
+      <Word>u64</Word>
+      <Word>u128</Word>
+      <Word>usize</Word>
+      <Word>f32</Word>
+      <Word>f64</Word>
+    </Keywords>
+
+    <!-- println!(…), vec![…], macro_rules! { … } -->
+    <Rule color="MacroFunction">\b[A-Za-z_]\w*!(?=\s*[\(\[\{])</Rule>
+    <!-- A call, generic ones too: parse::&lt;u32&gt;(…) -->
+    <Rule color="MethodCall">\b[a-z_]\w*(?=\s*(?:::\s*&lt;[^&lt;&gt;()]*&gt;\s*)?\()</Rule>
+    <!-- Types and enum variants are written in CamelCase: Vec, Option, Some, HashMap. -->
+    <Rule color="TypeName">\b[A-Z]\w*</Rule>
+
+    <Rule color="Number">
+      \b0x[0-9a-fA-F_]+(?:[iu](?:8|16|32|64|128|size))?\b
+      | \b0o[0-7_]+(?:[iu](?:8|16|32|64|128|size))?\b
+      | \b0b[01_]+(?:[iu](?:8|16|32|64|128|size))?\b
+      | \b[0-9][0-9_]*(?:\.(?![.\w])[0-9_]*)?(?:[eE][+-]?[0-9_]+)?(?:_?(?:[iu](?:8|16|32|64|128|size)|f32|f64))?\b
+    </Rule>
+  </RuleSet>
+</SyntaxDefinition>

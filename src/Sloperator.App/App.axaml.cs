@@ -70,8 +70,10 @@ public partial class App : Application
             // chat in front, and the windows go on, with their runs: they closed with them before.
             Dispatcher.UIThread.UnhandledException += (_, e) =>
             {
-                CrashLog.Write("the window", e.Exception);
                 e.Handled = true;
+                if (CrashLog.IsWebViewGivenUp(e.Exception))
+                    return;
+                CrashLog.Write("the window", e.Exception);
                 windows.Front()?.Vm.ShowProblem($"Something went wrong in Sloperator's window: {CrashLog.Summary(e.Exception)}", e.Exception);
             };
             if (CrashLog.TakeLastCrash(paths) is { } crash)

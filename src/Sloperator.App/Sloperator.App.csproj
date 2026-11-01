@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- Highlighting AvaloniaEdit doesn't come with (see CodeView.Definition). -->
+    <EmbeddedResource Include="Highlighting\Rust.xshd" LogicalName="Sloperator.Rust.xshd" />
   </ItemGroup>
 
   <!-- ANGLE (Direct3D under OpenGL ES) isn't used: the app draws with WGL (see Program). Its library,

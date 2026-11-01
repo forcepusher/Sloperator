@@ -121,6 +121,36 @@ public class ChatClientTests
     }
 
     [Fact]
+    public void A_reply_that_said_nothing_and_called_nothing_is_not_sent()
+    {
+        var thoughtOnly = new ChatMessage { Role = ChatRole.Assistant, Content = "", Reasoning = "Long thoughts" };
+        var calls = new ChatMessage { Role = ChatRole.Assistant, Content = "", ToolCalls = [new ToolCall { Id = "c1", Name = "screenshot", Arguments = "{}" }] };
+        var sent = OpenAiChatClient.BuildRequest(
+            [ChatMessage.User("go"), thoughtOnly, ChatMessage.User(AgentSession.CutOffNote), calls, ChatMessage.ToolResult("c1", "Took it.")], [], new ChatRequestOptions(), sendReasoning: true);
+        Assert.Equal(["user", "user", "assistant", "tool"], sent["messages"]!.AsArray().Select(m => (string?)m!["role"]));
+    }
+
+    [Theory]
+    [InlineData("""{"error":{"message":"max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-x"}}""", 32_000)]
+    [InlineData("""{"error":{"message":"max_tokens is too large: 64000. This model supports at most 16,384 completion tokens, whereas you provided 64000."}}""", 16_384)]
+    [InlineData("""{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}""", null)]
+    public async Task A_reply_limit_the_model_refuses_becomes_the_one_it_names_or_none(string refusal, int? then)
+    {
+        var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, refusal));
+        // A server of its own: what it refused is kept for as long as Sloperator runs.
+        var client = new OpenAiChatClient(new HttpClient(server), $"http://cap-{Guid.NewGuid():N}", null);
+        Task<ChatMessage> Send() => client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None);
+
+        Assert.Equal("ok", (await Send()).Content);
+        await Send();
+
+        Assert.Equal(3, server.Requests.Count);
+        Assert.Equal(64_000, (int)server.Requests[0]["max_tokens"]!);
+        Assert.All(server.Requests.Skip(1), r => Assert.Equal(then, (int?)r["max_tokens"]));
+    }
+
+    [Fact]
     public async Task Stream_cut_off_without_done_is_reported_as_a_drop()
     {
         var sse = """data: {"choices":[{"delta":{"content":"Half a sent"}}]}""";

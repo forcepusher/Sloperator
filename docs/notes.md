@@ -2593,7 +2593,18 @@ and the last screenshot (not a picture a tool opened), a few thousand tokens. Wh
 reports, not guessed. If the model can't write the note, a record of its last steps is used
 instead; a reply cut off by the context limit, or a server's "context length exceeded" error,
 triggers the same reset and a retry. A reply cut off by a reply-length limit set on the server
-(the token counts show the context isn't full) is kept, and the model is asked to go on.
+(the token counts show the context isn't full) is kept, and the model is asked to go on. From then
+on in the run, each request asks for as long a reply as the context has room for (`max_tokens`, at
+most the 64k asked of Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's
+LiteLLM gives Claude 4k or so, and it cut eight replies in a quarter of an hour of writing a Tauri app,
+each thought through again (chat 20261101-171229-f4b4fa). Nothing is asked before a cut, so a server
+that never cuts gets the requests it always did. A model that takes less says so ("max_tokens: 64000 >
+32000", "supports at most 16384 completion tokens"): the largest number the error names under the one
+asked is its limit from then on; an error naming max_tokens with no such number leaves it out.
+A kept reply that said nothing and called nothing (cut off in its thinking) isn't sent back: LiteLLM
+filled the empty turn with "[System: Empty message content sanitised to satisfy protocol]", and
+Claude took to writing that line in its own next replies. Its thinking goes with it, so the model
+thinks that step again.
 
 A context size picked during a run counts from the run's next step (`AgentSession.UseContextSize`):
 lowered below what the conversation fills, it resets the context there. The run used to keep the
@@ -3815,7 +3826,10 @@ App.axaml) as `CodeView`: line numbers 8 in from the panel's edge, no dotted lin
 as the diff, the line with the caret a card's shade, no links followed by a click, tabs kept for a file
 indented with tabs. Highlighting is AvaloniaEdit's own (C#, JavaScript, HTML, CSS, C++, Java, PowerShell,
 PHP, Python, SQL, VB, XML, Markdown, JSON, patches), with TypeScript as JavaScript, XAML and project files
-as XML, shaders as C++ (`CodeView.For`); its colours are for a white page, so each named colour is drawn
+as XML, shaders as C++ (`CodeView.For`), and Rust, which AvaloniaEdit has none of, our own
+(`Highlighting/Rust.xshd`, built into the exe; the user, 2026-11-01, after an agent wrote a Tauri app's
+.rs files: "Rust code highlighting not supported"), its colours named as AvaloniaEdit's definitions name
+theirs; those colours are for a white page, so each named colour is drawn
 in the app's (`DarkColorizer`, see Colours). TextMate grammars (`AvaloniaEdit.TextMate`) would cover more
 languages, but bring several MB of grammars to the exe. TeX's definition doesn't load in AvaloniaEdit 12.
 A file is read as read_file reads it and saved in the encoding it was read in (`CodeFile`: a signature
@@ -3993,6 +4007,15 @@ the box), so the rig clicks by posted mouse messages at points found in its capt
 their colour). PrintWindow with PW_RENDERFULLCONTENT captures the page with the window. Rig:
 `.dev/live-preview-test/` (run.ps1 with a stand-in agent writing the game into %TEMP%, shots.ps1, drive.ps1
 clickat/dragat; CLICK_FACTOR 1.25 for the DPI-unaware build, which reads posted points as if scaled).
+
+**A panel gone before WebView2 is up.** Each Web preview makes its own web view, and Auto can put
+another panel in its place a moment after the agent wrote a page (index.html, then a command: Terminal).
+Avalonia's web view (12.1.1, its latest) then gives up on starting WebView2, and the E_ABORT
+COMException from its start is thrown where nothing can catch it: on the window's thread and again as a
+task nobody waited for. It said "Something went wrong in Sloperator's window: COMException: Operation
+aborted" in the chat and went into crash.log, twice in one Tauri task (chat 20261101-171229-f4b4fa, the
+user taking it for a crash on switching to Anthropic's API). Nothing is lost, the next Web preview
+starting a WebView2 of its own, so that one is neither written down nor said (`CrashLog.IsWebViewGivenUp`).
 
 ### Terminal
 **Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
@@ -4456,9 +4479,21 @@ as if "Continue." had been sent (a stop before the model had the message runs th
 A chat that ended stopped shows it again when opened from History. Sloperator
 stays on screen while it works but is left out of the agent's screenshots, and steps behind other
 windows for the moment a click lands on it: all of its windows (every chat window, the viewer,
-Video editor, a dialog), found by their process (see Several windows). It is left out only for the instant each screenshot is
-taken, so screen recorders and screen sharing show it the rest of the time (before, an option hid
-it from them for good). Every click and key press the agent makes shows up in a
+Video editor, a dialog), found by their process (see Several windows). It is left out of the agent's
+screenshots alone, so screen recorders and screen sharing show it all the time (before, an option hid
+it from them for good). Over a region where none of its windows are, a screenshot is GDI's picture;
+with some, the Magnification API's (`MagnifierCapture`): the magnifier, its window filter set to
+leave them out, draws the screen into a window of Sloperator's that is never shown and hands over the
+pixels (18 ms for 2560×1080, GDI's 42; made once, on a thread of its own with a message loop, as
+made and gone with each picture it took 236 ms). Until 2026-11-01 its windows were marked excluded
+from capture (WDA_EXCLUDEFROMCAPTURE) for the instant each screenshot was taken, and the click log
+for good. That is how apps protect what they show, and NVIDIA's Instant Replay (ShadowPlay) stopped
+recording at each one: its `C:\ProgramData\NVIDIA Corporation\ShadowPlay\CaptureCore.log` said
+`NVFBC_ERROR_PROTECTED_CONTENT`, "Protected Content is running by PID … Sloperator.exe" and
+`StopDVRCapture` (the user: "Shadowplay screen recording got constantly disabled during the run").
+The marking is still the fallback where the magnifier fails. The magnifier's host window sits at the
+primary screen's corner: put on the second screen, it drew the primary's pixels for that screen's
+region (`WindowsCaptureTests` checks every screen). Every click and key press the agent makes shows up in a
 log in the bottom-right corner that fades after 15 seconds, with a ring where it clicked. The agent
 can't see it and it never takes focus. The ring is in the accent colour (`BbAccent`, handed to the
 overlay when the main window opens, as the overlay draws with Skia outside Avalonia) on a dark

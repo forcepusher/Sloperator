@@ -1337,6 +1337,29 @@ public class AgentSessionTests
         Assert.Equal(AgentSession.CutOffNote, LastText(server.Requests[1]));
     }
 
+    [Theory]
+    [InlineData(100_000, 64_000, 64_000)] // as much as Claude's API is asked for
+    [InlineData(32_000, 20_000, 26_000)]  // what the context has left
+    public async Task After_the_servers_own_cap_cut_a_reply_the_requests_ask_for_room(int context, int least, int most)
+    {
+        // No max_tokens asked for, and the server stopped at 4k of its own (LiteLLM's for Claude).
+        var capped = "data: " + new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["delta"] = new JsonObject { ["reasoning_content"] = "Long thoughts" }, ["finish_reason"] = "length" }) }.ToJsonString() +
+                     "\n\ndata: " + new JsonObject { ["choices"] = new JsonArray(), ["usage"] = new JsonObject { ["prompt_tokens"] = 2_000, ["completion_tokens"] = 4_096 } }.ToJsonString() + "\n\ndata: [DONE]\n\n";
+        var server = new ScriptedServer(capped, Sse.ToolCall("c1", "list_directory", """{"path": "."}"""), Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: context);
+
+        await session.RunAsync("think hard", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Null(server.Requests[0]["max_tokens"]);
+        foreach (var later in server.Requests.Skip(1))
+            Assert.InRange((int)later["max_tokens"]!, least, most);
+        Assert.Single(observer.Notices, n => n.Contains("From now on it is asked for replies of up to"));
+        // The cut reply said nothing and called nothing: no empty turn goes, which LiteLLM filled
+        // with "[System: Empty message content sanitised to satisfy protocol]" for Claude to copy.
+        Assert.DoesNotContain(server.Requests[1]["messages"]!.AsArray(), m => (string?)m!["role"] == "assistant");
+    }
+
     [Fact]
     public async Task Ending_right_after_a_click_that_changed_nothing_is_asked_to_check_once()
     {

@@ -39,10 +39,22 @@ internal static class CrashLog
         // A task nobody waited for that failed: not fatal, but the reason a check or a save quietly didn't happen.
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
-            Write("a task nobody waited for", e.Exception);
+            if (!IsWebViewGivenUp(e.Exception))
+                Write("a task nobody waited for", e.Exception);
             e.SetObserved();
         };
     }
+
+    /// <summary>
+    /// Avalonia's web view (12.1.1, its latest) giving up on starting WebView2 because the Web preview
+    /// went before WebView2 was up: E_ABORT from its start, thrown where nothing can catch it. Auto
+    /// put Terminal or File changes in the panel's place a moment after the agent wrote a page (chat
+    /// 20261101-171229-f4b4fa, twice; the user took it for a crash on switching to Anthropic's API).
+    /// Nothing is lost: the next Web preview starts a WebView2 of its own. Not written down nor said.
+    /// </summary>
+    public static bool IsWebViewGivenUp(Exception ex) =>
+        (ex is AggregateException { InnerExceptions: [var only] } ? only : ex) is COMException { HResult: unchecked((int)0x80004004) } aborted
+        && aborted.StackTrace?.Contains("WebView2", StringComparison.Ordinal) == true;
 
     /// <summary>An exception that ends Sloperator: written down, and kept for the chat to show at the next start.</summary>
     public static void Ended(Exception ex)
