@@ -405,8 +405,8 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
             SetStatus(ServerState.Failed, "No models", kilo
                 ? "Kilo offers no free model to chat with right now. Try again later, or enter your own server's address at the top."
                 : string.IsNullOrEmpty(server.Model)
-                    ? "The server is running but offers no models. Load or download one in LM Studio."
-                    : $"The server doesn't offer \"{server.Model}\" anymore, nor any other model to chat with. Load or download one in LM Studio.");
+                    ? "The server is running but offers no models. Load or download one on the server."
+                    : $"The server doesn't offer \"{server.Model}\" anymore, nor any other model to chat with. Load or download one on the server.");
             return probe;
         }
 
@@ -477,6 +477,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     /// <summary>
     /// For a server that doesn't answer on LM Studio's or Ollama's own port, how to turn it on:
     /// LM Studio installed and a model downloaded, its server still stays off until switched on.
+    /// The port is what names the program (the user, 2026-11-01: other messages name none).
     /// </summary>
     private static string ServerAppHint(string address) =>
         Core.Llm.ServerAddress.Candidates(address).FirstOrDefault() is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri)

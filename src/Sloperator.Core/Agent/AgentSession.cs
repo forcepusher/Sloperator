@@ -439,10 +439,11 @@ public sealed partial class AgentSession(
                 var askRoom = (cutCall || cutOff && !afterReset) && !_askRoom && requestOptions.MaxTokens is null;
                 _askRoom |= askRoom;
                 var asking = askRoom ? $" From now on it is asked for replies of up to {ReplyRoom() / 1000}k tokens." : "";
+                // Not one server's name for its limit (the user, 2026-11-01: LM Studio named in it "weird").
                 if (cutCall)
-                    observer.OnNotice("The server's length limit cut a tool call short (in LM Studio: Limit Response Length); it wasn't run, and the model is asked to write in smaller parts." + asking);
+                    observer.OnNotice("The server's length limit cut a tool call short; it wasn't run, and the model is asked to write in smaller parts." + asking);
                 else if (cutOff && !afterReset)
-                    observer.OnNotice("The server stopped the reply at its length limit (in LM Studio: Limit Response Length); asking the model to go on." + asking);
+                    observer.OnNotice("The server stopped the reply at its length limit; asking the model to go on." + asking);
                 // "The task is complete" followed by yet another screenshot: small models can keep
                 // re-verifying forever. A completion claim with only look-only calls ends the turn.
                 // Not a reset it asked for ("Handoff written, all done." with reset_context), nor the

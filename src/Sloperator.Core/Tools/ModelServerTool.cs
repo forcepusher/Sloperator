@@ -89,7 +89,7 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
         if (!probe.Reachable)
             return ToolResult.Error($"Nothing changed: {probe.Message}{AppHint(address)} Check the address with the user, and that the server runs.");
         if (probe.Models.Count == 0)
-            return ToolResult.Error("Nothing changed: the server answers but offers no models to chat with. In LM Studio a model has to be downloaded first.");
+            return ToolResult.Error("Nothing changed: the server answers but offers no models to chat with. A model has to be downloaded or loaded on it first.");
 
         var model = "";
         if (wanted.Length > 0)
@@ -122,7 +122,7 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
     private static bool SameServer(string a, string b) =>
         ServerAddress.Candidates(a).Intersect(ServerAddress.Candidates(b), StringComparer.OrdinalIgnoreCase).Any();
 
-    /// <summary>Nothing on LM Studio's or Ollama's own port: its server is off more often than not.</summary>
+    /// <summary>Nothing on LM Studio's or Ollama's own port: its server is off more often than not. The port is what names the program.</summary>
     private static string AppHint(string address) =>
         ServerAddress.Candidates(address).FirstOrDefault() is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri)
             ? uri.Port switch

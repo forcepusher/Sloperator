@@ -8,12 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Rust highlighting in the Code editor.
 
+### Changed
+- Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
+  one it is: the note about a reply cut off at the server's length limit and the notes about a too
+  small context or a server with no models say "the server".
+
 ### Fixed
 - NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
   leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
-- A server that cuts replies short on its own (proxyapi.ru for Claude, LM Studio's Limit Response
-  Length) cuts one reply per task at most: after it, Sloperator asks for replies as long as the
-  context has room for.
+- A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator
+  asks for replies as long as the context has room for.
 - Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
   protocol]" in its replies: a reply cut off before it said anything isn't sent back, and one that only
   called tools goes back with no text rather than an empty one.
