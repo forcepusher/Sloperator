@@ -407,6 +407,9 @@ public static partial class ServerProbe
             : null;
         if (listed?.FirstOrDefault(m => Str(m["id"]) == model) is not { } entry)
             return default;
+        // The longest reply the model writes there, which caps the room each step asks for.
+        if (Int(entry["top_provider"]?["max_completion_tokens"]) is { } longest && longest > 0)
+            OpenAiChatClient.NoteReplyLimit(v1, model, longest);
         var sees = FromListEntry(new ModelInfo(model), entry).Vision;
         // vLLM's max_model_len is what it serves the model with; context_length is the most a
         // hosted service takes for it, used whole on Auto (1M is the default, the user, 27 October 2026).

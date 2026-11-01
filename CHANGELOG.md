@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The agent can change cells of a Word table by the rows it read (such as `| North | 140 |`), which
   it was refused before.
+- Replies are no longer cut short by a server's own small default limit (proxyapi.ru gave Claude
+  about 4k tokens): every request asks for as long a reply as the context leaves, up to 64k, and less
+  where the model's list or the server says it takes less.
 
 ## [1.3.0] - 2026-11-01
 ### Added
