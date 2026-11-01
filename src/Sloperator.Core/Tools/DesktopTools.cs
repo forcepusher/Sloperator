@@ -505,22 +505,24 @@ public sealed class PressKeysTool : DesktopActionTool
     public override string Description =>
         "Press a key or shortcut, or a whole series of them in one go. For one chord give its keys in order, e.g. [\"ctrl\",\"c\"], [\"alt\",\"tab\"], [\"enter\"]. " +
         "For several presses one after another, give sequence instead, e.g. [\"left\",\"down\",\"left\",\"tab\",\"ctrl+s\"]: much faster than one call per key. " +
-        "To keep keys down for a while (walking in a game, a long press), give hold_seconds. " +
+        "A sequence can also time its steps: \"wait 0.5\" pauses that many seconds, \"hold w\" keeps w down while the next steps run until \"release w\" " +
+        "(whatever is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on. " +
+        "To keep each press down for a while (walking in a game, a long press), give hold_seconds. " +
         "Names: ctrl, alt, shift, win, enter, esc, tab, backspace, delete, space, up, down, left, right, home, end, pageup, pagedown, f1-f12, a-z, 0-9.";
     public override JsonObject Parameters => Schema(
         ("keys", StrArray("Keys of one chord, modifiers first"), false),
-        ("sequence", StrArray("Presses to make one after another; each is a key or a chord like ctrl+s. Use instead of keys."), false),
+        ("sequence", StrArray("Steps to make one after another: a key or a chord like ctrl+s, \"wait 1.5\" (seconds), \"hold shift\" or \"release shift\". Use instead of keys."), false),
         ("repeat", Int("How many times to press the chord or run the sequence, default 1"), false),
-        ("gap_ms", Int($"Pause between presses in milliseconds, default {DefaultGapMs}"), false),
+        ("gap_ms", Int($"Pause between steps in milliseconds, default {DefaultGapMs}; none next to a wait step"), false),
         ("hold_seconds", Num($"Keep each press held down this long before letting go, e.g. [\"w\"] for 2 seconds to walk forward (max {MaxHoldSeconds}); default: a quick press"), false));
 
     public override string Describe(JsonObject args)
     {
         var repeat = GetNumber(args, "repeat") is > 1 and var r ? $" x{r}" : "";
         var hold = GetNumber(args, "hold_seconds") is > 0 and var h ? $", held {h}s" : "";
-        var sequence = Sequence(args);
+        var sequence = (GetStringList(args, "sequence") ?? []).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         return sequence.Count > 0
-            ? $"Press {sequence.Count} keys: {string.Join(" ", sequence.Select(c => string.Join("+", c)))}{repeat}{hold}"
+            ? $"Keys: {string.Join(", ", sequence)}{repeat}{hold}"
             : $"Press {string.Join("+", Keys(args))}{repeat}{hold}";
     }
 
@@ -531,52 +533,108 @@ public sealed class PressKeysTool : DesktopActionTool
         return keys.SelectMany(Split).ToList();
     }
 
-    private static List<List<string>> Sequence(JsonObject args) =>
-        (GetStringList(args, "sequence") ?? []).Select(c => Split(c).ToList()).Where(c => c.Count > 0).ToList();
+    private enum StepKind { Press, Wait, Hold, Release }
+
+    /// <summary>One step of a sequence: a press, a wait, or keys held down or let go.</summary>
+    private sealed record Step(StepKind Kind, List<string> Keys, double Seconds = 0);
+
+    private static List<Step> Steps(JsonObject args) =>
+        (GetStringList(args, "sequence") ?? []).Select(ParseStep).Where(s => s.Kind == StepKind.Wait || s.Keys.Count > 0).ToList();
+
+    private static Step ParseStep(string text)
+    {
+        var parts = text.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // "down" alone is the arrow key; "hold"/"release" don't name keys, so they can't be read as one.
+        if (parts.Length == 2)
+            switch (parts[0].ToLowerInvariant())
+            {
+                case "wait":
+                    return double.TryParse(parts[1].TrimEnd('s', 'S'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds) && seconds >= 0
+                        ? new Step(StepKind.Wait, [], seconds)
+                        : throw new ToolArgumentException($"\"{text.Trim()}\": a wait step takes seconds, e.g. \"wait 0.5\".");
+                case "hold":
+                    return new Step(StepKind.Hold, Split(parts[1]).ToList());
+                case "release":
+                    return new Step(StepKind.Release, Split(parts[1]).ToList());
+            }
+        return new Step(StepKind.Press, Split(text).ToList());
+    }
 
     private static string[] Split(string chord) =>
         chord.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
-        var presses = Sequence(args);
-        if (presses.Count == 0 && Keys(args) is { Count: > 0 } chord)
-            presses = [chord];
-        if (presses.Count == 0)
+        var steps = Steps(args);
+        if (steps.Count == 0 && Keys(args) is { Count: > 0 } chord)
+            steps = [new Step(StepKind.Press, chord)];
+        if (steps.Count == 0)
             throw new ToolArgumentException("Give 'keys' (one chord) or 'sequence' (several presses).");
-        var unknown = presses.SelectMany(p => p).Where(k => !ctx.Platform.Input.IsKnownKey(k)).Distinct().ToList();
+        var unknown = steps.SelectMany(s => s.Keys).Where(k => !ctx.Platform.Input.IsKnownKey(k)).Distinct().ToList();
         if (unknown.Count > 0)
             throw new ToolArgumentException($"Unknown key name(s): {string.Join(", ", unknown)}.");
 
         var repeat = Math.Clamp((int)(GetNumber(args, "repeat") ?? 1), 1, 100);
-        var gap = Math.Clamp((int)(GetNumber(args, "gap_ms") ?? (presses.Count > 1 ? DefaultGapMs : 40)), 0, 5000);
+        var gap = Math.Clamp((int)(GetNumber(args, "gap_ms") ?? (steps.Count > 1 ? DefaultGapMs : 40)), 0, 5000);
         var hold = TimeSpan.FromSeconds(Math.Clamp(GetNumber(args, "hold_seconds") ?? 0, 0, MaxHoldSeconds));
+        // Keys a hold step put down, one by one so a release step can let go of any of them.
+        var held = new List<(string Key, IDisposable Up)>();
         ctx.Platform.HostWindow.YieldFocus();
-        var total = repeat * presses.Count;
-        for (var i = 0; i < total; i++)
+        var total = repeat * steps.Count;
+        try
         {
-            // The user's keys and clicks go nowhere while it presses, but they want the keyboard back.
-            if (i > 0 && UserCameIn(ctx))
-                return $"Pressed {i} of {total}; the rest was not pressed, {UserStopped}.";
-            // A series takes a while: typing to the agent that starts meanwhile holds the rest, which
-            // then goes back to the window it was meant for. It went into the user's message.
-            if (i > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
-                ctx.Platform.HostWindow.YieldFocus();
-            var press = presses[i % presses.Count];
-            if (hold > TimeSpan.Zero)
+            for (var i = 0; i < total; i++)
             {
-                // Released on Stop too, so no key is left held down.
-                using (ctx.Platform.Input.HoldKeys(press))
-                    if (await PauseAsync(hold, ctx, ct).ConfigureAwait(false))
-                        return $"Pressed {i + 1} of {total}, the last let go early; the rest was not pressed, {UserStopped}.";
+                // The user's keys and clicks go nowhere while it presses, but they want the keyboard back.
+                if (i > 0 && UserCameIn(ctx))
+                    return $"Did {i} of {total} steps; the rest was not done, {UserStopped}.";
+                // A series takes a while: typing to the agent that starts meanwhile holds the rest, which
+                // then goes back to the window it was meant for. It went into the user's message.
+                if (i > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
+                    ctx.Platform.HostWindow.YieldFocus();
+                var step = steps[i % steps.Count];
+                switch (step.Kind)
+                {
+                    case StepKind.Wait:
+                        await PauseAsync(TimeSpan.FromSeconds(step.Seconds), ctx, ct).ConfigureAwait(false);
+                        break;
+                    case StepKind.Hold:
+                        foreach (var key in step.Keys.Where(k => !held.Exists(h => Same(h.Key, k))))
+                            held.Add((key, ctx.Platform.Input.HoldKeys([key])));
+                        break;
+                    case StepKind.Release:
+                        foreach (var key in Enumerable.Reverse(step.Keys))
+                            if (held.FindLastIndex(h => Same(h.Key, key)) is >= 0 and var at)
+                            {
+                                held[at].Up.Dispose();
+                                held.RemoveAt(at);
+                            }
+                        break;
+                    case StepKind.Press when hold > TimeSpan.Zero:
+                        // Released on Stop too, so no key is left held down.
+                        using (ctx.Platform.Input.HoldKeys(step.Keys))
+                            if (await PauseAsync(hold, ctx, ct).ConfigureAwait(false))
+                                return $"Did {i + 1} of {total} steps, the last let go early; the rest was not done, {UserStopped}.";
+                        break;
+                    default:
+                        ctx.Platform.Input.PressKeys(step.Keys);
+                        break;
+                }
+                // A wait step is the pause there.
+                if (i < total - 1 && step.Kind != StepKind.Wait && steps[(i + 1) % steps.Count].Kind != StepKind.Wait)
+                    await PauseAsync(TimeSpan.FromMilliseconds(gap), ctx, ct).ConfigureAwait(false);
             }
-            else
-                ctx.Platform.Input.PressKeys(press);
-            if (i < total - 1)
-                await PauseAsync(TimeSpan.FromMilliseconds(gap), ctx, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Nothing is left held down: not at the end, not when the user comes in, not on Stop.
+            for (var h = held.Count - 1; h >= 0; h--)
+                held[h].Up.Dispose();
         }
         return Describe(args) + " done.";
     }
+
+    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class WaitTool : Tool
