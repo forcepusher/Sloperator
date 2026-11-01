@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media.TextFormatting;
 
 namespace Sloperator.App.Views;
@@ -13,6 +15,25 @@ namespace Sloperator.App.Views;
 public class SelectableText : SelectableTextBlock
 {
     protected override Type StyleKeyOverride => typeof(SelectableTextBlock);
+
+    /// <summary>
+    /// Its selection stays when it loses focus: what is selected in File inspector, or in the chat, stays
+    /// marked while the user types about it in the chat's box. Whoever shows it clears it (a click
+    /// elsewhere, Esc, the message sent). Inherited: set on a panel, every text in it keeps its selection.
+    /// </summary>
+    public static readonly AttachedProperty<bool> KeepsSelectionProperty =
+        AvaloniaProperty.RegisterAttached<SelectableText, Control, bool>("KeepsSelection", inherits: true);
+
+    public static bool GetKeepsSelection(Control control) => control.GetValue(KeepsSelectionProperty);
+    public static void SetKeepsSelection(Control control, bool value) => control.SetValue(KeepsSelectionProperty, value);
+
+    protected override void OnLostFocus(FocusChangedEventArgs e)
+    {
+        var (start, end) = (SelectionStart, SelectionEnd);
+        base.OnLostFocus(e);
+        if (GetKeepsSelection(this) && start != end && SelectionStart == SelectionEnd)
+            (SelectionStart, SelectionEnd) = (start, end);
+    }
 
     protected override TextLayout CreateTextLayout(string? text)
     {

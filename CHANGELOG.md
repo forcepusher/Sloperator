@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Text selected in the chat goes with your next message, so the model knows what you mean: while it
+  is selected, its card shows over the box. It stays selected while you type; click elsewhere in the
+  chat or press Esc to let it go.
 - Rust highlighting in the Code editor.
 - The command-line runner says how much of each prompt the server read from its cache.
 - A thin yellow frame round the screen shows the agent has the mouse and keyboard, from its first click

@@ -1701,9 +1701,34 @@ Avalonia (11.3.22, and its master) draws a selection in a text block made of run
 code, headings, links) with properties of its own for the selected part, built from the block's size
 and one run's font: the whole selection turned into the code font a size up and the rest of the line
 moved along (the user's recording, 2026-10-30). `SelectableText` (Views) builds the selected part
-from each run's own properties with only the colour changed; every selectable text in the app is one
-(`KeptSelectionTextBlock` too), styled as a `SelectableTextBlock`. A text box has one font, so its
-selection was right.
+from each run's own properties with only the colour changed; every selectable text in the app is one,
+styled as a `SelectableTextBlock`. A text box has one font, so its selection was right.
+`SelectableText.KeepsSelection` (attached, inherited: set on a panel, every text in it) keeps a selection
+when the text loses focus, where Avalonia's clears it: the chat's and File inspector's, so what is
+selected stays marked while the user types about it in the box. Whoever shows such text clears it (a
+press elsewhere in it, Esc, the message sent). It was a class of its own, `KeptSelectionTextBlock`.
+
+## Text selected in the chat
+Text selected in the chat (a message, a reply, thinking, a tool's command or output, a notice) goes with
+the next message, so the model knows what the user means (the user, 2026-11-01). While something is
+selected, its card is first over the box: the card a panel's pick has (`Border.attachment.file`, no ×),
+the selection on one line as its title (cut at 100 characters, then by the card's width), "Selected in
+the chat" under it, a quote icon, and its arrow pointing up at the chat where a pick's points left at
+its panel (`toolArrow.up`). With nothing selected there is no card and no word of it to the model.
+- The window reads the selection on a left release in the chat and on Shift/Ctrl key releases there,
+  not during a drag: the card coming in grows the box, which moved the chat under the mouse
+  (`MainWindow.OnChatReleased`). The chat's text keeps its selection when the box takes the focus
+  (`KeepsSelection` on the conversation); a press in one block clears the others', a click that
+  selects nothing or Esc lets it go, a scroll bar doesn't. Blocks of one reply selected by a drag
+  across them stay selected too (`MarkdownView` no longer clears them when the first loses focus there).
+- Sent, the model is told it before the user's words, in `UserInput.Context` with whatever an open
+  panel says: `[The user selected this in the chat, which is what they refer to:` and the text, cut at
+  `BoxPicks.MaxChars` as a pick is (`MainWindowViewModel.WithQuote`). The card goes with the message
+  (`UserInput.Cards`, a `SidePanelCard` with no path, kept in the saved chat) and shows first in its
+  bubble; the selection then goes. Another chat opened or Undo, which take its message away, take
+  the card too. Undo doesn't put it back in the box, as it doesn't a panel's pick.
+- `ChatSelectionTests` checks it headless: kept while the box has the focus, over two paragraphs of a
+  reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
 ## One look for every control
 Every window and side panel draws its controls from the styles in App.axaml, one a kind, not
@@ -3732,7 +3757,7 @@ source line each shown line is, and for a table's row where each cell starts in 
 (`FileInspector.Table`) has its header as row 1, as a spreadsheet does. The panel reads the
 selection on each left release and on Shift/Ctrl key releases (`FileInspectorView`): a click that selects
 nothing, Esc, the card's ×, sending the message or another file unpicks it; scroll bars don't. The
-text is `KeptSelectionTextBlock`, which keeps its selection when it loses focus, so it stays marked
+text keeps its selection when it loses focus (`SelectableText.KeepsSelection`), so it stays marked
 while the user types in the box; a press in one block clears the others'. Windows' previewers (PDF,
 Office, web pages) draw in their own window, whose selection Sloperator can't read: a message is about
 the whole file there, unless an area of it is marked (below). A picture or a video is a whole file

@@ -278,7 +278,47 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// <summary>Files for the next message: dropped on the window, pasted or picked with the paperclip. Shown under the box until it is sent.</summary>
     public ObservableCollection<AttachmentItem> Attachments { get; } = [];
 
-    public bool HasAttachments => Attachments.Count > 0;
+    public bool HasAttachments => Attachments.Count > 0 || Quote is not null;
+
+    // ---- text selected in the chat, going with the next message -------------------------------------
+
+    /// <summary>
+    /// Text selected in the chat, as its card over the box: it goes with the next message, so the model
+    /// knows what the user means (the user, 2026-11-01). None with nothing selected.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    private SidePanelCardItem? _quote;
+
+    private string _quoted = "";
+
+    /// <summary>The quote card's icon: quotation marks.</summary>
+    internal const string QuoteIcon = "M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z";
+
+    /// <summary>What is selected in the chat now, read by the window as the selection changes; empty for nothing.</summary>
+    public void SetQuote(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            text = "";
+        if (text == _quoted)
+            return;
+        _quoted = text;
+        var line = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Quote = text.Length == 0 ? null : new SidePanelCardItem(new SidePanelCard(line.Length <= 100 ? line : line[..100], "Selected in the chat", Icon: QuoteIcon));
+    }
+
+    /// <summary>
+    /// A message with the text selected in the chat: the model is told it first, its card is first in the
+    /// bubble, and the selection goes, as a panel's pick does when sent.
+    /// </summary>
+    private UserInput WithQuote(UserInput input)
+    {
+        if (Quote is not { } quote)
+            return input;
+        var told = $"[The user selected this in the chat, which is what they refer to:\n{BoxPicks.Capped(_quoted)}\n]";
+        SetQuote("");
+        return input with { Context = input.Context is { } context ? $"{told}\n{context}" : told, Cards = [quote.Card, .. input.Cards ?? []] };
+    }
 
     /// <summary>Files are being dragged over the window: it shows where they will go.</summary>
     [ObservableProperty]
@@ -357,7 +397,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     {
         // A piece picked in the side panel that isn't made yet has no file: the panel says what it is.
         var files = Attachments.Where(a => !a.Picked || File.Exists(a.Path) || Directory.Exists(a.Path)).Select(a => a.Path).ToList();
-        var input = WithSidePanel(new UserInput(UserInput.Tidy(Input), files), Picked);
+        var input = WithQuote(WithSidePanel(new UserInput(UserInput.Tidy(Input), files), Picked));
         Input = "";
         ClearAttachments();
         await SendAsync(input);
