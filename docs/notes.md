@@ -2960,9 +2960,11 @@ for a script it lacks (CJK, Hangul), so Arabic joins and runs right to left; a l
 "…" to its picture's width. An earlier picture that isn't there, or labels that don't match the count,
 are argument errors before anything is captured.
 There are no boxes around what changed: the user asked for the pictures alone (31 October 2026).
-The before picture is asked for at the start, in its own rule right after "Start GUI tasks with a
-screenshot" ("When the task changes something already on screen …, capture it with capture_result
-before your first change"), and first in the tool's description. Said only in the "check the result"
+The before/after is for the user to see what the work changed visually (a button from red to green),
+wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
+at the start, in its own rule right after "Start GUI tasks with a screenshot" ("When the task changes
+how something looks …, the user wants to see that change: before your first change, capture how it
+looks with capture_result"), and in the tool's description. Said only in the "check the result"
 rule, which models read when finishing, Haiku took one in 0 of 2 runs (the Q3 budget window, "add a
 Total row", nothing said about pictures, 31 October 2026). As its own start-of-task rule: Haiku 2 of 3,
 Qwen 3.8 3 of 3, each of those ending with the comparison in its final reply; a file-only task
@@ -2971,7 +2973,8 @@ The description says what the tool is for (showing the user the result) and send
 only checks to read_file. Asked to stitch six screen recordings, Claude cut frames from the joined
 video with ffmpeg and passed them to `capture_result` as `file` with `compare`, "one combined view"
 of them for itself, and the user got two side-by-side desktop frames under the reply (1 November 2026).
-The before rule never fired there: nothing on screen was changed.
+The rule then said "changes something already on screen", which the user found beside the point: it
+is about the change, not the screen or what is open.
 
 
 Models often fumble tool-call syntax, so Sloperator repairs calls on the fly: Qwen XML, Gemma 4 and
