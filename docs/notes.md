@@ -2604,7 +2604,13 @@ asked is its limit from then on; an error naming max_tokens with no such number 
 A kept reply that said nothing and called nothing (cut off in its thinking) isn't sent back: LiteLLM
 filled the empty turn with "[System: Empty message content sanitised to satisfy protocol]", and
 Claude took to writing that line in its own next replies. Its thinking goes with it, so the model
-thinks that step again.
+thinks that step again. A turn of calls with nothing said goes with `"content": null`, as OpenAI's API
+sends such a turn, not `""`, which LiteLLM filled the same way: asked to quote its earlier turns,
+Claude quoted the line with `""` and said there was no text with null (proxyapi.ru, Haiku 5.5; Kilo's
+free Nemotron takes null too; `GatewayThinkingTests`). The first live run after the max_tokens change,
+a Rust calculator on proxyapi.ru Haiku 5.5, had its one cut at 4,096 tokens, then 21 requests with
+max_tokens 64,000 and none cut (replies up to 6,910 tokens), 75 tests passing in 5 minutes; it still
+wrote the line twice, from its turns of calls, which led to the null.
 
 A context size picked during a run counts from the run's next step (`AgentSession.UseContextSize`):
 lowered below what the conversation fills, it resets the context there. The run used to keep the

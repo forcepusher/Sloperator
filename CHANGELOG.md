@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Length) cuts one reply per task at most: after it, Sloperator asks for replies as long as the
   context has room for.
 - Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
-  protocol]" as its reply: a reply cut off before it said anything isn't sent back as an empty one.
+  protocol]" in its replies: a reply cut off before it said anything isn't sent back, and one that only
+  called tools goes back with no text rather than an empty one.
 - No more "Something went wrong in Sloperator's window: COMException: Operation aborted" when Auto
   swaps the Web preview for another panel while the page is still loading.
 - After the agent clicks through Sloperator's window to the app behind it, the window comes back on top

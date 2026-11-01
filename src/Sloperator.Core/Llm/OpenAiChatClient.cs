@@ -736,7 +736,11 @@ public sealed partial class OpenAiChatClient
         }
         else
         {
-            obj["content"] = m.Content ?? "";
+            // Calls with nothing said: null, as OpenAI's API sends such a turn. An empty string came to
+            // Claude through proxyapi.ru's LiteLLM as "[System: Empty message content sanitised to
+            // satisfy protocol]", and Claude wrote the line in its own later replies (tried 2026-11-01:
+            // asked to quote its turn of calls, it quoted that with "", and said it had no text with null).
+            obj["content"] = m.HasToolCalls && string.IsNullOrWhiteSpace(m.Content) ? null : m.Content ?? "";
         }
 
         if (m.HasToolCalls)

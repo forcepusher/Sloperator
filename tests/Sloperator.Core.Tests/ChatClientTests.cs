@@ -121,13 +121,18 @@ public class ChatClientTests
     }
 
     [Fact]
-    public void A_reply_that_said_nothing_and_called_nothing_is_not_sent()
+    public void A_reply_that_said_nothing_and_called_nothing_is_not_sent_and_calls_alone_have_no_text()
     {
         var thoughtOnly = new ChatMessage { Role = ChatRole.Assistant, Content = "", Reasoning = "Long thoughts" };
         var calls = new ChatMessage { Role = ChatRole.Assistant, Content = "", ToolCalls = [new ToolCall { Id = "c1", Name = "screenshot", Arguments = "{}" }] };
+        var said = new ChatMessage { Role = ChatRole.Assistant, Content = "Looking again.", ToolCalls = [new ToolCall { Id = "c2", Name = "screenshot", Arguments = "{}" }] };
         var sent = OpenAiChatClient.BuildRequest(
-            [ChatMessage.User("go"), thoughtOnly, ChatMessage.User(AgentSession.CutOffNote), calls, ChatMessage.ToolResult("c1", "Took it.")], [], new ChatRequestOptions(), sendReasoning: true);
-        Assert.Equal(["user", "user", "assistant", "tool"], sent["messages"]!.AsArray().Select(m => (string?)m!["role"]));
+            [ChatMessage.User("go"), thoughtOnly, ChatMessage.User(AgentSession.CutOffNote), calls, ChatMessage.ToolResult("c1", "Took it."), said, ChatMessage.ToolResult("c2", "Took it.")],
+            [], new ChatRequestOptions(), sendReasoning: true)["messages"]!.AsArray();
+        Assert.Equal(["user", "user", "assistant", "tool", "assistant", "tool"], sent.Select(m => (string?)m!["role"]));
+        // "content": null, as OpenAI sends it; "" came to Claude as LiteLLM's "[System: Empty message content sanitised…]".
+        Assert.True(sent[2]!.AsObject().TryGetPropertyValue("content", out var none) && none is null);
+        Assert.Equal("Looking again.", (string?)sent[4]!["content"]);
     }
 
     [Theory]
