@@ -5,19 +5,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
-- Before/after pictures of documents: the agent can show a page of a PDF, Word, Excel or PowerPoint
-  file before and after its change, drawn by Office or LibreOffice without opening a window.
-- The File inspector shows the pages of a Word, Excel or PowerPoint file when Windows has no previewer
-  for it, drawn by Office or LibreOffice. With neither, **Get LibreOffice** fetches it (free, a 360 MB
-  download) into Sloperator's tools folder; nothing is installed.
-
-### Fixed
-- The agent can change cells of a Word table by the rows it read (such as `| North | 140 |`), which
-  it was refused before.
-- Replies are no longer cut short by a server's own small default limit (proxyapi.ru gave Claude
-  about 4k tokens): every request asks for as long a reply as the context leaves, up to 64k, and less
-  where the model's list or the server says it takes less.
 
 ## [1.3.0] - 2026-11-01
 ### Added
@@ -65,8 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them.
 - Settings → Advanced → Updates shows which version of Sloperator is running, beside **Check for
   updates**, with what the last check found after it ("Version 1.3.0 · Up to date").
-- The agent shows you a picture of what it made: a window or a part of the screen, at full
-  resolution, under its final reply with a caption. Click it to see it full size.
+- The agent shows you pictures of what it made: a window, a part of one or of the screen, or a page
+  of a document, at full resolution, under its final reply with a caption, one for each thing it
+  shows. Click one to see it full size.
 - The agent can put pictures side by side to compare them (before and after, light and dark, a few
   options), labelled in your language. It can show a picture file it made the same way.
 - Right-click any file (a card in the chat, a file in a message, the full-screen viewer, File changes,
@@ -88,6 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or key press until the task ends.
 - A series of key presses can wait between steps and keep a key down while others are pressed, so the
   agent can walk, jump and walk on in a game in one go.
+- Before/after pictures of documents: the agent can show a page of a PDF, Word, Excel or PowerPoint
+  file before and after its change, drawn by Office or LibreOffice without opening a window.
+- The File inspector shows the pages of a Word, Excel or PowerPoint file when Windows has no previewer
+  for it, drawn by Office or LibreOffice. With neither, **Get LibreOffice** fetches it (free, a 360 MB
+  download) into Sloperator's tools folder; nothing is installed.
 
 ### Changed
 - A tool call's card says what it does on one line, with files and folders by their names ("Read
@@ -174,8 +167,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A click holds the mouse button down for 50 ms: games that read the mouse once a frame could miss it.
 - NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
   leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
-- A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator
-  asks for replies as long as the context has room for.
+- Replies are no longer cut short by a server's own small default limit (proxyapi.ru gave Claude
+  about 4k tokens): every request asks for as long a reply as the context leaves, up to 64k, and less
+  where the model's list or the server says it takes less.
+- The agent can change cells of a Word table by the rows it read (such as `| North | 140 |`), which
+  it was refused before.
+- A tool call that gives an argument twice (Claude through proxyapi.ru once wrote `"append"` twice) no
+  longer ends the task with "An item with the same key has already been added".
+- The File inspector says why it doesn't preview a file downloaded from the internet (Windows' previewers
+  refuse such files), and **Preview anyway** shows it; the file stays marked as downloaded.
 - Claude through proxyapi.ru no longer writes "[System: Empty message content sanitised to satisfy
   protocol]" in its replies: a reply cut off before it said anything isn't sent back, and one that only
   called tools goes back with no text rather than an empty one.
