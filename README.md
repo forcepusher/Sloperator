@@ -15,6 +15,8 @@ Its settings, chats and whatever it downloads stay in a `Data` folder next to th
 3. Type what you want and press Enter.
 
 **Pause/Break** stops it at any time. It doesn't ask before it acts; to change that see Settings.
+While it works, a yellow frame goes round the screen. It waits for you to leave the mouse and keyboard
+alone before it acts, and locks them for the moment it clicks or types; Pause/Break gives them back.
 Turn on **Notify me when done** there to get a Windows notification when a task needs you.
 Sloperator updates itself: when a new version is ready, a line under the top bar says so, with
 **Restart**.

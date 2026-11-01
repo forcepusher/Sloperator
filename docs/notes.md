@@ -4545,6 +4545,43 @@ always-on-top gets that back. Measured on the laptop with a stand-in model click
 under Sloperator: the click reached it, Sloperator was back on top some 150 ms later, the green window
 stayed the active one, and Sloperator wasn't left always-on-top.
 
+Your own mouse and keyboard, which the agent shares with you (`IUserInput`, `WindowsUserInput`; the
+user's pick of the ideas offered, 1 November 2026). Low-level mouse and keyboard hooks on a thread of
+their own watch them from a run's first look at the screen until it ends, not for as long as Sloperator
+runs: every mouse move on the PC passes through them. The agent's input is tagged (`InputTag`) and
+SetCursorPos, which moves its mouse, passes no hook, so what they see is yours (or another program's
+that sends input). Before, a click was the mouse put on the spot, 60 ms, then the press wherever the
+mouse was by then: moved in those 60 ms, it clicked where you were. Each typed character went on its
+own, so your keys landed between them, and a Shift you held changed its letters.
+- Before each action the agent waits until you have left the mouse and keyboard alone for a second,
+  holding nothing down, for as long as that takes ("Waiting for you to leave the mouse and keyboard ·
+  0:03"): an action in the middle of what you do takes the focus from under your typing.
+- It then locks them for as long as the action takes: your moves, clicks, wheel and keys go nowhere.
+  Pause/Break still goes through and ends the lock at once (the stop key's hook is installed when
+  Sloperator starts, so this one, installed later, sees Pause first and passes it on); Ctrl+Alt+Del is
+  Windows' own. Not BlockInput, which takes administrator rights. A press swallowed stays swallowed
+  until let go, and one that went through before the lock goes through until let go: nothing is left
+  stuck down in Windows.
+- If you press anything meanwhile, long typing stops after the piece it is on (200 characters), a series
+  of presses before the next one and a held press at once, and the model is told how far it got. Your
+  presses went nowhere, but they mean you want the mouse and keyboard back: on a laptop without
+  Pause/Break, a click is the way to Stop.
+- If you clicked, typed or scrolled since the screenshot the model's reply was decided on
+  (`ToolContext.UserPressesSeen`, from that screenshot's `ScreenLook.UserPresses`), keys do nothing and
+  the model gets the screen as it is now: a click in the same window moves the focus too. A click, drag,
+  scroll or hover looks again at the 128 px square round where it lands against that screenshot (the
+  pointer drawn in it left out; 1% of the square changed counts, so a blinking caret doesn't): unchanged,
+  it goes ahead; changed, it does nothing and the model gets the screen now. Only a reply's first action
+  can be compared, as its actions change the screen; a later one, after you pressed something, waits for
+  a new look. The rest of a reply after an action held back does nothing either (`ScreenStale`, as when
+  another window's agent acted). Mouse moves count for the wait but not here: the lock keeps them from
+  a click. Each clash costs the model one screenshot more, none while you leave the PC alone.
+- A 4 px frame in the accent colour round the screen the agent works on tells you it has the mouse and
+  keyboard, from its first action until the task ends: four strips of `WindowsInputOverlay`,
+  click-through and left out of the screenshots like the click log, placed only when it shows or moves.
+- A click holds the button down 50 ms; let go of in the same instant, as before, a press can come and
+  go between two looks of a game that reads the mouse once a frame.
+
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
 reads the message before its next step, and a `wait` it is in ends for it. While you type there,
 its clicks and key presses hold off (for up to a minute), so they don't land in your typing. That

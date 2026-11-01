@@ -14,13 +14,22 @@ public abstract class DesktopActionTool : Tool
     /// <summary>The longest an action waits for another Sloperator window's agent to be done with the mouse and keyboard.</summary>
     internal static TimeSpan MaxTurnWait = TimeSpan.FromMinutes(5);
 
+    /// <summary>How long the user leaves the mouse and keyboard alone before an action goes ahead.</summary>
+    private static readonly TimeSpan HandsOffTime = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Half the side of the square around a click (screen pixels) that is looked at again when the
+    /// user pressed something since the model's screenshot: changed, the click waits for a new look.
+    /// </summary>
+    private const int AimRadius = 64;
+
     public sealed override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
+        if (ctx.ScreenStale)
+            return new ToolResult("Nothing was done: an action before this one in your reply was held back, as the screen may have changed " +
+                                  "since you last saw it. Look at the screen as it is now and do it again if it still applies.");
         if (ctx.DesktopTurn is not { } desktop)
             return await ActAndLookAsync(args, ctx, screenChanged: false, ct).ConfigureAwait(false);
-        if (ctx.ScreenStale)
-            return new ToolResult("Nothing was done: an action before this one in your reply was held back, as another Sloperator window's agent " +
-                                  "had used the mouse and keyboard. Look at the screen as it is now and do it again if it still applies.");
         // Another window's agent may be using the mouse and keyboard: one at a time.
         var turn = await desktop.TakeAsync(ctx, MaxTurnWait,
             waited => ctx.Progress?.Invoke($"Waiting for another Sloperator window to finish with the mouse and keyboard · {Chats.ChatTimes.Stopwatch(waited)}"), ct).ConfigureAwait(false);
@@ -46,6 +55,7 @@ public abstract class DesktopActionTool : Tool
 
     private async Task<ToolResult> ActAndLookAsync(JsonObject args, ToolContext ctx, bool screenChanged, CancellationToken ct)
     {
+        WatchUser(ctx, acting: true);
         if (screenChanged)
         {
             // What the model aimed at may have moved, been covered or closed meanwhile; and the
@@ -65,7 +75,24 @@ public abstract class DesktopActionTool : Tool
         var paused = System.Diagnostics.Stopwatch.StartNew();
         while (ctx.UserComposing?.Invoke() == true && paused.Elapsed < MaxUserPause)
             await Task.Delay(200, ct).ConfigureAwait(false);
-        var (text, check) = await ActAsync(args, ctx, ct).ConfigureAwait(false);
+        await WaitForHandsOffAsync(ctx, ct).ConfigureAwait(false);
+        string text;
+        ClickCheck? check;
+        // Nothing the user does gets in the way of the action, nor between its looking again and acting.
+        using (var locked = ctx.Platform.UserInput.Lock())
+        {
+            if (UserChangedScreen(args, ctx) is { } why)
+            {
+                locked.Dispose();
+                // What it aimed at may have moved, and the rest of the reply was decided on the same old screen.
+                ctx.Seen = null;
+                ctx.ScreenStale = true;
+                var now = ScreenshotTool.Take(ctx);
+                return now with { Text = $"Nothing was done: {why}. This is the screen now; do it again if it still applies.\n" + now.Text };
+            }
+            ctx.UserPressesAtAct = ctx.Platform.UserInput.Presses;
+            (text, check) = await ActAsync(args, ctx, ct).ConfigureAwait(false);
+        }
         // The screen now changes in ways the model hasn't seen; a later click in the same reply
         // is aimed at what it expects, not at what it saw.
         ctx.Seen = null;
@@ -94,6 +121,89 @@ public abstract class DesktopActionTool : Tool
     }
 
     private protected abstract Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct);
+
+    /// <summary>
+    /// Where on the screen the action lands, to look at again when the user pressed something since
+    /// the model's screenshot; null for keys, which go wherever the focus is now.
+    /// </summary>
+    private protected virtual (int X, int Y)[]? Aims(JsonObject args, ToolContext ctx) => null;
+
+    /// <summary>
+    /// From a run's first look at the screen, the user's input is watched; from its first action, a
+    /// frame round the screen tells the user an agent is at work there. Both until the run ends.
+    /// </summary>
+    internal static void WatchUser(ToolContext ctx, bool acting)
+    {
+        var owner = ctx.DesktopSeat ?? ctx;
+        if (ctx.UserWatch is null)
+        {
+            ctx.UserWatch = ctx.Platform.UserInput.Watch();
+            ctx.AfterRun("user input", () =>
+            {
+                ctx.UserWatch.Dispose();
+                ctx.Platform.InputOverlay.Frame(owner, null);
+                return Task.CompletedTask;
+            });
+        }
+        if (acting)
+            ctx.Platform.InputOverlay.Frame(owner, ctx.GetScreenSpace().Screen);
+    }
+
+    /// <summary>
+    /// Waits until the user has left the mouse and keyboard alone for <see cref="HandsOffTime"/>,
+    /// holding nothing down, for as long as it takes: an action in the middle of what they are doing
+    /// took the focus from under their typing, or their mouse from under their hand.
+    /// </summary>
+    private static async Task WaitForHandsOffAsync(ToolContext ctx, CancellationToken ct)
+    {
+        var user = ctx.Platform.UserInput;
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (user.Holding || user.SinceLastInput < HandsOffTime)
+        {
+            ctx.Progress?.Invoke($"Waiting for you to leave the mouse and keyboard · {Chats.ChatTimes.Stopwatch(waited.Elapsed)}");
+            await Task.Delay(100, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// What the user did since the screenshot this reply was decided on that the action must not go
+    /// ahead on, in words for the model; null when nothing. Keys wait for a new look after any press
+    /// of the user's: a click in the same window moves the focus too. A click waits only when the screen
+    /// changed around where it lands, and can't be compared but for the reply's first action.
+    /// </summary>
+    private string? UserChangedScreen(JsonObject args, ToolContext ctx)
+    {
+        if (ctx.UserPressesSeen is not { } seen || ctx.Platform.UserInput.Presses == seen)
+            return null;
+        if (Aims(args, ctx) is not { } aims)
+            return "the user clicked, typed or scrolled since your last screenshot, so the focus may have moved";
+        if (ctx.Seen is not { } look)
+            return "the user used the mouse or keyboard since your last screenshot";
+        var now = ctx.Platform.Screen.Capture(look.Screen, includeCursor: false);
+        return aims.Any(p => ClickCheck.ChangedAround(look, now, p, AimRadius))
+            ? "the screen changed where you aimed, as the user used the mouse or keyboard since your last screenshot"
+            : null;
+    }
+
+    /// <summary>Whether the user pressed something since the action started: one that takes a while stops there.</summary>
+    private protected static bool UserCameIn(ToolContext ctx) => ctx.Platform.UserInput.Presses != ctx.UserPressesAtAct;
+
+    /// <summary>Waits <paramref name="time"/>, or less when the user presses something meanwhile; returns whether they did.</summary>
+    private protected static async Task<bool> PauseAsync(TimeSpan time, ToolContext ctx, CancellationToken ct)
+    {
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (waited.Elapsed < time)
+        {
+            if (UserCameIn(ctx))
+                return true;
+            var left = time - waited.Elapsed;
+            await Task.Delay(left < TimeSpan.FromMilliseconds(100) ? left : TimeSpan.FromMilliseconds(100), ct).ConfigureAwait(false);
+        }
+        return UserCameIn(ctx);
+    }
+
+    /// <summary>How an action that stopped part way for the user says so.</summary>
+    private protected const string UserStopped = "as the user pressed a key or clicked meanwhile";
 
     /// <summary>
     /// The wait <see cref="ExecuteAsync"/> makes before an action, made again inside one that takes
@@ -168,14 +278,16 @@ public sealed class ScreenshotTool : Tool
 
     internal static ToolResult Take(ToolContext ctx)
     {
+        DesktopActionTool.WatchUser(ctx, acting: false);
         var space = ctx.GetScreenSpace();
+        var presses = ctx.Platform.UserInput.Presses;
+        var cursor = ctx.Platform.Input.GetCursorPosition();
         var frame = ctx.Platform.Screen.Capture(space.Screen, includeCursor: true);
-        ctx.LastShot = (space.Screen, frame);
+        ctx.LastShot = new(space.Screen, frame, cursor, presses);
         ctx.DesktopTurn?.Looked(ctx);
         var jpeg = space.Encode(frame, ctx.Settings.ScreenshotQuality);
         var count = ctx.Screens.Count;
         var which = (count > 1 ? $"Screenshot of screen {ctx.CurrentScreen + 1} of {count}, " : "Screenshot ") + $"{space.ImageWidth}x{space.ImageHeight}.";
-        var cursor = ctx.Platform.Input.GetCursorPosition();
         var cursorScreen = ctx.ScreenAt(cursor.X, cursor.Y);
         var (cx, cy) = space.ToModel(cursor.X, cursor.Y);
         var where = cursorScreen == ctx.CurrentScreen ? $"Mouse cursor at ({cx}, {cy})." : $"Mouse cursor is on screen {cursorScreen + 1}.";
@@ -205,6 +317,8 @@ public sealed class MouseClickTool : DesktopActionTool
         var button = GetString(args, "button") is { } b && b != "left" ? $" ({b})" : "";
         return $"{kind}{button} at {Fmt(args)}";
     }
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -238,6 +352,8 @@ public sealed class MouseMoveTool : DesktopActionTool
     public override JsonObject Parameters => Schema(("x", Num("X in screenshot coordinates"), true), ("y", Num("Y in screenshot coordinates"), true));
     public override string Describe(JsonObject args) => $"Move mouse to {Fmt(args)}";
 
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
+
     private protected override Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var (x, y) = Point(args, ctx);
@@ -257,6 +373,8 @@ public sealed class MouseDragTool : DesktopActionTool
         ("modifiers", ModifiersParameter(), false));
     public override string Describe(JsonObject args) =>
         $"Drag from {Fmt(args)} to {Fmt(args, "to_x", "to_y")}" + (Modifiers(args) is { Count: > 0 } held ? $" holding {Held(held)}" : "");
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx), Point(args, ctx, "to_x", "to_y")];
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -299,6 +417,9 @@ public sealed class ScrollTool : DesktopActionTool
         ("y", Num("Optional Y to scroll at"), false));
     public override string Describe(JsonObject args) =>
         $"Scroll {GetString(args, "direction")} x{GetNumber(args, "amount") ?? 3}" + (args["x"] is not null ? $" at {Fmt(args)}" : "");
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) =>
+        [args["x"] is not null && args["y"] is not null ? Point(args, ctx) : ctx.Platform.Input.GetCursorPosition()];
 
     private protected override Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -348,6 +469,9 @@ public sealed partial class TypeTextTool : DesktopActionTool
             // Stop ends long text between pieces: it went on typing the rest, Enter for every
             // line break, into whatever window had the focus.
             ct.ThrowIfCancellationRequested();
+            // The user's keys and clicks go nowhere while it types, but they want the keyboard back.
+            if (at > 0 && UserCameIn(ctx))
+                return $"Typed the first {at} of {text.Length} characters; the rest was not typed, {UserStopped}.";
             if (at > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
                 ctx.Platform.HostWindow.YieldFocus();
             ctx.Platform.Input.TypeText(text.Substring(at, Math.Min(Chunk, text.Length - at)));
@@ -431,6 +555,9 @@ public sealed class PressKeysTool : DesktopActionTool
         var total = repeat * presses.Count;
         for (var i = 0; i < total; i++)
         {
+            // The user's keys and clicks go nowhere while it presses, but they want the keyboard back.
+            if (i > 0 && UserCameIn(ctx))
+                return $"Pressed {i} of {total}; the rest was not pressed, {UserStopped}.";
             // A series takes a while: typing to the agent that starts meanwhile holds the rest, which
             // then goes back to the window it was meant for. It went into the user's message.
             if (i > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
@@ -440,12 +567,13 @@ public sealed class PressKeysTool : DesktopActionTool
             {
                 // Released on Stop too, so no key is left held down.
                 using (ctx.Platform.Input.HoldKeys(press))
-                    await Task.Delay(hold, ct).ConfigureAwait(false);
+                    if (await PauseAsync(hold, ctx, ct).ConfigureAwait(false))
+                        return $"Pressed {i + 1} of {total}, the last let go early; the rest was not pressed, {UserStopped}.";
             }
             else
                 ctx.Platform.Input.PressKeys(press);
             if (i < total - 1)
-                await Task.Delay(gap, ct).ConfigureAwait(false);
+                await PauseAsync(TimeSpan.FromMilliseconds(gap), ctx, ct).ConfigureAwait(false);
         }
         return Describe(args) + " done.";
     }

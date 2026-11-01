@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Rust highlighting in the Code editor.
 - The command-line runner says how much of each prompt the server read from its cache.
+- A thin yellow frame round the screen shows the agent has the mouse and keyboard, from its first click
+  or key press until the task ends.
 
 ### Changed
+- The agent waits until you have left the mouse and keyboard alone for a second before each click or
+  key press, and locks them for the moment it acts, so your mouse can't move its click and your keys
+  can't land in its typing. Pause/Break still stops it and gives them back at once.
+- When you clicked or typed while the agent was thinking, it looks at the screen again before acting on
+  what you may have changed: before any key press, and before a click where the screen changed around it.
+- Long typing and a series of key presses stop when you press a key or click during them.
 - Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
   one it is: the note about a reply cut off at the server's length limit and the notes about a too
   small context or a server with no models say "the server".
@@ -18,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude through OpenRouter, proxyapi.ru and other OpenAI-format servers costs several times less on
   long tasks: each step reads the earlier ones from the server's prompt cache instead of paying for the
   whole conversation again.
+- A click holds the mouse button down for 50 ms: games that read the mouse once a frame could miss it.
 - NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
   leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
 - A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator

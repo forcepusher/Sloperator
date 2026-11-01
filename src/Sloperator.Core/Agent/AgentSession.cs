@@ -503,6 +503,7 @@ public sealed partial class AgentSession(
                 ChatMessage? last = null;
                 // This reply's calls were decided on the screen in the last screenshot.
                 toolContext.Seen = toolContext.LastShot;
+                toolContext.UserPressesSeen = toolContext.LastShot?.UserPresses;
                 toolContext.ScreenStale = false;
                 var called = reply.ToolCalls!.Select(c => ToolCallRepair.ResolveTool(c.Name, tools)).ToList();
                 guesswork?.Read(reply, called);

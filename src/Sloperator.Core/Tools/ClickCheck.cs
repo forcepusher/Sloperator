@@ -120,6 +120,37 @@ internal sealed class ClickCheck
         return false;
     }
 
+    /// <summary>
+    /// Whether the square of <paramref name="radius"/> around <paramref name="point"/> (screen
+    /// pixels) shows something else <paramref name="now"/> than in <paramref name="look"/>: a window
+    /// moved over it, a page scrolled. A blinking caret or a hover highlight is too small to count,
+    /// and the mouse pointer the look shows is left out (<paramref name="now"/> has none).
+    /// </summary>
+    internal static bool ChangedAround(ScreenLook look, RawImage now, (int X, int Y) point, int radius)
+    {
+        var before = look.Frame;
+        if (now.Width != before.Width || now.Height != before.Height)
+            return true;
+        var (px, py) = (point.X - look.Screen.X, point.Y - look.Screen.Y);
+        var (cx, cy) = (look.Cursor.X - look.Screen.X, look.Cursor.Y - look.Screen.Y);
+        int left = Math.Max(0, px - radius), right = Math.Min(now.Width, px + radius);
+        int top = Math.Max(0, py - radius), bottom = Math.Min(now.Height, py + radius);
+        if (right <= left || bottom <= top)
+            return false;
+        var limit = Math.Max(1, (right - left) * (bottom - top) / 100);
+        var changed = 0;
+        for (var y = top; y < bottom; y++)
+            for (var x = left; x < right; x++)
+            {
+                // The pointer reaches right and down from its tip, up to 48 px at 150 %.
+                if (x >= cx - 16 && x < cx + 64 && y >= cy - 16 && y < cy + 64)
+                    continue;
+                if (Changed(before.Bgra, now.Bgra, y * now.Stride + x * 4) && ++changed >= limit)
+                    return true;
+            }
+        return false;
+    }
+
     private static bool Changed(byte[] a, byte[] b, int i) =>
         Math.Abs(a[i] - b[i]) > Threshold || Math.Abs(a[i + 1] - b[i + 1]) > Threshold || Math.Abs(a[i + 2] - b[i + 2]) > Threshold;
 }
