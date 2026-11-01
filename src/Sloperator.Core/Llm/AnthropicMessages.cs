@@ -535,6 +535,7 @@ public static partial class AnthropicMessages
             },
             PromptTokens = input is null && cacheWrite is null && cacheRead is null ? null : (input ?? 0) + (cacheWrite ?? 0) + (cacheRead ?? 0),
             CompletionTokens = output,
+            CachedTokens = cacheRead,
             AnthropicContent = kept,
         };
 

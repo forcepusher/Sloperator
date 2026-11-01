@@ -76,6 +76,7 @@ public class AnthropicTests
         Assert.Equal(10, JsonNode.Parse(call.Arguments)!["x"]!.GetValue<int>());
         // input 40 + cache written 300 + cache read 0
         Assert.Equal(340, reply.PromptTokens);
+        Assert.Equal(0, reply.CachedTokens);
         Assert.Equal(25, reply.CompletionTokens);
         // The blocks as they came, the signature with the thinking.
         var blocks = reply.AnthropicContent!;

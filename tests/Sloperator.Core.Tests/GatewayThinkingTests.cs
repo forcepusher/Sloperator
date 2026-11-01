@@ -7,7 +7,8 @@ namespace Sloperator.Core.Tests;
 
 /// <summary>
 /// Opt-in: Claude through an OpenAI-compatible gateway shows its thinking and gets it back after a
-/// tool call. Set BB_GATEWAY_KEY (or BB_OPENROUTER_KEY); BB_GATEWAY_URL picks the gateway
+/// tool call, and reads earlier steps from the prompt cache. Set BB_GATEWAY_KEY (or
+/// BB_OPENROUTER_KEY); BB_GATEWAY_URL picks the gateway
 /// (https://openrouter.ai/api/v1; https://api.proxyapi.ru/v1 sends the thinking as thinking_blocks
 /// and refuses chat_template_kwargs), BB_GATEWAY_MODEL the model (anthropic/claude-haiku-5.5 on
 /// OpenRouter, anthropic/claude-haiku-5-5 on proxyapi.ru). Costs well under a cent.
@@ -55,6 +56,30 @@ public class GatewayThinkingTests
         var without = await connection.Client.CompleteAsync(bare, tools, connection.Options, null, TestContext.Current.CancellationToken);
         TestContext.Current.SendDiagnosticMessage($"prompt with thinking {second.PromptTokens}, without {without.PromptTokens}; first thought {first.CompletionTokens} tokens");
         Assert.True(second.PromptTokens > without.PromptTokens + 50, $"{second.PromptTokens} vs {without.PromptTokens}");
+    }
+
+    /// <summary>
+    /// Claude caches only when asked, through a gateway too: without the request's cache_control
+    /// every step paid the whole conversation in full again (2026-11-01).
+    /// </summary>
+    [Fact]
+    public async Task The_next_step_reads_the_one_before_it_from_the_cache()
+    {
+        Assert.SkipWhen(Key is null, "Set BB_GATEWAY_KEY to run.");
+        var server = new ServerSettings { BaseUrl = Url, Model = Model, ApiKey = Key! };
+        using var http = LlmHttp.Create(TimeSpan.FromMinutes(5));
+        var connection = BackendConnection.Create(http, server);
+        // Longer than the 512 to 4,096 tokens a server caches at least, and new each run, so nothing is cached before.
+        var rules = string.Join("\n", Enumerable.Range(1, 250).Select(n => $"Rule {n}: when asked about item {n}, answer with the word {n} and nothing else."));
+        List<ChatMessage> history = [ChatMessage.System($"Run {Guid.NewGuid()}\n{rules}"), ChatMessage.User("Say OK.")];
+
+        var first = await connection.Client.CompleteAsync(history, [], connection.Options, null, TestContext.Current.CancellationToken);
+        history.Add(first);
+        history.Add(ChatMessage.User("Item 7?"));
+        var second = await connection.Client.CompleteAsync(history, [], connection.Options, null, TestContext.Current.CancellationToken);
+
+        TestContext.Current.SendDiagnosticMessage($"first {first.PromptTokens} prompt tokens, {first.CachedTokens ?? 0} from the cache; second {second.PromptTokens}, {second.CachedTokens ?? 0} from the cache");
+        Assert.True(second.CachedTokens >= first.PromptTokens * 9 / 10, $"{second.CachedTokens} of {second.PromptTokens} from the cache");
     }
 
     /// <summary>

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Rust highlighting in the Code editor.
+- The command-line runner says how much of each prompt the server read from its cache.
 
 ### Changed
 - Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
@@ -14,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   small context or a server with no models say "the server".
 
 ### Fixed
+- Claude through OpenRouter, proxyapi.ru and other OpenAI-format servers costs several times less on
+  long tasks: each step reads the earlier ones from the server's prompt cache instead of paying for the
+  whole conversation again.
 - NVIDIA's Instant Replay (ShadowPlay) no longer turns off while the agent works. Sloperator still
   leaves its own windows out of the agent's screenshots, in a way recorders don't take for protected video.
 - A server that cuts replies short on its own cuts one reply per task at most: after it, Sloperator

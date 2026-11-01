@@ -297,6 +297,30 @@ public class ChatClientTests
     }
 
     [Fact]
+    public void The_prompt_is_asked_to_be_cached()
+    {
+        // Claude through OpenRouter and proxyapi.ru caches only when asked (tried 2026-11-01).
+        var request = OpenAiChatClient.BuildRequest([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "anthropic/claude-haiku-5.5" });
+        Assert.Equal("ephemeral", (string?)request["cache_control"]?["type"]);
+        // A server that turned the extras down gets none of them.
+        Assert.Null(OpenAiChatClient.BuildRequest([ChatMessage.User("hi")], [], new ChatRequestOptions(), sendExtras: false)["cache_control"]);
+    }
+
+    [Theory]
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":4679}}""", 4679)] // OpenRouter, proxyapi.ru
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4,"cache_read_input_tokens":4679}""", 4679)] // LiteLLM's Anthropic name alone
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4}""", null)]
+    public async Task The_cached_part_of_the_prompt_is_read_from_usage(string usage, int? cached)
+    {
+        var sse = Sse.Text("OK").Replace("data: [DONE]", $"data: {{\"choices\":[],\"usage\":{usage}}}\n\ndata: [DONE]");
+
+        var reply = await OpenAiChatClient.ReadStreamAsync(new StringReader(sse), null, CancellationToken.None);
+
+        Assert.Equal(4683, reply.PromptTokens);
+        Assert.Equal(cached, reply.CachedTokens);
+    }
+
+    [Fact]
     public void Effort_goes_as_reasoning_effort()
     {
         var options = new ChatRequestOptions { Model = "gpt-5.6", Effort = "high" };
