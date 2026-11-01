@@ -376,7 +376,7 @@ public sealed partial class MainWindowViewModel
             AssistantMessageItem a => new ChatEntry
             {
                 Kind = ChatEntryKind.Assistant, Text = a.Text, Reasoning = a.Reasoning, Ended = a.Ended, Sent = a.SentAt, FirstWords = a.FirstWords,
-                Capture = a.Capture?.Path, Caption = a.Capture is null || a.Caption.Length == 0 ? null : a.Caption,
+                Captures = a.Captures.Count == 0 ? null : a.Captures.Select(c => new ReplyCapture { Path = c.Picture.Path, Caption = c.HasCaption ? c.Caption : null }).ToList(),
             },
             ToolCallItem t => new ChatEntry
             {
@@ -418,8 +418,10 @@ public sealed partial class MainWindowViewModel
         {
             Text = e.Text ?? "", Reasoning = e.Reasoning ?? "", IsStreaming = false, Ended = e.Ended, SentAt = e.Sent, FirstWords = e.FirstWords,
         };
-        if (e.Capture is { } capture)
-            reply.ShowCapture(capture, e.Caption, previews);
+        if (e.Captures is { Count: > 0 } captures)
+            reply.ShowCaptures(captures.Select(c => (c.Path, c.Caption)), previews);
+        else if (e.Capture is { } capture)
+            reply.ShowCaptures([(capture, e.Caption)], previews);
         return reply;
     }
 

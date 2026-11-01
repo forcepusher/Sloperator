@@ -170,8 +170,69 @@ public class CaptureResultTests : IDisposable
         Assert.Contains("off the screen", (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, Box(-300, 10, 200, 100)))).Message);
         await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, Box(10, 10, 0, 100)));
         await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["x"] = 10, ["y"] = 10 }));
-        await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "Paint", ["x"] = 1, ["y"] = 1, ["width"] = 10, ["height"] = 10 }));
+        platform.Windows = [new("Untitled - Paint", new ScreenRect(0, 0, 400, 300))];
+        Assert.Contains("isn't on the window", (await Assert.ThrowsAsync<ToolArgumentException>(() =>
+            Capture(ctx, new JsonObject { ["window"] = "Paint", ["x"] = 500, ["y"] = 500, ["width"] = 10, ["height"] = 10 }))).Message);
         Assert.Empty(platform.Captures);
+    }
+
+    [Fact]
+    public async Task A_window_under_another_is_brought_to_the_front_first()
+    {
+        var app = new ScreenWindow("My App", new ScreenRect(100, 100, 600, 400));
+        var platform = new FakePlatform { Screens = [Plain], Windows = [new("Terminal", new ScreenRect(0, 0, 800, 600)), app] };
+        var ctx = Ctx(platform);
+
+        await Capture(ctx, new JsonObject { ["window"] = "My App" });
+        Assert.Equal(["My App"], platform.BroughtToFront);
+
+        // In front already, or no window named: nothing moves.
+        await Capture(ctx, new JsonObject { ["window"] = "My App" });
+        await Capture(ctx, Box(0, 0, 100, 100));
+        Assert.Equal(["My App"], platform.BroughtToFront);
+    }
+
+    [Fact]
+    public async Task The_after_takes_the_same_part_of_the_window_wherever_it_opens()
+    {
+        var platform = new FakePlatform { Screens = [Plain, Scaled], Windows = [new("Shop - My App", new ScreenRect(100, 100, 600, 400))] };
+        var ctx = Ctx(platform);
+
+        // The before: the button, a box in the app's window.
+        var before = await Capture(ctx, new JsonObject { ["window"] = "My App", ["x"] = 150, ["y"] = 300, ["width"] = 120, ["height"] = 40 });
+        Assert.Equal(new ScreenRect(150, 300, 120, 40), platform.Captures[^1]);
+        Assert.Contains("part of the window \"Shop - My App\" as capture 1, 120x40", before.Text);
+        Assert.Contains("the same part of the same window is taken again", before.Text);
+
+        // Run again, the app opens elsewhere, on the other screen: compare alone takes the same part of it.
+        platform.Windows = [new("Shop - My App", new ScreenRect(1700, 200, 600, 400))];
+        var after = await Capture(ctx, new JsonObject { ["compare"] = new JsonArray(1) });
+        Assert.Equal(new ScreenRect(1750, 400, 120, 40), platform.Captures[^1]);
+        Assert.Contains("the same part of the window \"Shop - My App\" as capture 2, 120x40, and put it after capture 1", after.Text);
+        Assert.Equal("Capture the result like capture 1, beside it", new CaptureResultTool().Describe(new JsonObject { ["compare"] = new JsonArray(1) }));
+
+        // Naming the window again does the same; a box of its own is a new view.
+        await Capture(ctx, new JsonObject { ["window"] = "my app", ["compare"] = new JsonArray(1) });
+        Assert.Equal(new ScreenRect(1750, 400, 120, 40), platform.Captures[^1]);
+        await Capture(ctx, new JsonObject { ["x"] = 0, ["y"] = 0, ["width"] = 50, ["height"] = 50, ["compare"] = new JsonArray(1) });
+        Assert.Equal(new ScreenRect(0, 0, 50, 50), platform.Captures[^1]);
+
+        // A window too small for the part now: said, nothing captured.
+        platform.Windows = [new("Shop - My App", new ScreenRect(100, 100, 40, 40))];
+        var count = platform.Captures.Count;
+        Assert.Contains("no longer has the part capture 1 took", (await Assert.ThrowsAsync<ToolArgumentException>(() =>
+            Capture(ctx, new JsonObject { ["compare"] = new JsonArray(1) }))).Message);
+        Assert.Equal(count, platform.Captures.Count);
+
+        // A box on the screen alone is the same box again; a whole window the whole window.
+        platform.Windows = [new("Shop - My App", new ScreenRect(100, 100, 600, 400))];
+        await Capture(ctx, Box(10, 20, 30, 40));
+        await Capture(ctx, new JsonObject { ["compare"] = "capture 5" });
+        Assert.Equal(new ScreenRect(10, 20, 30, 40), platform.Captures[^1]);
+        await Capture(ctx, new JsonObject { ["window"] = "My App" });
+        platform.Windows = [new("Shop - My App", new ScreenRect(300, 50, 500, 300))];
+        await Capture(ctx, new JsonObject { ["compare"] = 7 });
+        Assert.Equal(new ScreenRect(300, 50, 500, 300), platform.Captures[^1]);
     }
 
     [Fact]
@@ -182,10 +243,11 @@ public class CaptureResultTests : IDisposable
         Assert.Equal(ToolRisk.ReadOnly, new CaptureResultTool().Risk);
 
         var screens = new[] { new ScreenSpace(Plain, (1600, 896)) };
-        Assert.Contains("capture it with capture_result, cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
-        Assert.Contains("capture it with capture_result before your first change: you'll pass it in compare with the result at the end", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
-        Assert.DoesNotContain("before your first change", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
-        Assert.Contains("capture it with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
+        Assert.Contains("show it to the user with capture_result (run or open it if it isn't showing), cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
+        Assert.Contains("before your first change, capture how it looks with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
+        Assert.Contains("at the end, capture the result with its number in compare, which takes the same view again", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
+        Assert.Contains("before your first change", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
+        Assert.Contains("show it to the user with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
         Assert.DoesNotContain("capture_result", SystemPrompt.Build("Test OS", null, "C:\\", ""));
     }
 

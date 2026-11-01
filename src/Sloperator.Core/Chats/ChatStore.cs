@@ -56,9 +56,12 @@ public sealed class ChatEntry
     public DateTime? Ended { get; set; }
 
     /// <summary>
-    /// For a run's last reply: the last picture of its work the run took with capture_result (a PNG in
-    /// the chat's folder), shown in the reply under its words, with the caption the model gave it.
+    /// For a run's last reply: the pictures of its work the run took with capture_result (PNGs in the
+    /// chat's folder), shown in the reply under its words, each with the caption the model gave it.
     /// </summary>
+    public List<ReplyCapture>? Captures { get; set; }
+
+    /// <summary>The one picture under a reply in chats saved before a reply had several (1 November 2026); read, not written.</summary>
     public string? Capture { get; set; }
 
     /// <inheritdoc cref="Capture"/>
@@ -72,6 +75,13 @@ public sealed class ChatEntry
 
     /// <summary>On the line a run ended with: how long the run took, from the message that started it.</summary>
     public TimeSpan? RunTook { get; set; }
+}
+
+/// <summary>A picture of the work under a reply, with the model's caption (see <see cref="ChatEntry.Captures"/>).</summary>
+public sealed class ReplyCapture
+{
+    public string Path { get; set; } = "";
+    public string? Caption { get; set; }
 }
 
 /// <summary>

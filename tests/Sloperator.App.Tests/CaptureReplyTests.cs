@@ -11,8 +11,8 @@ using Xunit;
 namespace Sloperator.App.Tests;
 
 /// <summary>
-/// The picture of its work a run ends with (capture_result): in the run's last reply, under its
-/// words, with the model's caption under it; saved with the chat and back when it is opened again.
+/// The pictures of its work a run took (capture_result): in the run's last reply, under its words,
+/// each with the model's caption under it; saved with the chat and back when it is opened again.
 /// </summary>
 public sealed class CaptureReplyTests : IDisposable
 {
@@ -40,6 +40,54 @@ public sealed class CaptureReplyTests : IDisposable
         new("c" + file.GetHashCode(), "capture_result", "Capture the result") { Arguments = arguments, SavedFiles = [file], State = ToolItemState.Done, At = at };
 
     [Fact]
+    public void Every_thing_the_run_showed_goes_in_its_last_reply_once()
+    {
+        var button = Png("capture-1.png", 64, 40);
+        var page = Png("capture-2.png", 64, 40);
+        var firstTry = Png("capture-3-compared.png", 140, 60);
+        var buttonAfter = Png("capture-4-compared.png", 140, 60);
+        var services = new PreviewServices(null, () => null);
+        var started = DateTime.UtcNow;
+
+        var (shown, loaded) = HeadlessApp.Run(() =>
+        {
+            var reply = new AssistantMessageItem { Text = "Made the button green and added the page.", IsStreaming = false, At = started.AddSeconds(30) };
+            List<ChatItemViewModel> items =
+            [
+                new UserMessageItem("Make the button green, and add an About page") { At = started },
+                Capture(button, """{"window":"My App","x":10,"y":10,"width":50,"height":20}""", started.AddSeconds(1)),
+                Capture(page, """{"window":"About","caption":"The new page"}""", started.AddSeconds(5)),
+                Capture(firstTry, """{"compare":[1]}""", started.AddSeconds(10)),
+                Capture(buttonAfter, """{"compare":[1],"caption":"The button, before and after"}""", started.AddSeconds(20)),
+                reply,
+            ];
+            MainWindowViewModel.ShowCaptureInReply(items, started, services);
+            var store = new ChatStore(_dir);
+            store.Save(new SavedChat { Id = "chat", Title = "Button", Entries = items.Select(MainWindowViewModel.ToEntry).ToList() });
+            var reopened = MainWindowViewModel.ReplyFrom(store.Load("chat")!.Entries.Last(e => e.Kind == ChatEntryKind.Assistant), services);
+            return (reply.Captures.Select(c => (c.Picture.Path, c.Caption)).ToList(), reopened.Captures.Select(c => (c.Picture.Path, c.Caption)).ToList());
+        });
+
+        // The before is in its comparison, and the first try gave way to the one taken again.
+        List<(string, string)> expected = [(page, "The new page"), (buttonAfter, "The button, before and after")];
+        Assert.Equal(expected, shown);
+        Assert.Equal(expected, loaded);
+    }
+
+    [Fact]
+    public void A_chat_saved_with_one_picture_under_a_reply_still_shows_it()
+    {
+        var picture = Png("capture-1.png", 64, 40);
+        var services = new PreviewServices(null, () => null);
+        var shown = HeadlessApp.Run(() =>
+        {
+            var reply = MainWindowViewModel.ReplyFrom(new ChatEntry { Kind = ChatEntryKind.Assistant, Text = "Done.", Capture = picture, Caption = "The chart" }, services);
+            return reply.Captures.Select(c => (c.Picture.Path, c.Caption)).ToList();
+        });
+        Assert.Equal([(picture, "The chart")], shown);
+    }
+
+    [Fact]
     public void The_last_capture_of_a_run_goes_in_its_last_reply_and_comes_back_with_the_chat()
     {
         var before = Png("capture-1.png", 64, 40);
@@ -57,7 +105,7 @@ public sealed class CaptureReplyTests : IDisposable
                 Capture(before, "{}", started.AddMinutes(-3)),
                 earlier,
                 new UserMessageItem("Make a chart") { At = started },
-                Capture(first, """{"caption":"First try"}""", started.AddSeconds(10)),
+                Capture(first, """{"window":"Excel","caption":"First try"}""", started.AddSeconds(10)),
                 Capture(last, """{"window":"Excel","caption":"The chart, by month"}""", started.AddSeconds(20)),
                 reply,
             ];
@@ -68,7 +116,8 @@ public sealed class CaptureReplyTests : IDisposable
             store.Save(new SavedChat { Id = "chat", Title = "Make a chart", Entries = items.Select(MainWindowViewModel.ToEntry).ToList() });
             var entry = store.Load("chat")!.Entries.Last(e => e.Kind == ChatEntryKind.Assistant);
             var reopened = MainWindowViewModel.ReplyFrom(entry, services);
-            return ((reply.Capture?.Path, reply.Caption), earlier.HasCapture, (reopened.Capture?.Path, reopened.Caption), Laid(reopened));
+            return ((reply.Captures.Single().Picture.Path, reply.Captures.Single().Caption), earlier.HasCapture,
+                (reopened.Captures.Single().Picture.Path, reopened.Captures.Single().Caption), Laid(reopened));
         });
 
         Assert.Equal((last, "The chart, by month"), inReply);
@@ -103,14 +152,15 @@ public sealed class CaptureReplyTests : IDisposable
         Assert.False(noCapture);
         Assert.False(failedCapture);
         Assert.False(noReply);
-        Assert.Null(MainWindowViewModel.ToEntry(new AssistantMessageItem { Text = "x", IsStreaming = false }).Capture);
+        Assert.Null(MainWindowViewModel.ToEntry(new AssistantMessageItem { Text = "x", IsStreaming = false }).Captures);
     }
 
     /// <summary>The reply in the chat's own templates: where its words end, its preview and picture, whether the preview names the file, and where its caption starts.</summary>
     private static (double TextBottom, Rect Preview, Rect Picture, bool Footer, double CaptionTop) Laid(AssistantMessageItem reply)
     {
         // The picture is read in the background.
-        for (var i = 0; i < 200 && reply.Capture?.Image is null; i++)
+        var shown = reply.Captures.Single();
+        for (var i = 0; i < 200 && shown.Picture.Image is null; i++)
         {
             Thread.Sleep(10);
             Dispatcher.UIThread.RunJobs();
@@ -129,11 +179,11 @@ public sealed class CaptureReplyTests : IDisposable
         {
             Rect Box(Control c) => new(c.TranslatePoint(new Point(0, 0), scroll)!.Value, c.Bounds.Size);
             var text = scroll.GetVisualDescendants().OfType<MarkdownView>().Single(m => m.IsEffectivelyVisible);
-            var picture = scroll.GetVisualDescendants().OfType<Image>().Single(i => i.Source == reply.Capture!.Image && i.IsEffectivelyVisible);
+            var picture = scroll.GetVisualDescendants().OfType<Image>().Single(i => i.Source == shown.Picture.Image && i.IsEffectivelyVisible);
             var preview = picture.GetVisualAncestors().OfType<Border>().First(b => b.Classes.Contains("preview"));
-            var footer = preview.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == reply.Capture!.FileName && t.IsEffectivelyVisible)
+            var footer = preview.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == shown.Picture.FileName && t.IsEffectivelyVisible)
                 && preview.GetVisualDescendants().OfType<Button>().Any(b => Equals(b.Content, "Inspect") && b.IsEffectivelyVisible);
-            var caption = scroll.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == reply.Caption && t.IsEffectivelyVisible);
+            var caption = scroll.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == shown.Caption && t.IsEffectivelyVisible);
             return (Box(text).Bottom, Box(preview), Box(picture), footer, Box(caption).Top);
         }
         finally
