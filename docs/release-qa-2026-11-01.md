@@ -81,7 +81,9 @@ picture"), a picture copied into its folder as ComfyUI would (listed and shown i
 again on with its tooltip), version 1 picked, a part marked ("Area of version 1 · Untitled picture", the
 crop and the mask in Data\pasted) and sent: the model was told the redraw_area run with both files. The
 Video editor opened by its new name. The dropdown lists None, Auto, File changes, File inspector, Code
-editor, Image editor, Video editor, Web preview, Terminal. Settings → Advanced → Updates: "Version 1.3.0";
+editor, Image editor, Video editor, Web preview, Terminal. Settings → Advanced → Updates: "Version 1.3.0"
+beside Check for updates, then "Version 1.3.0 · Checking…" and "Version 1.3.0 · Up to date" against GitHub
+(feature/version-status, merged into the release branch on the user's word; the exe published again);
 General: "Tool call approval". Nothing in errors.log.
 
 Found and fixed: after a PowerShell error the Terminal listed an empty line (the error record ends in a
