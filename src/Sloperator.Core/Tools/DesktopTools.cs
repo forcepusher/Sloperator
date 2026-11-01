@@ -596,7 +596,8 @@ public sealed class PressKeysTool : DesktopActionTool
                 switch (step.Kind)
                 {
                     case StepKind.Wait:
-                        await PauseAsync(TimeSpan.FromSeconds(step.Seconds), ctx, ct).ConfigureAwait(false);
+                        if (await PauseAsync(TimeSpan.FromSeconds(step.Seconds), ctx, ct).ConfigureAwait(false))
+                            return $"Did {i + 1} of {total} steps, the last cut short; the rest was not done, {UserStopped}.";
                         break;
                     case StepKind.Hold:
                         foreach (var key in step.Keys.Where(k => !held.Exists(h => Same(h.Key, k))))

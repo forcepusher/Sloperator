@@ -445,6 +445,18 @@ public class ToolTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("hold w", "wait 10") }, Ctx(platform), stop.Token));
         Assert.Equal(["hold w", "release w"], platform.Actions);
 
+        // A key of the user's mid-wait ends it there, says so, and held keys still come up; even as the last step.
+        var user = new FakeUserInput();
+        var shared = new FakePlatform { UserInput = user };
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        var walking = new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("hold w", "wait 10") }, Ctx(shared), CancellationToken.None);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        user.Press();
+        result = await walking;
+        Assert.Equal("Did 2 of 2 steps, the last cut short; the rest was not done, as the user pressed a key or clicked meanwhile.", result.Text);
+        Assert.Equal(["hold w", "release w"], shared.Actions);
+        Assert.True(waited.Elapsed < TimeSpan.FromSeconds(5), $"waited {waited.ElapsedMilliseconds} ms");
+
         // A wait without seconds is caught before anything is pressed.
         platform.Actions.Clear();
         await Assert.ThrowsAsync<ToolArgumentException>(() => new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("w", "wait soon") }, Ctx(platform), CancellationToken.None));
