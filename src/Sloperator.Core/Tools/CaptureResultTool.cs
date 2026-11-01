@@ -73,11 +73,11 @@ public sealed partial class CaptureResultTool : Tool
         var same = shownFile is null && !HasBox(args) && compare.Count > 0 && CaptureNumber(compare[0]) is { } before
             && ReadView(folder, before) is { } taken && (window is not { Length: > 0 } || string.Equals(window, taken.Window, StringComparison.OrdinalIgnoreCase))
             ? (before, taken) : ((int Number, View View)?)null;
-        var (region, screen, what, view) = shownFile is not null ? (default, ctx.CurrentScreen, $"the picture {Path.GetFileName(shownFile)}", null)
+        var (region, screen, what, view, covered) = shownFile is not null ? (default, ctx.CurrentScreen, $"the picture {Path.GetFileName(shownFile)}", null, null)
             : same is { } sameAs ? SameRegion(ctx, sameAs.View, sameAs.Number)
             : window is { Length: > 0 } ? WindowRegion(ctx, window, HasBox(args) ? BoxRegion(ctx, args).Region : null)
             : HasBox(args) ? BoxRegion(ctx, args)
-            : (ctx.GetScreenSpace().Screen, ctx.CurrentScreen, "the screen", new View(null, ctx.CurrentScreen, null));
+            : (ctx.GetScreenSpace().Screen, ctx.CurrentScreen, "the screen", new View(null, ctx.CurrentScreen, null), null);
         // Read before anything is captured: an earlier picture that isn't there is the model's to fix first.
         var earlier = compare.Select(c => Earlier(c, folder, ctx)).ToList();
         var labels = Labels(args, earlier.Count);
@@ -85,6 +85,9 @@ public sealed partial class CaptureResultTool : Tool
             ? wanted < 1 ? throw new ToolArgumentException("columns is how many pictures go in a row: 1 or more.") : (int)Math.Min(wanted, earlier.Count + 1)
             : (int?)null;
 
+        // A window under another (the terminal that started it, the editor) is captured as it shows.
+        if (covered is { } under)
+            ctx.Platform.Screen.BringToFront(under);
         // Fresh, without the pointer: the click marker and the log are never in a capture.
         var frame = shownFile is not null ? Read(shownFile) : ctx.Platform.Screen.Capture(region, includeCursor: false);
         var took = shownFile is not null ? "Took" : "Captured";
@@ -106,7 +109,7 @@ public sealed partial class CaptureResultTool : Tool
                     _ => "; with no window or box, the same is taken again",
                 };
                 var text = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}. " +
-                           $"The user sees it at full size in the chat, the last you capture under your final reply{captioned}. " +
+                           $"The user sees it at full size in the chat and under your final reply{captioned}, with your other captures; taking the same again replaces it there. " +
                            $"If it doesn't show what they asked for, fix that and capture it again. Taken before a change, pass compare=[{number}] " +
                            $"when you capture the result, to show them side by side{again}.";
                 return Task.FromResult(new ToolResult(text, ForModel(image, ctx.GetScreenSpace(screen)), ImageCaption: "What the user now sees of your work:", Files: [file]));
@@ -117,7 +120,7 @@ public sealed partial class CaptureResultTool : Tool
             using (var stream = File.Create(compared))
                 png.SaveTo(stream);
             var shown = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}, and put it after {string.Join(", ", earlier.Select(e => e.Name))}: " +
-                        $"the user sees them in one picture, labelled {string.Join(", ", labels.Select(l => $"\"{l}\""))}, the last you capture under your final reply{captioned}. " +
+                        $"the user sees them in one picture, labelled {string.Join(", ", labels.Select(l => $"\"{l}\""))}, under your final reply{captioned}, with your other captures. " +
                         "If the change doesn't show, fix that and capture it again.";
             return Task.FromResult(new ToolResult(shown, ForModel(all, ctx.GetScreenSpace(screen)), ImageCaption: "What the user now sees of your work, compared:", Files: [compared]));
         }
@@ -138,38 +141,41 @@ public sealed partial class CaptureResultTool : Tool
     /// The window <paramref name="title"/> names, cut to the screen it is mostly on, or the part of it
     /// in <paramref name="box"/> (screen pixels); an argument error for a box that misses it.
     /// </summary>
-    private static (ScreenRect Region, int Screen, string What, View? View) WindowRegion(ToolContext ctx, string title, ScreenRect? box)
+    private static (ScreenRect Region, int Screen, string What, View? View, ScreenWindow? Covered) WindowRegion(ToolContext ctx, string title, ScreenRect? box)
     {
-        var (found, best) = FindWindow(ctx, title);
+        var (found, best, covered) = FindWindow(ctx, title);
         if (box is not { } b)
-            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", new View(title, best, null));
+            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", new View(title, best, null), covered);
         var part = Intersect(b, found.Bounds);
         if (part.Width == 0 || part.Height == 0)
             throw new ToolArgumentException($"The box isn't on the window \"{found.Title}\": give one inside it, in screenshot coordinates.");
         return (part, ctx.CurrentScreen, $"part of the window \"{found.Title}\"",
-            new View(title, ctx.CurrentScreen, part with { X = part.X - found.Bounds.X, Y = part.Y - found.Bounds.Y }));
+            new View(title, ctx.CurrentScreen, part with { X = part.X - found.Bounds.X, Y = part.Y - found.Bounds.Y }), covered);
     }
 
     /// <summary>What capture <paramref name="number"/> took, again: its window found where it is now, and the same part of it.</summary>
-    private static (ScreenRect Region, int Screen, string What, View? View) SameRegion(ToolContext ctx, View view, int number)
+    private static (ScreenRect Region, int Screen, string What, View? View, ScreenWindow? Covered) SameRegion(ToolContext ctx, View view, int number)
     {
         if (view.Window is not { } title)
         {
             var screen = view.Screen < ctx.Screens.Count ? view.Screen : ctx.CurrentScreen;
-            return (view.Part ?? ctx.Screens[screen], screen, view.Part is null ? "the screen" : $"the box capture {number} took", view);
+            return (view.Part ?? ctx.Screens[screen], screen, view.Part is null ? "the screen" : $"the box capture {number} took", view, null);
         }
-        var (found, best) = FindWindow(ctx, title);
+        var (found, best, covered) = FindWindow(ctx, title);
         if (view.Part is not { } p)
-            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", view);
+            return (Intersect(found.Bounds, ctx.Screens[best]), best, $"the window \"{found.Title}\"", view, covered);
         var part = Intersect(Intersect(new ScreenRect(found.Bounds.X + p.X, found.Bounds.Y + p.Y, p.Width, p.Height), found.Bounds), ctx.Screens[best]);
         if (part.Width == 0 || part.Height == 0)
             throw new ToolArgumentException($"The window \"{found.Title}\" no longer has the part capture {number} took ({p.Width}x{p.Height} at {p.X}, {p.Y} from its corner; " +
                                             $"it is {found.Bounds.Width}x{found.Bounds.Height} now): give the window and a box.");
-        return (part, best, $"the same part of the window \"{found.Title}\"", view);
+        return (part, best, $"the same part of the window \"{found.Title}\"", view, covered);
     }
 
-    /// <summary>The frontmost window whose title is <paramref name="title"/> or has it in it, and the screen it is mostly on.</summary>
-    private static (ScreenWindow Window, int Screen) FindWindow(ToolContext ctx, string title)
+    /// <summary>
+    /// The frontmost window whose title is <paramref name="title"/> or has it in it, the screen it is
+    /// mostly on, and the window again when another program's is in front of it.
+    /// </summary>
+    private static (ScreenWindow Window, int Screen, ScreenWindow? Covered) FindWindow(ToolContext ctx, string title)
     {
         var windows = ctx.Platform.Screen.GetWindows();
         var found = windows.FirstOrDefault(w => w.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } exact ? exact
@@ -186,11 +192,11 @@ public sealed partial class CaptureResultTool : Tool
                 (best, area) = (i, (long)part.Width * part.Height);
         if (best < 0)
             throw new ToolArgumentException($"The window \"{found.Title}\" is off the screen: move it onto the screen first.");
-        return (found, best);
+        return (found, best, windows[0] == found ? null : found);
     }
 
     /// <summary>The box the model gave, in screenshot coordinates of the screen it looks at, cut to that screen.</summary>
-    private static (ScreenRect Region, int Screen, string What, View? View) BoxRegion(ToolContext ctx, JsonObject args)
+    private static (ScreenRect Region, int Screen, string What, View? View, ScreenWindow? Covered) BoxRegion(ToolContext ctx, JsonObject args)
     {
         var (x, y, width, height) = (GetNumber(args, "x"), GetNumber(args, "y"), GetNumber(args, "width"), GetNumber(args, "height"));
         if (x is null || y is null || width is null || height is null)
@@ -202,7 +208,7 @@ public sealed partial class CaptureResultTool : Tool
         if (region.Width == 0 || region.Height == 0)
             throw new ToolArgumentException(string.Create(CultureInfo.InvariantCulture,
                 $"The box ({x}, {y}), {width}x{height} is off the screen, which is {space.ImageWidth}x{space.ImageHeight} in screenshot coordinates."));
-        return (region, ctx.CurrentScreen, string.Create(CultureInfo.InvariantCulture, $"the box at ({x}, {y}), {width}x{height}"), new View(null, ctx.CurrentScreen, region));
+        return (region, ctx.CurrentScreen, string.Create(CultureInfo.InvariantCulture, $"the box at ({x}, {y}), {width}x{height}"), new View(null, ctx.CurrentScreen, region), null);
     }
 
     private static string ViewPath(string folder, int number) => Path.Combine(folder, $"capture-{number}.json");
@@ -248,6 +254,31 @@ public sealed partial class CaptureResultTool : Tool
 
     /// <summary>An earlier picture to compare with, and what the model calls it ("capture 2", a file's name).</summary>
     private sealed record Shown(string Name, RawImage Picture);
+
+    /// <summary>
+    /// Which of a run's captures go under its final reply (their indexes), given each one's arguments
+    /// and saved file in the order they were taken: one per thing shown, the last taken of it (taken
+    /// again after a fix, it replaces the first), and no before that a comparison shows.
+    /// </summary>
+    public static List<int> UnderReply(IReadOnlyList<(JsonObject? Args, string File)> captures)
+    {
+        static string Key(string given) => (CaptureNumber(given) ?? CaptureNumber(Path.GetFileName(given))) is { } n ? $"capture {n}" : given.ToLowerInvariant();
+        var compared = captures.Select(c => c.Args is null ? [] : Items(c.Args, "compare")).ToList();
+        var befores = compared.SelectMany(c => c).Select(Key).ToHashSet();
+        var last = new Dictionary<string, int>();
+        for (var i = 0; i < captures.Count; i++)
+        {
+            var args = captures[i].Args ?? [];
+            if (compared[i].Count == 0 && befores.Contains(Key(captures[i].File)))
+                continue;
+            var box = string.Join(",", new[] { "x", "y", "width", "height" }.Select(k => GetNumber(args, k)));
+            last[compared[i].Count > 0 ? "after " + Key(compared[i][0])
+                : GetString(args, "file") is { Length: > 0 } file ? "file " + file.Trim().ToLowerInvariant()
+                : GetString(args, "window") is { Length: > 0 } window ? $"window {window.Trim().ToLowerInvariant()} {box}"
+                : $"screen {box}"] = i;
+        }
+        return [.. last.Values.Order()];
+    }
 
     /// <summary>"2", "capture 2", "capture-2.png", "#2": the number of an earlier capture; null for anything else (a path).</summary>
     private static int? CaptureNumber(string given) =>

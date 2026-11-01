@@ -177,6 +177,22 @@ public class CaptureResultTests : IDisposable
     }
 
     [Fact]
+    public async Task A_window_under_another_is_brought_to_the_front_first()
+    {
+        var app = new ScreenWindow("My App", new ScreenRect(100, 100, 600, 400));
+        var platform = new FakePlatform { Screens = [Plain], Windows = [new("Terminal", new ScreenRect(0, 0, 800, 600)), app] };
+        var ctx = Ctx(platform);
+
+        await Capture(ctx, new JsonObject { ["window"] = "My App" });
+        Assert.Equal(["My App"], platform.BroughtToFront);
+
+        // In front already, or no window named: nothing moves.
+        await Capture(ctx, new JsonObject { ["window"] = "My App" });
+        await Capture(ctx, Box(0, 0, 100, 100));
+        Assert.Equal(["My App"], platform.BroughtToFront);
+    }
+
+    [Fact]
     public async Task The_after_takes_the_same_part_of_the_window_wherever_it_opens()
     {
         var platform = new FakePlatform { Screens = [Plain, Scaled], Windows = [new("Shop - My App", new ScreenRect(100, 100, 600, 400))] };
@@ -227,11 +243,11 @@ public class CaptureResultTests : IDisposable
         Assert.Equal(ToolRisk.ReadOnly, new CaptureResultTool().Risk);
 
         var screens = new[] { new ScreenSpace(Plain, (1600, 896)) };
-        Assert.Contains("capture it with capture_result, cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
+        Assert.Contains("show it to the user with capture_result (run or open it if it isn't showing), cropped to what you made", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
         Assert.Contains("before your first change, capture how it looks with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
         Assert.Contains("at the end, capture the result with its number in compare, which takes the same view again", SystemPrompt.Build("Test OS", screens, "C:\\", ""));
-        Assert.DoesNotContain("before your first change", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
-        Assert.Contains("capture it with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
+        Assert.Contains("before your first change", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
+        Assert.Contains("show it to the user with capture_result", SystemPrompt.Build("Test OS", screens, "C:\\", "", control: false));
         Assert.DoesNotContain("capture_result", SystemPrompt.Build("Test OS", null, "C:\\", ""));
     }
 

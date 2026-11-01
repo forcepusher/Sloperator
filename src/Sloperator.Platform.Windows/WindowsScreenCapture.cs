@@ -63,10 +63,26 @@ internal sealed class WindowsScreenCapture : IScreenCapture
             // The frame as it shows: GetWindowRect counts Windows 10's invisible resize borders, some 7 px on three sides.
             if (DwmGetWindowAttribute(w, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT r, Marshal.SizeOf<RECT>()) != 0 && !GetWindowRect(w, out r)) return true;
             if (r.Right > r.Left && r.Bottom > r.Top)
-                windows.Add(new ScreenWindow(new string(title, 0, length), new ScreenRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top)));
+                windows.Add(new ScreenWindow(new string(title, 0, length), new ScreenRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top), w));
             return true;
         }, 0);
         return windows;
+    }
+
+    /// <summary>
+    /// Always-on-top for a moment, then not, as Sloperator's own window comes back on top: HWND_TOP
+    /// from a process that isn't the active one is ignored. One that is always-on-top keeps that.
+    /// </summary>
+    public void BringToFront(ScreenWindow window)
+    {
+        if (window.Handle == 0 || !IsWindowVisible(window.Handle))
+            return;
+        const uint flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+        var topmost = (GetWindowLongPtr(window.Handle, GWL_EXSTYLE) & (nint)WS_EX_TOPMOST) != 0;
+        SetWindowPos(window.Handle, HWND_TOPMOST, 0, 0, 0, 0, flags);
+        if (!topmost)
+            SetWindowPos(window.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+        Thread.Sleep(100); // a frame or two for the screen to show it where it was covered
     }
 
     public RawImage Capture(ScreenRect region, bool includeCursor)

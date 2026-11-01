@@ -329,15 +329,26 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// The last picture of its work the run took with capture_result, in the run's last reply under
-    /// its words, with the model's caption: the card it came on is one of many, up the chat.
+    /// The pictures of its work the run took with capture_result, in the run's last reply under its
+    /// words, with the model's captions: the cards they came on are among many, up the chat. Which
+    /// ones, <see cref="CaptureResultTool.UnderReply"/> says (a boss asked for screenshots of the work
+    /// wants each thing once, as it ended up).
     /// </summary>
     public static void ShowCaptureInReply(IReadOnlyList<ChatItemViewModel> items, DateTime started, PreviewServices previews)
     {
-        if (items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.HasText) is not { } reply
-            || items.OfType<ToolCallItem>().LastOrDefault(t => t.Name == "capture_result" && t.At >= started && t.State == ToolItemState.Done) is not { SavedFiles: [var picture] } capture)
+        if (items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.HasText) is not { } reply)
             return;
-        reply.ShowCapture(picture, CaptionOf(capture.Arguments), previews);
+        var captures = items.OfType<ToolCallItem>().Where(t => t.Name == "capture_result" && t.At >= started && t.State == ToolItemState.Done && t.SavedFiles is [_]).ToList();
+        if (captures.Count == 0)
+            return;
+        var shown = CaptureResultTool.UnderReply([.. captures.Select(c => (ArgumentsOf(c.Arguments), c.SavedFiles![0]))]);
+        reply.ShowCaptures(shown.Select(i => (captures[i].SavedFiles![0], CaptionOf(captures[i].Arguments))), previews);
+    }
+
+    private static System.Text.Json.Nodes.JsonObject? ArgumentsOf(string arguments)
+    {
+        try { return System.Text.Json.Nodes.JsonNode.Parse(arguments) as System.Text.Json.Nodes.JsonObject; }
+        catch (System.Text.Json.JsonException) { return null; }
     }
 
     /// <summary>The caption a capture_result call was given; null for none.</summary>

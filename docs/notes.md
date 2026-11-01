@@ -2935,15 +2935,23 @@ an internal switch for tests. The settings apply from the next message.
 
 `capture_result` exists because in test chats no model ever showed its finished work in its final
 reply: there was no tool for it, and the screen an action left is folded on its card. The prompt's
-"check the result" rule asks for it, cropped to the work, the whole screen only when that is the point
-(the same line for every model). The capture is fresh, without the pointer, at the screen's own
-resolution; a window is cut to its DWM frame (no invisible borders) and the screen it is mostly on,
-a box maps like a click's x/y. The user gets a PNG in the chat's folder (`Data/chats/<id>/capture-N.png`,
+"check the result" rule asks for it when the task was to make something to look at (an app, a page, a
+game, a chart), run or opened if it isn't showing, cropped to the work, the whole screen only when that
+is the point (the same line for every model). The user's measure: a boss who says "send me screenshots
+of what you've done", and for a change "what it was before and how it looks after". The capture is
+fresh, without the pointer, at the screen's own resolution; a window is cut to its DWM frame (no
+invisible borders) and the screen it is mostly on, a box maps like a click's x/y. A window another
+program's covers (the terminal that started it) is brought to the front first, always-on-top for a
+moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`Data/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the
 chat does), shown open on the card as a file preview; the model gets the same crop as a JPEG at the
 zoom's quality, no larger than a screenshot of that screen. The app names the chat when a run starts
-for this. When the run ends, its last capture also shows in its last reply, under the words, as the same
-picture preview the card has (name, size, Inspect, a click for full screen), with the caption under it (`ChatEntry.Capture`/`Caption`, so a reopened chat has it). A "done" claim whose only
+for this. When the run ends, its captures also show in its last reply, under the words, as the same
+picture preview the card has (name, size, Inspect, a click for full screen), each with its caption under
+it (`ChatEntry.Captures`, so a reopened chat has them; chats from before keep their one
+`Capture`/`Caption`). One per thing shown, the last taken of it, and no before that a comparison shows
+(`CaptureResultTool.UnderReply`): until 1 November 2026 only the run's last capture went there, so of
+three screens changed the user saw one. A "done" claim whose only
 calls are looks ends the turn, but not when one of them is `capture_result`.
 
 **Comparisons**: each capture says its number (capture-N.png). `file` makes a picture file the result
@@ -2968,7 +2976,8 @@ in screen coordinates then crops the wrong spot; the after needs no coordinates 
 There are no boxes around what changed: the user asked for the pictures alone (31 October 2026).
 The before/after is for the user to see what the work changed visually (a button from red to green),
 wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
-at the start, in its own rule right after "Start GUI tasks with a screenshot" ("When the task changes
+at the start, in its own rule after "Start GUI tasks with a screenshot", also when the mouse and
+keyboard are off (the agent still runs what it changes, and captures it) ("When the task changes
 how something looks …, the user wants to see that change: before your first change, capture how it
 looks with capture_result"), and in the tool's description. Said only in the "check the result"
 rule, which models read when finishing, Haiku took one in 0 of 2 runs (the Q3 budget window, "add a

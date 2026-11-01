@@ -663,12 +663,23 @@
                   <views:SelectableText Classes="muted" views:MarkdownText.Plain="{Binding ShownReasoning}" TextWrapping="Wrap" Margin="-16,-12" Padding="16,12" />
                 </Expander>
                 <views:MarkdownView Source="{Binding ShownText}" IsVisible="{Binding HasText}" />
-                <!-- The picture of its work the run ended with (capture_result), under the words, the model's caption under it. -->
-                <StackPanel Spacing="4" IsVisible="{Binding HasCapture}" Margin="0,2,0,0">
-                  <!-- The standard picture preview, as on the call's card: name, size, Inspect, Show in folder, a click for full screen. -->
-                  <ContentControl Content="{Binding Capture}" />
-                  <TextBlock Classes="muted" Text="{Binding Caption}" IsVisible="{Binding HasCaption}" TextWrapping="Wrap" />
-                </StackPanel>
+                <!-- The pictures of its work the run took (capture_result), under the words, each with the model's caption under it. -->
+                <ItemsControl ItemsSource="{Binding Captures}" IsVisible="{Binding HasCapture}" Margin="0,2,0,0">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="12" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ReplyPicture">
+                      <StackPanel Spacing="4">
+                        <!-- The standard picture preview, as on the call's card: name, size, Inspect, Show in folder, a click for full screen. -->
+                        <ContentControl Content="{Binding Picture}" />
+                        <TextBlock Classes="muted" Text="{Binding Caption}" IsVisible="{Binding HasCaption}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <TextBlock Classes="muted" Text="{Binding TypingText}" IsVisible="{Binding ShowTypingDots}" />
                 <ItemsControl ItemsSource="{Binding Previews}" IsVisible="{Binding HasPreviews}" Margin="0,4,0,0">
                   <ItemsControl.ItemsPanel>
