@@ -134,6 +134,10 @@
       <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
       <Setter Property="Data" Value="M16 4 6 12 16 20z" />
     </Style>
+    <!-- On text selected in the chat: points up at it. -->
+    <Style Selector="Border.attachment PathIcon.toolArrow.up">
+      <Setter Property="Data" Value="M4 16 12 6 20 16z" />
+    </Style>
     <Style Selector="Button.removeAttachment">
       <Setter Property="Width" Value="20" />
       <Setter Property="Height" Value="20" />
@@ -544,7 +548,9 @@
          as in a chat; what scrolls stops at the heading (MainWindow.FitIntroHeading). -->
     <ScrollViewer x:Name="ChatScroll" Grid.Row="3" Grid.RowSpan="2" HorizontalScrollBarVisibility="Disabled" BringIntoViewOnFocusChange="False"
                   Background="Transparent">
-      <StackPanel Classes="conversation" Classes.unused="{Binding ShowIntro}" MaxWidth="860" Margin="16,12,16,16" Spacing="12">
+      <!-- Text selected in it stays selected while the user types about it, and goes with the message (see MainWindow.OnChatReleased). -->
+      <StackPanel Classes="conversation" Classes.unused="{Binding ShowIntro}" MaxWidth="860" Margin="16,12,16,16" Spacing="12"
+                  views:SelectableText.KeepsSelection="True">
         <!-- Unclipped (an ItemsControl and a ContentControl clip to their bounds by default), so a
              message's text can reach past its sides: a drag in the gutter beside it starts a selection. -->
         <ItemsControl ItemsSource="{Binding Items}" ClipToBounds="False">
@@ -593,7 +599,7 @@
                         <DataTemplate x:DataType="vm:SidePanelCardItem">
                           <Border Classes="attachment file" Margin="6,0,0,6" ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                              <PathIcon Classes="toolArrow" />
+                              <PathIcon Classes="toolArrow" Classes.up="{Binding Quoted}" />
                               <PathIcon Data="{Binding Icon}" />
                               <StackPanel Spacing="1">
                                 <TextBlock Text="{Binding Title}" MaxWidth="260" TextTrimming="CharacterEllipsis" />
@@ -985,7 +991,19 @@
                  item keeps room above and to its right for the × that sits over its corner: the
                  list clips what goes past its edges, and the ×'s top was cut off. -->
             <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" IsVisible="{Binding HasAttachments}" Margin="4,2,4,6">
-              <!-- A panel's picks come first in the list (see MainWindowViewModel.Pick). -->
+              <!-- Text selected in the chat first (MainWindowViewModel.Quote): a pick's card, its arrow pointing up at the chat. -->
+              <Border Classes="attachment file" IsVisible="{Binding Quote, Converter={x:Static ObjectConverters.IsNotNull}}" MinHeight="36" Margin="0,8,12,0"
+                      ToolTip.Tip="{Binding Quote.Tip}" AutomationProperties.Name="{Binding Quote.Title}">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,10,0">
+                  <PathIcon Classes="toolArrow up" />
+                  <PathIcon Data="{Binding Quote.Icon}" />
+                  <StackPanel Spacing="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Quote.Title}" MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="muted" Text="{Binding Quote.Details}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <!-- A panel's picks come next (see MainWindowViewModel.Pick). -->
               <ItemsControl ItemsSource="{Binding Attachments}" IsVisible="{Binding HasAttachments}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>

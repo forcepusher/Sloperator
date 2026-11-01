@@ -113,10 +113,10 @@ public class MarkdownView : StackPanel
         }
     }
 
-    /// <summary>The block a drag started in lost its own selection with the focus: the rest of it goes too.</summary>
+    /// <summary>The block a drag started in lost its own selection with the focus: the rest of it goes too (not where text keeps it: the chat, File inspector).</summary>
     private void OnLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (KeepsSelection || _anchor is not null || e.Source is not SelectableTextBlock left)
+        if (SelectableText.GetKeepsSelection(this) || _anchor is not null || e.Source is not SelectableTextBlock left)
             return;
         foreach (var text in AllTexts)
             if (!ReferenceEquals(text, left) && !text.IsFocused && text.SelectionStart != text.SelectionEnd)
@@ -152,8 +152,21 @@ public class MarkdownView : StackPanel
         set => SetValue(SourceProperty, value);
     }
 
-    /// <summary>Its text keeps a selection when it loses focus (<see cref="KeptSelectionTextBlock"/>): set before <see cref="Source"/>.</summary>
-    public bool KeepsSelection { get; set; }
+    /// <summary>
+    /// File inspector's: a selection of one block, which it keeps when it loses focus (<see cref="SelectableText.KeepsSelectionProperty"/>),
+    /// and tables as lined-up text; set before <see cref="Source"/>.
+    /// </summary>
+    public bool KeepsSelection
+    {
+        get => _keepsSelection;
+        set
+        {
+            _keepsSelection = value;
+            SelectableText.SetKeepsSelection(this, value);
+        }
+    }
+
+    private bool _keepsSelection;
 
     /// <summary>Its blocks' text, each where it is among <see cref="MarkdownLite.Blocks(string)"/>.</summary>
     private IEnumerable<(int Block, SelectableTextBlock Text)> Texts =>
@@ -204,7 +217,7 @@ public class MarkdownView : StackPanel
             {
                 if (i < Children.Count)
                     Children.RemoveAt(i);
-                Children.Insert(i, block.IsCode ? new CodeBox(block, KeepsSelection) : parts is not null ? new MarkdownParts(parts) : TextPart(block.Text, KeepsSelection));
+                Children.Insert(i, block.IsCode ? new CodeBox(block) : parts is not null ? new MarkdownParts(parts) : TextPart(block.Text));
             }
         }
         while (Children.Count > blocks.Count)
@@ -222,12 +235,12 @@ public class MarkdownView : StackPanel
         }
     }
 
-    internal static SelectableTextBlock TextPart(string markdown, bool keep = false)
+    internal static SelectableTextBlock TextPart(string markdown)
     {
         // Its margin is its padding turned inside out: the text sits where it did, and a drag that
         // starts up to 12 pixels left or right of it, or 4 over or under it, selects from its first
         // or last letter, so the user needn't land on the letter itself.
-        var text = keep ? new KeptSelectionTextBlock() : new SelectableText();
+        var text = new SelectableText();
         text.TextWrapping = TextWrapping.Wrap;
         text.LineHeight = 21;
         text.Margin = new Thickness(-12, -4);
@@ -249,9 +262,9 @@ public class MarkdownView : StackPanel
 
         public SelectableTextBlock Code => _code;
 
-        public CodeBox(MdBlock block, bool keep)
+        public CodeBox(MdBlock block)
         {
-            _code = keep ? new KeptSelectionTextBlock() : new SelectableText();
+            _code = new SelectableText();
             _code.FontFamily = Mono;
             _code.TextWrapping = TextWrapping.Wrap;
             Classes.Add("code");

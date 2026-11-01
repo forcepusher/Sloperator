@@ -166,15 +166,20 @@ public sealed partial class AttachmentItem : ObservableObject, IDisposable
 }
 
 /// <summary>
-/// The card of what a message is about in the open panel with nothing picked there ("notes.md", "whole
-/// document"), over the box and then in the message's bubble, in the look of a file's card and, as
-/// a pick's, with no ×: it goes when something is picked.
+/// The card of what a message carries with no file: text selected in the chat, or (a chat saved before
+/// 2026-10-28) what it was about in the open panel with nothing picked there ("notes.md", "whole
+/// document"). Over the box and then in the message's bubble, in the look of a file's card and, as
+/// a pick's, with no ×: it goes when the selection does.
 /// </summary>
 public sealed class SidePanelCardItem(SidePanelCard card, string tip = "")
 {
+    public SidePanelCard Card => card;
     public string Title => card.Title;
     public string Details => card.Details ?? "";
     public string Tip { get; } = tip.Length > 0 ? tip : card.Details is { Length: > 0 } d ? $"{card.Title}\n{d}" : card.Title;
 
     public Avalonia.Media.Geometry Icon { get; } = card.Icon is { } icon ? Avalonia.Media.StreamGeometry.Parse(icon) : AttachmentItem.FileShape;
+
+    /// <summary>Text selected in the chat (<see cref="MainWindowViewModel.Quote"/>): its arrow points up at the chat, not at a panel.</summary>
+    public bool Quoted => card.Icon == MainWindowViewModel.QuoteIcon;
 }
