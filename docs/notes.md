@@ -2915,7 +2915,7 @@ prints the traceback and exits with 0.
 | `mouse_move`, `mouse_drag`, `scroll` | Mouse control in screenshot coordinates; a drag can hold `modifiers` too |
 | `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held |
 | `wait` | Waits a set time, up to 10 minutes, as for a build or a download; a screenshot at the end only with `screenshot_on_end` |
-| `wait_until_change` | Waits until the screen changes from how it was when the wait started (a reply in a chat, a window or page that finished loading), up to `seconds` (10 minutes when left out), then screenshots (see below) |
+| `wait_until_change` | Waits until the screen changes from how it was when the wait started (a reply in a chat, a window or page that finished loading), up to `seconds`, or without it until it does (a message or Stop ends it too), then screenshots (see below) |
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
@@ -4988,7 +4988,8 @@ What the runs showed and what changed:
 - `wait` with `until_change` slept through a message that arrived while the model was deciding to
   wait (three minutes); it then ended at once when the screen already differed from the screenshot
   the model decided on. Since 2026-11-02 waiting is two tools, as the user asked: `wait` (a set
-  time, no screenshot unless `screenshot_on_end`) and `wait_until_change`, which compares only with
+  time, no screenshot unless `screenshot_on_end`) and `wait_until_change`, which waits until a change
+  unless given `seconds` (the taskbar clock ticking counts, so about a minute at most), compares only with
   the screen as it starts and always screenshots at the end. A message that comes while the model
   decides to wait is again seen only at the next change or when the wait runs out.
 
