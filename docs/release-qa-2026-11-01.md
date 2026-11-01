@@ -257,6 +257,14 @@ picture of the game at the end (no capture_result call); the command-line run's 
 but the new-work rule would have it show the game. The published exe (28,548,807 bytes, no trim warnings) ran
 the stand-in steps through to the comparison under the reply, nothing in errors.log.
 
+Last, wait's screenshot option (develop 2e88458: `screenshot: false` for a build or a download checked
+another way; until_change then compares with the screen at the wait's start only), at the user's word:
+merged in, its changelog line moved into 1.3.0's Added. Suites App 307 of 307, Core 1256 of 1256 (its new
+test among them). In the app, four waits of a stand-in agent: with `screenshot: false` the result had no
+picture and its card no Screenshot, with until_change too; without it, the screenshot came as before.
+Unity 2048 on Haiku, which waits through Unity's compiles and builds: passed in 9 min 42 s, 65 model
+calls, 100 tool calls, 0 tool errors; 34 waits, 4 with until_change, none without the screenshot.
+
 ## Left as they are
 
 - With no context use known yet (a chat opened again, before its next request) the title bar reads
