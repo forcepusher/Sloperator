@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="480" height="360" viewBox="0 0 480 360">
+  <title>Sloperator logo intro</title>
+
+  <!-- Dark background -->
+  <rect x="0" y="0" width="480" height="360" fill="#2F2F2F"/>
+
+  <!-- ===== Yellow circle, pop-in with small overshoot ===== -->
+  <g transform="translate(240,150)">
+    <g transform="scale(0)">
+      <animateTransform attributeName="transform" type="scale"
+        values="0; 1.12; 1"
+        keyTimes="0; 0.7; 1"
+        calcMode="spline"
+        keySplines="0.2 0.8 0.3 1; 0.3 0 0.6 1"
+        dur="0.6s" begin="0s" fill="freeze"/>
+      <circle cx="0" cy="0" r="55" fill="#FCC21B"/>
+    </g>
+  </g>
+
+  <!-- ===== "Sloperator" word: fade in + slide up ===== -->
+  <g opacity="0">
+    <animate attributeName="opacity"
+      values="0; 1"
+      keyTimes="0; 1"
+      calcMode="spline"
+      keySplines="0.2 0 0.3 1"
+      dur="0.9s" begin="0.55s" fill="freeze"/>
+
+    <g transform="translate(0,26)">
+      <animateTransform attributeName="transform" type="translate"
+        values="0 26; 0 0"
+        keyTimes="0; 1"
+        calcMode="spline"
+        keySplines="0.2 0 0.3 1"
+        dur="0.9s" begin="0.55s" fill="freeze"/>
+
+      <text x="240" y="248" text-anchor="middle"
+            font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+            font-size="40" font-weight="700" letter-spacing="1"
+            fill="#F5F5F5">Sloperator</text>
+    </g>
+  </g>
+</svg>

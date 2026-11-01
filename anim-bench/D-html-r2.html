@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sunset Drive</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 480px;
+    height: 360px;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #scene {
+    position: relative;
+    width: 480px;
+    height: 360px;
+    overflow: hidden;
+  }
+
+  /* Sky: day blue -> dusk orange -> day blue (seamless) */
+  #sky {
+    position: absolute;
+    inset: 0;
+    background: #5ab8ff;
+    animation: skyShift 4s linear infinite;
+  }
+  @keyframes skyShift {
+    0%   { background-color: #5ab8ff; }
+    50%  { background-color: #ff9334; }
+    100% { background-color: #5ab8ff; }
+  }
+
+  /* Sun: sweeps off-screen left to off-screen right along an arc */
+  #sun {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff8c9, #ffd23e 60%, #ffb200);
+    box-shadow: 0 0 30px 12px rgba(255, 210, 80, 0.7);
+    animation:
+      sunX 4s linear infinite,
+      sunY 4s ease-in-out infinite;
+  }
+  @keyframes sunX {
+    from { left: -60px; }
+    to   { left: 480px; }
+  }
+  @keyframes sunY {
+    0%   { top: 330px; }
+    25%  { top: 185px; }
+    50%  { top: 105px; }
+    75%  { top: 185px; }
+    100% { top: 330px; }
+  }
+
+  /* Clouds drifting across (seamless: off-screen at both ends) */
+  .cloud {
+    position: absolute;
+    left: 0;
+    width: 90px;
+    height: 24px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 20px;
+    animation: drift 4s linear infinite;
+  }
+  .cloud::before,
+  .cloud::after {
+    content: "";
+    position: absolute;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50%;
+  }
+  .cloud::before { width: 36px; height: 36px; left: 14px; top: -16px; }
+  .cloud::after  { width: 28px; height: 28px; left: 46px; top: -10px; }
+  #cloud1 { top: 52px; animation-delay: 0s; }
+  #cloud2 { top: 110px; width: 70px; transform: scale(0.8); animation-delay: -2s; }
+  @keyframes drift {
+    from { left: -110px; }
+    to   { left: 480px; }
+  }
+
+  /* Ground and road */
+  #grass {
+    position: absolute;
+    left: 0;
+    top: 280px;
+    width: 480px;
+    height: 44px;
+    background: #5fae4c;
+  }
+  #road {
+    position: absolute;
+    left: 0;
+    top: 324px;
+    width: 480px;
+    height: 36px;
+    background: #4a4a52;
+  }
+  #roadLine {
+    position: absolute;
+    left: 0;
+    top: 340px;
+    width: 480px;
+    height: 4px;
+    background: repeating-linear-gradient(
+      90deg,
+      #f4d03f 0px,
+      #f4d03f 28px,
+      transparent 28px,
+      transparent 56px
+    );
+  }
+
+  /* Car: off-screen left to off-screen right (seamless) */
+  .car {
+    position: absolute;
+    left: 0;
+    top: 288px;
+    width: 122px;
+    height: 42px;
+    animation: drive 4s linear infinite;
+  }
+  @keyframes drive {
+    from { transform: translateX(-140px); }
+    to   { transform: translateX(480px); }
+  }
+  .car-body {
+    position: absolute;
+    bottom: 12px;
+    left: 0;
+    width: 122px;
+    height: 24px;
+    background: #d93a2b;
+    border-radius: 6px 12px 4px 4px;
+  }
+  .cabin {
+    position: absolute;
+    bottom: 34px;
+    left: 30px;
+    width: 54px;
+    height: 20px;
+    background: #27374d;
+    border-radius: 10px 10px 0 0;
+  }
+  .cabin::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    width: 20px;
+    height: 12px;
+    background: #9fd7ff;
+    border-radius: 4px;
+  }
+  .wheel {
+    position: absolute;
+    bottom: 0;
+    width: 26px;
+    height: 26px;
+    background: #1d1d22;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 4px #3a3a40;
+    animation: spin 0.8s linear infinite;
+  }
+  .wheel::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 20px;
+    height: 4px;
+    margin: -2px 0 0 -10px;
+    background: #d8d8de;
+    border-radius: 2px;
+  }
+  .wheel::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    background: #8e8e96;
+    border-radius: 50%;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  #wheel1 { left: 16px; }
+  #wheel2 { left: 80px; }
+</style>
+</head>
+<body>
+  <div id="scene">
+    <div id="sky"></div>
+    <div id="sun"></div>
+    <div class="cloud" id="cloud1"></div>
+    <div class="cloud" id="cloud2"></div>
+    <div id="grass"></div>
+    <div id="road"></div>
+    <div id="roadLine"></div>
+    <div class="car">
+      <div class="cabin"></div>
+      <div class="car-body"></div>
+      <div class="wheel" id="wheel1"></div>
+      <div class="wheel" id="wheel2"></div>
+    </div>
+  </div>
+</body>
+</html>

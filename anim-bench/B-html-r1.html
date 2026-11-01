@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bouncing Ball — 2s seamless loop</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 480px;
+    height: 360px;
+    overflow: hidden;
+    background: #eef1f5;
+  }
+
+  /* ---------- floor ---------- */
+  .floor {
+    position: absolute;
+    left: 0;
+    top: 300px;
+    width: 480px;
+    height: 60px;
+    background: #e6eaf0;
+    border-top: 2px solid #d3d9e2;
+  }
+
+  /* ---------- shadow ---------- */
+  .shadow {
+    position: absolute;
+    left: 240px;
+    top: 300px;
+    width: 70px;
+    height: 16px;
+    margin: -7px 0 0 -35px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+                rgba(20, 24, 32, 1) 0%,
+                rgba(20, 24, 32, 0.55) 45%,
+                rgba(20, 24, 32, 0) 75%);
+    transform-origin: 50% 50%;
+    animation: shadow 2s infinite;
+  }
+
+  /* ---------- ball ---------- */
+  .ball {
+    position: absolute;
+    left: 240px;
+    top: 35px;             /* ball top; center at y=60 at apex */
+    width: 50px;
+    height: 50px;
+    margin: 0 0 0 -25px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+                #ff7a6e 0%,
+                #ee3a2d 55%,
+                #a8170f 100%);
+    transform-origin: 50% 100%;   /* squash anchored to the floor */
+    animation: ball 2s infinite;
+  }
+
+  /* ---------- ball motion ----------
+     0–39%  fall (accelerating, stretched while fast)
+     39–45% contact squash
+     45–52% rebound (stretched)
+     52–100% rise (decelerating to apex)
+     0% and 100% states are identical -> seamless loop        */
+  @keyframes ball {
+    0% {
+      transform: translateY(0)     scale(1, 1);
+      animation-timing-function: cubic-bezier(.55, 0, 1, .45);
+    }
+    28% {
+      transform: translateY(138px) scale(.88, 1.14);
+      animation-timing-function: cubic-bezier(.55, 0, 1, .45);
+    }
+    39% {
+      transform: translateY(215px) scale(1, 1);
+      animation-timing-function: cubic-bezier(.3, 0, .7, 1);
+    }
+    45% {
+      transform: translateY(224px) scale(1.35, .6);
+      animation-timing-function: cubic-bezier(.2, 0, .6, 1);
+    }
+    52% {
+      transform: translateY(195px) scale(.82, 1.24);
+      animation-timing-function: cubic-bezier(0, .55, .45, 1);
+    }
+    100% {
+      transform: translateY(0)     scale(1, 1);
+    }
+  }
+
+  /* shadow grows + darkens as ball approaches */
+  @keyframes shadow {
+    0% {
+      transform: scaleX(.45);
+      opacity: .12;
+      animation-timing-function: cubic-bezier(.55, 0, 1, .45);
+    }
+    39% {
+      transform: scaleX(1);
+      opacity: .5;
+      animation-timing-function: cubic-bezier(.3, 0, .7, 1);
+    }
+    45% {
+      transform: scaleX(1.15);
+      opacity: .58;
+      animation-timing-function: cubic-bezier(.2, 0, .6, 1);
+    }
+    52% {
+      transform: scaleX(.95);
+      opacity: .42;
+      animation-timing-function: cubic-bezier(0, .55, .45, 1);
+    }
+    100% {
+      transform: scaleX(.45);
+      opacity: .12;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="floor"></div>
+  <div class="shadow"></div>
+  <div class="ball"></div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sloperator Logo Intro</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 480px;
+    height: 360px;
+    overflow: hidden;
+    background: #2F2F2F;
+  }
+
+  .stage {
+    position: relative;
+    width: 480px;
+    height: 360px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  /* Circle centred exactly on the page centre */
+  .logo-wrap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #FCC21B;
+    transform: scale(0);
+    animation: pop-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  }
+
+  /* Word sits under the circle, centred horizontally */
+  .wordmark {
+    position: absolute;
+    left: 50%;
+    top: 250px;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #FCC21B;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 16px);
+    animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.7s both;
+  }
+
+  @keyframes pop-in {
+    0%   { transform: scale(0); }
+    70%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes rise-in {
+    0%   { opacity: 0; transform: translate(-50%, 16px); }
+    100% { opacity: 1; transform: translate(-50%, 0); }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="logo-wrap"><div class="logo"></div></div>
+    <div class="wordmark">Sloperator</div>
+  </div>
+</body>
+</html>

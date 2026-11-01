@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">
+  <rect width="480" height="360" fill="#101418"/>
+
+  <!-- Dot 1 (left): bounces first -->
+  <circle cx="200" cy="200" r="16" fill="#4dd0e1">
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0; 0 -44; 0 0; 0 0"
+      keyTimes="0; 0.1667; 0.3333; 1"
+      calcMode="spline"
+      keySplines="0.35 0 0.45 1; 0.55 0 0.65 1; 0 0 1 1"
+      dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="r"
+      values="16; 18; 16; 16"
+      keyTimes="0; 0.1667; 0.3333; 1"
+      calcMode="spline"
+      keySplines="0.35 0 0.45 1; 0.55 0 0.65 1; 0 0 1 1"
+      dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Dot 2 (middle): bounces second -->
+  <circle cx="240" cy="200" r="16" fill="#4dd0e1">
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0; 0 0; 0 -44; 0 0; 0 0"
+      keyTimes="0; 0.3333; 0.5; 0.6667; 1"
+      calcMode="spline"
+      keySplines="0 0 1 1; 0.35 0 0.45 1; 0.55 0 0.65 1; 0 0 1 1"
+      dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="r"
+      values="16; 16; 18; 16; 16"
+      keyTimes="0; 0.3333; 0.5; 0.6667; 1"
+      calcMode="spline"
+      keySplines="0 0 1 1; 0.35 0 0.45 1; 0.55 0 0.65 1; 0 0 1 1"
+      dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Dot 3 (right): bounces third -->
+  <circle cx="280" cy="200" r="16" fill="#4dd0e1">
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0; 0 0; 0 -44; 0 0"
+      keyTimes="0; 0.6667; 0.8333; 1"
+      calcMode="spline"
+      keySplines="0 0 1 1; 0.35 0 0.45 1; 0.55 0 0.65 1"
+      dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="r"
+      values="16; 16; 18; 16"
+      keyTimes="0; 0.6667; 0.8333; 1"
+      calcMode="spline"
+      keySplines="0 0 1 1; 0.35 0 0.45 1; 0.55 0 0.65 1"
+      dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

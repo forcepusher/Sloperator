@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">
+  <!-- Light background -->
+  <rect width="480" height="360" fill="#f4f1ea"/>
+  <!-- Floor line -->
+  <rect x="60" y="300" width="360" height="3" rx="1.5" fill="#d8d2c4"/>
+
+  <!-- Shadow: grows and darkens as the ball nears the floor -->
+  <ellipse cx="240" cy="304" rx="14" ry="5" fill="#5b5648" opacity="0.1">
+    <animate attributeName="rx"
+             values="14;34;34;14"
+             keyTimes="0;0.38;0.42;1"
+             calcMode="spline"
+             keySplines="0 0 0.85 1; 0 0 1 1; 0.2 0 0.5 1"
+             dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity"
+             values="0.1;0.55;0.5;0.1"
+             keyTimes="0;0.38;0.42;1"
+             calcMode="spline"
+             keySplines="0 0 0.85 1; 0 0 1 1; 0.2 0 0.5 1"
+             dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Ball: outer group = vertical position, inner group = squash/stretch about contact point -->
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+                      values="240 88; 240 300; 240 300; 240 88"
+                      keyTimes="0;0.38;0.42;1"
+                      calcMode="spline"
+                      keySplines="0 0 0.85 1; 0 0 1 1; 0.2 0 0.5 1"
+                      dur="2s" repeatCount="indefinite"/>
+    <g>
+      <animateTransform attributeName="transform" type="scale"
+                        values="1 1; 1.1 0.92; 0.86 1.2; 1.5 0.58; 1.35 0.72; 0.9 1.18; 1.05 0.95; 1 1"
+                        keyTimes="0;0.22;0.34;0.38;0.42;0.50;0.66;1"
+                        calcMode="spline"
+                        keySplines="0.4 0 1 1; 0 0 0.5 1; 0 0 0.6 1; 0.3 0 0.7 1; 0 0 0.5 1; 0.4 0 1 1; 0 0 1 1"
+                        dur="2s" repeatCount="indefinite"/>
+      <!-- Ball drawn with its bottom at y=0 so it squashes against the floor -->
+      <circle cx="0" cy="-28" r="28" fill="#e0392b"/>
+      <circle cx="-9" cy="-38" r="8" fill="#ffffff" opacity="0.35"/>
+    </g>
+  </g>
+</svg>

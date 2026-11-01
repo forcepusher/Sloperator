@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bouncing Ball — 2s seamless loop</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 480px;
+    height: 360px;
+    overflow: hidden;
+    background: #eef1f5;
+  }
+
+  .floor {
+    position: absolute;
+    left: 0;
+    top: 300px;
+    width: 480px;
+    height: 60px;
+    background: #e6eaf0;
+    border-top: 2px solid #d3d9e2;
+  }
+
+  .shadow {
+    position: absolute;
+    left: 240px;
+    top: 300px;
+    width: 70px;
+    height: 16px;
+    margin: -7px 0 0 -35px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+                rgba(20, 24, 32, 1) 0%,
+                rgba(20, 24, 32, 0.55) 45%,
+                rgba(20, 24, 32, 0) 75%);
+    transform-origin: 50% 50%;
+    animation: shadow 2s infinite;
+  }
+
+  .ball {
+    position: absolute;
+    left: 240px;
+    top: 35px;             /* ball top; center at y=60 at apex */
+    width: 50px;
+    height: 50px;
+    margin: 0 0 0 -25px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+                #ff7a6e 0%,
+                #ee3a2d 55%,
+                #a8170f 100%);
+    transform-origin: 50% 100%;   /* squash anchored to the floor */
+    animation: ball 2s infinite;
+  }
+
+  /* ---------- ball motion ----------
+     0–40%   fall (stretched while moving fast)
+     40–50%  contact: squash (wide + short) at the floor
+     50–100% rise (stretch on rebound, decelerate to apex)
+     0% and 100% are identical -> seamless loop            */
+  @keyframes ball {
+    0% {
+      transform: translateY(0)     scale(1, 1);
+      animation-timing-function: cubic-bezier(.5, 0, 1, .5);
+    }
+    30% {
+      transform: translateY(140px) scale(.88, 1.14);
+      animation-timing-function: cubic-bezier(.5, 0, 1, .5);
+    }
+    40% {
+      transform: translateY(215px) scale(1, 1);
+      animation-timing-function: cubic-bezier(.3, 0, .7, 1);
+    }
+    44% {
+      transform: translateY(224px) scale(1.4, .55);
+      animation-timing-function: cubic-bezier(.2, 0, .5, 1);
+    }
+    50% {
+      transform: translateY(219px) scale(1.18, .78);
+      animation-timing-function: cubic-bezier(.2, 0, .6, 1);
+    }
+    56% {
+      transform: translateY(165px) scale(.85, 1.2);
+      animation-timing-function: cubic-bezier(.3, 0, .5, 1);
+    }
+    72% {
+      transform: translateY(70px)  scale(.96, 1.04);
+      animation-timing-function: cubic-bezier(0, .55, .45, 1);
+    }
+    100% {
+      transform: translateY(0)     scale(1, 1);
+    }
+  }
+
+  /* shadow grows + darkens as ball approaches the floor */
+  @keyframes shadow {
+    0% {
+      transform: scaleX(.4);
+      opacity: .12;
+      animation-timing-function: cubic-bezier(.5, 0, 1, .5);
+    }
+    30% {
+      transform: scaleX(.85);
+      opacity: .32;
+      animation-timing-function: cubic-bezier(.5, 0, 1, .5);
+    }
+    44% {
+      transform: scaleX(1.15);
+      opacity: .58;
+      animation-timing-function: cubic-bezier(.2, 0, .5, 1);
+    }
+    50% {
+      transform: scaleX(1.05);
+      opacity: .5;
+      animation-timing-function: cubic-bezier(.2, 0, .6, 1);
+    }
+    72% {
+      transform: scaleX(.6);
+      opacity: .2;
+      animation-timing-function: cubic-bezier(0, .55, .45, 1);
+    }
+    100% {
+      transform: scaleX(.4);
+      opacity: .12;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="floor"></div>
+  <div class="shadow"></div>
+  <div class="ball"></div>
+</body>
+</html>

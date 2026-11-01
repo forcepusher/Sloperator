@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">
+
+  <!-- Sky (day blue -> dusk orange -> day blue, so the loop is seamless) -->
+  <rect x="0" y="0" width="480" height="300" fill="#5AB0E8">
+    <animate attributeName="fill" dur="4s" repeatCount="indefinite"
+             values="#5AB0E8;#FF8A3D;#5AB0E8"
+             keyTimes="0;0.5;1"/>
+  </rect>
+
+  <!-- Sun (arcs over the sky; both ends sit below the ground so it is hidden
+       at the loop point and the wrap is invisible) -->
+  <circle r="26" fill="#FFE15C">
+    <animate attributeName="fill" dur="4s" repeatCount="indefinite"
+             values="#FFE15C;#FF7F2C;#FFE15C"
+             keyTimes="0;0.5;1"/>
+    <animateMotion dur="4s" repeatCount="indefinite"
+                   path="M 30 400 Q 240 -80 450 400"/>
+  </circle>
+
+  <!-- Ground -->
+  <rect x="0" y="290" width="480" height="70" fill="#6E8F3F"/>
+
+  <!-- Road -->
+  <rect x="0" y="305" width="480" height="40" fill="#3B3B3B"/>
+
+  <!-- Lane dashes -->
+  <g fill="#F5D547">
+    <rect x="0"   y="323" width="28" height="4"/>
+    <rect x="60"  y="323" width="28" height="4"/>
+    <rect x="120" y="323" width="28" height="4"/>
+    <rect x="180" y="323" width="28" height="4"/>
+    <rect x="240" y="323" width="28" height="4"/>
+    <rect x="300" y="323" width="28" height="4"/>
+    <rect x="360" y="323" width="28" height="4"/>
+    <rect x="420" y="323" width="28" height="4"/>
+  </g>
+
+  <!-- Car (enters off-screen left, exits off-screen right -> seamless) -->
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+                      dur="4s" repeatCount="indefinite"
+                      values="-140 0; 620 0"/>
+
+    <!-- Cabin -->
+    <path d="M 15 285 L 25 263 L 75 263 L 85 285 Z" fill="#B52A1F"/>
+    <!-- Windows -->
+    <rect x="30" y="266" width="14" height="15" fill="#BDE3F0"/>
+    <rect x="56" y="266" width="14" height="15" fill="#BDE3F0"/>
+    <!-- Body -->
+    <rect x="0" y="283" width="100" height="24" rx="5" fill="#D63B2F"/>
+    <!-- Headlight -->
+    <rect x="95" y="290" width="4" height="6" fill="#FFF3A0"/>
+
+    <!-- Front wheel -->
+    <g transform="translate(75,315)">
+      <circle r="12" fill="#1a1a1a"/>
+      <circle r="5"  fill="#6b6b6b"/>
+      <g stroke="#c9c9c9" stroke-width="2" stroke-linecap="round">
+        <line x1="-10" y1="0" x2="10" y2="0"/>
+        <line x1="0" y1="-10" x2="0" y2="10"/>
+        <animateTransform attributeName="transform" type="rotate"
+                          from="0" to="360" dur="1s" repeatCount="indefinite"/>
+      </g>
+    </g>
+
+    <!-- Rear wheel -->
+    <g transform="translate(25,315)">
+      <circle r="12" fill="#1a1a1a"/>
+      <circle r="5"  fill="#6b6b6b"/>
+      <g stroke="#c9c9c9" stroke-width="2" stroke-linecap="round">
+        <line x1="-10" y1="0" x2="10" y2="0"/>
+        <line x1="0" y1="-10" x2="0" y2="10"/>
+        <animateTransform attributeName="transform" type="rotate"
+                          from="0" to="360" dur="1s" repeatCount="indefinite"/>
+      </g>
+    </g>
+  </g>
+</svg>
