@@ -13,6 +13,7 @@ programs, its GPU, its second monitor or the Qwen server.
 | Unit suites with the opt-in tests on | workstation | App 285 of 285, Core 1223 of 1232; the 2 failures fail on develop there too (pause keys on its code page) |
 | ComfyUI tasks (`comfy-test.ps1`, Qwen) | workstation | every output good; video timed out after a usable clip, as at 1.2.0 |
 | Second-monitor tasks | workstation | Haiku 5.5 4 of 4, Qwen 4 of 4 (mm-move timed out at 1.2.0) |
+| Unity 2048 on Qwen | workstation | pass in 2 h 12 min: 192 model calls, played to 4588, built and checked the exe |
 | Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 12 min 51 s: 61 model calls, 66 tool calls, played to 132 and to Game Over in Play mode, built and checked the exe |
 | This version's changes in the published exe (a stand-in agent) | laptop | all as the changelog says; one empty line after a PowerShell error in the Terminal, fixed |
 | ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
@@ -104,7 +105,7 @@ user's server), Release builds of the branch.
 | Second-monitor tasks (`agent-tasks.ps1` mm-*) | Haiku 5.5 through OpenRouter 4 of 4 (12-38 s, 0 tool errors), Qwen 4 of 4 (36-79 s, 0 tool errors); also proxyapi.ru Haiku 3 of 3 and OpenRouter qwen3.8-27b 4 of 4 |
 | The release exe, Haiku 5.5 through OpenRouter, on the lab VM (Windows 10 LTSC, WebView2 156) | as the changelog says, after the ssh fix (below) |
 | The Image editor on real ComfyUI | 4 versions made with DreamShaper 8, a part redrawn as version 5 in 17 s |
-| Unity 2048 on Qwen | running at the time of writing (about 2 h) |
+| Unity 2048 on Qwen (`unity2048-test.ps1`, Unity 6000.3.23f1, on e18edf7) | pass in 2 h 12 min 32 s: 192 model calls, 198 tool calls, 5 tool errors, 7 context resets (each with its note), 0 reconnects |
 
 - comfy-test: picture 2 min 51 s, img2img 6 min 15 s, named 1 min 53 s, sound 2 min 12 s, music
   2 min 41 s, speech 2 min 55 s, a 3D model 17 min 33 s (a .glb, 3 tool errors on the way), the combo
@@ -113,6 +114,12 @@ user's server), Release builds of the branch.
   (4.0 s) with no folder for the checker, and the CLI's log of the combo's comfyui result stopped after its
   first file, though the second has its sound (3.01 s by ffprobe).
 - mm-move, which Qwen timed out on at 1.2.0, passed.
+- Unity 2048 on Qwen: the game made in Unity 6.3 and played in Play mode with real arrow keys, the score
+  going up by each merge exactly, to 136 in a game it checked move by move and 4588 in a later one; Game
+  Over on a full board and R checked; Unity2048.exe built, played, R pressed there too. It fixed four
+  things of its own on the way, among them com.unity.ugui missing from manifest.json and KeyCode.Left and
+  the like where Unity wants LeftArrow. A first attempt doesn't count: the Qwen server dropped after 1 h 5
+  min, and Sloperator retried with its backoff until the script's limit, as it should.
 - The release exe: Auto showed the Terminal, then File changes, then the Web preview; the window widened
   once and never resized between panels; the title bar had the status, the context used and the chat's
   title, the panel's name over the panel. Terminal rows "admin@127.0.0.2 · exit 0 · 1.1 s" and "This PC",
