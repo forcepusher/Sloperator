@@ -61,6 +61,9 @@ public sealed class ChatMessage
     public int? PromptTokens { get; set; }
     public int? CompletionTokens { get; set; }
 
+    /// <summary>For replies: of <see cref="PromptTokens"/>, those the server read from its prompt cache, when it says.</summary>
+    public int? CachedTokens { get; set; }
+
     /// <summary>For replies: why the server stopped ("stop", "tool_calls", "length" when out of room).</summary>
     public string? FinishReason { get; set; }
 

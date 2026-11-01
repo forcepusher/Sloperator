@@ -2325,6 +2325,20 @@ OpenRouter with no effort, so no thinking showed. The same server's own Anthropi
 Claude through Anthropic's API): Haiku 5.5 there ran two turns with a tool call each, thinking
 signed, no refusals (2026-11-01).
 
+**Prompt caching on every server**: each request asks the server to cache the prompt up to its end
+(`"cache_control": {"type": "ephemeral"}` at the top of the request, OpenRouter's automatic caching),
+sent and left out with the other extras: a server that names it in a refusal goes without it from
+then on, and one that doesn't know it ignores it. Claude caches only when asked, through gateways
+too, so before this every step through OpenRouter or proxyapi.ru paid the whole conversation in full
+again, 4 to 8 times what the same 40 to 100 step screenshot run cost on Anthropic's API (an estimate,
+Haiku 5.5). Tried 1 November 2026 with Haiku 5.5, a 4.7k-token prompt sent twice to each: without
+the field nothing was cached on either; with it the second request was read from the cache on both
+(OpenRouter $0.000049 against $0.00047; the first costs 1.25 times, writing the cache). One field
+on the system prompt's text part cached the same on both, without the user message. What was read
+from the cache comes back as `usage.prompt_tokens_details.cached_tokens` (OpenRouter, proxyapi.ru)
+or `cache_read_input_tokens` (LiteLLM), kept as `ChatMessage.CachedTokens` (Claude's API path fills
+it too), and the command-line runner prints it after the token counts.
+
 **The agent connects it too**: asked to connect, switch to or use another model (LM Studio on this PC,
 Claude, OpenRouter, a server the user names), the agent uses its `model_server` tool. `connect` takes
 the address, the key the user gave (an address already in use keeps its own, as does one in the

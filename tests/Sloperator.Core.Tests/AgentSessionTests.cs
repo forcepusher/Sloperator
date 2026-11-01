@@ -525,7 +525,23 @@ public class AgentSessionTests
         foreach (var request in server.Requests.Skip(1).Take(2))
             Assert.Empty(OpenAiChatClient.OurFields(request, options));
         // A guess, so for this run only.
-        Assert.Equal(["stream_options", "reasoning_effort", "reasoning_content", "top_k"], OpenAiChatClient.OurFields(server.Requests[3], options));
+        Assert.Equal(["stream_options", "cache_control", "reasoning_effort", "reasoning_content", "top_k"], OpenAiChatClient.OurFields(server.Requests[3], options));
+    }
+
+    [Fact]
+    public async Task A_server_that_refuses_the_cache_request_gets_the_rest_as_before()
+    {
+        var server = new ScriptedServer(Sse.Text("ok"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, """{"error":{"message":"Unrecognized request argument supplied: cache_control"}}"""));
+        var client = new OpenAiChatClient(new HttpClient(server), "http://refuses-cache-control", null);
+
+        await client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", Effort = "high" }, null, CancellationToken.None);
+
+        Assert.Equal(2, server.Requests.Count);
+        Assert.NotNull(server.Requests[0]["cache_control"]);
+        Assert.Null(server.Requests[1]["cache_control"]);
+        Assert.Equal("high", (string?)server.Requests[1]["reasoning_effort"]);
+        Assert.NotNull(server.Requests[1]["stream_options"]);
     }
 
     [Fact]

@@ -437,7 +437,7 @@ public sealed partial class OpenAiChatClient
         var blocks = new List<JsonObject>();
         var finished = false;
         string? finishReason = null;
-        int? promptTokens = null, completionTokens = null;
+        int? promptTokens = null, completionTokens = null, cachedTokens = null;
 
         while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
         {
@@ -485,6 +485,9 @@ public sealed partial class OpenAiChatClient
             {
                 promptTokens = GetInt(usage, "prompt_tokens") ?? promptTokens;
                 completionTokens = GetInt(usage, "completion_tokens") ?? completionTokens;
+                // OpenAI's name for it (OpenRouter and LiteLLM say it too), else LiteLLM's Anthropic one.
+                cachedTokens = (usage["prompt_tokens_details"] is JsonObject promptDetails ? GetInt(promptDetails, "cached_tokens") : null)
+                               ?? GetInt(usage, "cache_read_input_tokens") ?? cachedTokens;
             }
             if (chunk?["choices"] is not JsonArray { Count: > 0 } choices || choices[0] is not JsonObject choice)
                 continue;
@@ -594,6 +597,7 @@ public sealed partial class OpenAiChatClient
             FinishReason = finishReason,
             PromptTokens = promptTokens,
             CompletionTokens = completionTokens,
+            CachedTokens = cachedTokens,
         };
         // Not Claude's thinking cut off before its signature came (a reply that ran out of room
         // mid-thought): sent back, it would be refused.
@@ -670,6 +674,13 @@ public sealed partial class OpenAiChatClient
         {
             // Exact prompt and reply sizes, so the agent knows how full the context really is.
             req["stream_options"] = new JsonObject { ["include_usage"] = true };
+            // Asks the server to cache the prompt up to its end, so the next step reads the history
+            // at a tenth of the price. Claude caches only when asked, through OpenRouter and
+            // proxyapi.ru too: without it every step paid the whole conversation in full again
+            // (tried 2026-11-01, Haiku 5.5: a 4.7k-token prompt sent twice was read from the cache
+            // the second time on both, $0.00005 against $0.00047 on OpenRouter; none of it without).
+            // A server that doesn't know it ignores it, or names it in its refusal and goes without.
+            req["cache_control"] = new JsonObject { ["type"] = "ephemeral" };
             if (options.Extra is not null)
                 foreach (var (key, value) in options.Extra)
                     req[key] = value?.DeepClone();
@@ -700,7 +711,7 @@ public sealed partial class OpenAiChatClient
     /// <summary>The fields of <paramref name="request"/> and its messages that are Sloperator's own, not the standard ones.</summary>
     internal static List<string> OurFields(JsonObject request, ChatRequestOptions options)
     {
-        var ours = new List<string> { "stream_options", "reasoning_effort", "reasoning_content", "reasoning_details", "thinking_blocks" };
+        var ours = new List<string> { "stream_options", "cache_control", "reasoning_effort", "reasoning_content", "reasoning_details", "thinking_blocks" };
         if (options.Extra is not null)
             ours.AddRange(options.Extra.Select(e => e.Key));
         var sent = request["messages"] is JsonArray msgs ? msgs.OfType<JsonObject>().SelectMany(m => m.Select(f => f.Key)).ToHashSet() : [];
@@ -864,7 +875,7 @@ public sealed partial class OpenAiChatClient
     public void ShiftPrompt() => PromptShifts.AddOrUpdate(_baseUrl, 1, (_, n) => n % 8 + 1);
 
     private static bool LooksLikeUnknownField(string err) =>
-        new[] { "unrecognized", "unknown", "not permitted", "extra", "unexpected", "reasoning", "chat_template_kwargs" }
+        new[] { "unrecognized", "unknown", "not permitted", "extra", "unexpected", "reasoning", "chat_template_kwargs", "cache_control" }
             .Any(w => err.Contains(w, StringComparison.OrdinalIgnoreCase));
 
     internal static bool LooksLikeContextOverflow(string err) =>
