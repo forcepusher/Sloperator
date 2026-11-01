@@ -1,6 +1,6 @@
 # Release check, 1 November 2026
 
-A last pass before 1.3.0, branch `release/1.3.0` off develop 36ae5f8 (and again for develop e4abe7f, see Second pass): a clean-up of what changed since
+A last pass before 1.3.0, branch `release/1.3.0` off develop 36ae5f8 (and again for develop e4abe7f and a863246, see the second and third passes): a clean-up of what changed since
 1.2.0, the unit suites, the new panels and the rest of this version's changes driven in the published exe
 on the laptop, a Unity 2048 run as a sanity check of the agent, and on the workstation what needs its
 programs, its GPU, its second monitor or the Qwen server.
@@ -19,6 +19,7 @@ programs, its GPU, its second monitor or the Qwen server.
 | ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
 | Second pass: the day's later changes (hands-off, caching, capture, chat selection, key steps) | laptop | App 303 of 303, Core 1241 of 1241; Auto stuck on the Terminal after a command and a file in one go, fixed; Unity 2048 on Haiku passed again (14 min 6 s) |
 | Second pass on two monitors, ShadowPlay and Qwen | workstation | suites with the opt-in tests on: App 303 of 303, Core 1248 of 1264 (16 need a key); second-monitor tasks Qwen 4 of 4, Haiku 4 of 4; Instant Replay recorded throughout; hands-off and Pause/Break as meant |
+| Third pass: the evening's merges (document captures, Preview anyway, max_tokens always, duplicate keys) | laptop | App 307 of 307, Core 1255 of 1255; every change as its changelog line says; a real Haiku Word before/after in 24 s; Unity 2048 on Haiku passed (12 min 20 s) |
 
 ## Clean-up
 
@@ -220,6 +221,51 @@ with SendInput, untagged as a user's input comes, to see whether it got through.
   chat "Stopped with Pause/Break.", the frame gone. Notepad ended with 400 characters, two of type_text's
   200-character pieces: it stops between pieces, so the piece under way when the key came is finished
   (about 0.2 s of typing at most; Notepad showed 178 characters at the key, behind what had been sent).
+
+## Third pass: the merges after the second
+
+Still untagged, 1.3.0 took six more merges of the evening (develop a863246), on the laptop alone as the
+user asked: capture_result's pictures (one under the final reply for each thing shown, part of a window,
+the after taken again by compare alone), pictures of document pages (Office or LibreOffice turning Word,
+Excel and PowerPoint into a PDF out of sight), the File inspector's Preview anyway for files downloaded
+from the internet and its document pages without a Windows previewer (Get LibreOffice), Word table cells
+edited by their rows, tool calls that give a key twice, and max_tokens asked on every request.
+
+- The new code: the analyzers found one redundant cast, in a collection expression where taking it out
+  isn't worth the risk; left. Three merges had no changelog line: capture_result's pictures went into its
+  1.3.0 line, the duplicate-key crash and Preview anyway got Fixed lines. The max_tokens line took the place
+  of the second pass's length-cut line, which it supersedes.
+- Unit suites on the merge: App 307 of 307, Core 1255 of 1255.
+
+Checked in the app with a stand-in agent, and once with a real model:
+
+| Change | What was seen |
+|---|---|
+| max_tokens | 64000 on every request, the first too |
+| A Word page before and after | capture_result with the .docx and page 1 took "page 1 of 1 of sales.docx as capture 1" (Word ran hidden; nothing opened on screen); edit_file changed the table's cell by its row ("Replaced the text; the formatting around it is as it was"); capture_result with compare alone took the same page again and put the two together, "Before" over 140 and "After" over 150 |
+| Pictures under the reply | only the comparison, captioned, under the final reply: no separate before |
+| A key given twice | write_file with `"append": "line two\n", "append": true` appended the text (the file read "line one", "line two"), where it ended the run before |
+| A workbook marked as downloaded (Zone.Identifier, zone 3) | the inspector: "2 KB, its text only (Windows doesn't preview files downloaded from the internet)" and **Preview anyway**, which showed the sheet; the file kept its mark |
+| A real task, Claude Haiku 5.5 through OpenRouter, CLI | "change South's sales from 95 to 120, and show me the table before and after": the page captured, the cell edited by its row, the after compared, in 24 s, 4 model calls, 0 tool errors; the picture right |
+
+Not checked here: document pages through LibreOffice and Get LibreOffice's 360 MB download (the laptop has
+Office, which the inspector and the captures use first); their unit tests cover the paths.
+
+Unity 2048 on Haiku once more, the prompt's capture rules having changed: passed in 12 min 20 s, 52 model
+calls, 75 tool calls, 1 tool error, played to exactly 128, Game Over, R, the build checked. It showed no
+picture of the game at the end (no capture_result call); the command-line run's check doesn't ask for one,
+but the new-work rule would have it show the game. The published exe (28,548,807 bytes, no trim warnings) ran
+the stand-in steps through to the comparison under the reply, nothing in errors.log.
+
+Last, wait's screenshot option (develop 2e88458: `screenshot: false` for a build or a download checked
+another way; until_change then compares with the screen at the wait's start only), at the user's word:
+merged in, its changelog line moved into 1.3.0's Added. Suites App 307 of 307, Core 1256 of 1256 (its new
+test among them). In the app, four waits of a stand-in agent: with `screenshot: false` the result had no
+picture and its card no Screenshot, with until_change too; without it, the screenshot came as before.
+Unity 2048 on Haiku, which waits through Unity's compiles and builds: passed in 9 min 42 s, 65 model
+calls, 100 tool calls, 0 tool errors; 34 waits, 4 with until_change, none without the screenshot. As no
+model used it, the user had it taken out of 1.3.0 again (the merge reverted on the release branch); the
+build is then a3585fd's, whose checks above stand.
 
 ## Left as they are
 
