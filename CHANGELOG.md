@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for it, drawn by Office or LibreOffice. With neither, **Get LibreOffice** fetches it (free, a 360 MB
   download) into Sloperator's tools folder; nothing is installed.
 
+### Fixed
+- The agent can change cells of a Word table by the rows it read (such as `| North | 140 |`), which
+  it was refused before.
+
 ## [1.3.0] - 2026-11-01
 ### Added
 - **Auto** in the Side panel dropdown, after None, and picked in every window: no panel until the agent

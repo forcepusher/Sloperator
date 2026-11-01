@@ -161,10 +161,50 @@ public static class OfficePdf
     }
 
     /// <summary>
-    /// LibreOffice without a window, with a profile of its own: one the user has open would take the job
-    /// and drop it.
+    /// The LibreOffice profile kept from one document to the next: made anew each time, the laptop took
+    /// 7 s a Word file, kept 4 s (2 November 2026). Only one LibreOffice can use it at a time, as another
+    /// started on it hands it the job, so the one that holds <see cref="ProfileInUse"/> does.
+    /// </summary>
+    private static readonly string KeptProfile = Path.Combine(Path.GetTempPath(), "Sloperator", "libreoffice-profile");
+
+    private const string ProfileInUse = @"Local\Sloperator-LibreOffice-profile";
+
+    /// <summary>
+    /// LibreOffice without a window, with a profile of Sloperator's (<see cref="KeptProfile"/>, or one of
+    /// its own while that is in use): one the user has open would take the job and drop it. A conversion
+    /// that fails on the kept profile is tried again on a new one, the kept one made again next time, in
+    /// case a run stopped part way left it broken.
     /// </summary>
     internal static void RunLibreOffice(string soffice, string source, string pdf, CancellationToken ct)
+    {
+        using var inUse = new Mutex(false, ProfileInUse);
+        bool mine;
+        try { mine = inUse.WaitOne(0); }
+        catch (AbandonedMutexException) { mine = true; }
+        try
+        {
+            if (!mine)
+            {
+                RunLibreOffice(soffice, source, pdf, null, ct);
+                return;
+            }
+            try { RunLibreOffice(soffice, source, pdf, KeptProfile, ct); }
+            catch (InvalidOperationException) when (!ct.IsCancellationRequested)
+            {
+                try { Directory.Delete(KeptProfile, recursive: true); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                RunLibreOffice(soffice, source, pdf, null, ct);
+            }
+        }
+        finally
+        {
+            if (mine)
+                inUse.ReleaseMutex();
+        }
+    }
+
+    /// <summary>One conversion, on <paramref name="profile"/>, or a new profile deleted after with none.</summary>
+    private static void RunLibreOffice(string soffice, string source, string pdf, string? profile, CancellationToken ct)
     {
         var folder = Path.Combine(Path.GetDirectoryName(pdf)!, "libreoffice-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(folder);
@@ -172,7 +212,7 @@ public static class OfficePdf
         {
             var start = new ProcessStartInfo(soffice)
             {
-                ArgumentList = { "-env:UserInstallation=" + new Uri(Path.Combine(folder, "profile")).AbsoluteUri, "--headless", "--norestore",
+                ArgumentList = { "-env:UserInstallation=" + new Uri(profile ?? Path.Combine(folder, "profile")).AbsoluteUri, "--headless", "--norestore",
                                  "--convert-to", "pdf", "--outdir", folder, source },
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -181,8 +221,9 @@ public static class OfficePdf
             };
             Wait(start, ct, $"LibreOffice couldn't turn {Path.GetFileName(source)} into pages");
             var made = Path.Combine(folder, Path.GetFileNameWithoutExtension(source) + ".pdf");
-            if (File.Exists(made))
-                File.Move(made, pdf, overwrite: true);
+            if (!File.Exists(made))
+                throw new InvalidOperationException($"LibreOffice couldn't turn {Path.GetFileName(source)} into pages: it made no PDF.");
+            File.Move(made, pdf, overwrite: true);
         }
         finally
         {

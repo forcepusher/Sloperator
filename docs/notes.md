@@ -109,7 +109,11 @@ and Nemotron, asked for a cover letter on the Desktop, deleted the one already t
 across Word's runs and paragraphs (copied from `read_file` with its `# ` and `**` marks or without),
 curly quotes match straight ones, and only what differs is replaced, so the rest keeps its
 formatting. A line break in the new text starts a paragraph like the one it is in, `# ` at its
-start makes a heading, and `**bold**` applies. In a workbook it sets cells written the way
+start makes a heading, and `**bold**` applies. A Word table's rows can be given as `read_file`
+shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
+cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
+2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
+PowerShell. In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses
 it replaces text in the cells. A line `insert row 7` or `delete rows 3-4` changes the rows first, as
@@ -2998,8 +3002,11 @@ TARGETDIR=<tools>\LibreOffice`, which installs nothing and needs no admin or UAC
 laptop, 2 November 2026: a 360 MB download, 1.6 GB unpacked in 33 s, soffice.exe in `program`). Haiku 5.5,
 on a Word file with Office hidden from a scratch build, asked first ("a 360 MB download, 1.6 GB
 unpacked"), and on "yes" downloaded and unpacked it so, and its before and after were drawn by LibreOffice.
-LibreOffice takes some 7 s a document (a new profile each time; 4 s with one kept), and prints a sheet
-without Excel's grid and headings. Opt-in tests run the real programs: BB_OFFICE_TESTS=1, and
+LibreOffice runs headless on a profile Sloperator keeps in %TEMP%\Sloperator\libreoffice-profile, one
+conversion at a time (a named mutex; another meanwhile makes a profile of its own, as all did at first):
+a Word file took 7 s on a new profile, 4 s on the kept one, and the live test's three files 18 s, then
+9 s. A conversion that fails on the kept profile is tried again on a new one and the kept one is made
+again. LibreOffice prints a sheet without Excel's grid and headings. Opt-in tests run the real programs: BB_OFFICE_TESTS=1, and
 BB_LIBREOFFICE=<soffice.exe> (a .docx, .xlsx and .pptx, the sheet's sum worked out).
 The before/after is for the user to see what the work changed visually (a button from red to green),
 wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
