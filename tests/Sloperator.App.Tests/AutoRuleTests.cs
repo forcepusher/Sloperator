@@ -24,8 +24,8 @@ public sealed class AutoRuleTests : IDisposable
     [Fact]
     public void A_command_shows_the_terminal_as_it_starts()
     {
-        Assert.Equal(new AutoTarget(AutoRule.Terminal), AtStart("run_shell", """{"command":"npm test"}"""));
-        Assert.Equal(new AutoTarget(AutoRule.Terminal), AtStart("ssh", """{"host":"web1","command":"uptime"}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.Terminal), AtStart("run_shell", """{"command":"npm test"}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.Terminal), AtStart("ssh", """{"host":"web1","command":"uptime"}"""));
         // Nothing more once it has ended: the terminal showed it as it went.
         Assert.Null(AtEnd("run_shell", """{"command":"npm test"}"""));
     }
@@ -35,20 +35,20 @@ public sealed class AutoRuleTests : IDisposable
     {
         var game = Path.Combine(_dir, "game");
         var page = Path.Combine(game, "index.html");
-        Assert.Equal(new AutoTarget(AutoRule.WebPreview, page), AtEnd("write_file", written: page));
+        Assert.Equal(new AutoTarget(SidePanelNames.WebPreview, page), AtEnd("write_file", written: page));
         // A file the page loads, beside it: the page reloads, which is where to see it.
-        Assert.Equal(new AutoTarget(AutoRule.WebPreview, page), AtEnd("edit_file", written: Path.Combine(game, "js", "game.js"), lastPage: page));
-        Assert.Equal(new AutoTarget(AutoRule.WebPreview, page), AtEnd("write_file", written: Path.Combine(game, "style.css"), lastPage: page));
+        Assert.Equal(new AutoTarget(SidePanelNames.WebPreview, page), AtEnd("edit_file", written: Path.Combine(game, "js", "game.js"), lastPage: page));
+        Assert.Equal(new AutoTarget(SidePanelNames.WebPreview, page), AtEnd("write_file", written: Path.Combine(game, "style.css"), lastPage: page));
         // Code elsewhere, or not a file a page loads: its diff.
         var script = Path.Combine(_dir, "tools", "build.js");
-        Assert.Equal(new AutoTarget(AutoRule.FileChanges, script), AtEnd("write_file", written: script, lastPage: page));
-        Assert.Equal(new AutoTarget(AutoRule.FileChanges, Path.Combine(game, "notes.md")), AtEnd("write_file", written: Path.Combine(game, "notes.md"), lastPage: page));
-        Assert.Equal(AutoRule.FileChanges, AtEnd("edit_file", written: Path.Combine(_dir, "Program.cs"))!.Panel);
-        Assert.Equal(AutoRule.FileChanges, AtEnd("write_file", written: Path.Combine(_dir, "data.csv"))!.Panel);
+        Assert.Equal(new AutoTarget(SidePanelNames.FileChanges, script), AtEnd("write_file", written: script, lastPage: page));
+        Assert.Equal(new AutoTarget(SidePanelNames.FileChanges, Path.Combine(game, "notes.md")), AtEnd("write_file", written: Path.Combine(game, "notes.md"), lastPage: page));
+        Assert.Equal(SidePanelNames.FileChanges, AtEnd("edit_file", written: Path.Combine(_dir, "Program.cs"))!.Panel);
+        Assert.Equal(SidePanelNames.FileChanges, AtEnd("write_file", written: Path.Combine(_dir, "data.csv"))!.Panel);
         // What only looks right drawn: a picture, a document.
-        Assert.Equal(new AutoTarget(AutoRule.FileInspector, Path.Combine(_dir, "mockup.svg")), AtEnd("write_file", written: Path.Combine(_dir, "mockup.svg")));
-        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(_dir, "report.docx"))!.Panel);
-        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(_dir, "budget.xlsx"))!.Panel);
+        Assert.Equal(new AutoTarget(SidePanelNames.FileInspector, Path.Combine(_dir, "mockup.svg")), AtEnd("write_file", written: Path.Combine(_dir, "mockup.svg")));
+        Assert.Equal(SidePanelNames.FileInspector, AtEnd("write_file", written: Path.Combine(_dir, "report.docx"))!.Panel);
+        Assert.Equal(SidePanelNames.FileInspector, AtEnd("write_file", written: Path.Combine(_dir, "budget.xlsx"))!.Panel);
         // Shown once written, not as the call starts; a write that failed, or with no file of its own in the list, shows nothing.
         Assert.Null(AtStart("write_file", """{"path":"index.html"}"""));
         Assert.Null(AtEnd("write_file", written: page, failed: true));
@@ -61,21 +61,21 @@ public sealed class AutoRuleTests : IDisposable
         var project = Path.Combine(_dir, "space-rocks");
         var game = Path.Combine(project, "src", "game.py");
         // A file the agent made in this chat, in the folder the Code editor shows: there, whole, lit as it is written.
-        Assert.Equal(new AutoTarget(AutoRule.CodeEditor, game), AtEnd("write_file", written: game, isNew: true, editor: project));
-        Assert.Equal(new AutoTarget(AutoRule.CodeEditor, game), AtEnd("edit_file", written: game, isNew: true, editor: project + Path.DirectorySeparatorChar));
-        Assert.Equal(AutoRule.CodeEditor, AtEnd("write_file", written: Path.Combine(project, "README.md"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(new AutoTarget(SidePanelNames.CodeEditor, game), AtEnd("write_file", written: game, isNew: true, editor: project));
+        Assert.Equal(new AutoTarget(SidePanelNames.CodeEditor, game), AtEnd("edit_file", written: game, isNew: true, editor: project + Path.DirectorySeparatorChar));
+        Assert.Equal(SidePanelNames.CodeEditor, AtEnd("write_file", written: Path.Combine(project, "README.md"), isNew: true, editor: project)!.Panel);
         // One that was there before (the user's): what was taken out beside what was put in.
-        Assert.Equal(new AutoTarget(AutoRule.FileChanges, game), AtEnd("edit_file", written: game, isNew: false, editor: project));
-        Assert.Equal(new AutoTarget(AutoRule.FileChanges, game), AtEnd("write_file", written: game, isNew: false, editor: project));
+        Assert.Equal(new AutoTarget(SidePanelNames.FileChanges, game), AtEnd("edit_file", written: game, isNew: false, editor: project));
+        Assert.Equal(new AutoTarget(SidePanelNames.FileChanges, game), AtEnd("write_file", written: game, isNew: false, editor: project));
         // New, but outside the folder the Code editor shows, or with no folder yet: File changes, which shows every file.
         var elsewhere = Path.Combine(_dir, "tools", "make_levels.py");
-        Assert.Equal(new AutoTarget(AutoRule.FileChanges, elsewhere), AtEnd("write_file", written: elsewhere, isNew: true, editor: project));
-        Assert.Equal(AutoRule.FileChanges, AtEnd("write_file", written: game, isNew: true)!.Panel);
-        Assert.Equal(AutoRule.FileChanges, AtEnd("write_file", written: Path.Combine(_dir, "space-rocks-old", "a.py"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(new AutoTarget(SidePanelNames.FileChanges, elsewhere), AtEnd("write_file", written: elsewhere, isNew: true, editor: project));
+        Assert.Equal(SidePanelNames.FileChanges, AtEnd("write_file", written: game, isNew: true)!.Panel);
+        Assert.Equal(SidePanelNames.FileChanges, AtEnd("write_file", written: Path.Combine(_dir, "space-rocks-old", "a.py"), isNew: true, editor: project)!.Panel);
         // New pages, pictures and documents still go where they are drawn.
-        Assert.Equal(AutoRule.WebPreview, AtEnd("write_file", written: Path.Combine(project, "index.html"), isNew: true, editor: project)!.Panel);
-        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(project, "logo.svg"), isNew: true, editor: project)!.Panel);
-        Assert.Equal(AutoRule.FileInspector, AtEnd("write_file", written: Path.Combine(project, "plan.docx"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(SidePanelNames.WebPreview, AtEnd("write_file", written: Path.Combine(project, "index.html"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(SidePanelNames.FileInspector, AtEnd("write_file", written: Path.Combine(project, "logo.svg"), isNew: true, editor: project)!.Panel);
+        Assert.Equal(SidePanelNames.FileInspector, AtEnd("write_file", written: Path.Combine(project, "plan.docx"), isNew: true, editor: project)!.Panel);
     }
 
     [Fact]
@@ -85,12 +85,12 @@ public sealed class AutoRuleTests : IDisposable
         Directory.CreateDirectory(lighthouse);
         var run = $$"""{"action":"run","name":"sloperator/text_to_image","save_to":{{JsonValue.Create(lighthouse).ToJsonString()}}}""";
         // A version of an Image editor picture: the editor, as the run starts.
-        Assert.Equal(new AutoTarget(AutoRule.ImageEditor, lighthouse), AtStart("comfyui", run));
-        Assert.Equal(new AutoTarget(AutoRule.ImageEditor, lighthouse), AtEnd("comfyui", run, made: [Path.Combine(lighthouse, "Sloperator_00002_.png")]));
+        Assert.Equal(new AutoTarget(SidePanelNames.ImageEditor, lighthouse), AtStart("comfyui", run));
+        Assert.Equal(new AutoTarget(SidePanelNames.ImageEditor, lighthouse), AtEnd("comfyui", run, made: [Path.Combine(lighthouse, "Sloperator_00002_.png")]));
         // Anything else it made: the first of it in the inspector, once made.
         var output = Path.Combine(_dir, "ComfyUI", "output", "Sloperator_00007_.png");
         Assert.Null(AtStart("comfyui", """{"action":"run","name":"sloperator/text_to_image"}"""));
-        Assert.Equal(new AutoTarget(AutoRule.FileInspector, output), AtEnd("comfyui", """{"action":"run"}""", made: [output, output + ".mp4"]));
+        Assert.Equal(new AutoTarget(SidePanelNames.FileInspector, output), AtEnd("comfyui", """{"action":"run"}""", made: [output, output + ".mp4"]));
         // A folder in the pictures' folder's folders is no picture of the editor's.
         Assert.Null(AtStart("comfyui", $$"""{"action":"run","save_to":{{JsonValue.Create(Path.Combine(lighthouse, "old")).ToJsonString()}}}"""));
         // Looking things up shows nothing.
@@ -104,11 +104,11 @@ public sealed class AutoRuleTests : IDisposable
         var boat = Video("Paper Boat");
         Thread.Sleep(20);
         var fox = Video("Fox");
-        Assert.Equal(new AutoTarget(AutoRule.VideoEditor, boat), AtStart("video", """{"action":"shot","path":"Paper Boat","id":"s1"}"""));
-        Assert.Equal(new AutoTarget(AutoRule.VideoEditor, boat), AtEnd("video", $$"""{"action":"check","path":{{JsonValue.Create(boat).ToJsonString()}}}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.VideoEditor, boat), AtStart("video", """{"action":"shot","path":"Paper Boat","id":"s1"}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.VideoEditor, boat), AtEnd("video", $$"""{"action":"check","path":{{JsonValue.Create(boat).ToJsonString()}}}"""));
         // No path, or a new video's not made yet: the video changed last, which the tool goes on with.
-        Assert.Equal(new AutoTarget(AutoRule.VideoEditor, fox), AtStart("video", """{"action":"frame","id":"f1"}"""));
-        Assert.Equal(new AutoTarget(AutoRule.VideoEditor, fox), AtStart("video", """{"action":"storyboard","path":"Tea Ad"}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.VideoEditor, fox), AtStart("video", """{"action":"frame","id":"f1"}"""));
+        Assert.Equal(new AutoTarget(SidePanelNames.VideoEditor, fox), AtStart("video", """{"action":"storyboard","path":"Tea Ad"}"""));
     }
 
     [Fact]

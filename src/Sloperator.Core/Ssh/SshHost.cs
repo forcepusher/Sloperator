@@ -108,7 +108,18 @@ public sealed partial class SshHost : IDisposable
     {
         if (IsBusy)
             throw new InvalidOperationException("The previous command is still running.");
-        await EnsureShellAsync(ct).ConfigureAwait(false);
+        // A terminal that starts now prints its login and Sloperator's setup lines echoed: they aren't
+        // the command's, so its panel line gets what comes once the terminal is up.
+        var listener = Listener;
+        Listener = null;
+        try
+        {
+            await EnsureShellAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            Listener = listener;
+        }
         LastCommand = command;
         if (_noBash)
             return await RunAloneAsync(command, wait, ct).ConfigureAwait(false);
@@ -452,6 +463,7 @@ public sealed partial class SshHost : IDisposable
         _signal.Release();
     }
 
+    /// <summary>
     /// Kills what runs in the terminal: every process on its tty except its bash. What runs as
     /// root (under sudo) is killed with sudo.
     /// </summary>

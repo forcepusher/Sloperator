@@ -16,7 +16,22 @@ public sealed class ImageEditorTests : IDisposable
     private string Root => Path.Combine(_dir, "pictures");
     private string Picks => Path.Combine(_dir, "pasted");
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    /// <summary>The folder goes; a picture's thumbnail may still be read on the pool as a test ends (c.png held, on the workstation).</summary>
+    public void Dispose()
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Delete(_dir, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < 40)
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
 
     private static void Png(string path, int minutesAgo)
     {
@@ -87,6 +102,8 @@ public sealed class ImageEditorTests : IDisposable
             Assert.Equal(3, vm.Versions.Count);
             Assert.True(vm.Versions[2].IsShown);
             Assert.Equal("3 versions", picture.Count);
+            // Read before the test ends: its folder is deleted then.
+            Wait(() => vm.HasPicture);
             return 0;
         });
     }

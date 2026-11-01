@@ -51,8 +51,6 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         // What the chat is doing, shown here: on the piece the video tool is making.
         _chatTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) => WatchChat());
         _chatTimer.Start();
-        // A pick taken off the box (its ×) is no longer picked here either.
-        _chat.Attachments.CollectionChanged += OnBoxChanged;
         var open = folder ?? Storyboard.Recent(_videosRoot).FirstOrDefault();
         if (open is not null && Storyboard.IsVideo(open))
             Open(open);

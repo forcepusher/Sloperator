@@ -111,6 +111,21 @@ public sealed class CodeView : TextEditor
         static IBrush Brush(string key) => (IBrush)Application.Current!.FindResource(key)!;
     }
 
+    /// <summary>
+    /// The lines the selection is in, from 1: a part of a line means the line, and one that ends where a line
+    /// starts (whole lines dragged over, Shift+Down) leaves that line out. Null with nothing selected.
+    /// </summary>
+    public (int From, int To)? SelectedLines()
+    {
+        var selection = TextArea.Selection;
+        if (selection.IsEmpty || Document is not { } document)
+            return null;
+        var segment = selection.SurroundingSegment;
+        var from = document.GetLineByOffset(segment.Offset).LineNumber;
+        var end = document.GetLineByOffset(segment.EndOffset);
+        return (from, end.LineNumber > from && end.Offset == segment.EndOffset ? end.LineNumber - 1 : end.LineNumber);
+    }
+
     protected override Type StyleKeyOverride => typeof(TextEditor);
 
     private readonly ChangeLight _light = new();

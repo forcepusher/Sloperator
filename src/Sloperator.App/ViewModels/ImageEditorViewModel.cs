@@ -3,6 +3,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Sloperator.Core.Chats;
 using Sloperator.Core.Documents;
 using Sloperator.Core.Media;
 
@@ -91,9 +92,11 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     /// <summary>Where pictures of marked parts and their masks go for the message: the chat's pasted files.</summary>
     private readonly string _picksDir;
 
-    private readonly DispatcherTimer _readTimer;
-    private FileSystemWatcher? _watcher;
-    private bool _picking;
+    /// <summary>A run copies its picture in, and the list follows once the writing rests.</summary>
+    private readonly Debounce _read;
+
+    private readonly FileSystemWatcher? _watcher;
+    private readonly BoxPicks _box;
 
     /// <param name="chat">The chat the panel is beside, where picks go and its messages are sent; null in tests.</param>
     public ImageEditorViewModel(MainWindowViewModel? chat, string root, string picksDir)
@@ -101,15 +104,11 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         _chat = chat;
         Root = root;
         _picksDir = picksDir;
-        // A run copies its picture in, and the list follows once the writing rests.
-        _readTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
-        {
-            _readTimer!.Stop();
-            Refresh();
-        });
-        if (chat is not null)
-            chat.Attachments.CollectionChanged += OnBoxChanged;
-        Watch();
+        _read = new Debounce(TimeSpan.FromMilliseconds(250), Refresh);
+        _box = new BoxPicks(chat, OnTakenOff);
+        try { Directory.CreateDirectory(Root); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
+        _watcher = FolderWatch.Start(Root, (_, _) => Dispatcher.UIThread.Post(_read.Restart), () => Dispatcher.UIThread.Post(_read.Restart));
         Refresh();
     }
 
@@ -121,7 +120,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>The picture shown big; null with none.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelected), nameof(Title), nameof(EmptyText))]
+    [NotifyPropertyChangedFor(nameof(HasSelected), nameof(Title), nameof(EmptyText), nameof(MakeAgainTip))]
     [NotifyCanExecuteChangedFor(nameof(MakeAgainCommand))]
     private PictureItem? _selected;
 
@@ -235,6 +234,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
             if (ReferenceEquals(gone, Selected))
                 Selected = null;
             Pictures.Remove(gone);
+            gone.Thumbnail?.Dispose();
         }
         for (var i = 0; i < folders.Count; i++)
         {
@@ -254,6 +254,8 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         }
         OnPropertyChanged(nameof(HasPictures));
         OnPropertyChanged(nameof(EmptyText));
+        // The picture picked may have been made meanwhile.
+        OnPropertyChanged(nameof(MakeAgainTip));
         MakeAgainCommand.NotifyCanExecuteChanged();
     }
 
@@ -270,36 +272,6 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
             Versions.Add(new VersionItem(Versions.Count + 1, path));
         ShowVersion(Versions[^1]);
         OnPropertyChanged(nameof(Title));
-    }
-
-    private void Watch()
-    {
-        try
-        {
-            Directory.CreateDirectory(Root);
-            var watcher = new FileSystemWatcher(Root)
-            {
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
-            };
-            FileSystemEventHandler changed = (_, _) => Dispatcher.UIThread.Post(Changed);
-            watcher.Created += changed;
-            watcher.Deleted += changed;
-            watcher.Changed += changed;
-            watcher.Renamed += (_, _) => Dispatcher.UIThread.Post(Changed);
-            watcher.Error += (_, _) => Dispatcher.UIThread.Post(Changed);
-            watcher.EnableRaisingEvents = true;
-            _watcher = watcher;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-        }
-    }
-
-    private void Changed()
-    {
-        _readTimer.Stop();
-        _readTimer.Start();
     }
 
     // ---- the bar's buttons ------------------------------------------------------------------------
@@ -339,8 +311,6 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     public string MakeAgainTip => CanMakeAgain() ? "Make a new version of it, as it was made" : "Pick a picture that has been made first";
 
-    partial void OnSelectedChanged(PictureItem? oldValue, PictureItem? newValue) => OnPropertyChanged(nameof(MakeAgainTip));
-
     // ---- what is picked, into the chat's box ------------------------------------------------------
 
     /// <summary>What is picked: the picture (its version shown, or none yet), or a part of the version with its mask.</summary>
@@ -370,9 +340,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         DropFiles();
         var file = Shown?.Path ?? picture.Folder;
         _pick = new Picked(picture, Shown, file);
-        _picking = true;
-        try { _chat?.Pick([(file, Shown is { } v ? $"Version {v.Number} · {picture.Name}" : $"New · {picture.Name}")]); }
-        finally { _picking = false; }
+        _box.Put([(file, Shown is { } v ? $"Version {v.Number} · {picture.Name}" : $"New · {picture.Name}")]);
     }
 
     /// <summary>
@@ -404,15 +372,13 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
                 {
                     if (_closed || !Equals(Mark, area) || !ReferenceEquals(Shown, version))
                     {
-                        TryDelete(crop);
-                        TryDelete(mask);
+                        PastedFiles.TryDelete(crop);
+                        PastedFiles.TryDelete(mask);
                         return;
                     }
                     DropFiles();
                     _pick = new Picked(picture, version, crop, mask, area.Place(pixels.Width, pixels.Height, "pixels"));
-                    _picking = true;
-                    try { _chat?.Pick([(crop, $"Area of version {version.Number} · {picture.Name}")]); }
-                    finally { _picking = false; }
+                    _box.Put([(crop, $"Area of version {version.Number} · {picture.Name}")]);
                 });
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -427,16 +393,10 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     {
         if (_pick is { Mask: { } mask } pick)
         {
-            TryDelete(pick.File);
-            TryDelete(mask);
+            PastedFiles.TryDelete(pick.File);
+            PastedFiles.TryDelete(mask);
         }
         _pick = null;
-    }
-
-    private static void TryDelete(string file)
-    {
-        try { File.Delete(file); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>Esc, a click away: what was picked leaves the box. False when nothing was.</summary>
@@ -446,18 +406,15 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         if (_pick is null)
             return false;
         DropFiles();
-        _picking = true;
-        try { _chat?.Pick([]); }
-        finally { _picking = false; }
+        _box.Put([]);
         Unpicked?.Invoke();
         return true;
     }
 
-    private void OnBoxChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    /// <summary>The pick's card taken off the box (its ×): it is no longer picked here either.</summary>
+    private void OnTakenOff()
     {
-        if (_picking || _pick is null || e.OldItems is null || !e.OldItems.OfType<AttachmentItem>().Any(a => a.Picked))
-            return;
-        if (_chat?.Attachments.Any(a => a.Picked) == true)
+        if (_pick is null)
             return;
         DropFiles();
         Mark = null;
@@ -533,11 +490,12 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     public void Dispose()
     {
         _closed = true;
-        _readTimer.Stop();
+        _read.Stop();
         _watcher?.Dispose();
-        if (_chat is not null)
-            _chat.Attachments.CollectionChanged -= OnBoxChanged;
+        _box.Dispose();
         DropFiles();
         Picture?.Dispose();
+        foreach (var picture in Pictures)
+            picture.Thumbnail?.Dispose();
     }
 }

@@ -80,7 +80,7 @@ public sealed class FileTree(Func<string, bool> isUnsaved)
     /// <summary>A file's row, the folders it is in unfolded down to it; null when it isn't in the folder.</summary>
     public FileTreeRow? Reveal(string path)
     {
-        if (Folder is not { } root || !path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        if (Folder is not { } root || !FolderPath.IsIn(path, root))
             return null;
         var at = root;
         foreach (var part in Path.GetRelativePath(root, path).Split(Path.DirectorySeparatorChar)[..^1])

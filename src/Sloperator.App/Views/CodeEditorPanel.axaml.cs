@@ -1,13 +1,9 @@
 using System.ComponentModel;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using Sloperator.App.ViewModels;
 
@@ -19,7 +15,7 @@ public partial class CodeEditorPanel : UserControl
     private CodeEditorViewModel? _vm;
 
     /// <summary>What is selected goes into the box once the selection rests a moment: a drag or Shift+arrows would redo the box's card at every step.</summary>
-    private readonly DispatcherTimer _pickTimer;
+    private readonly Debounce _pick;
 
     /// <summary>Set while the editor lets go of its selection because a message went with it.</summary>
     private bool _lettingGo;
@@ -27,18 +23,11 @@ public partial class CodeEditorPanel : UserControl
     public CodeEditorPanel()
     {
         InitializeComponent();
-        _pickTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) =>
+        _pick = new Debounce(TimeSpan.FromMilliseconds(150), PickSelection);
+        Editor.TextArea.SelectionChanged += (_, _) =>
         {
-            _pickTimer!.Stop();
-            PickSelection();
-        });
-        var area = Editor.TextArea;
-        area.SelectionChanged += (_, _) =>
-        {
-            if (_lettingGo)
-                return;
-            _pickTimer.Stop();
-            _pickTimer.Start();
+            if (!_lettingGo)
+                _pick.Restart();
         };
         Editor.Dress();
         Editor.Options.IndentationSize = 4;
@@ -53,8 +42,6 @@ public partial class CodeEditorPanel : UserControl
         Tree.AddHandler(TappedEvent, OnTreeTapped);
         Tree.AddHandler(KeyDownEvent, OnTreeKey, RoutingStrategies.Tunnel);
     }
-
-    private static IBrush Brush(string key) => (IBrush)Application.Current!.FindResource(key)!;
 
     /// <summary>An entry of the encoding or line-break menu: a radio item, ticked for the file's.</summary>
     private static Control Pick(string name, bool current, Action pick)
@@ -107,24 +94,20 @@ public partial class CodeEditorPanel : UserControl
     // ---- the selection, into the box ------------------------------------------------------------
 
     /// <summary>
-    /// The selection as lines: the first and the last it is in (one that ends where a line starts, as
-    /// whole lines picked by Shift+Down do, leaves that line out), the text itself, and whether it is
-    /// the whole file. Nothing selected takes them out of the box.
+    /// The selection as lines (<see cref="CodeView.SelectedLines"/>), the text itself, and whether it is the
+    /// whole file. Nothing selected takes them out of the box.
     /// </summary>
     private void PickSelection()
     {
         if (_vm is null || _vm.Document is not { } document || Editor.Document != document)
             return;
-        var selection = Editor.TextArea.Selection;
-        if (selection.IsEmpty)
+        if (Editor.SelectedLines() is not var (from, to))
         {
             _vm.Unpick();
             return;
         }
+        var selection = Editor.TextArea.Selection;
         var segment = selection.SurroundingSegment;
-        var from = document.GetLineByOffset(segment.Offset).LineNumber;
-        var end = document.GetLineByOffset(segment.EndOffset);
-        var to = end.LineNumber > from && end.Offset == segment.EndOffset ? end.LineNumber - 1 : end.LineNumber;
         _vm.Selected(from, to, selection.GetText(), segment.Offset == 0 && segment.EndOffset == document.TextLength);
     }
 
@@ -134,7 +117,7 @@ public partial class CodeEditorPanel : UserControl
         _lettingGo = true;
         try { Editor.TextArea.ClearSelection(); }
         finally { _lettingGo = false; }
-        _pickTimer.Stop();
+        _pick.Stop();
     }
 
     /// <summary>Ctrl+S saves; Ctrl+0 puts the text back to its usual size; Esc lets go of the selected lines, as a click away does.</summary>

@@ -13,7 +13,7 @@ public partial class TerminalPanel : UserControl
     private TerminalViewModel? _vm;
 
     /// <summary>Lines selected go into the box once the selection rests a moment, as the Code editor's.</summary>
-    private readonly DispatcherTimer _pickTimer;
+    private readonly Debounce _pick;
 
     /// <summary>Set while the view lets go of its selection itself (sent, unpicked, another command).</summary>
     private bool _lettingGo;
@@ -21,17 +21,11 @@ public partial class TerminalPanel : UserControl
     public TerminalPanel()
     {
         InitializeComponent();
-        _pickTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) =>
-        {
-            _pickTimer!.Stop();
-            PickSelection();
-        });
+        _pick = new Debounce(TimeSpan.FromMilliseconds(150), PickSelection);
         Output.TextArea.SelectionChanged += (_, _) =>
         {
-            if (_lettingGo)
-                return;
-            _pickTimer.Stop();
-            _pickTimer.Start();
+            if (!_lettingGo)
+                _pick.Restart();
         };
         Output.Dress();
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
@@ -78,23 +72,11 @@ public partial class TerminalPanel : UserControl
         Dispatcher.UIThread.Post(() => Output.ScrollToLine(document.LineCount), DispatcherPriority.Background);
     }
 
-    /// <summary>The lines the selection is in (a part of a line means the line), into the box; nothing selected takes them out.</summary>
+    /// <summary>The lines the selection is in (<see cref="CodeView.SelectedLines"/>), into the box; nothing selected takes them out.</summary>
     private void PickSelection()
     {
-        if (_vm is null)
-            return;
-        var selection = Output.TextArea.Selection;
-        if (selection.IsEmpty || Output.Document is not { } document)
-        {
-            _vm.PickLines(0, 0);
-            return;
-        }
-        var start = document.GetLineByOffset(selection.SurroundingSegment.Offset).LineNumber;
-        var end = document.GetLineByOffset(selection.SurroundingSegment.EndOffset).LineNumber;
-        // A selection ending at the start of a line (a whole line dragged over) doesn't take that line.
-        if (end > start && document.GetLineByNumber(end).Offset == selection.SurroundingSegment.EndOffset)
-            end--;
-        _vm.PickLines(start, end);
+        var (from, to) = Output.SelectedLines() ?? (0, 0);
+        _vm?.PickLines(from, to);
     }
 
     private void LetGoOfSelection()

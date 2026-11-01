@@ -923,7 +923,7 @@ one's width to the other's: the view model sets the new tool in one change (it w
 and the window shrank to the chat and grew back), the window sets the panel's content itself (a
 binding took it after the layout), and the dropdown's list is closed first (it lingered a frame over
 the resized window). Measured after: popup closed, then one frame with all of the switch, for every
-pick of None, Video editor and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Web preview or Image editor) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
+pick of None, Video editor and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. File inspector, Image editor, Web preview and Terminal go through `BoxPicks` (one each), which also tells the panel when its card left the box some other way, so it lets go of the pick, and cuts what the model is told of a pick at 20,000 characters (`BoxPicks.Capped`). Their files made for a pick (an area's picture, lines' text) are named by `PastedFiles.NewPath` in Data/pasted and deleted unsent by `PastedFiles.TryDelete`. The panels that follow the disk (the Code editor's tree, the Web preview's page folder, the Image editor's pictures) watch it through `FolderWatch` and read it once a burst rests (`Debounce`, 250 ms). `Debounce` makes its timer stopped: Avalonia's `DispatcherTimer` constructor that takes the handler starts the timer at once, which made each of those panels read or reload once more a quarter second after it opened (release check, 2026-11-01). Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Web preview or Image editor) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
 `MainWindow.FitColumns` on the columns' SizeChanged): down to its least (`SidePanelOption.MinWidth`,
 splitter included: Video editor 770, where its top bar still fits in one row with the video's name cut
 short; File changes 560), then the window stops, at the panel's least plus the chat's 660 (no more than
@@ -4012,7 +4012,11 @@ command lines it types itself left out, a marker after output with no line break
 line) and hands them to `SshHost.Listener`, the ssh tool's command; a command that outlasts its call goes on
 filling the same command over the calls that wait for it, answer it or interrupt it, and ends when one of
 them sees it done. This is before the 4 MB bound on what a call keeps (`BoundRaw`), so the panel has every
-line. A server without bash runs each command on a side channel: its output comes with the result.
+line. A terminal starts with the first command (and again after the server rebooted): `RunAsync` holds the
+listener back until it is up, else the login's "Last login" and Sloperator's setup lines, echoed while
+typed, went in as the command's first lines (seen on the workstation's lab VM in the 1.3.0 release check;
+`SshIntegrationTests.The_terminal_panel_gets_only_what_the_command_prints_...`). A server without bash
+runs each command on a side channel: its output comes with the result.
 The model's copy is as before: run_shell's first quarter and last three quarters of 30,000 characters,
 ssh's 16,000; the panel keeps all of it, which is what it is for.
 
@@ -4035,7 +4039,8 @@ an area's picture is), and the message tells the model the command, where it ran
 it printed in all, and the lines numbered as the panel shows them, up to 20,000 characters.
 
 **Kept with the chat** in Data/chats/<id>/terminal.json (`CommandLog.KeepIn`, set when a run starts, as the
-chat gets its id then; written when each command ends, through a file beside it), so a chat opened from
+chat gets its id then; written when each command ends, through a temporary file of its own, `AtomicFile`, as
+two commands can end at once), so a chat opened from
 History shows its commands, and deleting the chat deletes them with its folder. A command still running when
 the app closed comes back ended, "not seen to end".
 
@@ -4045,7 +4050,9 @@ Checked in the app (2026-11-01, a stand-in agent running four PowerShell command
 a 3,000-line log listed whole (the model got 30,000 characters of it), a failing one red with exit 2, a slow
 one's lines coming in one by one while "running · 10 s" ticked; lines 2980-2981 dragged over went to the
 model numbered; the chat opened again from History showed all four. ssh's lines were checked by
-`TerminalLinesTests` only: there is no SSH server on this laptop.
+`TerminalLinesTests` only: there is no SSH server on this laptop. On the workstation (release build, Haiku
+5.5, the lab VM): Auto opened the Terminal for the agent's first command, ssh and PowerShell commands listed
+with where they ran, and terminal.json written with the chat.
 
 **A failed PowerShell command's error** showed Sloperator's own lines in that run (the coordinator, from the
 shot of the failed command): run_shell's script was the setup ([Console]::OutputEncoding, $ProgressPreference,
@@ -4573,10 +4580,11 @@ A folder Sloperator can't write to (Program Files, a locked folder; a file made 
 tells) gets no download: the line says "Sloperator 1.2.0 is out" with **Download**, the release's
 page. Only the single-file exe publish.ps1 makes (the one with the embedded runtime) updates itself:
 a debug or folder build would be replaced by a lone exe; there, **Check for updates** says so and
-nothing checks by itself. Settings → Advanced → Updates shows the running version ("Version 1.2.0", the
-exe's file version the checks compare against, `Updater.VersionText`), **Check for updates** (checks now: "Checking…", then
-"Up to date", the ready or out version, or what went wrong) and **Check automatically**, on by
-default; off, Sloperator never contacts GitHub by itself. `SLOPERATOR_RELEASES_SERVER` points the
+nothing checks by itself. Settings → Advanced → Updates has **Check automatically**, on by default,
+and **Check for updates** (checks now) with one line beside it, `Updater.StatusLine`: the running version
+(the exe's file version the checks compare against), then what the last check found. "Version 1.2.0"
+before any check, then "Version 1.2.0 · Checking…", "Version 1.2.0 · Up to date", the ready or out
+version, or what went wrong. Off, Sloperator never contacts GitHub by itself. `SLOPERATOR_RELEASES_SERVER` points the
 lookup at a stand-in for GitHub's API and pages, for tests only.
 
 ## Build

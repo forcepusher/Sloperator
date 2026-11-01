@@ -29,7 +29,7 @@ public interface ISidePanel : IDisposable
     bool Drop(IReadOnlyList<string> paths);
 }
 
-/// <summary>A side panel that follows the agent's edits, with Wrap and Watch in its top bar (File changes, Code editor; see WatchToggles).</summary>
+/// <summary>A side panel that follows the agent's work, with Wrap and Watch in its top bar (File changes, Code editor, Terminal; see WatchToggles).</summary>
 public interface IWatchPanel : ISidePanel
 {
     /// <summary>Long lines wrap inside the panel; kept in settings.</summary>
@@ -50,6 +50,13 @@ public interface IWatchPanel : ISidePanel
 
     /// <summary>The Watch button's tooltip, which says why it is greyed under Auto.</summary>
     string WatchTip { get; }
+}
+
+/// <summary>The Side panel dropdown's entries by name, as it shows them and as Auto picks among them (<see cref="AutoRule"/>).</summary>
+public static class SidePanelNames
+{
+    public const string None = "None", Auto = "Auto", FileChanges = "File changes", FileInspector = "File inspector", CodeEditor = "Code editor",
+        ImageEditor = "Image editor", VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal";
 }
 
 /// <summary>The Watch button's words under Auto, for every panel that has one.</summary>
@@ -98,23 +105,23 @@ public sealed partial class MainWindowViewModel
     /// <summary>What the Side panel dropdown offers: nothing, Auto, or a panel that opens on the left of the chat.</summary>
     public IReadOnlyList<SidePanelOption> SidePanelOptions { get; } = WithAuto(
     [
-        new("None", "", 0, 0, null),
-        new(FileChangesName, "Files the agent changed", 560, 0,
+        new(SidePanelNames.None, "", 0, 0, null),
+        new(SidePanelNames.FileChanges, "Files the agent changed", 560, 0,
             vm => new FileChangesViewModel(vm)),
-        new(FileInspectorName, "Look inside any file", 420, 0,
+        new(SidePanelNames.FileInspector, "Look inside any file", 420, 0,
             vm => new FileInspectorViewModel(vm._previews, vm, vm._paths.PastedDir),
             OpenIn: "Inspector", Opens: path => !LocalFolder(path)),
-        new("Code editor", "Browse and edit a folder's files", 800, 0,
+        new(SidePanelNames.CodeEditor, "Browse and edit a folder's files", 800, 0,
             vm => new CodeEditorViewModel(vm),
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
-        new("Image editor", "Make pictures and redraw parts of them", 760, 0,
+        new(SidePanelNames.ImageEditor, "Make pictures and redraw parts of them", 760, 0,
             vm => new ImageEditorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
-        new("Video editor", "Plan and make a video shot by shot", 770, 633,
+        new(SidePanelNames.VideoEditor, "Plan and make a video shot by shot", 770, 633,
             vm => new VideoEditorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
-        new("Web preview", "Play a web page or game as it is built", 640, 0,
+        new(SidePanelNames.WebPreview, "Play a web page or game as it is built", 640, 0,
             vm => new WebPreviewViewModel(vm, vm._paths.PastedDir, vm._paths.WebViewDir),
             OpenIn: "Web preview", Opens: Core.Web.PreviewPage.IsPage),
-        new("Terminal", "The agent's commands and all they print", 600, 0,
+        new(SidePanelNames.Terminal, "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
     ]);
 
@@ -126,15 +133,13 @@ public sealed partial class MainWindowViewModel
     private static List<SidePanelOption> WithAuto(List<SidePanelOption> options)
     {
         var shown = options.Where(o => AutoRule.Panels.Contains(o.Name)).ToList();
-        options.Insert(1, new(AutoName, "Follows the agent from panel to panel", shown.Max(o => o.MinWidth), shown.Max(o => o.MinHeight),
+        options.Insert(1, new(SidePanelNames.Auto, "Follows the agent from panel to panel", shown.Max(o => o.MinWidth), shown.Max(o => o.MinHeight),
             vm => vm.StartAuto()));
         return options;
     }
 
-    private const string FileInspectorName = "File inspector", FileChangesName = "File changes";
-
     /// <summary>A card's Inspect: the file in the File inspector panel.</summary>
-    internal void Inspect(string path) => OpenIn(SidePanelOptions.First(o => o.Name == FileInspectorName), path);
+    internal void Inspect(string path) => OpenIn(SidePanelOptions.First(o => o.Name == SidePanelNames.FileInspector), path);
 
     /// <summary>
     /// The panels a file's right-click menu opens it in: each that opens its kind, but the one open
@@ -185,7 +190,7 @@ public sealed partial class MainWindowViewModel
         // What it put in the box goes with it: about a video no longer open, it would be sent bare.
         foreach (var picked in Attachments.Where(a => a.Picked).ToList())
             RemoveAttachment(picked);
-        if (oldValue?.Name == AutoName)
+        if (oldValue?.Name == SidePanelNames.Auto)
             EndAuto(old);
         // One panel for another in one change, so the window goes from the one to the other
         // without closing between.

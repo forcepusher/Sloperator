@@ -1,4 +1,3 @@
-using Sloperator.Core.Media;
 using Sloperator.Core.Platform;
 using SkiaSharp;
 

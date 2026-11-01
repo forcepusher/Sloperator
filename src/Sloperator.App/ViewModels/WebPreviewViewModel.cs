@@ -3,6 +3,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Sloperator.Core.Chats;
 using Sloperator.Core.Documents;
 using Sloperator.Core.Platform;
 using Sloperator.Core.Web;
@@ -41,14 +42,11 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     /// <summary>Where pictures of marked areas are saved for the model: the chat's pasted pictures.</summary>
     private readonly string? _areasDir;
 
-    /// <summary>The page's folder read again once a burst of changes on disk is over (an edit is written in parts).</summary>
-    private readonly DispatcherTimer _reloadTimer;
+    /// <summary>The page loaded again once a burst of changes in its folder is over (an edit is written in parts).</summary>
+    private readonly Debounce _reload;
 
     private FileSystemWatcher? _watcher;
-    private bool _picking;
-
-    /// <summary>Characters of the errors picked the model is given at most, with the count of the rest (as the File inspector's selection).</summary>
-    private const int MaxPickedChars = 20_000;
+    private readonly BoxPicks _box;
 
     /// <param name="chat">The chat the panel is beside: the agent's pages, and where what is picked goes; null in tests of the page alone.</param>
     /// <param name="areasDir">Where pictures of marked areas are saved.</param>
@@ -58,9 +56,9 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         _chat = chat;
         _areasDir = areasDir;
         ProfileDir = profileDir;
-        _reloadTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
+        _box = new BoxPicks(chat, OnTakenOff);
+        _reload = new Debounce(TimeSpan.FromMilliseconds(250), () =>
         {
-            _reloadTimer!.Stop();
             if (!_closed && Path is not null)
                 Reload();
         });
@@ -73,7 +71,6 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         };
         if (chat is null)
             return;
-        chat.Attachments.CollectionChanged += OnBoxChanged;
         chat.ChangesUpdated += OnChangesUpdated;
         // A change made before the panel opened isn't followed, but the page the agent wrote last is shown.
         (_followedList, _followedNumber) = (chat.Changes, chat.Changes.LastChange?.Number ?? 0);
@@ -234,26 +231,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     private void WatchFolder(string folder)
     {
         _watcher?.Dispose();
-        _watcher = null;
-        try
-        {
-            var watcher = new FileSystemWatcher(folder)
-            {
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
-                InternalBufferSize = 64 * 1024,
-            };
-            watcher.Created += OnDisk;
-            watcher.Deleted += OnDisk;
-            watcher.Renamed += OnDisk;
-            watcher.Changed += OnDisk;
-            watcher.Error += (_, _) => Dispatcher.UIThread.Post(Changed);
-            watcher.EnableRaisingEvents = true;
-            _watcher = watcher;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-        }
+        _watcher = FolderWatch.Start(folder, OnDisk, () => Dispatcher.UIThread.Post(Changed));
     }
 
     // On the watcher's thread.
@@ -270,8 +248,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     {
         if (!Following || _closed || Missing)
             return;
-        _reloadTimer.Stop();
-        _reloadTimer.Start();
+        _reload.Restart();
     }
 
     // ---- the page's console -------------------------------------------------------------------------
@@ -312,9 +289,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         DropArea();
         Mark = null;
         _pickedErrors = picked.OrderBy(p => p.Number).ToList();
-        _picking = true;
-        try { _chat?.Pick([(path, $"{ErrorsCaption(_pickedErrors)} · {FileName}")]); }
-        finally { _picking = false; }
+        _box.Put([(path, $"{ErrorsCaption(_pickedErrors)} · {FileName}")]);
     }
 
     /// <summary>"Error 2", "Errors 1-3", "3 errors" for ones not one after another.</summary>
@@ -428,7 +403,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
                     // Another area marked meanwhile, the page loaded again, or the mark taken off: it isn't wanted.
                     if (_closed || loads != _loads || !Equals(Mark, area))
                     {
-                        TryDelete(file);
+                        PastedFiles.TryDelete(file);
                         return;
                     }
                     // Errors picked before leave the box: their rows let go too.
@@ -439,9 +414,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
                     }
                     DropArea();
                     _area = (file, told);
-                    _picking = true;
-                    try { _chat?.Pick([(file, $"Area · {name}")]); }
-                    finally { _picking = false; }
+                    _box.Put([(file, $"Area · {name}")]);
                 });
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -455,14 +428,8 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     private void DropArea()
     {
         if (_area is { } area)
-            TryDelete(area.Picture);
+            PastedFiles.TryDelete(area.Picture);
         _area = null;
-    }
-
-    private static void TryDelete(string file)
-    {
-        try { File.Delete(file); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     // ---- what is picked, into the chat's box ------------------------------------------------------
@@ -475,19 +442,15 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
             return false;
         _pickedErrors = [];
         DropArea();
-        _picking = true;
-        try { _chat?.Pick([]); }
-        finally { _picking = false; }
+        _box.Put([]);
         Unpicked?.Invoke();
         return true;
     }
 
-    /// <summary>What was picked taken off the box another way: it is no longer picked here either.</summary>
-    private void OnBoxChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    /// <summary>What was picked taken off the box another way (its card's ×): it is no longer picked here either.</summary>
+    private void OnTakenOff()
     {
-        if (_picking || _pickedErrors.Count == 0 && _area is null || e.OldItems is null || !e.OldItems.OfType<AttachmentItem>().Any(a => a.Picked))
-            return;
-        if (_chat?.Attachments.Any(a => a.Picked) == true)
+        if (_pickedErrors.Count == 0 && _area is null)
             return;
         _pickedErrors = [];
         DropArea();
@@ -513,9 +476,7 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         var caption = ErrorsCaption(_pickedErrors);
         var context = new System.Text.StringBuilder(opening)
             .Append($"They picked {(_pickedErrors.Count == 1 ? "this error" : "these errors")} from the page's console (its script errors since it last loaded, numbered from 1), which is what they refer to:\n");
-        var told = string.Join("\n", _pickedErrors.Select(e => $"{e.Number}. {e.Error.Told}"));
-        context.Append(told.Length <= MaxPickedChars ? told : told[..MaxPickedChars] + $"\n[... {told.Length - MaxPickedChars:N0} more characters]");
-        context.Append("\n]");
+        context.Append(BoxPicks.Capped(string.Join("\n", _pickedErrors.Select(e => $"{e.Number}. {e.Error.Told}")))).Append("\n]");
         return ($"Web preview · {FileName} · {char.ToLowerInvariant(caption[0])}{caption[1..]}", context.ToString());
     }
 
@@ -545,14 +506,12 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     public void Dispose()
     {
         _closed = true;
-        _reloadTimer.Stop();
+        _reload.Stop();
         _watcher?.Dispose();
         _watcher = null;
         if (_chat is not null)
-        {
-            _chat.Attachments.CollectionChanged -= OnBoxChanged;
             _chat.ChangesUpdated -= OnChangesUpdated;
-        }
+        _box.Dispose();
         DropArea();
         Unfreeze();
     }

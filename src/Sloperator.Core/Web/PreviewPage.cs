@@ -25,7 +25,7 @@ public static partial class PreviewPage
     public static string Folder(string page)
     {
         var own = Path.GetDirectoryName(Path.GetFullPath(page))!;
-        return Projects.ProjectRoot.Find(own)?.Root is { } root && IsIn(own, root) ? Path.TrimEndingDirectorySeparator(root) : own;
+        return Projects.ProjectRoot.Find(own)?.Root is { } root && Projects.FolderPath.IsIn(own, root) ? Path.TrimEndingDirectorySeparator(root) : own;
     }
 
     /// <summary>The address <paramref name="page"/> is shown at, <paramref name="folder"/> served at <see cref="Host"/>.</summary>
@@ -44,7 +44,7 @@ public static partial class PreviewPage
             return null;
         var relative = Uri.UnescapeDataString(address.AbsolutePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
         var path = Path.GetFullPath(Path.Combine(folder, relative));
-        return IsIn(path, folder) || string.Equals(path, folder, StringComparison.OrdinalIgnoreCase) ? path : null;
+        return Projects.FolderPath.IsIn(path, folder) || string.Equals(path, folder, StringComparison.OrdinalIgnoreCase) ? path : null;
     }
 
     /// <summary>
@@ -53,9 +53,6 @@ public static partial class PreviewPage
     /// </summary>
     public static bool Reloads(string changed, string folder) =>
         !Path.GetRelativePath(folder, changed).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).SkipLast(1).Any(Projects.FolderWalk.AlwaysLeftOut.Contains);
-
-    public static bool IsIn(string path, string folder) =>
-        path.StartsWith(Path.EndsInDirectorySeparator(folder) ? folder : folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Run in every document before its own scripts: uncaught errors, failed promise rejections, resources

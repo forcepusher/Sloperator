@@ -74,17 +74,19 @@ public sealed partial class ShellTool : Tool
                 }
                 FlushBinary();
                 output.Add(line);
+                // An error record ends in a line break: no empty line after it in the Terminal panel.
                 if (run is not null)
-                    foreach (var part in line.Split('\n'))
-                        run.Add(part);
+                    foreach (var part in line.TrimEnd('\r', '\n').Split('\n'))
+                        run.Add(part.TrimEnd('\r'));
             }
         }
         void FlushBinary()
         {
             if (binary > 0)
             {
-                output.Add(Ssh.TerminalText.BinaryNote(binary));
-                run?.Add(Ssh.TerminalText.BinaryNote(binary));
+                var note = Ssh.TerminalText.BinaryNote(binary);
+                output.Add(note);
+                run?.Add(note);
             }
             binary = 0;
         }

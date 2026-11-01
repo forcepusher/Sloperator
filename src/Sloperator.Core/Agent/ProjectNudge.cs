@@ -169,8 +169,7 @@ internal sealed partial class ProjectNudge
             .Any(data => Under(path, data));
 
     private static bool Under(string path, string folder) =>
-        path.Equals(folder, StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith(folder.EndsWith(Path.DirectorySeparatorChar) ? folder : folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        path.Equals(folder, StringComparison.OrdinalIgnoreCase) || Projects.FolderPath.IsIn(path, folder);
 
     private static string? Arg(JsonObject args, string key) =>
         args[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Length > 0 ? s.Trim() : null;
@@ -182,7 +181,7 @@ internal sealed partial class ProjectNudge
     [GeneratedRegex(@"[""'](?<quoted>[A-Za-z]:[\\/][^""'\r\n]*)[""']|(?<![\w""'])(?<bare>[A-Za-z]:[\\/][^\s""'|;<>,()]*)")]
     private static partial Regex WindowsPath();
 
-    /// <summary>The project a <see cref="Note"/> named.</summary>
+    /// <summary>The project a <see cref="Note(string, string)"/> named.</summary>
     [GeneratedRegex(@"^\[Sloperator\] (?<root>[^\r\n]+?) is a project \(", RegexOptions.Multiline)]
     private static partial Regex SaidNote();
 }

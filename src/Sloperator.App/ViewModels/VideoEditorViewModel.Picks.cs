@@ -1,4 +1,3 @@
-using System.Collections.Specialized;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Sloperator.Core.Video;
@@ -70,11 +69,6 @@ public sealed partial class VideoEditorViewModel
     {
         Viewing = null;
         _chat.Pick([]);
-    }
-
-    /// <summary>The chat's box changed: a pick taken off it there is no longer picked here (the viewer keeps showing it).</summary>
-    private void OnBoxChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
     }
 
     /// <summary>The message went with what was picked; the viewer keeps showing it, as the chat makes it.</summary>

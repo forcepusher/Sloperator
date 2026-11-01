@@ -940,6 +940,15 @@ public class ToolTests
         Assert.Contains("Write-Output 'Reading config.json'; Write-Error 'Missing file: config.json'; exit 2 : Missing file: config.json", written.Text);
         foreach (var wrapper in new[] { "OutputEncoding", "Alias:curl", "LASTEXITCODE", "Sloperator" })
             Assert.DoesNotContain(wrapper, written.Text);
+        // The Terminal panel gets the error's lines, with no empty one after them (the record ends in a line break).
+        var log = new CommandLog();
+        var logged = new ToolContext { Platform = platform, Settings = new AgentSettings { ScreenshotAfterActions = false }, WorkingDirectory = Path.GetTempPath(), Commands = log };
+        await new ShellTool().ExecuteAsync(new JsonObject { ["command"] = "Write-Output 'Reading config.json'; Write-Error 'Missing file: config.json'" }, logged, CancellationToken.None);
+        var lines = Assert.Single(log.Runs).LinesFrom(0);
+        Assert.Equal("Reading config.json", lines[0]);
+        Assert.Contains(lines, l => l.EndsWith(": Missing file: config.json", StringComparison.Ordinal));
+        Assert.NotEqual("", lines[^1]);
+        Assert.DoesNotContain(lines, l => l.EndsWith('\r'));
         var second = await new ShellTool().ExecuteAsync(
             new JsonObject { ["command"] = "Write-Output first\nGet-Item 'C:\\no such folder here'" }, Ctx(platform), CancellationToken.None);
         Assert.Contains("Exit code 1", second.Text);

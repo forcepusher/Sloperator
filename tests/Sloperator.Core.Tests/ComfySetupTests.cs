@@ -461,7 +461,11 @@ public class DownloaderTests : IDisposable
     }
 }
 
-/// <summary>Opt-in checks against the real sites (BB_COMFY_ONLINE=1): GitHub's release of ComfyUI, and the model search on Civitai and Hugging Face.</summary>
+/// <summary>
+/// Opt-in checks against the real sites (BB_COMFY_ONLINE=1): GitHub's release of ComfyUI, and the model search on
+/// Civitai and Hugging Face. In the stand-ins' collection: run beside them, the search went to a stand-in's address.
+/// </summary>
+[Collection(CivitaiStandIn.Name)]
 public class ComfyOnlineTests
 {
     private static readonly bool Online = Environment.GetEnvironmentVariable("BB_COMFY_ONLINE") == "1";

@@ -40,15 +40,19 @@ public sealed partial class Updater : ObservableObject
     private static Version Running =>
         (Exe is { } exe ? SelfUpdate.FileVersion(exe) : null) ?? typeof(Updater).Assembly.GetName().Version ?? new Version(0, 0);
 
-    /// <summary>The running version for Settings, the one checks compare against: "Version 1.2.0".</summary>
-    public string VersionText => $"Version {GitHubReleases.Normal(Running).ToString(3)}";
+    /// <summary>The running version, the one checks compare against: "Version 1.2.0".</summary>
+    private static string VersionText => $"Version {GitHubReleases.Normal(Running).ToString(3)}";
 
     /// <summary>Checks at start and once an hour; off, Sloperator never asks GitHub by itself (the Check for updates button still does).</summary>
     public bool Automatic { get; set; }
 
-    /// <summary>What the last check found, for Settings: "Checking…", "Up to date", "Sloperator 1.2.0 is ready".</summary>
+    /// <summary>What the last check found: "Checking…", "Up to date", "Sloperator 1.2.0 is ready".</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusLine))]
     private string _status = "";
+
+    /// <summary>The line beside Check for updates in Settings: the running version, then what the last check found: "Version 1.2.0 · Up to date".</summary>
+    public string StatusLine => Status.Length == 0 ? VersionText : $"{VersionText} · {Status}";
 
     /// <summary>A newer version is downloaded, and a restart puts it in place.</summary>
     [ObservableProperty]

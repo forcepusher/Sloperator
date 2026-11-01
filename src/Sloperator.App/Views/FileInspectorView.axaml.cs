@@ -353,7 +353,7 @@ public partial class FileInspectorView : UserControl
         PlainText.ClearSelection();
     }
 
-    /// <summary>An observer of a value, for <see cref="AvaloniaObject.GetObservable{T}(AvaloniaProperty{T})"/> without Rx.</summary>
+    /// <summary>An observer of a value, for <see cref="AvaloniaObjectExtensions.GetObservable{T}(AvaloniaObject, AvaloniaProperty{T})"/> without Rx.</summary>
     private sealed class Watch<T>(Action<T> next) : IObserver<T>
     {
         public void OnNext(T value) => next(value);

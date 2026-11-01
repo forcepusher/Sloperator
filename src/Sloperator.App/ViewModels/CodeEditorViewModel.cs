@@ -27,10 +27,13 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     private readonly MainWindowViewModel _chat;
 
     /// <summary>The chat's folder read again a moment after its changes or another chat came.</summary>
-    private readonly DispatcherTimer _followTimer;
+    private readonly Debounce _follow;
 
     /// <summary>What the disk said changed, read once a burst of it is over (a build writes hundreds of files).</summary>
-    private readonly DispatcherTimer _diskTimer;
+    private readonly Debounce _disk;
+
+    /// <summary>Which line breaks the text has, read once typing rests (a 5 MB file isn't read at each key).</summary>
+    private readonly Debounce _breaks;
 
     private FileSystemWatcher? _watcher;
     private readonly Lock _gate = new();
@@ -46,24 +49,14 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
 
     private CancellationTokenSource? _opening;
 
-    /// <summary>Lines of a pick the model is given at most, in characters (as the File inspector's).</summary>
-    private const int MaxPickedChars = 20_000;
-
     /// <param name="chat">The chat the panel is beside: its folder, and where messages about the selected lines go.</param>
     public CodeEditorViewModel(MainWindowViewModel chat)
     {
         _chat = chat;
         Tree = new FileTree(path => chat.CodeDrafts.ContainsKey(path));
-        _followTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
-        {
-            _followTimer!.Stop();
-            _ = FollowChatAsync();
-        });
-        _diskTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
-        {
-            _diskTimer!.Stop();
-            _ = OnDiskChangedAsync();
-        });
+        _follow = new Debounce(TimeSpan.FromMilliseconds(250), () => _ = FollowChatAsync());
+        _disk = new Debounce(TimeSpan.FromMilliseconds(250), () => _ = OnDiskChangedAsync());
+        _breaks = new Debounce(TimeSpan.FromMilliseconds(300), ReadLineBreaks);
         _watch = chat.Panels.WatchCode;
         ByAuto = chat.IsAuto;
         _wrap = chat.Panels.WrapCode;
@@ -93,11 +86,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     [ObservableProperty]
     private FileTreeRow? _selectedRow;
 
-    private void OnChangesUpdated()
-    {
-        _followTimer.Stop();
-        _followTimer.Start();
-    }
+    private void OnChangesUpdated() => _follow.Restart();
 
     /// <summary>
     /// The chat's folder: the one the user opened in it, else the project the agent changed files in
@@ -118,7 +107,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         if (_openLit is { } file)
         {
             _openLit = null;
-            if (Folder is { } shown && IsIn(file, shown))
+            if (Folder is { } shown && FolderPath.IsIn(file, shown))
             {
                 // What the agent changed before is followed now: Watch goes on from its next change.
                 _followedNumber = changes.LastChange?.Number ?? 0;
@@ -245,7 +234,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
             return;
         _followedNumber = last.Number;
         var path = last.Path;
-        if (!Following || Folder is not { } folder || !IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
+        if (!Following || Folder is not { } folder || !FolderPath.IsIn(path, folder) || !await Task.Run(() => File.Exists(path) && Core.Documents.FileInspector.IsText(path)) || _closed)
             return;
         if (string.Equals(path, OpenPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -305,30 +294,11 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         Folder = folder;
         Tree.Show(folder);
         SelectedRow = null;
-        if (OpenPath is { } open && (folder is null || !IsIn(open, folder)))
+        if (OpenPath is { } open && (folder is null || !FolderPath.IsIn(open, folder)))
             CloseFile();
-        if (folder is null)
-            return;
-        try
-        {
-            var watcher = new FileSystemWatcher(folder)
-            {
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
-                InternalBufferSize = 64 * 1024,
-            };
-            watcher.Created += OnDisk;
-            watcher.Deleted += OnDisk;
-            watcher.Renamed += OnDisk;
-            watcher.Changed += OnDisk;
-            // Too much at once for its buffer: every folder shown is read again.
-            watcher.Error += (_, _) => Noted(["*"], false);
-            watcher.EnableRaisingEvents = true;
-            _watcher = watcher;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-        }
+        // Too much at once for its buffer: every folder shown is read again.
+        if (folder is not null)
+            _watcher = FolderWatch.Start(folder, OnDisk, () => Noted(["*"], false));
     }
 
     /// <summary>A click on a folder: unfolded (its files read the first time) or folded.</summary>
@@ -366,10 +336,8 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         {
             lock (_gate)
                 _diskPosted = false;
-            if (_closed)
-                return;
-            _diskTimer.Stop();
-            _diskTimer.Start();
+            if (!_closed)
+                _disk.Restart();
         });
     }
 
@@ -471,7 +439,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         {
             if (OpenPath is not { } path)
                 return "";
-            var where = Folder is { } root && IsIn(path, root) ? Path.GetRelativePath(root, path) : path;
+            var where = Folder is { } root && FolderPath.IsIn(path, root) ? Path.GetRelativePath(root, path) : path;
             if (SaveProblem is { } problem)
                 return $"{where} · not saved: {problem}";
             if (EncodingProblem is { } encoding)
@@ -575,23 +543,16 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         ReadLineBreaks();
     }
 
-    /// <summary>Which line breaks the text has now: read once typing rests (a 5 MB file isn't read at each key).</summary>
+    /// <summary>Which line breaks the text has now (see <see cref="_breaks"/>).</summary>
     private void ReadLineBreaks()
     {
-        _breaksTimer?.Stop();
+        _breaks.Stop();
         if (Document is { } document)
             (_lineBreak, _mixedBreaks) = CodeFile.LineBreakOf(document.Text);
         OnPropertyChanged(nameof(LineBreakName));
     }
 
-    private DispatcherTimer? _breaksTimer;
-
-    private void OnTextChanged(object? sender, EventArgs e)
-    {
-        _breaksTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(300), DispatcherPriority.Background, (_, _) => ReadLineBreaks());
-        _breaksTimer.Stop();
-        _breaksTimer.Start();
-    }
+    private void OnTextChanged(object? sender, EventArgs e) => _breaks.Restart();
 
     /// <summary>A file clicked in the tree, or dropped on the panel: open in the editor, with its edits not saved yet if it has some.</summary>
     internal async Task OpenAsync(string path)
@@ -641,12 +602,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     private void Leave()
     {
         Unpick();
-        if (Document is { } document)
-        {
-            document.UndoStack.PropertyChanged -= OnUndoChanged;
-            document.TextChanged -= OnTextChanged;
-        }
-        _breaksTimer?.Stop();
+        LetGoOfDocument();
         _file = null;
         Document = null;
         FileProblem = null;
@@ -658,6 +614,17 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         OnPropertyChanged(nameof(EncodingName));
         OnPropertyChanged(nameof(LineBreakName));
         OnPropertyChanged(nameof(LanguageName));
+    }
+
+    /// <summary>The editor stops listening to the document open (it may stay as a draft).</summary>
+    private void LetGoOfDocument()
+    {
+        if (Document is { } document)
+        {
+            document.UndoStack.PropertyChanged -= OnUndoChanged;
+            document.TextChanged -= OnTextChanged;
+        }
+        _breaks.Stop();
     }
 
     private void CloseFile()
@@ -673,9 +640,8 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     /// <summary>Typed in, or undone back to what it was read or saved as: the draft kept or let go, its row's mark with it.</summary>
     private void OnUndoChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(UndoStack.IsOriginalFile) || _file is not { } file || Document is not { } document)
-            return;
-        UpdateUnsaved();
+        if (e.PropertyName == nameof(UndoStack.IsOriginalFile))
+            UpdateUnsaved();
     }
 
     /// <summary>Edited (or another encoding picked) since it was read or saved: the draft kept or let go, its row's mark with it.</summary>
@@ -870,7 +836,7 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
         for (var i = 0; i < lines.Count; i++)
         {
             var line = $"{pick.From + i}\t{lines[i]}\n";
-            if (context.Length + line.Length > MaxPickedChars)
+            if (context.Length + line.Length > BoxPicks.MaxChars)
             {
                 context.Append($"[... {lines.Count - i} more selected lines]\n");
                 break;
@@ -919,13 +885,10 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     private void Show(string path)
     {
         path = Path.GetFullPath(path);
-        if (Folder is not { } folder || !IsIn(path, folder))
+        if (Folder is not { } folder || !FolderPath.IsIn(path, folder))
             OpenFolder(ProjectRoot.Find(path)?.Root ?? Path.GetDirectoryName(path)!);
         _ = OpenAsync(path);
     }
-
-    private static bool IsIn(string path, string folder) =>
-        path.StartsWith(Path.EndsInDirectorySeparator(folder) ? folder : folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     private bool _closed;
 
@@ -933,16 +896,11 @@ public sealed partial class CodeEditorViewModel : ObservableObject, IFilePanel, 
     {
         _closed = true;
         _chat.ChangesUpdated -= OnChangesUpdated;
-        _followTimer.Stop();
-        _diskTimer.Stop();
+        _follow.Stop();
+        _disk.Stop();
         _watcher?.Dispose();
         _watcher = null;
         _opening?.Cancel();
-        _breaksTimer?.Stop();
-        if (Document is { } document)
-        {
-            document.UndoStack.PropertyChanged -= OnUndoChanged;
-            document.TextChanged -= OnTextChanged;
-        }
+        LetGoOfDocument();
     }
 }

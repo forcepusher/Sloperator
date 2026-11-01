@@ -396,7 +396,6 @@ public sealed partial class VideoEditorViewModel
         if (_disposing)
             return;
         _disposing = true;
-        _chat.Attachments.CollectionChanged -= OnBoxChanged;
         _chatTimer.Stop();
         _refreshTimer.Stop(); // a refresh due after the panel closed made players nobody disposed
         StopPlaying();

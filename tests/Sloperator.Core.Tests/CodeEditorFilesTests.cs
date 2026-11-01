@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json.Nodes;
-using Sloperator.Core.Agent;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Diffs;
 using Sloperator.Core.Projects;
@@ -69,16 +68,18 @@ public class CodeEditorFilesTests : IDisposable
     [Fact]
     public async Task A_file_in_the_ansi_code_page_is_saved_in_it_again()
     {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        var ansi = Encoding.GetEncoding(1252);
+        // This PC's code page, as the file is read in: Windows-1252 here, 1251 on the workstation, where
+        // "Zoë" came back "Zoл". Its letters at 0xE9 and 0xFC ("é" and "ü" in 1252, "й" and "ь" in 1251).
+        var ansi = TextFiles.Ansi;
+        var (e, u) = (ansi.GetString([0xE9]), ansi.GetString([0xFC]));
         var path = Path.Combine(_root, "old.ini");
-        File.WriteAllBytes(path, ansi.GetBytes("name=Zoë\n"));
+        File.WriteAllBytes(path, ansi.GetBytes($"name=Zo{e}\n"));
 
         var (file, _) = await CodeFile.ReadAsync(path, CancellationToken.None);
-        Assert.Equal("name=Zoë\n", file!.Text);
-        await file.SaveAsync("name=Zoë Müller\n", CancellationToken.None);
+        Assert.Equal($"name=Zo{e}\n", file!.Text);
+        await file.SaveAsync($"name=Zo{e} M{u}ller\n", CancellationToken.None);
 
-        Assert.Equal(ansi.GetBytes("name=Zoë Müller\n"), File.ReadAllBytes(path));
+        Assert.Equal(ansi.GetBytes($"name=Zo{e} M{u}ller\n"), File.ReadAllBytes(path));
     }
 
     [Fact]

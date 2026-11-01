@@ -22,7 +22,7 @@ public static class PictureFolder
         try
         {
             return Directory.EnumerateFiles(folder)
-                .Where(f => Types.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .Where(IsPicture)
                 .OrderBy(File.GetLastWriteTimeUtc).ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -81,9 +81,9 @@ public static class PictureFolder
                 var v = (byte)Math.Round(255 * Math.Min(dy, Inside(col, x, x + w, feather)));
                 var i = (row * width + col) * 4;
                 pixels[i] = pixels[i + 1] = pixels[i + 2] = v;
-                pixels[i + 3] = 255;
             }
         }
+        // Opaque everywhere, the black rows left out above too.
         for (var i = 3; i < pixels.Length; i += 4)
             pixels[i] = 255;
         DocumentArea.SavePng(new Platform.RawImage(width, height, pixels), path);
