@@ -34,6 +34,35 @@ public sealed class ShellPreviewHost : NativeControlHost
 #endif
     }
 
+    /// <summary>Whether <paramref name="path"/> is marked as downloaded from the internet, which Windows' previewers don't draw (see <see cref="Platform.Windows.DownloadMark"/>).</summary>
+    public static bool Downloaded(string path)
+    {
+#if WINDOWS
+        return OperatingSystem.IsWindows() && Platform.Windows.DownloadMark.FromInternet(path);
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>A copy of <paramref name="path"/> without the internet mark, for the user's Preview anyway; null elsewhere than on Windows.</summary>
+    public static string? UnmarkedCopy(string path)
+    {
+#if WINDOWS
+        return OperatingSystem.IsWindows() ? Platform.Windows.DownloadMark.UnmarkedCopy(path) : null;
+#else
+        return null;
+#endif
+    }
+
+    /// <summary>Deletes a copy <see cref="UnmarkedCopy"/> made.</summary>
+    public static void DeleteCopy(string copy)
+    {
+#if WINDOWS
+        if (OperatingSystem.IsWindows())
+            Platform.Windows.DownloadMark.Delete(copy);
+#endif
+    }
+
     /// <summary>What the previewer shows now, its pixels as on screen; null with nothing shown.</summary>
     public Core.Platform.RawImage? Snapshot()
     {
