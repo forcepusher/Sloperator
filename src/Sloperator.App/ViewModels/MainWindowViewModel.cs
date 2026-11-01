@@ -63,7 +63,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         _settings = settings;
         _windows = windows;
         _platform = windows.Platform;
-        _previews = new PreviewServices(Core.Media.MediaDecoders.Create(_platform, paths, Core.Comfy.ComfyHub.For(paths.ComfyDir)), _platform.CreateAudioOutput);
+        _previews = new PreviewServices(Core.Media.MediaDecoders.Create(_platform, paths, Core.Comfy.ComfyHub.For(paths.ComfyDir)), _platform.CreateAudioOutput, paths.ToolsDir);
         _chats = new ChatStore(paths.ChatsDir);
         _chatSaver = windows.Saver;
         _ssh = new Core.Ssh.SshHosts(paths.KnownHostsFile);

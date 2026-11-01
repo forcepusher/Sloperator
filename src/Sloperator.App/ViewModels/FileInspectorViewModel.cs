@@ -19,7 +19,8 @@ namespace Sloperator.App.ViewModels;
 /// 3D models about (<see cref="InspectorModelViewModel"/>), shows any other file's bytes in hex, and PDF
 /// pages are drawn by Windows' PDF renderer (<see cref="PdfPages"/>); Office files and web pages
 /// (and a PDF it can't open) are drawn by the previewer Windows has for them, as
-/// in Explorer's preview pane, else shown as their text (<see cref="FileInspector"/>). With the
+/// in Explorer's preview pane, else an Office file's pages turned by Office or LibreOffice (see
+/// <see cref="ShowConverted"/>), else shown as their text (<see cref="FileInspector"/>). With the
 /// panel open a message is about the file shown; text selected in the text Sloperator draws goes into
 /// the chat's box as where it is in the file ("Lines 12-20 · notes.md", "Cells B4:C4 · data.csv"),
 /// and the message carries it for the model, as File changes does with lines (the user's request,
@@ -227,15 +228,78 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         }
         if (copy is null)
             return;
-        _loading++;
+        var load = ++_loading;
         ShowText = false;
         Clear();
         _unmarked = copy;
-        (ShellPath, Details, Message) = (copy, FilePreview.Size(path), null);
+        if (Views.ShellPreviewHost.CanShow(copy))
+        {
+            (ShellPath, Details, Message) = (copy, FilePreview.Size(path), null);
+            return;
+        }
+        // No previewer for it: its pages, drawn from the copy.
+        var stop = _stop.Token;
+        Message = "Loading…";
+        Task.Run(() =>
+        {
+            try { ShowConverted(load, path, FilePreview.Size(path), stop, copy); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { Post(load, () => Message = $"Can't be shown: {ex.Message}"); }
+        });
+    }
+
+    /// <summary>
+    /// The document couldn't be drawn, as no program on this PC turns it into pages (no Office, no
+    /// LibreOffice): said over its text, with Get LibreOffice.
+    /// </summary>
+    [ObservableProperty]
+    private bool _needsProgram;
+
+    private const string NoProgram = "Office or LibreOffice draws its pages, and this PC has neither.";
+
+    /// <summary>Said over the text of a document no program draws: why, or how fetching LibreOffice goes.</summary>
+    [ObservableProperty]
+    private string _programText = NoProgram;
+
+    /// <summary>LibreOffice being fetched; stopped with the panel (the download goes on from where it was next time).</summary>
+    private CancellationTokenSource? _fetch;
+
+    private bool CanGetLibreOffice() => DocumentPictures.Fetcher is not null && _previews.Tools is not null;
+
+    /// <summary>
+    /// LibreOffice fetched into Sloperator's tools folder (see <see cref="Platform.Windows.LibreOfficeFetch"/>),
+    /// how it goes said in the band, then the document shown drawn by it. Disabled while it runs.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanGetLibreOffice))]
+    private async Task GetLibreOffice()
+    {
+        var fetch = _fetch = new CancellationTokenSource();
+        ProgramText = "Getting LibreOffice…";
+        try
+        {
+            await Task.Run(() => DocumentPictures.Fetcher!(_previews.Tools!, said => Dispatcher.UIThread.Post(() =>
+            {
+                if (!fetch.IsCancellationRequested && GetLibreOfficeCommand.IsRunning)
+                    ProgramText = said;
+            }), fetch.Token));
+            ProgramText = NoProgram;
+            if (NeedsProgram && Path is { } path)
+                Show(path);
+        }
+        catch (OperationCanceledException)
+        {
+            ProgramText = NoProgram;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            ProgramText = $"LibreOffice couldn't be fetched: {ex.Message}";
+        }
     }
 
     /// <summary>What a load under way is: one started after it wins.</summary>
     private int _loading;
+
+    /// <summary>Stops a document being turned into pages for the file shown, when another is (see <see cref="ShowConverted"/>).</summary>
+    private CancellationTokenSource _stop = new();
 
     /// <summary>The prompts and settings a picture, animation, video, sound or 3D model says it was made with (ComfyUI keeps them in every file it saves); null when it says none.</summary>
     [ObservableProperty]
@@ -276,6 +340,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         Details = "";
         Recipe = null;
         Message = "Loading…";
+        var stop = _stop.Token;
         Task.Run(() =>
         {
             try
@@ -370,7 +435,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
                         Post(load, () => (ShellPath, Details, Message) = (path, size, null));
                         break;
                     case InspectorKind.Document:
-                        ShowAsText(load, path, size);
+                        ShowConverted(load, path, size, stop);
                         break;
                     default:
                     {
@@ -440,17 +505,26 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         {
             return false;
         }
-        var pages = Enumerable.Range(0, pdf.Sizes.Count).Select(i => new PdfPageItem(pdf, i)).ToList();
-        var details = $"PDF, {pages.Count:N0} page{(pages.Count == 1 ? "" : "s")}, {size}";
-        Post(load, () =>
-        {
-            _pdf = pdf;
-            (Pages, Details, Message) = (pages, details, pages.Count == 0 ? "The PDF has no pages." : null);
-        }, pdf.Dispose);
+        ShowPages(load, pdf, n => $"PDF, {n:N0} page{(n == 1 ? "" : "s")}, {size}", "The PDF has no pages.");
         return true;
     }
 
-    /// <summary>Windows' previewer couldn't show the file: its text, as without one.</summary>
+    /// <summary>The pages of <paramref name="pdf"/>, drawn as they come on screen, and what it is from how many there are.</summary>
+    private void ShowPages(int load, IPdfDocument pdf, Func<int, string> details, string empty)
+    {
+        var pages = Enumerable.Range(0, pdf.Sizes.Count).Select(i => new PdfPageItem(pdf, i)).ToList();
+        var said = details(pages.Count);
+        Post(load, () =>
+        {
+            _pdf = pdf;
+            (Pages, Details, Message) = (pages, said, pages.Count == 0 ? empty : null);
+        }, pdf.Dispose);
+    }
+
+    /// <summary>Why a file downloaded from the internet shows as its text.</summary>
+    private const string Blocked = " (Windows doesn't preview files downloaded from the internet)";
+
+    /// <summary>Windows' previewer couldn't show the file: its pages turned from it, else its text, as without one.</summary>
     public void ShellFailed(string why)
     {
         if (ShellPath is not { } shown)
@@ -458,17 +532,76 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
         var path = Path ?? shown;
         // Windows' previewers don't draw a file downloaded from the internet (Excel's says only E_FAIL);
         // the copy Preview anyway made has no mark, and failing too, it failed for its own reason.
-        var blocked = shown != _unmarked && Views.ShellPreviewHost.Downloaded(path);
+        var copy = shown == _unmarked ? shown : null;
+        var blocked = copy is null && Views.ShellPreviewHost.Downloaded(path);
         var load = ++_loading;
+        var stop = _stop.Token;
         AreaMode = false;
         ShellPath = null;
         PreviewBlocked = blocked;
         Message = "Loading…";
         Task.Run(() =>
         {
-            try { ShowAsText(load, path, FilePreview.Size(path), blocked ? " (Windows doesn't preview files downloaded from the internet)" : $" (the previewer for it failed: {why})"); }
+            try
+            {
+                if (blocked)
+                    ShowAsText(load, path, FilePreview.Size(path), Blocked);
+                else
+                    ShowConverted(load, path, FilePreview.Size(path), stop, copy, $" (the previewer for it failed: {why})");
+            }
             catch (Exception ex) when (ex is not OutOfMemoryException) { Post(load, () => Message = $"Can't be shown: {ex.Message}"); }
         });
+    }
+
+    /// <summary>
+    /// A Word, Excel or PowerPoint file (or OpenDocument's, or an RTF) that no previewer on this PC draws,
+    /// or whose previewer failed: turned into a PDF as capture_result's pictures of documents are (Office
+    /// running hidden, else LibreOffice: <see cref="DocumentPictures.Converter"/>) and its pages shown as a
+    /// PDF's; <paramref name="from"/>, a copy without the internet mark, in place of the file if given.
+    /// Else its text, saying why after <paramref name="why"/>'s place: a web page has no program to turn
+    /// it, a file downloaded from the internet isn't opened (as Windows' previewers don't draw one, with
+    /// Preview anyway), and with no program <see cref="NeedsProgram"/> offers LibreOffice.
+    /// </summary>
+    private void ShowConverted(int load, string path, string size, CancellationToken stop, string? from = null, string why = "")
+    {
+        if (DocumentPictures.Converter is not { } convert || !DocumentPictures.Handles(path)
+            || System.IO.Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            ShowAsText(load, path, size, why);
+            return;
+        }
+        if (from is null && Views.ShellPreviewHost.Downloaded(path))
+        {
+            Post(load, () => PreviewBlocked = true);
+            ShowAsText(load, path, size, Blocked);
+            return;
+        }
+        Post(load, () => Message = "Drawing its pages…");
+        var pdf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Sloperator", "pages", $"{Guid.NewGuid():N}.pdf");
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(pdf)!);
+            convert(from ?? path, pdf, _previews.Tools, stop);
+            // Read into memory as it opens: the PDF goes at once.
+            ShowPages(load, PdfPages.Open(pdf), n => $"{n:N0} page{(n == 1 ? "" : "s")} as printed, {size}", "It has no pages.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (DocumentPictures.NoProgramException)
+        {
+            Post(load, () => NeedsProgram = true);
+            ShowAsText(load, path, size, " (no program here draws its pages)");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException)
+        {
+            ShowAsText(load, path, size, $" ({ex.Message.TrimEnd('.')})");
+        }
+        finally
+        {
+            try { File.Delete(pdf); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     /// <summary>
@@ -512,7 +645,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     private void Clear()
     {
         Markdown = Text = ShellPath = null;
-        PreviewBlocked = false;
+        (PreviewBlocked, NeedsProgram) = (false, false);
+        _stop.Cancel();
+        _stop = new CancellationTokenSource();
         if (_unmarked is { } copy)
             Views.ShellPreviewHost.DeleteCopy(copy);
         _unmarked = null;
@@ -967,6 +1102,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     public void Dispose()
     {
         _box.Dispose();
+        _fetch?.Cancel();
         // An area marked and not sent: its picture goes.
         DropArea();
         _disposed = true;

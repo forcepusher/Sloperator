@@ -48,9 +48,10 @@ public static class OfficePdf
         else if (LibreOffice(tools) is { } soffice)
             RunLibreOffice(soffice, source, pdf, ct);
         else
-            throw new InvalidOperationException($"No program on this PC turns {name} into pages: Microsoft Office or LibreOffice does, and it has neither. " +
-                "LibreOffice is free, and unpacked from its installer it needs no installing: ask the user whether to fetch it (about 360 MB); " +
-                "once they agree, download the Windows x86-64 .msi from https://www.libreoffice.org/download/download-libreoffice/ and unpack it with " +
+            throw new Core.Documents.DocumentPictures.NoProgramException($"No program on this PC turns {name} into pages: Microsoft Office or LibreOffice does, and it has neither. " +
+                "LibreOffice is free, and unpacked from its installer it needs no installing: ask the user whether to fetch it (a 360 MB download, 1.6 GB unpacked); " +
+                $"once they agree, download {LibreOfficeFetch.Stable}<the newest version>/win/x86_64/LibreOffice_<that version>_Win_x86-64.msi " +
+                $"(the versions are the folders of {LibreOfficeFetch.Stable}) and unpack it with " +
                 (tools is not null
                     ? $"msiexec /a \"<the .msi>\" /qn TARGETDIR=\"{Path.Combine(tools, "LibreOffice")}\", then capture again."
                     : "msiexec /a \"<the .msi>\" /qn TARGETDIR=\"<a folder of its own>\", or install it, then capture again."));

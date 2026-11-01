@@ -24,6 +24,16 @@ public static class DocumentPictures
     /// </summary>
     public static Action<string, string, string?, CancellationToken>? Converter { get; set; }
 
+    /// <summary>What <see cref="Converter"/> throws when the PC has no program for the kind (on Windows, no Office and no LibreOffice).</summary>
+    public sealed class NoProgramException(string message) : InvalidOperationException(message);
+
+    /// <summary>
+    /// Fetches a program for <see cref="Converter"/> into the tools folder given, telling the second
+    /// argument how it goes (on Windows, LibreOffice: the File inspector's Get LibreOffice); null where
+    /// none can be. Throws saying why it couldn't.
+    /// </summary>
+    public static Func<string, Action<string>, CancellationToken, Task>? Fetcher { get; set; }
+
     /// <summary>The kinds the converter takes: what Word, Excel and PowerPoint open, OpenDocument's among them.</summary>
     private static readonly HashSet<string> Office = new(StringComparer.OrdinalIgnoreCase)
     {

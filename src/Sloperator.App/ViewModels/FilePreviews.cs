@@ -13,11 +13,15 @@ using SkiaSharp;
 
 namespace Sloperator.App.ViewModels;
 
-/// <summary>What the chat's previews need from the platform: decoders for video and sound, and the speakers.</summary>
-public sealed class PreviewServices(IMediaDecoder? decoder, Func<IAudioOutput?> audio)
+/// <summary>
+/// What the chat's previews need from the platform: decoders for video and sound, the speakers, and
+/// Sloperator's tools folder, where a LibreOffice fetched to draw documents is (null for none).
+/// </summary>
+public sealed class PreviewServices(IMediaDecoder? decoder, Func<IAudioOutput?> audio, string? tools = null)
 {
     public IMediaDecoder? Decoder { get; } = decoder;
     public IAudioOutput? NewAudioOutput() => audio();
+    public string? Tools { get; } = tools;
 }
 
 /// <summary>
