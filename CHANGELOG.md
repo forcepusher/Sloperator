@@ -50,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Ctrl+wheel or the zoom buttons in that bar zoom the code's text, Ctrl+0 puts it back. Beside Save,
   Discard throws away edits not saved. Lines you select go into the message box, so you can ask about
   them.
-- Settings → Advanced → Updates shows which version of Sloperator is running.
+- Settings → Advanced → Updates shows which version of Sloperator is running, beside **Check for
+  updates**, with what the last check found after it ("Version 1.3.0 · Up to date").
 - The agent shows you a picture of what it made: a window or a part of the screen, at full
   resolution, under its final reply with a caption. Click it to see it full size.
 - The agent can put pictures side by side to compare them (before and after, light and dark, a few
@@ -67,8 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole file when it starts on the project (before, only its first lines), `CLAUDE.md` too.
 
 ### Changed
-- Settings → Advanced → Updates shows the version beside **Check for updates**, with what the last
-  check found after it ("Version 1.2.0 · Up to date"), in place of a line of its own.
 - A tool call's card says what it does on one line, with files and folders by their names ("Read
   hello.py" in place of the whole path over three lines); the whole line is in its tooltip.
 - A tool call's card says how long it took without the time it began ("Done in 8 ms"); the time is
