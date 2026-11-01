@@ -411,6 +411,26 @@ public class ToolTests
     }
 
     [Fact]
+    public async Task Wait_can_skip_the_screenshot()
+    {
+        var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, 320, 160), Desktop = new RawImage(320, 160, new byte[320 * 160 * 4]) };
+        var ctx = Ctx(platform);
+        var wait = new WaitTool();
+
+        var plain = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 0.2, ["screenshot"] = false }, ctx, CancellationToken.None);
+        Assert.Equal("Waited 0.2s.", plain.Text);
+        Assert.Null(plain.Image);
+        Assert.NotNull((await wait.ExecuteAsync(new JsonObject { ["seconds"] = 0.2 }, ctx, CancellationToken.None)).Image);
+
+        // Without a screenshot the model's last one stays the same: a change since it doesn't end
+        // every later wait at once, only a change during the wait does.
+        ctx.Seen = (platform.ScreenBounds, new RawImage(320, 160, Enumerable.Repeat((byte)200, 320 * 160 * 4).ToArray()));
+        var quiet = await wait.ExecuteAsync(new JsonObject { ["seconds"] = 1, ["until_change"] = true, ["screenshot"] = false }, ctx, CancellationToken.None);
+        Assert.Equal("Waited 1s; nothing on the screen changed.", quiet.Text);
+        Assert.Null(quiet.Image);
+    }
+
+    [Fact]
     public async Task Press_keys_accepts_plus_separated_strings()
     {
         var platform = new FakePlatform();
