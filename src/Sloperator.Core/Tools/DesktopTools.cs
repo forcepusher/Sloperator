@@ -652,15 +652,13 @@ public sealed class WaitTool : Tool
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("seconds", Num($"Seconds to wait, at most {MaxSeconds}"), true),
-        ("until_change", Bool("Stop waiting as soon as something on the screen changes (default false)"), false),
-        ("screenshot", Bool("Take the screenshot at the end (default true); false when you will check another way, as for a build or a download"), false));
+        ("until_change", Bool("Stop waiting as soon as something on the screen changes (default false)"), false));
     public override string Describe(JsonObject args) =>
         GetBool(args, "until_change") ? $"Wait up to {GetNumber(args, "seconds")}s for the screen to change" : $"Wait {GetNumber(args, "seconds")}s";
 
     public override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var seconds = TimeSpan.FromSeconds(Math.Clamp(GetNumber(args, "seconds") ?? 1, 0.1, MaxSeconds));
-        var look = args["screenshot"] is null || GetBool(args, "screenshot");
         // A message from the user ends the wait: a ten-minute watch shouldn't keep them waiting.
         using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct, ctx.UserMessage);
         var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -668,7 +666,7 @@ public sealed class WaitTool : Tool
         try
         {
             if (GetBool(args, "until_change"))
-                waited = await WaitForChangeAsync(ctx, seconds, sinceSeen: look, wait.Token).ConfigureAwait(false) switch
+                waited = await WaitForChangeAsync(ctx, seconds, wait.Token).ConfigureAwait(false) switch
                 {
                     { } after when after == TimeSpan.Zero => "The screen had already changed since your last screenshot, so there was no wait.",
                     { } after => $"The screen changed after {after.TotalSeconds:0.#}s.",
@@ -684,8 +682,6 @@ public sealed class WaitTool : Tool
         {
             waited = $"The wait ended after {clock.Elapsed.TotalSeconds:0.#}s: the user sent you a message, which follows.";
         }
-        if (!look)
-            return new ToolResult(waited);
         var shot = ScreenshotTool.Take(ctx);
         return shot with { Text = $"{waited}\n{shot.Text}" };
     }
@@ -695,14 +691,12 @@ public sealed class WaitTool : Tool
     /// zero when it had already changed since the screenshot the model decided on. A chat message
     /// that arrived while the model was thinking about waiting is a change too: compared only with
     /// the screen at the start, it went unseen for the whole wait (three minutes in a chat run).
-    /// A wait that shows no screenshot (<paramref name="sinceSeen"/> false) compares with the start
-    /// only: the model's screenshot stays the same, so each such wait after a change would end at once.
     /// </summary>
-    private static async Task<TimeSpan?> WaitForChangeAsync(ToolContext ctx, TimeSpan limit, bool sinceSeen, CancellationToken ct)
+    private static async Task<TimeSpan?> WaitForChangeAsync(ToolContext ctx, TimeSpan limit, CancellationToken ct)
     {
         var screen = ctx.GetScreenSpace().Screen;
         var first = ctx.Platform.Screen.Capture(screen, includeCursor: false);
-        if (sinceSeen && ctx.Seen is { } seen && seen.Screen == screen && ClickCheck.Differ(seen.Frame, first))
+        if (ctx.Seen is { } seen && seen.Screen == screen && ClickCheck.Differ(seen.Frame, first))
             return TimeSpan.Zero;
         var clock = System.Diagnostics.Stopwatch.StartNew();
         while (limit - clock.Elapsed is var left && left > TimeSpan.Zero)

@@ -81,8 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The File inspector shows the pages of a Word, Excel or PowerPoint file when Windows has no previewer
   for it, drawn by Office or LibreOffice. With neither, **Get LibreOffice** fetches it (free, a 360 MB
   download) into Sloperator's tools folder; nothing is installed.
-- The agent can wait without a screenshot at the end, as for a build or a download it checks
-  another way.
 
 ### Changed
 - A tool call's card says what it does on one line, with files and folders by their names ("Read
