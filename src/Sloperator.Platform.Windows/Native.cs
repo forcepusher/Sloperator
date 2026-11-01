@@ -298,7 +298,7 @@ internal static partial class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ShowWindow(nint hWnd, int nCmdShow);
 
-    public static readonly nint HWND_TOP = 0, HWND_BOTTOM = 1, HWND_TOPMOST = -1;
+    public static readonly nint HWND_TOP = 0, HWND_BOTTOM = 1, HWND_TOPMOST = -1, HWND_NOTOPMOST = -2;
     public const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_SHOWWINDOW = 0x0040;
 
     [LibraryImport("user32.dll", SetLastError = true)]

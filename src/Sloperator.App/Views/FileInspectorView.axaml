@@ -55,8 +55,29 @@
 
     <!-- The file itself, as the File inspector panel and the full-screen viewer show it. A right-click on it
          gives the file's menu (see FileMenu), but in text, which has its own Copy. -->
-    <Grid RowDefinitions="*,Auto" Background="Transparent" views:FileMenu.File="{Binding Path}">
-      <Panel>
+    <Grid RowDefinitions="Auto,*,Auto" Background="Transparent" views:FileMenu.File="{Binding Path}">
+      <!-- A file downloaded from the internet, which Windows' previewer won't draw: said over its text, with
+           the user's way past it, a copy without the mark (the file keeps it). -->
+      <Border Grid.Row="0" Classes="bar slim" Padding="12,6" IsVisible="{Binding PreviewBlocked}">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="small" Content="Preview anyway" Command="{Binding PreviewAnywayCommand}" Margin="12,0,0,0"
+                  ToolTip.Tip="Draws a copy without the mark Windows put on the download. Windows doesn't preview downloaded files because a preview can follow a link in one and send your Windows sign-in out: only for files you trust." />
+          <TextBlock Classes="muted" Text="Windows doesn't preview files downloaded from the internet." VerticalAlignment="Center" TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <!-- A document no program on this PC draws (no Office, no LibreOffice): said over its text, with the
+           way to draw it, LibreOffice fetched into the tools folder; how that goes is said in its place.
+           Never shown with the band above: a downloaded file isn't opened by either. -->
+      <Border Grid.Row="0" Classes="bar slim" Padding="12,6" IsVisible="{Binding NeedsProgram}">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="small" Content="Get LibreOffice" Command="{Binding GetLibreOfficeCommand}" Margin="12,0,0,0"
+                  ToolTip.Tip="Downloads LibreOffice, free, from The Document Foundation into Sloperator's tools folder (a 360 MB download, 1.6 GB unpacked). Nothing is installed. The agent's pictures of documents use it too." />
+          <TextBlock Classes="muted" Text="{Binding ProgramText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <Panel Grid.Row="1">
         <TextBlock Classes="muted" Text="{Binding Message}" IsVisible="{Binding HasMessage}" HorizontalAlignment="Center" VerticalAlignment="Center"
                    TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center" />
 
@@ -126,7 +147,7 @@
       </Panel>
 
       <!-- An animation's player: a frame back, play, a frame on; where it is. -->
-      <Border Grid.Row="1" IsVisible="{Binding Animation, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
+      <Border Grid.Row="2" IsVisible="{Binding Animation, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
         <DockPanel DataContext="{Binding Animation}" x:DataType="vm:InspectorAnimationViewModel">
           <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
             <Button Classes="ghost icon"
@@ -152,7 +173,7 @@
       </Border>
 
       <!-- A sound's player: play (the stretch picked, else from the playhead); where the playhead is; the stretch picked. -->
-      <Border Grid.Row="1" IsVisible="{Binding Sound, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
+      <Border Grid.Row="2" IsVisible="{Binding Sound, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
         <DockPanel DataContext="{Binding Sound}" x:DataType="vm:InspectorSoundViewModel">
           <Button DockPanel.Dock="Left" Classes="ghost icon"
                   Command="{Binding PlayCommand}" ToolTip.Tip="Play or pause (Space)" AutomationProperties.Name="Play">
@@ -170,7 +191,7 @@
       <!-- A 3D model's views: from the front, a side, the back, above, or as at first; where it is seen
            from. Over them, for a model with animations, its player: a frame back, play, a frame on, its
            animations, where it is. -->
-      <Border Grid.Row="1" IsVisible="{Binding Model, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
+      <Border Grid.Row="2" IsVisible="{Binding Model, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
         <StackPanel DataContext="{Binding Model}" x:DataType="vm:InspectorModelViewModel" Spacing="4">
         <DockPanel IsVisible="{Binding HasAnimations}">
           <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -217,7 +238,7 @@
       </Border>
 
       <!-- A video's player: a frame back, play, a frame on; where it is; its sound. -->
-      <Border Grid.Row="1" IsVisible="{Binding Video, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
+      <Border Grid.Row="2" IsVisible="{Binding Video, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="12,4,12,12">
         <DockPanel DataContext="{Binding Video}" x:DataType="vm:InspectorVideoViewModel">
           <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
             <Button Classes="ghost icon"

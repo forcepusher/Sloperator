@@ -217,6 +217,25 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public async Task A_conversation_that_fits_a_smaller_context_than_assumed_is_sent_again_with_less_room_and_no_reset()
+    {
+        // vLLM, refusing the room asked on top of the conversation, not the conversation.
+        var tooLong = """{"error":{"message":"This model's maximum context length is 32768 tokens. However, you requested 66000 tokens (2000 in the messages, 64000 in the completion). Please reduce the length of the messages or completion."}}""";
+        var server = new ScriptedServer(Sse.Text("Short answer."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, tooLong));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000);
+
+        await session.RunAsync("question", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(2, server.Requests.Count); // refused, sent again: no handoff note between
+        Assert.Equal(32_768, session.ContextTokens);
+        Assert.Equal(64_000, (int)server.Requests[0]["max_tokens"]!);
+        Assert.InRange((int)server.Requests[1]["max_tokens"]!, 16_000, 30_720);
+        Assert.Equal("Short answer.", session.History[^1].Content);
+    }
+
+    [Fact]
     public async Task A_too_long_error_at_the_size_assumed_lowers_the_context_below_where_it_broke()
     {
         // Kilo's gateway, measured 27 October 2026: it counts a fourth of the characters, more than
@@ -436,6 +455,32 @@ public class AgentSessionTests
         Assert.Equal(["list_directory"], observer.ToolsRun);
         var call = server.Requests[1]["messages"]!.AsArray().Single(m => m!["tool_calls"] is not null)!["tool_calls"]![0]!;
         Assert.Equal(""".""", JsonNode.Parse(call["function"]!["arguments"]!.GetValue<string>())!["path"]!.ToJsonString().Trim('"'));
+    }
+
+    [Fact]
+    public async Task A_call_with_a_key_given_twice_runs_and_goes_back_with_it_once()
+    {
+        // Claude wrote a file's second part under "append", then "append": true; reading it ended the run.
+        var dir = Directory.CreateTempSubdirectory("bb-twice-").FullName;
+        await File.WriteAllTextAsync(Path.Combine(dir, "a.txt"), "part 1\n", TestContext.Current.CancellationToken);
+        var server = new ScriptedServer(
+            Sse.ToolCall("c1", "write_file", """{"path": "a.txt", "append": "part 2\n", "append": true}"""),
+            Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, dir, new FakePlatform());
+        try
+        {
+            await session.RunAsync("write it", observer, TestContext.Current.CancellationToken);
+
+            Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+            Assert.Equal("part 1\npart 2\n", await File.ReadAllTextAsync(Path.Combine(dir, "a.txt"), TestContext.Current.CancellationToken));
+            var call = server.Requests[1]["messages"]!.AsArray().Single(m => m!["tool_calls"] is not null)!["tool_calls"]![0]!;
+            var sent = JsonNode.Parse(call["function"]!["arguments"]!.GetValue<string>())!.AsObject();
+            Assert.Equal(["path", "append", "content"], sent.Select(p => p.Key));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
@@ -1355,10 +1400,10 @@ public class AgentSessionTests
 
     [Theory]
     [InlineData(100_000, 64_000, 64_000)] // as much as Claude's API is asked for
-    [InlineData(32_000, 20_000, 26_000)]  // what the context has left
-    public async Task After_the_servers_own_cap_cut_a_reply_the_requests_ask_for_room(int context, int least, int most)
+    [InlineData(32_000, 16_000, 26_000)]  // what the context has left
+    public async Task Every_request_asks_for_room_and_a_cut_under_it_is_gone_on_from(int context, int least, int most)
     {
-        // No max_tokens asked for, and the server stopped at 4k of its own (LiteLLM's for Claude).
+        // Asked for none, LiteLLM gives Claude 4k of its own; this server stops at 4k whatever is asked.
         var capped = "data: " + new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["delta"] = new JsonObject { ["reasoning_content"] = "Long thoughts" }, ["finish_reason"] = "length" }) }.ToJsonString() +
                      "\n\ndata: " + new JsonObject { ["choices"] = new JsonArray(), ["usage"] = new JsonObject { ["prompt_tokens"] = 2_000, ["completion_tokens"] = 4_096 } }.ToJsonString() + "\n\ndata: [DONE]\n\n";
         var server = new ScriptedServer(capped, Sse.ToolCall("c1", "list_directory", """{"path": "."}"""), Sse.Text("Done."));
@@ -1367,10 +1412,9 @@ public class AgentSessionTests
         await session.RunAsync("think hard", observer, CancellationToken.None);
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
-        Assert.Null(server.Requests[0]["max_tokens"]);
-        foreach (var later in server.Requests.Skip(1))
-            Assert.InRange((int)later["max_tokens"]!, least, most);
-        Assert.Single(observer.Notices, n => n.Contains("From now on it is asked for replies of up to"));
+        foreach (var request in server.Requests)
+            Assert.InRange((int)request["max_tokens"]!, least, most);
+        Assert.Single(observer.Notices, n => n.Contains("stopped the reply at its length limit"));
         // The cut reply said nothing and called nothing: no empty turn goes, which LiteLLM filled
         // with "[System: Empty message content sanitised to satisfy protocol]" for Claude to copy.
         Assert.DoesNotContain(server.Requests[1]["messages"]!.AsArray(), m => (string?)m!["role"] == "assistant");
@@ -1732,7 +1776,7 @@ public class AgentSessionTests
         var tooLong = new ScriptedServer(Sse.Text("NOTE: nothing done yet."), Sse.Text("Short answer."));
         tooLong.Failures.Enqueue((HttpStatusCode.BadRequest, """{"error":{"message":"This model's maximum context length is 8192 tokens."}}"""));
         var (second, events) = CreateSession(tooLong, Path.GetTempPath(), new FakePlatform(), contextTokens: 100_000);
-        await second.RunAsync("question", events, CancellationToken.None);
+        await second.RunAsync("question " + new string('x', 40_000), events, CancellationToken.None);
         Assert.Equal(["step 1", "step 0", "reply NOTE: nothing done yet.", "step 0", "reply Short answer."], events.Events);
     }
 

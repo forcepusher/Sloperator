@@ -356,12 +356,15 @@ public static partial class AnthropicMessages
         ["input"] = Input(call.Arguments),
     };
 
-    /// <summary>A call's arguments as the object Claude sends them in; arguments that aren't one (from another model) as an empty one.</summary>
+    /// <summary>
+    /// A call's arguments as the object Claude sends them in; arguments that aren't one (from another model) as an empty one.
+    /// So are arguments with a key given twice (a call never run, from a chat saved before they were read), which made the request throw as it was written.
+    /// </summary>
     internal static JsonObject Input(string arguments)
     {
         try
         {
-            if (JsonNode.Parse(string.IsNullOrWhiteSpace(arguments) ? "{}" : arguments) is JsonObject input)
+            if (JsonNode.Parse(string.IsNullOrWhiteSpace(arguments) ? "{}" : arguments, documentOptions: new JsonDocumentOptions { AllowDuplicateProperties = false }) is JsonObject input)
                 return input;
         }
         catch (JsonException) { }

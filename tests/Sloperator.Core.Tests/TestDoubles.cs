@@ -280,6 +280,16 @@ internal sealed class FakePlatform : IPlatformServices, IScreenCapture, IInputCo
     public List<ScreenWindow> Windows { get; set; } = [];
     public IReadOnlyList<ScreenWindow> GetWindows() => Windows;
 
+    /// <summary>The windows brought to the front, in order; each goes first in <see cref="Windows"/>.</summary>
+    public List<string> BroughtToFront { get; } = [];
+
+    public void BringToFront(ScreenWindow window)
+    {
+        BroughtToFront.Add(window.Title);
+        Windows.Remove(window);
+        Windows.Insert(0, window);
+    }
+
     /// <summary>What the screens show, if anything (black otherwise), with its top-left corner at <see cref="DesktopOrigin"/>.</summary>
     public RawImage? Desktop { get; set; }
     public (int X, int Y) DesktopOrigin { get; set; }

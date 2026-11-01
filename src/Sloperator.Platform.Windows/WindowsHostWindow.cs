@@ -93,7 +93,6 @@ internal sealed class WindowsHostWindow : IHostWindow
     private sealed class Restore(List<(nint Hwnd, bool Topmost)> windows) : IDisposable
     {
         public static readonly IDisposable None = new Restore([]);
-        private static readonly nint HWND_NOTOPMOST = -2;
 
         public void Dispose()
         {

@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Before/after pictures of documents: the agent can show a page of a PDF, Word, Excel or PowerPoint
+  file before and after its change, drawn by Office or LibreOffice without opening a window.
+- The File inspector shows the pages of a Word, Excel or PowerPoint file when Windows has no previewer
+  for it, drawn by Office or LibreOffice. With neither, **Get LibreOffice** fetches it (free, a 360 MB
+  download) into Sloperator's tools folder; nothing is installed.
+
+### Fixed
+- The agent can change cells of a Word table by the rows it read (such as `| North | 140 |`), which
+  it was refused before.
+- Replies are no longer cut short by a server's own small default limit (proxyapi.ru gave Claude
+  about 4k tokens): every request asks for as long a reply as the context leaves, up to 64k, and less
+  where the model's list or the server says it takes less.
 
 ## [1.3.0] - 2026-11-01
 ### Added

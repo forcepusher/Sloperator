@@ -431,19 +431,13 @@ public sealed partial class AgentSession(
                 justReset = false;
                 TextToolCallParser.TryExtract(reply, tools);
                 cutCall |= reply.FinishReason == "length" && DropCutCalls(reply);
-                // A limit of the server's own, not the context's end: nothing asked for one, and a
-                // server that has one when none is asked (proxyapi.ru's for Claude, LM Studio's Limit
-                // Response Length) cut eight replies in a quarter of an hour of writing code (chat
-                // 20261101-171229-f4b4fa), each thought through again. From here on each request
-                // asks for as long a reply as the context has room for.
-                var askRoom = (cutCall || cutOff && !afterReset) && !_askRoom && requestOptions.MaxTokens is null;
-                _askRoom |= askRoom;
-                var asking = askRoom ? $" From now on it is asked for replies of up to {ReplyRoom() / 1000}k tokens." : "";
+                // A limit of the server's own, not the context's end: under the room each request
+                // asks for (ReplyRoom), as LM Studio's Limit Response Length can be.
                 // Not one server's name for its limit (the user, 2026-11-01: LM Studio named in it "weird").
                 if (cutCall)
-                    observer.OnNotice("The server's length limit cut a tool call short; it wasn't run, and the model is asked to write in smaller parts." + asking);
+                    observer.OnNotice("The server's length limit cut a tool call short; it wasn't run, and the model is asked to write in smaller parts.");
                 else if (cutOff && !afterReset)
-                    observer.OnNotice("The server stopped the reply at its length limit; asking the model to go on." + asking);
+                    observer.OnNotice("The server stopped the reply at its length limit; asking the model to go on.");
                 // "The task is complete" followed by yet another screenshot: small models can keep
                 // re-verifying forever. A completion claim with only look-only calls ends the turn.
                 // Not a reset it asked for ("Handoff written, all done." with reset_context), nor the
@@ -681,20 +675,20 @@ public sealed partial class AgentSession(
     private bool OutOfRoom(ChatMessage reply) =>
         reply.PromptTokens is not { } prompt || prompt + (reply.CompletionTokens ?? 0) >= contextTokens * 9L / 10;
 
-    /// <summary>The server cut a reply short at a limit of its own: the requests ask for room (<see cref="ReplyRoom"/>).</summary>
-    private bool _askRoom;
-
     /// <summary>
-    /// The reply limit asked for once the server cut one short: what the context has left, and no more
-    /// than Claude's API is asked for (<see cref="AnthropicMessages.MaxReply"/>); the server's model
-    /// list says nothing of a reply limit (proxyapi.ru's is bare ids), and one that refuses this
-    /// much says its own (see <see cref="OpenAiChatClient"/>).
+    /// The reply limit every step asks for (max_tokens): what the context has left, and no more than
+    /// Claude's API is asked for (<see cref="AnthropicMessages.MaxReply"/>). Asked for none, some
+    /// servers set a small one of their own: proxyapi.ru's LiteLLM gives Claude 4k or so, which cut
+    /// eight replies in a quarter of an hour of writing code (chat 20261101-171229-f4b4fa), each
+    /// thought through again. A high one costs nothing: only what is written is billed, and
+    /// OpenRouter holds a fixed amount of credit for a request with none. The model's own limit, from
+    /// the server's model list or a refusal, caps it (see <see cref="OpenAiChatClient"/>).
     /// </summary>
     private int ReplyRoom() =>
         Math.Clamp(contextTokens > 0 ? contextTokens - TokensInUse() - 2_048 : AnthropicMessages.MaxReply, 4_096, AnthropicMessages.MaxReply);
 
-    /// <summary>The options of the step's request: <see cref="ReplyRoom"/> asked for after a cut.</summary>
-    private ChatRequestOptions StepOptions() => !_askRoom ? requestOptions : new ChatRequestOptions
+    /// <summary>The options of the step's request, asking for <see cref="ReplyRoom"/>.</summary>
+    private ChatRequestOptions StepOptions() => requestOptions.MaxTokens is not null ? requestOptions : new ChatRequestOptions
     {
         Model = requestOptions.Model,
         MaxTokens = ReplyRoom(),
@@ -731,7 +725,7 @@ public sealed partial class AgentSession(
         string summary;
         try
         {
-            args = ToolCallRepair.ParseArguments(call.Arguments);
+            args = ToolCallRepair.ParseArguments(call.Arguments, tool);
             // The conversation keeps the call as repaired: sent back as it came, arguments that
             // aren't JSON can make a server's chat template fail every request after it.
             if (!ToolCallRepair.IsWholeJson(call.Arguments))
@@ -740,9 +734,11 @@ public sealed partial class AgentSession(
             ToolCallRepair.NormalizeArguments(args, tool);
             summary = tool.Describe(args);
         }
-        catch (ToolArgumentException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var bad = ToolResult.Error($"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}");
+            // Arguments the tool can't take are the model's to fix, as whatever goes wrong while it runs:
+            // anything else thrown here ended the whole run.
+            var bad = ToolResult.Error(ex is ToolArgumentException ? $"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}" : ex.Message);
             observer.OnToolStarted(call, call.Name);
             observer.OnToolFinished(call, bad);
             return bad;
@@ -954,6 +950,11 @@ public sealed partial class AgentSession(
                 {
                     observer.OnNotice($"The server's context is {limit / 1000}k tokens, not {contextTokens / 1000}k; working with that from now on.", ex);
                     contextTokens = limit;
+                    // The conversation fits; the reply room asked on top of it didn't ("you requested
+                    // 70000 tokens (6000 in the messages, 64000 in the completion)"). Sent again with
+                    // the room the real size leaves, no reset.
+                    if (TokensInUse() < ResetThreshold)
+                        continue;
                 }
                 // It names none, or one no smaller than this size: the server counts more than the
                 // usage it reported (Kilo's gateway counts a fourth of the request's characters, half

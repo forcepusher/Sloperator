@@ -109,7 +109,11 @@ and Nemotron, asked for a cover letter on the Desktop, deleted the one already t
 across Word's runs and paragraphs (copied from `read_file` with its `# ` and `**` marks or without),
 curly quotes match straight ones, and only what differs is replaced, so the rest keeps its
 formatting. A line break in the new text starts a paragraph like the one it is in, `# ` at its
-start makes a heading, and `**bold**` applies. In a workbook it sets cells written the way
+start makes a heading, and `**bold**` applies. A Word table's rows can be given as `read_file`
+shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
+cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
+2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
+PowerShell. In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses
 it replaces text in the cells. A line `insert row 7` or `delete rows 3-4` changes the rows first, as
@@ -2637,14 +2641,21 @@ and the last screenshot (not a picture a tool opened), a few thousand tokens. Wh
 reports, not guessed. If the model can't write the note, a record of its last steps is used
 instead; a reply cut off by the context limit, or a server's "context length exceeded" error,
 triggers the same reset and a retry. A reply cut off by a reply-length limit set on the server
-(the token counts show the context isn't full) is kept, and the model is asked to go on. From then
-on in the run, each request asks for as long a reply as the context has room for (`max_tokens`, at
-most the 64k asked of Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's
-LiteLLM gives Claude 4k or so, and it cut eight replies in a quarter of an hour of writing a Tauri app,
-each thought through again (chat 20261101-171229-f4b4fa). Nothing is asked before a cut, so a server
-that never cuts gets the requests it always did. A model that takes less says so ("max_tokens: 64000 >
-32000", "supports at most 16384 completion tokens"): the largest number the error names under the one
-asked is its limit from then on; an error naming max_tokens with no such number leaves it out.
+(the token counts show the context isn't full) is kept, and the model is asked to go on. Each
+request asks for as long a reply as the context has room for (`max_tokens`, at most the 64k asked of
+Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's LiteLLM gives Claude 4k or
+so, and it cut eight replies in a quarter of an hour of writing a Tauri app, each thought through
+again (chat 20261101-171229-f4b4fa). It was asked only after a first cut until 2026-11-01. A high one
+costs nothing: only written tokens are billed, Anthropic's output rate limit counts only those, and
+OpenRouter holds credit for a request's max_tokens while it runs (a fixed cap with none). The model's
+own limit caps it: an OpenRouter-style list's `top_provider.max_completion_tokens`
+(`ServerProbe.TryContextAsync`), or a refusal naming a smaller number ("max_tokens: 64000 > 32000",
+"supports at most 16384 completion tokens", OpenRouter's 402 "can only afford 61303" on little
+credit): the largest number the error names under the one asked is its limit from then on; an error
+naming max_tokens with no such number leaves it out, but a 402, which then says the credit is used up.
+A server whose real context is smaller than assumed and refuses the room on top of a conversation
+that fits ("66000 tokens (2000 in the messages, 64000 in the completion)") gets the step again with
+the room that size leaves, with no reset.
 A kept reply that said nothing and called nothing (cut off in its thinking) isn't sent back: LiteLLM
 filled the empty turn with "[System: Empty message content sanitised to satisfy protocol]", and
 Claude took to writing that line in its own next replies. Its thinking goes with it, so the model
@@ -2935,15 +2946,23 @@ an internal switch for tests. The settings apply from the next message.
 
 `capture_result` exists because in test chats no model ever showed its finished work in its final
 reply: there was no tool for it, and the screen an action left is folded on its card. The prompt's
-"check the result" rule asks for it, cropped to the work, the whole screen only when that is the point
-(the same line for every model). The capture is fresh, without the pointer, at the screen's own
-resolution; a window is cut to its DWM frame (no invisible borders) and the screen it is mostly on,
-a box maps like a click's x/y. The user gets a PNG in the chat's folder (`Data/chats/<id>/capture-N.png`,
+"check the result" rule asks for it when the task was to make something to look at (an app, a page, a
+game, a chart), run or opened if it isn't showing, cropped to the work, the whole screen only when that
+is the point (the same line for every model). The user's measure: a boss who says "send me screenshots
+of what you've done", and for a change "what it was before and how it looks after". The capture is
+fresh, without the pointer, at the screen's own resolution; a window is cut to its DWM frame (no
+invisible borders) and the screen it is mostly on, a box maps like a click's x/y. A window another
+program's covers (the terminal that started it) is brought to the front first, always-on-top for a
+moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`Data/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the
 chat does), shown open on the card as a file preview; the model gets the same crop as a JPEG at the
 zoom's quality, no larger than a screenshot of that screen. The app names the chat when a run starts
-for this. When the run ends, its last capture also shows in its last reply, under the words, as the same
-picture preview the card has (name, size, Inspect, a click for full screen), with the caption under it (`ChatEntry.Capture`/`Caption`, so a reopened chat has it). A "done" claim whose only
+for this. When the run ends, its captures also show in its last reply, under the words, as the same
+picture preview the card has (name, size, Inspect, a click for full screen), each with its caption under
+it (`ChatEntry.Captures`, so a reopened chat has them; chats from before keep their one
+`Capture`/`Caption`). One per thing shown, the last taken of it, and no before that a comparison shows
+(`CaptureResultTool.UnderReply`): until 1 November 2026 only the run's last capture went there, so of
+three screens changed the user saw one. A "done" claim whose only
 calls are looks ends the turn, but not when one of them is `capture_result`.
 
 **Comparisons**: each capture says its number (capture-N.png). `file` makes a picture file the result
@@ -2959,14 +2978,59 @@ After for two by default, numbers for more), shaped with HarfBuzz in Segoe UI or
 for a script it lacks (CJK, Hangul), so Arabic joins and runs right to left; a long one is cut with
 "…" to its picture's width. An earlier picture that isn't there, or labels that don't match the count,
 are argument errors before anything is captured.
+`window` and a box together take the part of the window in the box (the box in screenshot
+coordinates). Each screen capture keeps what it took beside it (`capture-N.json`: the window as the
+model named it and the part from the window's corner, or the box on the screen), and a capture with
+`compare` and no window, box or file takes what the first one compared took again: the window found
+where it is now, the same part of it. An app run again for the after opens where it likes, and a box
+in screen coordinates then crops the wrong spot; the after needs no coordinates of its own.
 There are no boxes around what changed: the user asked for the pictures alone (31 October 2026).
-The before picture is asked for at the start, in its own rule right after "Start GUI tasks with a
-screenshot" ("When the task changes something already on screen …, capture it with capture_result
-before your first change"), and first in the tool's description. Said only in the "check the result"
+**Documents** (the user, 1 November 2026: pictures of documents for before/after, as of an app's
+window): `file` takes a PDF, Word, Excel or PowerPoint file (and .doc/.xls/.ppt, OpenDocument), and
+`page` (from 1) picks the page. It is drawn as it prints (`DocumentPictures`): a PDF by Windows' PDF
+renderer at 150 dpi; the others turned into a PDF first by Office running hidden (`OfficePdf`: Word,
+Excel or PowerPoint through automation from Windows PowerShell, as the trimmed build has no COM
+interop; no window or taskbar button, read-only, Word ~3-5 s cold, Excel ~1.5 s), else LibreOffice
+headless with a profile of its own. Excel's pages print with their grid and row and column headings so
+they look like the sheet, and Excel works the formulas out (Windows' previewer for the File inspector
+showed them blank). A copy of Office that shows or holds files of its own (the user's) is used and left
+open, only a fresh hidden one is quit: Quit and Close are called bare, as PowerShell refuses a plain 0
+for their by-reference arguments, and the first try left Word running hidden. A file marked as
+downloaded from the internet isn't opened (Office would open it in Protected View only: a remote
+template can send the sign-in hash). Pages are cut to what is on them, 24 px of white around, so a short
+table isn't a sheet of paper. The capture keeps the file and page (`capture-N.json`), so the after of a
+before is `compare` alone: the same page of the same document drawn again. Why a document can't be drawn
+(no Office or LibreOffice, a page it hasn't) is an argument error for the model.
+LibreOffice is found installed (Program Files, its App Paths entry) or unpacked into Sloperator's tools
+folder (Data\tools\LibreOffice, soffice.exe at any depth). With neither program the error tells the model
+to ask the user, then fetch the newest stable Windows x86-64 .msi from
+download.documentfoundation.org/libreoffice/stable/ and unpack it with `msiexec /a <msi> /qn
+TARGETDIR=<tools>\LibreOffice`, which installs nothing and needs no admin or UAC prompt (26.8.2 on the
+laptop, 2 November 2026: a 360 MB download, 1.6 GB unpacked in 33 s, soffice.exe in `program`). Haiku 5.5,
+on a Word file with Office hidden from a scratch build, asked first ("a 360 MB download, 1.6 GB
+unpacked"), and on "yes" downloaded and unpacked it so, and its before and after were drawn by LibreOffice.
+LibreOffice runs headless on a profile Sloperator keeps in %TEMP%\Sloperator\libreoffice-profile, one
+conversion at a time (a named mutex; another meanwhile makes a profile of its own, as all did at first):
+a Word file took 7 s on a new profile, 4 s on the kept one, and the live test's three files 18 s, then
+9 s. A conversion that fails on the kept profile is tried again on a new one and the kept one is made
+again. LibreOffice prints a sheet without Excel's grid and headings. Opt-in tests run the real programs: BB_OFFICE_TESTS=1, and
+BB_LIBREOFFICE=<soffice.exe> (a .docx, .xlsx and .pptx, the sheet's sum worked out).
+The before/after is for the user to see what the work changed visually (a button from red to green),
+wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
+at the start, in its own rule after "Start GUI tasks with a screenshot", also when the mouse and
+keyboard are off (the agent still runs what it changes, and captures it) ("When the task changes
+how something looks …, the user wants to see that change: before your first change, capture how it
+looks with capture_result"), and in the tool's description. Said only in the "check the result"
 rule, which models read when finishing, Haiku took one in 0 of 2 runs (the Q3 budget window, "add a
 Total row", nothing said about pictures, 31 October 2026). As its own start-of-task rule: Haiku 2 of 3,
 Qwen 3.8 3 of 3, each of those ending with the comparison in its final reply; a file-only task
 (Haiku) captured nothing.
+The description says what the tool is for (showing the user the result) and sends pictures the model
+only checks to read_file. Asked to stitch six screen recordings, Claude cut frames from the joined
+video with ffmpeg and passed them to `capture_result` as `file` with `compare`, "one combined view"
+of them for itself, and the user got two side-by-side desktop frames under the reply (1 November 2026).
+The rule then said "changes something already on screen", which the user found beside the point: it
+is about the change, not the screen or what is open.
 
 
 Models often fumble tool-call syntax, so Sloperator repairs calls on the fly: Qwen XML, Gemma 4 and
@@ -3740,8 +3804,34 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   Sloperator. Asked for out of process (`CLSCTX_LOCAL_SERVER`: Office serves its previewers from
   WINWORD/EXCEL/POWERPNT `-Embedding`, others from prevhost.exe), in Sloperator's process only if that
   fails; called through the interfaces' tables, as the trimmed build has no COM interop. Without a
-  previewer, or when it fails, the panel shows the file's text as read_file gives the agent
-  (`DocumentText`; Word's and PowerPoint's as Markdown), a web page its source.
+  previewer, or when it fails, a Word, Excel or PowerPoint file (OpenDocument's, an RTF) is turned into
+  a PDF as capture_result's pictures of documents are (`DocumentPictures.Converter`: Office hidden,
+  else LibreOffice, see capture_result in [Tools the agent has](#tools-the-agent-has)) and its pages
+  shown as a PDF's, "1 page as printed" in its details and "Drawing its pages…" meanwhile; the PDF is
+  read into memory and deleted at once,
+  and a file shown next stops the conversion. Only where that can't be does the panel show the file's
+  text as read_file gives the agent (`DocumentText`; Word's and PowerPoint's as Markdown), a web page
+  its source. With no Office and no LibreOffice it says so over the text ("Office or LibreOffice draws
+  its pages, and this PC has neither.") with **Get LibreOffice** (the user, 1 November 2026: LibreOffice
+  in the inspector too, not only for captures). `LibreOfficeFetch` reads the newest version from
+  download.documentfoundation.org/libreoffice/stable/, downloads its .msi with `Downloader` (resumed,
+  checked against the .sha256 beside it) into the tools folder, unpacks it into LibreOffice.part there
+  and renames that LibreOffice once whole, deletes the .msi, and the document is drawn. The band says
+  how it goes ("Downloading … 151 of 359 MB, 13.5 MB/s, 0:15 left", "Unpacking LibreOffice…"), the
+  button greyed meanwhile; closing the panel stops the download, which goes on from where it was next
+  time. The link sends each request to one of many mirrors, and on the laptop one answered 429 to a
+  second download shortly after a first: a refused download is asked for twice more (another mirror).
+  Checked on the laptop (2 November 2026) with a scratch build hiding Office (no previewers, no
+  automation): report.docx, budget.xlsx and deck.pptx drawn by LibreOffice; with none, the band, then
+  Get LibreOffice: a 20 s download, an 8 s unpack, and the pages.
+  A file downloaded from the internet (Zone.Identifier zone 3 or 4, `DownloadMark`) isn't drawn, nor
+  turned into pages (Office or LibreOffice would open it; Preview anyway turns the copy):
+  Excel's previewer failed with only E_FAIL ("Unexpected HRESULT…") on a Google Sheets export in
+  Downloads, and on our own workbook once marked; unmarked copies drew (1 November 2026). Windows
+  blocks such previews because one can follow a link in the file and send the sign-in hash out, so
+  the mark stays: the panel says "Windows doesn't preview files downloaded from the internet" over
+  the text, and Preview anyway draws a copy of the file's bytes without the mark (File.Copy would take
+  the stream along) in its own folder in %TEMP%\Sloperator\preview, deleted with what shows the file.
 
 **Selected text into the message** (the user's request, 2026-10-25, as Video editor and File changes
 do). With a file shown and nothing selected, the file is a card over the chat's box ("notes.md ·

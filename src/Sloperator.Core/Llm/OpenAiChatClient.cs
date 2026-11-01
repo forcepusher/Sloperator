@@ -197,8 +197,12 @@ public sealed partial class OpenAiChatClient
     /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), System.Collections.Immutable.ImmutableHashSet<string>> RefusedByServer = new();
 
-    /// <summary>The most a reply may take, by server and model, as a refusal of a larger max_tokens said.</summary>
+    /// <summary>The most a reply may take, by server and model, as the server's model list or a refusal of a larger max_tokens said.</summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), int> ReplyCaps = new();
+
+    /// <summary>The most a reply of <paramref name="model"/> may take, as the server's model list says (OpenRouter's top_provider.max_completion_tokens).</summary>
+    internal static void NoteReplyLimit(string baseUrl, string model, int most) =>
+        ReplyCaps.AddOrUpdate((NormalizeBaseUrl(baseUrl), model), most, (_, known) => Math.Min(known, most));
 
     [GeneratedRegex(@"(?<!\w)max_tokens(?!\w)", RegexOptions.IgnoreCase)]
     private static partial Regex MaxTokensNamed();
@@ -311,18 +315,27 @@ public sealed partial class OpenAiChatClient
                     throw new ImagesRefusedException(ErrorText(err).Clip(300));
                 // The reply limit asked for is more than the model takes: "max_tokens: 64000 > 32000,
                 // which is the maximum allowed number of output tokens", "This model supports at most
-                // 16384 completion tokens, whereas you provided 64000". The largest number the error
-                // says under the one asked is the model's limit from then on; with none, it is left out.
-                if (status is 400 or 422 && request["max_tokens"]?.GetValue<int>() is { } asked && MaxTokensNamed().IsMatch(err))
+                // 16384 completion tokens, whereas you provided 64000", or than the credit left pays
+                // for (OpenRouter, 402: "This request requires more credits, or fewer max_tokens. You
+                // requested up to 64000 tokens, but can only afford 61303."). The largest number the
+                // error says under the one asked is the limit from then on; with none, it is left out,
+                // but for want of credit, which then says so (KeyRefusedException).
+                if (status is 400 or 402 or 422 && request["max_tokens"]?.GetValue<int>() is { } asked && MaxTokensNamed().IsMatch(err))
                 {
-                    var most = NumberWords().Matches(err).Select(n => int.TryParse(n.Value.Replace(",", ""), out var v) ? v : 0).Where(v => v > 0 && v < asked).DefaultIfEmpty(0).Max();
+                    // In the message alone: the body's "code": 402 is no limit.
+                    var most = NumberWords().Matches(ErrorText(err)).Select(n => int.TryParse(n.Value.Replace(",", ""), out var v) ? v : 0).Where(v => v > 0 && v < asked).DefaultIfEmpty(0).Max();
                     if (most > 0)
+                    {
                         ReplyCaps[(_baseUrl, options.Model)] = most;
-                    else
+                        return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+                    }
+                    if (status != 402)
+                    {
                         RefusedByServer.AddOrUpdate((_baseUrl, options.Model),
                             _ => System.Collections.Immutable.ImmutableHashSet.Create(StringComparer.Ordinal, "max_tokens"),
                             (_, before) => before.Add("max_tokens"));
-                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+                        return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+                    }
                 }
                 // Strict providers reject fields they do not know. Drop ours and try once more.
                 // Claude's thinking sent back through a gateway and refused (its signature no longer
@@ -624,7 +637,7 @@ public sealed partial class OpenAiChatClient
 
     /// <param name="promptShift">Blank lines in front of the system prompt (see <see cref="ShiftPrompt"/>).</param>
     /// <param name="refused">Our own fields the server refused by name, left out of the request and its messages.</param>
-    /// <param name="replyCap">The most max_tokens the model takes, as a refusal said.</param>
+    /// <param name="replyCap">The most max_tokens the model takes, as the model list or a refusal said.</param>
     internal static JsonObject BuildRequest(IReadOnlyList<ChatMessage> messages, IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options,
         bool sendReasoning = false, bool sendExtras = true, int promptShift = 0, IReadOnlySet<string>? refused = null, int? replyCap = null)
     {

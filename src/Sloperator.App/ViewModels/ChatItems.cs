@@ -229,34 +229,30 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
     public bool ShowTypingDots => IsStreaming && (HasText || !HasReasoning);
 
     /// <summary>
-    /// In a run's last reply, under its words: the last picture of its work the run took with
-    /// capture_result, as the user is to see what was made. Null in any other reply.
+    /// In a run's last reply, under its words: the pictures of its work the run took with
+    /// capture_result, as the user is to see what was made and what it changed. Empty in any other reply.
     /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCapture))]
-    private ImagePreview? _capture;
+    public System.Collections.ObjectModel.ObservableCollection<ReplyPicture> Captures { get; } = [];
 
-    /// <summary>The line the model gave the picture, under it; empty for none.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCaption))]
-    private string _caption = "";
+    public bool HasCapture => Captures.Count > 0;
 
-    public bool HasCapture => Capture is not null;
-    public bool HasCaption => HasCapture && Caption.Length > 0;
-
-    /// <summary>Shows the picture at <paramref name="path"/> under the reply's words, with its caption.</summary>
-    public void ShowCapture(string path, string? caption, PreviewServices services)
+    /// <summary>Shows the pictures under the reply's words, each with its caption, in place of any it showed.</summary>
+    public void ShowCaptures(IEnumerable<(string Path, string? Caption)> pictures, PreviewServices services)
     {
-        Capture?.Dispose();
-        Capture = FilePreview.For(path, services) as ImagePreview;
-        Caption = caption?.Trim() ?? "";
-        OnPropertyChanged(nameof(HasCaption));
+        foreach (var shown in Captures)
+            shown.Picture.Dispose();
+        Captures.Clear();
+        foreach (var (path, caption) in pictures)
+            if (FilePreview.For(path, services) is ImagePreview picture)
+                Captures.Add(new ReplyPicture(picture, caption?.Trim() ?? ""));
+        OnPropertyChanged(nameof(HasCapture));
     }
 
     public override void DisposePreviews()
     {
         base.DisposePreviews();
-        Capture?.Dispose();
+        foreach (var shown in Captures)
+            shown.Picture.Dispose();
     }
 
     // ---- how long the step took ----------------------------------------------------------
@@ -544,4 +540,10 @@ public sealed partial class NoticeItem(string text, bool isError, Action? carryO
     /// <summary>The run it starts takes the button off (and every other one); with a run still going it does nothing.</summary>
     [RelayCommand]
     private void Continue() => carryOn?.Invoke();
+}
+
+/// <summary>A picture of the work under a reply (see <see cref="AssistantMessageItem.Captures"/>), with the line the model gave it; empty for none.</summary>
+public sealed record ReplyPicture(ImagePreview Picture, string Caption)
+{
+    public bool HasCaption => Caption.Length > 0;
 }

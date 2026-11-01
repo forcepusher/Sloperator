@@ -481,6 +481,40 @@ public class DocumentWriteTests : IDisposable
     }
 
     [Fact]
+    public async Task Table_rows_copied_from_read_file_change_their_cells()
+    {
+        var path = WordFile("report.docx", """
+            <w:p><w:r><w:t>North led with 140 units.</w:t></w:r></w:p>
+            <w:tbl>
+              <w:tr><w:tc><w:p><w:r><w:t>Region</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Q3</w:t></w:r></w:p></w:tc></w:tr>
+              <w:tr><w:tc><w:p><w:r><w:t>North</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>140</w:t></w:r></w:p></w:tc></w:tr>
+              <w:tr><w:tc><w:p><w:r><w:t>South</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>95</w:t></w:r></w:p></w:tc></w:tr>
+            </w:tbl>
+            <w:p/>
+            """);
+        string[][] Cells() => Body(path).Element(W + "tbl")!.Elements(W + "tr").Select(r => r.Elements(W + "tc").Select(c => c.Value).ToArray()).ToArray();
+
+        // A row as read_file shows it (Haiku's, 2 November 2026): only the cell that differs changes, still bold.
+        Assert.Contains("| North | **140** |", await Read("report.docx"));
+        var result = await Edit("report.docx", "| North | **140** |", "| North | **150** |");
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(["North", "150"], Cells()[1]);
+        var cell = Body(path).Element(W + "tbl")!.Elements(W + "tr").ElementAt(1).Elements(W + "tc").Last();
+        Assert.All(cell.Descendants(W + "r"), r => Assert.NotNull(r.Element(W + "rPr")?.Element(W + "b")));
+        Assert.Equal("North led with 140 units.", Body(path).Elements(W + "p").First().Value);
+
+        // One cell on its own, and two rows at once with a Markdown separator between.
+        Assert.False((await Edit("report.docx", "| 95 |", "| 90 |")).IsError);
+        Assert.False((await Edit("report.docx", "| Region | Q3 |\n|---|---|\n| North | 150 |", "| Region | Q4 |\n|---|---|\n| North | 160 |")).IsError);
+        Assert.Equal([["Region", "Q4"], ["North", "160"], ["South", "90"]], Cells());
+
+        // Rows no table has are said to be missing.
+        var missing = await Edit("report.docx", "| West | 10 |", "| West | 20 |");
+        Assert.True(missing.IsError);
+        Assert.Contains("no table has those rows", missing.Text);
+    }
+
+    [Fact]
     public async Task New_paragraphs_and_headings_come_from_line_breaks_and_whole_paragraphs_can_go()
     {
         var path = WordFile("plan.docx", """

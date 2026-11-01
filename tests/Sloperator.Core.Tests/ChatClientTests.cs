@@ -139,10 +139,12 @@ public class ChatClientTests
     [InlineData("""{"error":{"message":"max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-x"}}""", 32_000)]
     [InlineData("""{"error":{"message":"max_tokens is too large: 64000. This model supports at most 16,384 completion tokens, whereas you provided 64000."}}""", 16_384)]
     [InlineData("""{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}""", null)]
-    public async Task A_reply_limit_the_model_refuses_becomes_the_one_it_names_or_none(string refusal, int? then)
+    // OpenRouter on little credit (HTTP 402).
+    [InlineData("""{"error":{"message":"This request requires more credits, or fewer max_tokens. You requested up to 64000 tokens, but can only afford 61303. To increase, visit https://openrouter.ai/settings/credits and add more credits","code":402}}""", 61_303, 402)]
+    public async Task A_reply_limit_the_model_refuses_becomes_the_one_it_names_or_none(string refusal, int? then, int status = 400)
     {
         var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok"));
-        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, refusal));
+        server.Failures.Enqueue(((System.Net.HttpStatusCode)status, refusal));
         // A server of its own: what it refused is kept for as long as Sloperator runs.
         var client = new OpenAiChatClient(new HttpClient(server), $"http://cap-{Guid.NewGuid():N}", null);
         Task<ChatMessage> Send() => client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None);
@@ -153,6 +155,20 @@ public class ChatClientTests
         Assert.Equal(3, server.Requests.Count);
         Assert.Equal(64_000, (int)server.Requests[0]["max_tokens"]!);
         Assert.All(server.Requests.Skip(1), r => Assert.Equal(then, (int?)r["max_tokens"]));
+    }
+
+    [Fact]
+    public async Task Out_of_credit_for_any_reply_says_so()
+    {
+        var server = new ScriptedServer(Sse.Text("ok"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.PaymentRequired,
+            """{"error":{"message":"This request requires more credits, or fewer max_tokens. You requested up to 64000 tokens, but can only afford 0.","code":402}}"""));
+        var client = new OpenAiChatClient(new HttpClient(server), $"http://credit-{Guid.NewGuid():N}", "key");
+
+        var ex = await Assert.ThrowsAsync<KeyRefusedException>(() =>
+            client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None));
+        Assert.Contains("run out of credits", ex.Message);
+        Assert.Single(server.Requests);
     }
 
     [Fact]
@@ -565,6 +581,28 @@ public class ChatClientTests
     }
 
     [Fact]
+    public void A_key_given_twice_goes_where_its_value_fits()
+    {
+        // Claude (Haiku 5.5) wrote the second part of a file under "append" and then "append": true.
+        // JsonObject threw "An item with the same key has already been added" and the run ended.
+        const string raw = """{"path": "MainWindow.axaml", "append": "    </Grid>\n</Window>\n", "append": true}""";
+        var write = Registry.Find("write_file")!;
+        var args = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments(raw, write), write);
+        Assert.True(args["append"]!.GetValue<bool>());
+        Assert.Equal("    </Grid>\n</Window>\n", args["content"]!.GetValue<string>());
+        Assert.Equal("Append to MainWindow.axaml (22 chars)", write.Describe(args));
+        Assert.False(ToolCallRepair.IsWholeJson(raw));
+
+        // With no tool to go by, or nowhere for the other value to go, the last one wins.
+        Assert.True(ToolCallRepair.ParseArguments(raw)["append"]!.GetValue<bool>());
+        Assert.Equal(2, ToolCallRepair.AsObject("""{"x": 1, "x": 2, "y": {"z": 3, "z": 4}}""")!["x"]!.GetValue<int>());
+        Assert.Equal(4, ToolCallRepair.AsObject("""{"x": 1, "y": [{"z": 3, "z": 4}]}""")!["y"]![0]!["z"]!.GetValue<int>());
+        Assert.Equal("echo b", ToolCallRepair.ParseArguments("""{"command": "echo a", "command": "echo b"}""", Registry.Find("run_shell")!)["command"]!.GetValue<string>());
+        Assert.True(ToolCallRepair.IsWholeJson("""{"path": "a.txt", "content": "x"}"""));
+        Assert.Empty(AnthropicMessages.Input("""{"command": "dir", "command": "echo"}"""));
+    }
+
+    [Fact]
     public void Coordinates_and_aliases_are_normalized()
     {
         var click = ToolCallRepair.NormalizeArguments(ToolCallRepair.ParseArguments("""{"coordinate": [5, 6]}"""), Registry.Find("mouse_click")!);
@@ -634,6 +672,22 @@ public class ContextDetectionTests
     private static Task<ModelFacts> Probe(Dictionary<string, string> routes) =>
         ServerProbe.TryContextAsync(new HttpClient(new RoutedServer(routes)),
             new Sloperator.Core.Settings.ServerSettings { BaseUrl = "http://host:1234/v1", Model = "m" }, CancellationToken.None);
+
+    [Fact]
+    public async Task The_model_lists_longest_reply_caps_the_one_asked_for()
+    {
+        // OpenRouter's list: top_provider.max_completion_tokens.
+        var url = $"http://list-{Guid.NewGuid():N}";
+        var list = """{"data":[{"id":"m","context_length":200000,"top_provider":{"context_length":200000,"max_completion_tokens":16384}}]}""";
+        var facts = await ServerProbe.TryContextAsync(new HttpClient(new RoutedServer(new Dictionary<string, string> { ["/v1/models"] = list })),
+            new Sloperator.Core.Settings.ServerSettings { BaseUrl = url, Model = "m" }, CancellationToken.None);
+        Assert.Equal(200_000, facts.Context);
+
+        var server = new ScriptedServer(Sse.Text("ok"));
+        await new OpenAiChatClient(new HttpClient(server), url, null)
+            .CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None);
+        Assert.Equal(16_384, (int)server.Requests[0]["max_tokens"]!);
+    }
 
     [Fact]
     public async Task Ollama_reports_the_context_it_runs_with_not_the_models_maximum()

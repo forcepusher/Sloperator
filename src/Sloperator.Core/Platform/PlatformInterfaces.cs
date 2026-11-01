@@ -40,10 +40,19 @@ public interface IScreenCapture
     /// where it shows on screen (physical pixels, without the invisible borders Windows puts around it).
     /// </summary>
     IReadOnlyList<ScreenWindow> GetWindows() => [];
+
+    /// <summary>
+    /// Puts <paramref name="window"/> over the other windows without making it the active one, so a
+    /// capture of where it is shows all of it; nothing where the OS has no way.
+    /// </summary>
+    void BringToFront(ScreenWindow window) { }
 }
 
-/// <summary>A program's window as it shows on screen (see <see cref="IScreenCapture.GetWindows"/>).</summary>
-public readonly record struct ScreenWindow(string Title, ScreenRect Bounds);
+/// <summary>
+/// A program's window as it shows on screen (see <see cref="IScreenCapture.GetWindows"/>), and the
+/// OS's own handle to it (an HWND on Windows; 0 for none).
+/// </summary>
+public readonly record struct ScreenWindow(string Title, ScreenRect Bounds, nint Handle = 0);
 
 /// <summary>Synthetic mouse and keyboard input. Coordinates are physical screen pixels.</summary>
 public interface IInputController
