@@ -3765,6 +3765,13 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   fails; called through the interfaces' tables, as the trimmed build has no COM interop. Without a
   previewer, or when it fails, the panel shows the file's text as read_file gives the agent
   (`DocumentText`; Word's and PowerPoint's as Markdown), a web page its source.
+  A file downloaded from the internet (Zone.Identifier zone 3 or 4, `DownloadMark`) isn't drawn:
+  Excel's previewer failed with only E_FAIL ("Unexpected HRESULT…") on a Google Sheets export in
+  Downloads, and on our own workbook once marked; unmarked copies drew (1 November 2026). Windows
+  blocks such previews because one can follow a link in the file and send the sign-in hash out, so
+  the mark stays: the panel says "Windows doesn't preview files downloaded from the internet" over
+  the text, and Preview anyway draws a copy of the file's bytes without the mark (File.Copy would take
+  the stream along) in its own folder in %TEMP%\Sloperator\preview, deleted with what shows the file.
 
 **Selected text into the message** (the user's request, 2026-10-25, as Video editor and File changes
 do). With a file shown and nothing selected, the file is a card over the chat's box ("notes.md ·

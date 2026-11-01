@@ -199,6 +199,41 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     [NotifyPropertyChangedFor(nameof(ShowsShell), nameof(CanShowText), nameof(TextTip))]
     private string? _shellPath;
 
+    /// <summary>
+    /// The file was downloaded from the internet and Windows' previewer wouldn't draw it: said over its
+    /// text, with Preview anyway.
+    /// </summary>
+    [ObservableProperty]
+    private bool _previewBlocked;
+
+    /// <summary>A copy of the file without its internet mark, drawn after Preview anyway; deleted with what shows the file.</summary>
+    private string? _unmarked;
+
+    /// <summary>
+    /// The user's way past the block: the file drawn from a copy without its internet mark. The file
+    /// keeps the mark; the button's tip says why Windows has it (see <see cref="Platform.Windows.DownloadMark"/>).
+    /// </summary>
+    [RelayCommand]
+    private void PreviewAnyway()
+    {
+        if (!PreviewBlocked || Path is not { } path)
+            return;
+        string? copy;
+        try { copy = Views.ShellPreviewHost.UnmarkedCopy(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Details = $"{FilePreview.Size(path)}, its text only (no copy to preview: {ex.Message})";
+            return;
+        }
+        if (copy is null)
+            return;
+        _loading++;
+        ShowText = false;
+        Clear();
+        _unmarked = copy;
+        (ShellPath, Details, Message) = (copy, FilePreview.Size(path), null);
+    }
+
     /// <summary>What a load under way is: one started after it wins.</summary>
     private int _loading;
 
@@ -416,17 +451,22 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     }
 
     /// <summary>Windows' previewer couldn't show the file: its text, as without one.</summary>
-    internal void ShellFailed(string why)
+    public void ShellFailed(string why)
     {
-        if (ShellPath is not { } path)
+        if (ShellPath is not { } shown)
             return;
+        var path = Path ?? shown;
+        // Windows' previewers don't draw a file downloaded from the internet (Excel's says only E_FAIL);
+        // the copy Preview anyway made has no mark, and failing too, it failed for its own reason.
+        var blocked = shown != _unmarked && Views.ShellPreviewHost.Downloaded(path);
         var load = ++_loading;
         AreaMode = false;
         ShellPath = null;
+        PreviewBlocked = blocked;
         Message = "Loading…";
         Task.Run(() =>
         {
-            try { ShowAsText(load, path, FilePreview.Size(path), $" (the previewer for it failed: {why})"); }
+            try { ShowAsText(load, path, FilePreview.Size(path), blocked ? " (Windows doesn't preview files downloaded from the internet)" : $" (the previewer for it failed: {why})"); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { Post(load, () => Message = $"Can't be shown: {ex.Message}"); }
         });
     }
@@ -472,6 +512,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
     private void Clear()
     {
         Markdown = Text = ShellPath = null;
+        PreviewBlocked = false;
+        if (_unmarked is { } copy)
+            Views.ShellPreviewHost.DeleteCopy(copy);
+        _unmarked = null;
         if (Pages is { } pages)
             foreach (var page in pages)
                 page.Unload();
