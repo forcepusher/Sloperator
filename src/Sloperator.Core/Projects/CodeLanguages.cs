@@ -13,7 +13,7 @@ public static class CodeLanguages
 
     /// <summary>The languages offered, in the menu's order; <see cref="PlainText"/> after them.</summary>
     public static IReadOnlyList<string> Names { get; } =
-        ["C#", "C++", "CSS", "Diff", "HTML", "Java", "JavaScript", "JSON", "Markdown", "PHP", "PowerShell", "Python", "SQL", "Visual Basic", "XML"];
+        ["C#", "C++", "CSS", "Diff", "HTML", "Java", "JavaScript", "JSON", "Markdown", "PHP", "PowerShell", "Python", "Rust", "SQL", "Visual Basic", "XML"];
 
     /// <summary>
     /// The language a file is by its extension, the nearest one offered for the kinds there is none of
@@ -30,6 +30,7 @@ public static class CodeLanguages
         ".ps1" or ".psm1" or ".psd1" => "PowerShell",
         ".php" => "PHP",
         ".py" or ".pyw" => "Python",
+        ".rs" => "Rust",
         ".sql" => "SQL",
         ".vb" => "Visual Basic",
         ".xml" or ".xaml" or ".axaml" or ".csproj" or ".vbproj" or ".fsproj" or ".vcxproj" or ".props" or ".targets" or ".slnx" or ".resx"

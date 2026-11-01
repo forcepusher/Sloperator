@@ -121,6 +121,41 @@ public class ChatClientTests
     }
 
     [Fact]
+    public void A_reply_that_said_nothing_and_called_nothing_is_not_sent_and_calls_alone_have_no_text()
+    {
+        var thoughtOnly = new ChatMessage { Role = ChatRole.Assistant, Content = "", Reasoning = "Long thoughts" };
+        var calls = new ChatMessage { Role = ChatRole.Assistant, Content = "", ToolCalls = [new ToolCall { Id = "c1", Name = "screenshot", Arguments = "{}" }] };
+        var said = new ChatMessage { Role = ChatRole.Assistant, Content = "Looking again.", ToolCalls = [new ToolCall { Id = "c2", Name = "screenshot", Arguments = "{}" }] };
+        var sent = OpenAiChatClient.BuildRequest(
+            [ChatMessage.User("go"), thoughtOnly, ChatMessage.User(AgentSession.CutOffNote), calls, ChatMessage.ToolResult("c1", "Took it."), said, ChatMessage.ToolResult("c2", "Took it.")],
+            [], new ChatRequestOptions(), sendReasoning: true)["messages"]!.AsArray();
+        Assert.Equal(["user", "user", "assistant", "tool", "assistant", "tool"], sent.Select(m => (string?)m!["role"]));
+        // "content": null, as OpenAI sends it; "" came to Claude as LiteLLM's "[System: Empty message content sanitised…]".
+        Assert.True(sent[2]!.AsObject().TryGetPropertyValue("content", out var none) && none is null);
+        Assert.Equal("Looking again.", (string?)sent[4]!["content"]);
+    }
+
+    [Theory]
+    [InlineData("""{"error":{"message":"max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-x"}}""", 32_000)]
+    [InlineData("""{"error":{"message":"max_tokens is too large: 64000. This model supports at most 16,384 completion tokens, whereas you provided 64000."}}""", 16_384)]
+    [InlineData("""{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."}}""", null)]
+    public async Task A_reply_limit_the_model_refuses_becomes_the_one_it_names_or_none(string refusal, int? then)
+    {
+        var server = new ScriptedServer(Sse.Text("ok"), Sse.Text("ok"));
+        server.Failures.Enqueue((System.Net.HttpStatusCode.BadRequest, refusal));
+        // A server of its own: what it refused is kept for as long as Sloperator runs.
+        var client = new OpenAiChatClient(new HttpClient(server), $"http://cap-{Guid.NewGuid():N}", null);
+        Task<ChatMessage> Send() => client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None);
+
+        Assert.Equal("ok", (await Send()).Content);
+        await Send();
+
+        Assert.Equal(3, server.Requests.Count);
+        Assert.Equal(64_000, (int)server.Requests[0]["max_tokens"]!);
+        Assert.All(server.Requests.Skip(1), r => Assert.Equal(then, (int?)r["max_tokens"]));
+    }
+
+    [Fact]
     public async Task Stream_cut_off_without_done_is_reported_as_a_drop()
     {
         var sse = """data: {"choices":[{"delta":{"content":"Half a sent"}}]}""";
@@ -259,6 +294,30 @@ public class ChatClientTests
         Assert.Equal("image_url", image["type"]!.GetValue<string>());
         Assert.Equal("data:image/jpeg;base64,AQID", image["image_url"]!["url"]!.GetValue<string>());
         Assert.Equal("screenshot", req["tools"]![0]!["function"]!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void The_prompt_is_asked_to_be_cached()
+    {
+        // Claude through OpenRouter and proxyapi.ru caches only when asked (tried 2026-11-01).
+        var request = OpenAiChatClient.BuildRequest([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "anthropic/claude-haiku-5.5" });
+        Assert.Equal("ephemeral", (string?)request["cache_control"]?["type"]);
+        // A server that turned the extras down gets none of them.
+        Assert.Null(OpenAiChatClient.BuildRequest([ChatMessage.User("hi")], [], new ChatRequestOptions(), sendExtras: false)["cache_control"]);
+    }
+
+    [Theory]
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":4679}}""", 4679)] // OpenRouter, proxyapi.ru
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4,"cache_read_input_tokens":4679}""", 4679)] // LiteLLM's Anthropic name alone
+    [InlineData("""{"prompt_tokens":4683,"completion_tokens":4}""", null)]
+    public async Task The_cached_part_of_the_prompt_is_read_from_usage(string usage, int? cached)
+    {
+        var sse = Sse.Text("OK").Replace("data: [DONE]", $"data: {{\"choices\":[],\"usage\":{usage}}}\n\ndata: [DONE]");
+
+        var reply = await OpenAiChatClient.ReadStreamAsync(new StringReader(sse), null, CancellationToken.None);
+
+        Assert.Equal(4683, reply.PromptTokens);
+        Assert.Equal(cached, reply.CachedTokens);
     }
 
     [Fact]

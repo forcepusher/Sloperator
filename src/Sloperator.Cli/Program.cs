@@ -258,7 +258,8 @@ internal sealed class ConsoleObserver(bool autoYes, string? shotsDir, bool fullR
         var done = DateTime.Now;
         // The counts also for a reply of tool calls alone, which streams no text: a benchmark adding
         // up the tokens missed those steps.
-        var tokens = message.PromptTokens is { } p ? $" ({p / 1000.0:0.0}k prompt tokens, {message.CompletionTokens} reply tokens)" : "";
+        var cached = message.CachedTokens is { } fromCache && fromCache > 0 ? $", {fromCache / 1000.0:0.0}k of the prompt from the cache" : "";
+        var tokens = message.PromptTokens is { } p ? $" ({p / 1000.0:0.0}k prompt tokens, {message.CompletionTokens} reply tokens{cached})" : "";
         Console.WriteLine(_firstToken is { } first
             ? $"[time] {Now} server read the prompt in {(first - _requestStart).TotalSeconds:0.0}s, wrote the reply in {(done - first).TotalSeconds:0.0}s" + tokens
             : message.HasToolCalls

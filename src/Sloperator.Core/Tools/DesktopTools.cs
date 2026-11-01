@@ -14,13 +14,22 @@ public abstract class DesktopActionTool : Tool
     /// <summary>The longest an action waits for another Sloperator window's agent to be done with the mouse and keyboard.</summary>
     internal static TimeSpan MaxTurnWait = TimeSpan.FromMinutes(5);
 
+    /// <summary>How long the user leaves the mouse and keyboard alone before an action goes ahead.</summary>
+    private static readonly TimeSpan HandsOffTime = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Half the side of the square around a click (screen pixels) that is looked at again when the
+    /// user pressed something since the model's screenshot: changed, the click waits for a new look.
+    /// </summary>
+    private const int AimRadius = 64;
+
     public sealed override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
+        if (ctx.ScreenStale)
+            return new ToolResult("Nothing was done: an action before this one in your reply was held back, as the screen may have changed " +
+                                  "since you last saw it. Look at the screen as it is now and do it again if it still applies.");
         if (ctx.DesktopTurn is not { } desktop)
             return await ActAndLookAsync(args, ctx, screenChanged: false, ct).ConfigureAwait(false);
-        if (ctx.ScreenStale)
-            return new ToolResult("Nothing was done: an action before this one in your reply was held back, as another Sloperator window's agent " +
-                                  "had used the mouse and keyboard. Look at the screen as it is now and do it again if it still applies.");
         // Another window's agent may be using the mouse and keyboard: one at a time.
         var turn = await desktop.TakeAsync(ctx, MaxTurnWait,
             waited => ctx.Progress?.Invoke($"Waiting for another Sloperator window to finish with the mouse and keyboard · {Chats.ChatTimes.Stopwatch(waited)}"), ct).ConfigureAwait(false);
@@ -46,6 +55,7 @@ public abstract class DesktopActionTool : Tool
 
     private async Task<ToolResult> ActAndLookAsync(JsonObject args, ToolContext ctx, bool screenChanged, CancellationToken ct)
     {
+        WatchUser(ctx, acting: true);
         if (screenChanged)
         {
             // What the model aimed at may have moved, been covered or closed meanwhile; and the
@@ -65,7 +75,24 @@ public abstract class DesktopActionTool : Tool
         var paused = System.Diagnostics.Stopwatch.StartNew();
         while (ctx.UserComposing?.Invoke() == true && paused.Elapsed < MaxUserPause)
             await Task.Delay(200, ct).ConfigureAwait(false);
-        var (text, check) = await ActAsync(args, ctx, ct).ConfigureAwait(false);
+        await WaitForHandsOffAsync(ctx, ct).ConfigureAwait(false);
+        string text;
+        ClickCheck? check;
+        // Nothing the user does gets in the way of the action, nor between its looking again and acting.
+        using (var locked = ctx.Platform.UserInput.Lock())
+        {
+            if (UserChangedScreen(args, ctx) is { } why)
+            {
+                locked.Dispose();
+                // What it aimed at may have moved, and the rest of the reply was decided on the same old screen.
+                ctx.Seen = null;
+                ctx.ScreenStale = true;
+                var now = ScreenshotTool.Take(ctx);
+                return now with { Text = $"Nothing was done: {why}. This is the screen now; do it again if it still applies.\n" + now.Text };
+            }
+            ctx.UserPressesAtAct = ctx.Platform.UserInput.Presses;
+            (text, check) = await ActAsync(args, ctx, ct).ConfigureAwait(false);
+        }
         // The screen now changes in ways the model hasn't seen; a later click in the same reply
         // is aimed at what it expects, not at what it saw.
         ctx.Seen = null;
@@ -94,6 +121,89 @@ public abstract class DesktopActionTool : Tool
     }
 
     private protected abstract Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct);
+
+    /// <summary>
+    /// Where on the screen the action lands, to look at again when the user pressed something since
+    /// the model's screenshot; null for keys, which go wherever the focus is now.
+    /// </summary>
+    private protected virtual (int X, int Y)[]? Aims(JsonObject args, ToolContext ctx) => null;
+
+    /// <summary>
+    /// From a run's first look at the screen, the user's input is watched; from its first action, a
+    /// frame round the screen tells the user an agent is at work there. Both until the run ends.
+    /// </summary>
+    internal static void WatchUser(ToolContext ctx, bool acting)
+    {
+        var owner = ctx.DesktopSeat ?? ctx;
+        if (ctx.UserWatch is null)
+        {
+            ctx.UserWatch = ctx.Platform.UserInput.Watch();
+            ctx.AfterRun("user input", () =>
+            {
+                ctx.UserWatch.Dispose();
+                ctx.Platform.InputOverlay.Frame(owner, null);
+                return Task.CompletedTask;
+            });
+        }
+        if (acting)
+            ctx.Platform.InputOverlay.Frame(owner, ctx.GetScreenSpace().Screen);
+    }
+
+    /// <summary>
+    /// Waits until the user has left the mouse and keyboard alone for <see cref="HandsOffTime"/>,
+    /// holding nothing down, for as long as it takes: an action in the middle of what they are doing
+    /// took the focus from under their typing, or their mouse from under their hand.
+    /// </summary>
+    private static async Task WaitForHandsOffAsync(ToolContext ctx, CancellationToken ct)
+    {
+        var user = ctx.Platform.UserInput;
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (user.Holding || user.SinceLastInput < HandsOffTime)
+        {
+            ctx.Progress?.Invoke($"Waiting for you to leave the mouse and keyboard · {Chats.ChatTimes.Stopwatch(waited.Elapsed)}");
+            await Task.Delay(100, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// What the user did since the screenshot this reply was decided on that the action must not go
+    /// ahead on, in words for the model; null when nothing. Keys wait for a new look after any press
+    /// of the user's: a click in the same window moves the focus too. A click waits only when the screen
+    /// changed around where it lands, and can't be compared but for the reply's first action.
+    /// </summary>
+    private string? UserChangedScreen(JsonObject args, ToolContext ctx)
+    {
+        if (ctx.UserPressesSeen is not { } seen || ctx.Platform.UserInput.Presses == seen)
+            return null;
+        if (Aims(args, ctx) is not { } aims)
+            return "the user clicked, typed or scrolled since your last screenshot, so the focus may have moved";
+        if (ctx.Seen is not { } look)
+            return "the user used the mouse or keyboard since your last screenshot";
+        var now = ctx.Platform.Screen.Capture(look.Screen, includeCursor: false);
+        return aims.Any(p => ClickCheck.ChangedAround(look, now, p, AimRadius))
+            ? "the screen changed where you aimed, as the user used the mouse or keyboard since your last screenshot"
+            : null;
+    }
+
+    /// <summary>Whether the user pressed something since the action started: one that takes a while stops there.</summary>
+    private protected static bool UserCameIn(ToolContext ctx) => ctx.Platform.UserInput.Presses != ctx.UserPressesAtAct;
+
+    /// <summary>Waits <paramref name="time"/>, or less when the user presses something meanwhile; returns whether they did.</summary>
+    private protected static async Task<bool> PauseAsync(TimeSpan time, ToolContext ctx, CancellationToken ct)
+    {
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (waited.Elapsed < time)
+        {
+            if (UserCameIn(ctx))
+                return true;
+            var left = time - waited.Elapsed;
+            await Task.Delay(left < TimeSpan.FromMilliseconds(100) ? left : TimeSpan.FromMilliseconds(100), ct).ConfigureAwait(false);
+        }
+        return UserCameIn(ctx);
+    }
+
+    /// <summary>How an action that stopped part way for the user says so.</summary>
+    private protected const string UserStopped = "as the user pressed a key or clicked meanwhile";
 
     /// <summary>
     /// The wait <see cref="ExecuteAsync"/> makes before an action, made again inside one that takes
@@ -168,14 +278,16 @@ public sealed class ScreenshotTool : Tool
 
     internal static ToolResult Take(ToolContext ctx)
     {
+        DesktopActionTool.WatchUser(ctx, acting: false);
         var space = ctx.GetScreenSpace();
+        var presses = ctx.Platform.UserInput.Presses;
+        var cursor = ctx.Platform.Input.GetCursorPosition();
         var frame = ctx.Platform.Screen.Capture(space.Screen, includeCursor: true);
-        ctx.LastShot = (space.Screen, frame);
+        ctx.LastShot = new(space.Screen, frame, cursor, presses);
         ctx.DesktopTurn?.Looked(ctx);
         var jpeg = space.Encode(frame, ctx.Settings.ScreenshotQuality);
         var count = ctx.Screens.Count;
         var which = (count > 1 ? $"Screenshot of screen {ctx.CurrentScreen + 1} of {count}, " : "Screenshot ") + $"{space.ImageWidth}x{space.ImageHeight}.";
-        var cursor = ctx.Platform.Input.GetCursorPosition();
         var cursorScreen = ctx.ScreenAt(cursor.X, cursor.Y);
         var (cx, cy) = space.ToModel(cursor.X, cursor.Y);
         var where = cursorScreen == ctx.CurrentScreen ? $"Mouse cursor at ({cx}, {cy})." : $"Mouse cursor is on screen {cursorScreen + 1}.";
@@ -205,6 +317,8 @@ public sealed class MouseClickTool : DesktopActionTool
         var button = GetString(args, "button") is { } b && b != "left" ? $" ({b})" : "";
         return $"{kind}{button} at {Fmt(args)}";
     }
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -238,6 +352,8 @@ public sealed class MouseMoveTool : DesktopActionTool
     public override JsonObject Parameters => Schema(("x", Num("X in screenshot coordinates"), true), ("y", Num("Y in screenshot coordinates"), true));
     public override string Describe(JsonObject args) => $"Move mouse to {Fmt(args)}";
 
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
+
     private protected override Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var (x, y) = Point(args, ctx);
@@ -257,6 +373,8 @@ public sealed class MouseDragTool : DesktopActionTool
         ("modifiers", ModifiersParameter(), false));
     public override string Describe(JsonObject args) =>
         $"Drag from {Fmt(args)} to {Fmt(args, "to_x", "to_y")}" + (Modifiers(args) is { Count: > 0 } held ? $" holding {Held(held)}" : "");
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx), Point(args, ctx, "to_x", "to_y")];
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -299,6 +417,9 @@ public sealed class ScrollTool : DesktopActionTool
         ("y", Num("Optional Y to scroll at"), false));
     public override string Describe(JsonObject args) =>
         $"Scroll {GetString(args, "direction")} x{GetNumber(args, "amount") ?? 3}" + (args["x"] is not null ? $" at {Fmt(args)}" : "");
+
+    private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) =>
+        [args["x"] is not null && args["y"] is not null ? Point(args, ctx) : ctx.Platform.Input.GetCursorPosition()];
 
     private protected override Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -348,6 +469,9 @@ public sealed partial class TypeTextTool : DesktopActionTool
             // Stop ends long text between pieces: it went on typing the rest, Enter for every
             // line break, into whatever window had the focus.
             ct.ThrowIfCancellationRequested();
+            // The user's keys and clicks go nowhere while it types, but they want the keyboard back.
+            if (at > 0 && UserCameIn(ctx))
+                return $"Typed the first {at} of {text.Length} characters; the rest was not typed, {UserStopped}.";
             if (at > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
                 ctx.Platform.HostWindow.YieldFocus();
             ctx.Platform.Input.TypeText(text.Substring(at, Math.Min(Chunk, text.Length - at)));
@@ -381,22 +505,24 @@ public sealed class PressKeysTool : DesktopActionTool
     public override string Description =>
         "Press a key or shortcut, or a whole series of them in one go. For one chord give its keys in order, e.g. [\"ctrl\",\"c\"], [\"alt\",\"tab\"], [\"enter\"]. " +
         "For several presses one after another, give sequence instead, e.g. [\"left\",\"down\",\"left\",\"tab\",\"ctrl+s\"]: much faster than one call per key. " +
-        "To keep keys down for a while (walking in a game, a long press), give hold_seconds. " +
+        "A sequence can also time its steps: \"wait 0.5\" pauses that many seconds, \"hold w\" keeps w down while the next steps run until \"release w\" " +
+        "(whatever is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on. " +
+        "To keep each press down for a while (walking in a game, a long press), give hold_seconds. " +
         "Names: ctrl, alt, shift, win, enter, esc, tab, backspace, delete, space, up, down, left, right, home, end, pageup, pagedown, f1-f12, a-z, 0-9.";
     public override JsonObject Parameters => Schema(
         ("keys", StrArray("Keys of one chord, modifiers first"), false),
-        ("sequence", StrArray("Presses to make one after another; each is a key or a chord like ctrl+s. Use instead of keys."), false),
+        ("sequence", StrArray("Steps to make one after another: a key or a chord like ctrl+s, \"wait 1.5\" (seconds), \"hold shift\" or \"release shift\". Use instead of keys."), false),
         ("repeat", Int("How many times to press the chord or run the sequence, default 1"), false),
-        ("gap_ms", Int($"Pause between presses in milliseconds, default {DefaultGapMs}"), false),
+        ("gap_ms", Int($"Pause between steps in milliseconds, default {DefaultGapMs}; none next to a wait step"), false),
         ("hold_seconds", Num($"Keep each press held down this long before letting go, e.g. [\"w\"] for 2 seconds to walk forward (max {MaxHoldSeconds}); default: a quick press"), false));
 
     public override string Describe(JsonObject args)
     {
         var repeat = GetNumber(args, "repeat") is > 1 and var r ? $" x{r}" : "";
         var hold = GetNumber(args, "hold_seconds") is > 0 and var h ? $", held {h}s" : "";
-        var sequence = Sequence(args);
+        var sequence = (GetStringList(args, "sequence") ?? []).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         return sequence.Count > 0
-            ? $"Press {sequence.Count} keys: {string.Join(" ", sequence.Select(c => string.Join("+", c)))}{repeat}{hold}"
+            ? $"Keys: {string.Join(", ", sequence)}{repeat}{hold}"
             : $"Press {string.Join("+", Keys(args))}{repeat}{hold}";
     }
 
@@ -407,48 +533,109 @@ public sealed class PressKeysTool : DesktopActionTool
         return keys.SelectMany(Split).ToList();
     }
 
-    private static List<List<string>> Sequence(JsonObject args) =>
-        (GetStringList(args, "sequence") ?? []).Select(c => Split(c).ToList()).Where(c => c.Count > 0).ToList();
+    private enum StepKind { Press, Wait, Hold, Release }
+
+    /// <summary>One step of a sequence: a press, a wait, or keys held down or let go.</summary>
+    private sealed record Step(StepKind Kind, List<string> Keys, double Seconds = 0);
+
+    private static List<Step> Steps(JsonObject args) =>
+        (GetStringList(args, "sequence") ?? []).Select(ParseStep).Where(s => s.Kind == StepKind.Wait || s.Keys.Count > 0).ToList();
+
+    private static Step ParseStep(string text)
+    {
+        var parts = text.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // "down" alone is the arrow key; "hold"/"release" don't name keys, so they can't be read as one.
+        if (parts.Length == 2)
+            switch (parts[0].ToLowerInvariant())
+            {
+                case "wait":
+                    return double.TryParse(parts[1].TrimEnd('s', 'S'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds) && seconds >= 0
+                        ? new Step(StepKind.Wait, [], seconds)
+                        : throw new ToolArgumentException($"\"{text.Trim()}\": a wait step takes seconds, e.g. \"wait 0.5\".");
+                case "hold":
+                    return new Step(StepKind.Hold, Split(parts[1]).ToList());
+                case "release":
+                    return new Step(StepKind.Release, Split(parts[1]).ToList());
+            }
+        return new Step(StepKind.Press, Split(text).ToList());
+    }
 
     private static string[] Split(string chord) =>
         chord.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
-        var presses = Sequence(args);
-        if (presses.Count == 0 && Keys(args) is { Count: > 0 } chord)
-            presses = [chord];
-        if (presses.Count == 0)
+        var steps = Steps(args);
+        if (steps.Count == 0 && Keys(args) is { Count: > 0 } chord)
+            steps = [new Step(StepKind.Press, chord)];
+        if (steps.Count == 0)
             throw new ToolArgumentException("Give 'keys' (one chord) or 'sequence' (several presses).");
-        var unknown = presses.SelectMany(p => p).Where(k => !ctx.Platform.Input.IsKnownKey(k)).Distinct().ToList();
+        var unknown = steps.SelectMany(s => s.Keys).Where(k => !ctx.Platform.Input.IsKnownKey(k)).Distinct().ToList();
         if (unknown.Count > 0)
             throw new ToolArgumentException($"Unknown key name(s): {string.Join(", ", unknown)}.");
 
         var repeat = Math.Clamp((int)(GetNumber(args, "repeat") ?? 1), 1, 100);
-        var gap = Math.Clamp((int)(GetNumber(args, "gap_ms") ?? (presses.Count > 1 ? DefaultGapMs : 40)), 0, 5000);
+        var gap = Math.Clamp((int)(GetNumber(args, "gap_ms") ?? (steps.Count > 1 ? DefaultGapMs : 40)), 0, 5000);
         var hold = TimeSpan.FromSeconds(Math.Clamp(GetNumber(args, "hold_seconds") ?? 0, 0, MaxHoldSeconds));
+        // Keys a hold step put down, one by one so a release step can let go of any of them.
+        var held = new List<(string Key, IDisposable Up)>();
         ctx.Platform.HostWindow.YieldFocus();
-        var total = repeat * presses.Count;
-        for (var i = 0; i < total; i++)
+        var total = repeat * steps.Count;
+        try
         {
-            // A series takes a while: typing to the agent that starts meanwhile holds the rest, which
-            // then goes back to the window it was meant for. It went into the user's message.
-            if (i > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
-                ctx.Platform.HostWindow.YieldFocus();
-            var press = presses[i % presses.Count];
-            if (hold > TimeSpan.Zero)
+            for (var i = 0; i < total; i++)
             {
-                // Released on Stop too, so no key is left held down.
-                using (ctx.Platform.Input.HoldKeys(press))
-                    await Task.Delay(hold, ct).ConfigureAwait(false);
+                // The user's keys and clicks go nowhere while it presses, but they want the keyboard back.
+                if (i > 0 && UserCameIn(ctx))
+                    return $"Did {i} of {total} steps; the rest was not done, {UserStopped}.";
+                // A series takes a while: typing to the agent that starts meanwhile holds the rest, which
+                // then goes back to the window it was meant for. It went into the user's message.
+                if (i > 0 && await WaitWhileUserTypesAsync(ctx, ct).ConfigureAwait(false))
+                    ctx.Platform.HostWindow.YieldFocus();
+                var step = steps[i % steps.Count];
+                switch (step.Kind)
+                {
+                    case StepKind.Wait:
+                        if (await PauseAsync(TimeSpan.FromSeconds(step.Seconds), ctx, ct).ConfigureAwait(false))
+                            return $"Did {i + 1} of {total} steps, the last cut short; the rest was not done, {UserStopped}.";
+                        break;
+                    case StepKind.Hold:
+                        foreach (var key in step.Keys.Where(k => !held.Exists(h => Same(h.Key, k))))
+                            held.Add((key, ctx.Platform.Input.HoldKeys([key])));
+                        break;
+                    case StepKind.Release:
+                        foreach (var key in Enumerable.Reverse(step.Keys))
+                            if (held.FindLastIndex(h => Same(h.Key, key)) is >= 0 and var at)
+                            {
+                                held[at].Up.Dispose();
+                                held.RemoveAt(at);
+                            }
+                        break;
+                    case StepKind.Press when hold > TimeSpan.Zero:
+                        // Released on Stop too, so no key is left held down.
+                        using (ctx.Platform.Input.HoldKeys(step.Keys))
+                            if (await PauseAsync(hold, ctx, ct).ConfigureAwait(false))
+                                return $"Did {i + 1} of {total} steps, the last let go early; the rest was not done, {UserStopped}.";
+                        break;
+                    default:
+                        ctx.Platform.Input.PressKeys(step.Keys);
+                        break;
+                }
+                // A wait step is the pause there.
+                if (i < total - 1 && step.Kind != StepKind.Wait && steps[(i + 1) % steps.Count].Kind != StepKind.Wait)
+                    await PauseAsync(TimeSpan.FromMilliseconds(gap), ctx, ct).ConfigureAwait(false);
             }
-            else
-                ctx.Platform.Input.PressKeys(press);
-            if (i < total - 1)
-                await Task.Delay(gap, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Nothing is left held down: not at the end, not when the user comes in, not on Stop.
+            for (var h = held.Count - 1; h >= 0; h--)
+                held[h].Up.Dispose();
         }
         return Describe(args) + " done.";
     }
+
+    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class WaitTool : Tool

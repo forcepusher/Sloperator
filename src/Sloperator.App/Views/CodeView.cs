@@ -210,8 +210,8 @@ public sealed class CodeView : TextEditor
 
     /// <summary>
     /// AvaloniaEdit's highlighting for a language of the Code editor's menu (<see cref="Core.Projects.CodeLanguages"/>):
-    /// Markdown without its headings in bigger letters, which a code editor's lines don't take. Null for
-    /// plain text, and for one AvaloniaEdit can't load.
+    /// Markdown without its headings in bigger letters, which a code editor's lines don't take; Rust, which
+    /// AvaloniaEdit has none of, our own (<see cref="Rust"/>). Null for plain text, and for one AvaloniaEdit can't load.
     /// </summary>
     public static IHighlightingDefinition? Definition(string? language)
     {
@@ -226,13 +226,25 @@ public sealed class CodeView : TextEditor
         };
         try
         {
-            return name is null ? null : HighlightingManager.Instance.GetDefinition(name);
+            return name is null ? null : name == "Rust" ? Rust.Value : HighlightingManager.Instance.GetDefinition(name);
         }
         catch (HighlightingDefinitionInvalidException)
         {
             return null;
         }
     }
+
+    /// <summary>
+    /// Rust's highlighting (Highlighting/Rust.xshd, built into the exe), its colours named as AvaloniaEdit's own
+    /// definitions name theirs; read the first time a Rust file opens (the user, 2026-11-01: an agent writing a
+    /// Tauri app's .rs files showed them in plain text).
+    /// </summary>
+    private static readonly Lazy<IHighlightingDefinition> Rust = new(() =>
+    {
+        using var stream = typeof(CodeView).Assembly.GetManifestResourceStream("Sloperator.Rust.xshd")!;
+        using var reader = System.Xml.XmlReader.Create(stream);
+        return AvaloniaEdit.Highlighting.Xshd.HighlightingLoader.Load(reader, HighlightingManager.Instance);
+    });
 
     /// <summary>Which of the app's syntax colours (a key in App.axaml) AvaloniaEdit's colour of this name is drawn in; null for the code's own.</summary>
     public static string? SyntaxColour(string name) => DarkColorizer.Kind(name);

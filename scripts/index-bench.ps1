@@ -149,7 +149,7 @@ function Read-Log([string]$path) {
   foreach ($l in $lines) {
     if ($l -match '^\[done\] (\w+) in (\d+)s, (\d+) model calls, (\d+) tool calls, (\d+) tool errors') {
       $r.stop = $Matches[1]; $r.seconds = [int]$Matches[2]; $r.modelCalls = [int]$Matches[3]; $r.toolCalls = [int]$Matches[4]; $r.toolErrors = [int]$Matches[5]
-    } elseif ($l -match '^\[time\] .*\(([\d.]+)k prompt tokens, (\d+) reply tokens\)') {
+    } elseif ($l -match '^\[time\] .*\(([\d.]+)k prompt tokens, (\d+) reply tokens[,)]') {
       $pt = [int]([double]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture) * 1000)
       $r.promptTokens += $pt; $r.replyTokens += [int]$Matches[2]
       if ($pt -gt $r.maxPrompt) { $r.maxPrompt = $pt }

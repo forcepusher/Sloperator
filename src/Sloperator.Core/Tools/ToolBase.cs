@@ -15,6 +15,15 @@ public enum ToolRisk
     Risky,
 }
 
+/// <summary>
+/// A screenshot the model was shown: its screen and picture (the mouse pointer drawn in), where the
+/// pointer was, and the user's presses by then (<see cref="IUserInput.Presses"/>).
+/// </summary>
+public sealed record ScreenLook(ScreenRect Screen, RawImage Frame, (int X, int Y) Cursor = default, long UserPresses = 0)
+{
+    public static implicit operator ScreenLook((ScreenRect Screen, RawImage Frame) shot) => new(shot.Screen, shot.Frame);
+}
+
 /// <param name="ImageCaption">What the image is, said where it reaches the model; null for a screenshot after an action.</param>
 /// <param name="Files">Files the call made or showed (a picture, a video, a sound, a 3D model…), previewed for the user in the chat.</param>
 public sealed record ToolResult(string Text, byte[]? Image = null, string ImageMime = "image/jpeg", bool IsError = false, string? ImageCaption = null,
@@ -63,7 +72,19 @@ public sealed class ToolContext
     /// the first action of the reply clears it, as the screen then changes in ways the model hasn't
     /// seen yet. A wait for a change compares it with the screen now (see <see cref="WaitTool"/>).
     /// </summary>
-    public (ScreenRect Screen, RawImage Frame)? Seen { get; set; }
+    public ScreenLook? Seen { get; set; }
+
+    /// <summary>
+    /// The user's presses (<see cref="IUserInput.Presses"/>) as of the screenshot this reply's calls
+    /// were decided on; null when the model hasn't looked in this run. Set by the agent with <see cref="Seen"/>.
+    /// </summary>
+    public long? UserPressesSeen { get; set; }
+
+    /// <summary>The user's presses as the action going on started: one that takes a while stops at another (see <see cref="DesktopActionTool"/>).</summary>
+    internal long UserPressesAtAct { get; set; }
+
+    /// <summary>The run's watch on the user's input, from its first look or action until it ends; null before.</summary>
+    internal IDisposable? UserWatch { get; set; }
 
     /// <summary>
     /// An action of the model's reply was held back, as another window's agent had used the mouse
@@ -98,8 +119,8 @@ public sealed class ToolContext
     /// <summary>Shows the user the app's offer to install text recognition (see <see cref="Agent.IAgentObserver.OfferTextRecognition"/>); null where there is no app (the CLI).</summary>
     public Action? OfferTextRecognition { get; set; }
 
-    /// <summary>The latest screenshot taken for the model (screen and frame).</summary>
-    public (ScreenRect Screen, RawImage Frame)? LastShot { get; set; }
+    /// <summary>The latest screenshot taken for the model.</summary>
+    public ScreenLook? LastShot { get; set; }
 
     /// <summary>Whose turn it is with the mouse and keyboard among Sloperator's windows; null where only one agent runs (the command line, tests).</summary>
     public Platform.DesktopTurn? DesktopTurn { get; init; }

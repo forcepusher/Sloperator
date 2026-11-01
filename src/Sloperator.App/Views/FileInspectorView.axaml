@@ -68,7 +68,7 @@
         </ScrollViewer>
 
         <ScrollViewer x:Name="TextScroll" IsVisible="{Binding ShowsText}" HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Document text">
-          <views:KeptSelectionTextBlock x:Name="PlainText" Text="{Binding Text}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="16,12,16,16" TextWrapping="NoWrap" />
+          <views:SelectableText x:Name="PlainText" views:SelectableText.KeepsSelection="True" Text="{Binding Text}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="16,12,16,16" TextWrapping="NoWrap" />
         </ScrollViewer>
 
         <!-- A picture: zoomed with the wheel, panned with a right drag, an area marked with a left one. -->

@@ -9,6 +9,12 @@ namespace Sloperator.Platform.Windows;
 internal sealed class WindowsInputController : IInputController
 {
     private const int WheelDelta = 120;
+
+    /// <summary>
+    /// How long a click holds the button down. Let go of in the same instant, a press can come and go
+    /// between two looks of a game that reads the mouse once a frame (20 ms at 50 frames a second).
+    /// </summary>
+    private const int ClickHoldMs = 50;
     private static readonly int InputSize = Marshal.SizeOf<INPUT>();
 
     /// <summary>Marks input as Sloperator's own (dwExtraInfo), so the stop key hook ignores the agent's presses.</summary>
@@ -70,6 +76,7 @@ internal sealed class WindowsInputController : IInputController
         for (var i = 0; i < count; i++)
         {
             SendMouse(down);
+            Thread.Sleep(ClickHoldMs);
             SendMouse(up);
             if (i < count - 1) Thread.Sleep(40);
         }

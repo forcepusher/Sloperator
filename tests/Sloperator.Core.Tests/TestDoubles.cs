@@ -253,7 +253,8 @@ internal sealed class RecordingObserver : IAgentObserver
 internal sealed class FakePlatform : IPlatformServices, IScreenCapture, IInputController
 {
     public IHostWindow HostWindow { get; set; } = NoHostWindow.Instance;
-    public IInputOverlay InputOverlay => NoInputOverlay.Instance;
+    public IInputOverlay InputOverlay { get; set; } = NoInputOverlay.Instance;
+    public IUserInput UserInput { get; set; } = NoUserInput.Instance;
 
     public List<string> Actions { get; } = [];
     public (int X, int Y) Cursor { get; set; } = (50, 50);
@@ -350,4 +351,51 @@ internal sealed class FakePlatform : IPlatformServices, IScreenCapture, IInputCo
     {
         public void Dispose() => onRelease();
     }
+}
+
+/// <summary>The user's mouse and keyboard as a test has them: busy or not, holding a key or not, and what the agent did with them.</summary>
+internal sealed class FakeUserInput : IUserInput
+{
+    /// <summary>The user is using the mouse or keyboard right now.</summary>
+    public volatile bool Busy;
+    public volatile bool HoldingDown;
+    public long PressCount;
+    public int Watching, Locks;
+
+    public bool Locked => Volatile.Read(ref Locks) > 0;
+    public IDisposable Watch()
+    {
+        Interlocked.Increment(ref Watching);
+        return new Undo(() => Interlocked.Decrement(ref Watching));
+    }
+    public TimeSpan SinceLastInput => Busy ? TimeSpan.Zero : TimeSpan.MaxValue;
+    public bool Holding => HoldingDown;
+    public long Presses => Interlocked.Read(ref PressCount);
+    public void Press() => Interlocked.Increment(ref PressCount);
+    public IDisposable Lock()
+    {
+        Interlocked.Increment(ref Locks);
+        return new Undo(() => Interlocked.Decrement(ref Locks));
+    }
+
+    private sealed class Undo(Action undo) : IDisposable
+    {
+        private int _done;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _done, 1) == 0)
+                undo();
+        }
+    }
+}
+
+/// <summary>Records the frame the agent puts round the screen it works on.</summary>
+internal sealed class FrameOverlay : IInputOverlay
+{
+    public List<ScreenRect?> Frames { get; } = [];
+    public bool Enabled { get; set; }
+    public TimeSpan Duration { get; set; }
+    public (byte R, byte G, byte B) MarkerColor { get; set; }
+    public void Show(string text, (int X, int Y)? point = null) { }
+    public void Frame(object owner, ScreenRect? screen) => Frames.Add(screen);
 }

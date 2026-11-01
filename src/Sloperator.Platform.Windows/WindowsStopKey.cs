@@ -34,7 +34,7 @@ internal sealed class WindowsStopKey : IStopKey
         private const long HeldGapMs = 2500;
 
         private readonly Func<bool> _onPressed;
-        private readonly LowLevelKeyboardProc _proc; // kept alive for as long as the hook is installed
+        private readonly LowLevelHookProc _proc; // kept alive for as long as the hook is installed
         // Used on the hook's thread only.
         private readonly Dictionary<uint, long> _swallowed = []; // keys swallowed until let go, and when each last went down
         private uint _stopPress; // the key that stopped a run (Pause or Break), while it is held; 0 if none

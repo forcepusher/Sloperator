@@ -88,6 +88,11 @@ public partial class MainWindow : Window
         // The chat's own right-click menu, before a text block's (Copy alone) can open.
         ChatScroll.AddHandler(ContextRequestedEvent, OnChatMenu, RoutingStrategies.Tunnel);
 
+        // Text selected in the chat goes with the next message, as its card over the box.
+        ChatScroll.AddHandler(PointerPressedEvent, OnChatPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        ChatScroll.AddHandler(PointerReleasedEvent, OnChatReleased, handledEventsToo: true);
+        ChatScroll.AddHandler(KeyUpEvent, OnChatKeyUp, handledEventsToo: true);
+
         // What Tab or the arrow keys move to is scrolled into view; what a click focuses stays where
         // it is under the mouse (the chat's ScrollViewer does neither by itself, see its markup).
         ChatScroll.AddHandler(GotFocusEvent, (_, e) =>
@@ -461,6 +466,52 @@ public partial class MainWindow : Window
         return texts.Where(t => t.SelectionStart != t.SelectionEnd).ToList();
     }
 
+    // ---- text selected in the chat ---------------------------------------------------------------------
+
+    /// <summary>The chat's text blocks with something selected, in reading order.</summary>
+    private List<SelectableTextBlock> ChatSelection() =>
+        ChatScroll.GetVisualDescendants().OfType<SelectableTextBlock>().Where(t => t.SelectionStart != t.SelectionEnd).ToList();
+
+    /// <summary>
+    /// A press starts a selection in one block: the others' go, as the chat's text keeps a selection that
+    /// loses focus (so it stays marked while the user types about it in the box). A scroll bar keeps it.
+    /// </summary>
+    private void OnChatPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(ChatScroll).Properties.IsLeftButtonPressed || OnScrollBar(e))
+            return;
+        var pressed = (e.Source as Visual)?.FindAncestorOfType<SelectableTextBlock>(includeSelf: true);
+        foreach (var text in ChatSelection().Where(t => !ReferenceEquals(t, pressed)))
+            text.ClearSelection();
+    }
+
+    /// <summary>
+    /// A drag over text or a double-click on a word puts what is selected in the box, as its card; a click
+    /// that selects nothing takes it out. Read on release, not during the drag: the card coming in grows
+    /// the box, which would move the chat under the mouse.
+    /// </summary>
+    private void OnChatReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && !OnScrollBar(e))
+            Quote();
+    }
+
+    /// <summary>Shift+arrows and Ctrl+A select too; Esc lets go.</summary>
+    private void OnChatKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+            foreach (var text in ChatSelection())
+                text.ClearSelection();
+        else if ((e.KeyModifiers & (KeyModifiers.Shift | KeyModifiers.Control)) == 0)
+            return;
+        Quote();
+    }
+
+    private void Quote() => (DataContext as MainWindowViewModel)?.SetQuote(string.Join(Environment.NewLine, ChatSelection().Select(t => t.SelectedText)));
+
+    private static bool OnScrollBar(RoutedEventArgs e) =>
+        (e.Source as Visual)?.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(includeSelf: true) is not null;
+
     private async void OnUndoMessage(object? sender, RoutedEventArgs e)
     {
         if ((sender as StyledElement)?.DataContext is UserMessageItem message)
@@ -504,6 +555,16 @@ public partial class MainWindow : Window
                 _stickToBottom = true;
             if (change.PropertyName == nameof(MainWindowViewModel.SidePanel))
                 Dock();
+            // Sent with the message: what was selected goes.
+            if (change.PropertyName == nameof(MainWindowViewModel.Quote) && vm.Quote is null)
+                foreach (var text in ChatSelection())
+                    text.ClearSelection();
+        };
+        // The messages selected in gone (another chat opened, Undo): their card goes too.
+        vm.Items.CollectionChanged += (_, e) =>
+        {
+            if (vm.Quote is not null && e.Action is System.Collections.Specialized.NotifyCollectionChangedAction.Remove or System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+                Dispatcher.UIThread.Post(Quote, DispatcherPriority.Background);
         };
         // The click marker is drawn outside Avalonia, so it is handed the accent colour.
         vm.ShowInputOverlay(this.FindResource("BbAccent") is Avalonia.Media.ISolidColorBrush accent

@@ -197,6 +197,15 @@ public sealed partial class OpenAiChatClient
     /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), System.Collections.Immutable.ImmutableHashSet<string>> RefusedByServer = new();
 
+    /// <summary>The most a reply may take, by server and model, as a refusal of a larger max_tokens said.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), int> ReplyCaps = new();
+
+    [GeneratedRegex(@"(?<!\w)max_tokens(?!\w)", RegexOptions.IgnoreCase)]
+    private static partial Regex MaxTokensNamed();
+
+    [GeneratedRegex(@"\d{1,3}(?:,\d{3})+|\d+")]
+    private static partial Regex NumberWords();
+
     /// <summary>
     /// How long sending a request may go without any of it getting through before the connection
     /// counts as dropped. A VPN can stall an upload without breaking it: LM Studio then waited
@@ -275,7 +284,7 @@ public sealed partial class OpenAiChatClient
         var sendReasoning = options.SendReasoning && !_reasoningRejected;
         var sendExtras = !_extrasRejected;
         var request = BuildRequest(messages, tools, options, sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl),
-            RefusedByServer.GetValueOrDefault((_baseUrl, options.Model)));
+            RefusedByServer.GetValueOrDefault((_baseUrl, options.Model)), ReplyCaps.TryGetValue((_baseUrl, options.Model), out var cap) ? cap : null);
         var payload = Encoding.UTF8.GetBytes(request.ToJsonString());
         // Cancelled when sending stalls. Once the request is out, only Stop ends the wait: a
         // server reading a long prompt sends nothing for minutes.
@@ -300,6 +309,21 @@ public sealed partial class OpenAiChatClient
                 // Before the 5xx below are sent again: llama-server says it with a 500.
                 if ((status is 400 or 404 or 415 or 422 || status >= 500) && HasImages(messages) && LooksLikeImagesRefused(err))
                     throw new ImagesRefusedException(ErrorText(err).Clip(300));
+                // The reply limit asked for is more than the model takes: "max_tokens: 64000 > 32000,
+                // which is the maximum allowed number of output tokens", "This model supports at most
+                // 16384 completion tokens, whereas you provided 64000". The largest number the error
+                // says under the one asked is the model's limit from then on; with none, it is left out.
+                if (status is 400 or 422 && request["max_tokens"]?.GetValue<int>() is { } asked && MaxTokensNamed().IsMatch(err))
+                {
+                    var most = NumberWords().Matches(err).Select(n => int.TryParse(n.Value.Replace(",", ""), out var v) ? v : 0).Where(v => v > 0 && v < asked).DefaultIfEmpty(0).Max();
+                    if (most > 0)
+                        ReplyCaps[(_baseUrl, options.Model)] = most;
+                    else
+                        RefusedByServer.AddOrUpdate((_baseUrl, options.Model),
+                            _ => System.Collections.Immutable.ImmutableHashSet.Create(StringComparer.Ordinal, "max_tokens"),
+                            (_, before) => before.Add("max_tokens"));
+                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+                }
                 // Strict providers reject fields they do not know. Drop ours and try once more.
                 // Claude's thinking sent back through a gateway and refused (its signature no longer
                 // matches): the run goes on without the earlier thinking.
@@ -413,7 +437,7 @@ public sealed partial class OpenAiChatClient
         var blocks = new List<JsonObject>();
         var finished = false;
         string? finishReason = null;
-        int? promptTokens = null, completionTokens = null;
+        int? promptTokens = null, completionTokens = null, cachedTokens = null;
 
         while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
         {
@@ -461,6 +485,9 @@ public sealed partial class OpenAiChatClient
             {
                 promptTokens = GetInt(usage, "prompt_tokens") ?? promptTokens;
                 completionTokens = GetInt(usage, "completion_tokens") ?? completionTokens;
+                // OpenAI's name for it (OpenRouter and LiteLLM say it too), else LiteLLM's Anthropic one.
+                cachedTokens = (usage["prompt_tokens_details"] is JsonObject promptDetails ? GetInt(promptDetails, "cached_tokens") : null)
+                               ?? GetInt(usage, "cache_read_input_tokens") ?? cachedTokens;
             }
             if (chunk?["choices"] is not JsonArray { Count: > 0 } choices || choices[0] is not JsonObject choice)
                 continue;
@@ -570,6 +597,7 @@ public sealed partial class OpenAiChatClient
             FinishReason = finishReason,
             PromptTokens = promptTokens,
             CompletionTokens = completionTokens,
+            CachedTokens = cachedTokens,
         };
         // Not Claude's thinking cut off before its signature came (a reply that ran out of room
         // mid-thought): sent back, it would be refused.
@@ -596,12 +624,19 @@ public sealed partial class OpenAiChatClient
 
     /// <param name="promptShift">Blank lines in front of the system prompt (see <see cref="ShiftPrompt"/>).</param>
     /// <param name="refused">Our own fields the server refused by name, left out of the request and its messages.</param>
+    /// <param name="replyCap">The most max_tokens the model takes, as a refusal said.</param>
     internal static JsonObject BuildRequest(IReadOnlyList<ChatMessage> messages, IReadOnlyList<ToolDefinition> tools, ChatRequestOptions options,
-        bool sendReasoning = false, bool sendExtras = true, int promptShift = 0, IReadOnlySet<string>? refused = null)
+        bool sendReasoning = false, bool sendExtras = true, int promptShift = 0, IReadOnlySet<string>? refused = null, int? replyCap = null)
     {
         var msgs = new JsonArray();
         foreach (var m in messages)
         {
+            // A reply that said nothing and called nothing (cut off in its thinking, or empty) isn't
+            // sent: proxyapi.ru's LiteLLM wrote "[System: Empty message content sanitised to satisfy
+            // protocol]" in its place for Claude, and Claude took to writing that line itself in its
+            // next replies (chat 20261101-171229-f4b4fa). No server needs an empty turn.
+            if (m.Role == ChatRole.Assistant && !m.HasToolCalls && m.Parts is not { Count: > 0 } && string.IsNullOrWhiteSpace(m.Content))
+                continue;
             var shifted = promptShift > 0 && msgs.Count == 0 && m.Role == ChatRole.System && m.Parts is null
                 ? new ChatMessage { Role = m.Role, Content = new string('\n', promptShift) + m.Content }
                 : m;
@@ -614,7 +649,7 @@ public sealed partial class OpenAiChatClient
             ["messages"] = msgs,
             ["stream"] = true,
         };
-        if (options.MaxTokens is { } mt) req["max_tokens"] = mt;
+        if (options.MaxTokens is { } mt) req["max_tokens"] = replyCap is { } cap ? Math.Min(mt, cap) : mt;
 
         if (tools.Count > 0)
         {
@@ -639,6 +674,13 @@ public sealed partial class OpenAiChatClient
         {
             // Exact prompt and reply sizes, so the agent knows how full the context really is.
             req["stream_options"] = new JsonObject { ["include_usage"] = true };
+            // Asks the server to cache the prompt up to its end, so the next step reads the history
+            // at a tenth of the price. Claude caches only when asked, through OpenRouter and
+            // proxyapi.ru too: without it every step paid the whole conversation in full again
+            // (tried 2026-11-01, Haiku 5.5: a 4.7k-token prompt sent twice was read from the cache
+            // the second time on both, $0.00005 against $0.00047 on OpenRouter; none of it without).
+            // A server that doesn't know it ignores it, or names it in its refusal and goes without.
+            req["cache_control"] = new JsonObject { ["type"] = "ephemeral" };
             if (options.Extra is not null)
                 foreach (var (key, value) in options.Extra)
                     req[key] = value?.DeepClone();
@@ -669,7 +711,7 @@ public sealed partial class OpenAiChatClient
     /// <summary>The fields of <paramref name="request"/> and its messages that are Sloperator's own, not the standard ones.</summary>
     internal static List<string> OurFields(JsonObject request, ChatRequestOptions options)
     {
-        var ours = new List<string> { "stream_options", "reasoning_effort", "reasoning_content", "reasoning_details", "thinking_blocks" };
+        var ours = new List<string> { "stream_options", "cache_control", "reasoning_effort", "reasoning_content", "reasoning_details", "thinking_blocks" };
         if (options.Extra is not null)
             ours.AddRange(options.Extra.Select(e => e.Key));
         var sent = request["messages"] is JsonArray msgs ? msgs.OfType<JsonObject>().SelectMany(m => m.Select(f => f.Key)).ToHashSet() : [];
@@ -705,7 +747,11 @@ public sealed partial class OpenAiChatClient
         }
         else
         {
-            obj["content"] = m.Content ?? "";
+            // Calls with nothing said: null, as OpenAI's API sends such a turn. An empty string came to
+            // Claude through proxyapi.ru's LiteLLM as "[System: Empty message content sanitised to
+            // satisfy protocol]", and Claude wrote the line in its own later replies (tried 2026-11-01:
+            // asked to quote its turn of calls, it quoted that with "", and said it had no text with null).
+            obj["content"] = m.HasToolCalls && string.IsNullOrWhiteSpace(m.Content) ? null : m.Content ?? "";
         }
 
         if (m.HasToolCalls)
@@ -829,7 +875,7 @@ public sealed partial class OpenAiChatClient
     public void ShiftPrompt() => PromptShifts.AddOrUpdate(_baseUrl, 1, (_, n) => n % 8 + 1);
 
     private static bool LooksLikeUnknownField(string err) =>
-        new[] { "unrecognized", "unknown", "not permitted", "extra", "unexpected", "reasoning", "chat_template_kwargs" }
+        new[] { "unrecognized", "unknown", "not permitted", "extra", "unexpected", "reasoning", "chat_template_kwargs", "cache_control" }
             .Any(w => err.Contains(w, StringComparison.OrdinalIgnoreCase));
 
     internal static bool LooksLikeContextOverflow(string err) =>

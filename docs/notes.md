@@ -1701,9 +1701,34 @@ Avalonia (11.3.22, and its master) draws a selection in a text block made of run
 code, headings, links) with properties of its own for the selected part, built from the block's size
 and one run's font: the whole selection turned into the code font a size up and the rest of the line
 moved along (the user's recording, 2026-10-30). `SelectableText` (Views) builds the selected part
-from each run's own properties with only the colour changed; every selectable text in the app is one
-(`KeptSelectionTextBlock` too), styled as a `SelectableTextBlock`. A text box has one font, so its
-selection was right.
+from each run's own properties with only the colour changed; every selectable text in the app is one,
+styled as a `SelectableTextBlock`. A text box has one font, so its selection was right.
+`SelectableText.KeepsSelection` (attached, inherited: set on a panel, every text in it) keeps a selection
+when the text loses focus, where Avalonia's clears it: the chat's and File inspector's, so what is
+selected stays marked while the user types about it in the box. Whoever shows such text clears it (a
+press elsewhere in it, Esc, the message sent). It was a class of its own, `KeptSelectionTextBlock`.
+
+## Text selected in the chat
+Text selected in the chat (a message, a reply, thinking, a tool's command or output, a notice) goes with
+the next message, so the model knows what the user means (the user, 2026-11-01). While something is
+selected, its card is first over the box: the card a panel's pick has (`Border.attachment.file`, no ×),
+the selection on one line as its title (cut at 100 characters, then by the card's width), "Selected in
+the chat" under it, a quote icon, and its arrow pointing up at the chat where a pick's points left at
+its panel (`toolArrow.up`). With nothing selected there is no card and no word of it to the model.
+- The window reads the selection on a left release in the chat and on Shift/Ctrl key releases there,
+  not during a drag: the card coming in grows the box, which moved the chat under the mouse
+  (`MainWindow.OnChatReleased`). The chat's text keeps its selection when the box takes the focus
+  (`KeepsSelection` on the conversation); a press in one block clears the others', a click that
+  selects nothing or Esc lets it go, a scroll bar doesn't. Blocks of one reply selected by a drag
+  across them stay selected too (`MarkdownView` no longer clears them when the first loses focus there).
+- Sent, the model is told it before the user's words, in `UserInput.Context` with whatever an open
+  panel says: `[The user selected this in the chat, which is what they refer to:` and the text, cut at
+  `BoxPicks.MaxChars` as a pick is (`MainWindowViewModel.WithQuote`). The card goes with the message
+  (`UserInput.Cards`, a `SidePanelCard` with no path, kept in the saved chat) and shows first in its
+  bubble; the selection then goes. Another chat opened or Undo, which take its message away, take
+  the card too. Undo doesn't put it back in the box, as it doesn't a panel's pick.
+- `ChatSelectionTests` checks it headless: kept while the box has the focus, over two paragraphs of a
+  reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
 ## One look for every control
 Every window and side panel draws its controls from the styles in App.axaml, one a kind, not
@@ -2179,7 +2204,12 @@ of credits: HTTP 401, 402, 403) says so, with the server's own words and what to
 than "Can't reach the server" and its JSON: a wrong OpenRouter key showed only `Chat request
 failed (401): {"error":{"message":"User not found.","code":401}}`. Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
-Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run.
+Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
+1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
+it, or where it is certain: "LM Studio loaded … with a 4k context" comes after LM Studio's own API
+loaded the model again (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the
+reply-length note: "weird", then "if we're absolutely sure it's this or that program, keep that").
+The reply-length notes, a context too small and a server offering no models say "the server".
 A service's website typed for its API (`openrouter.ai`, `groq.com`, `openai.com`, `mistral.ai`,
 `deepseek.com`, `x.ai`, `together.ai`, `fireworks.ai`, `anthropic.com`, `claude.com`, any page of them) has its API
 address tried first, so it just works; another website says it is one, rather than filling the
@@ -2319,6 +2349,20 @@ OpenRouter with no effort, so no thinking showed. The same server's own Anthropi
 (`https://api.proxyapi.ru/anthropic/v1`, the same key) takes Sloperator's Messages path instead (see
 Claude through Anthropic's API): Haiku 5.5 there ran two turns with a tool call each, thinking
 signed, no refusals (2026-11-01).
+
+**Prompt caching on every server**: each request asks the server to cache the prompt up to its end
+(`"cache_control": {"type": "ephemeral"}` at the top of the request, OpenRouter's automatic caching),
+sent and left out with the other extras: a server that names it in a refusal goes without it from
+then on, and one that doesn't know it ignores it. Claude caches only when asked, through gateways
+too, so before this every step through OpenRouter or proxyapi.ru paid the whole conversation in full
+again, 4 to 8 times what the same 40 to 100 step screenshot run cost on Anthropic's API (an estimate,
+Haiku 5.5). Tried 1 November 2026 with Haiku 5.5, a 4.7k-token prompt sent twice to each: without
+the field nothing was cached on either; with it the second request was read from the cache on both
+(OpenRouter $0.000049 against $0.00047; the first costs 1.25 times, writing the cache). One field
+on the system prompt's text part cached the same on both, without the user message. What was read
+from the cache comes back as `usage.prompt_tokens_details.cached_tokens` (OpenRouter, proxyapi.ru)
+or `cache_read_input_tokens` (LiteLLM), kept as `ChatMessage.CachedTokens` (Claude's API path fills
+it too), and the command-line runner prints it after the token counts.
 
 **The agent connects it too**: asked to connect, switch to or use another model (LM Studio on this PC,
 Claude, OpenRouter, a server the user names), the agent uses its `model_server` tool. `connect` takes
@@ -2593,7 +2637,24 @@ and the last screenshot (not a picture a tool opened), a few thousand tokens. Wh
 reports, not guessed. If the model can't write the note, a record of its last steps is used
 instead; a reply cut off by the context limit, or a server's "context length exceeded" error,
 triggers the same reset and a retry. A reply cut off by a reply-length limit set on the server
-(the token counts show the context isn't full) is kept, and the model is asked to go on.
+(the token counts show the context isn't full) is kept, and the model is asked to go on. From then
+on in the run, each request asks for as long a reply as the context has room for (`max_tokens`, at
+most the 64k asked of Claude's API, `AgentSession.ReplyRoom`): asked for nothing, proxyapi.ru's
+LiteLLM gives Claude 4k or so, and it cut eight replies in a quarter of an hour of writing a Tauri app,
+each thought through again (chat 20261101-171229-f4b4fa). Nothing is asked before a cut, so a server
+that never cuts gets the requests it always did. A model that takes less says so ("max_tokens: 64000 >
+32000", "supports at most 16384 completion tokens"): the largest number the error names under the one
+asked is its limit from then on; an error naming max_tokens with no such number leaves it out.
+A kept reply that said nothing and called nothing (cut off in its thinking) isn't sent back: LiteLLM
+filled the empty turn with "[System: Empty message content sanitised to satisfy protocol]", and
+Claude took to writing that line in its own next replies. Its thinking goes with it, so the model
+thinks that step again. A turn of calls with nothing said goes with `"content": null`, as OpenAI's API
+sends such a turn, not `""`, which LiteLLM filled the same way: asked to quote its earlier turns,
+Claude quoted the line with `""` and said there was no text with null (proxyapi.ru, Haiku 5.5; Kilo's
+free Nemotron takes null too; `GatewayThinkingTests`). The first live run after the max_tokens change,
+a Rust calculator on proxyapi.ru Haiku 5.5, had its one cut at 4,096 tokens, then 21 requests with
+max_tokens 64,000 and none cut (replies up to 6,910 tokens), 75 tests passing in 5 minutes; it still
+wrote the line twice, from its turns of calls, which led to the null.
 
 A context size picked during a run counts from the run's next step (`AgentSession.UseContextSize`):
 lowered below what the conversation fills, it resets the context there. The run used to keep the
@@ -2841,7 +2902,7 @@ prints the traceback and exits with 0.
 | `zoom` | A sharp, enlarged picture of the region around x/y, with rulers in screenshot coordinates, to aim at small things (see below) |
 | `capture_result` | A picture of what the agent made for the user: a window (`window`, part of its title), a box (`x`, `y`, `width`, `height`) or the whole screen, with a `caption`; `file` shows a picture file instead; `compare` (earlier captures or picture files) with `labels` and `columns` puts them all in one picture, the new one last (see below) |
 | `mouse_move`, `mouse_drag`, `scroll` | Mouse control in screenshot coordinates; a drag can hold `modifiers` too |
-| `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press |
+| `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held |
 | `wait` | Waits up to 10 minutes, then screenshots; with `until_change` it stops as soon as the screen changes (a reply in a chat, a window or page that finished loading) |
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
@@ -3696,7 +3757,7 @@ source line each shown line is, and for a table's row where each cell starts in 
 (`FileInspector.Table`) has its header as row 1, as a spreadsheet does. The panel reads the
 selection on each left release and on Shift/Ctrl key releases (`FileInspectorView`): a click that selects
 nothing, Esc, the card's ×, sending the message or another file unpicks it; scroll bars don't. The
-text is `KeptSelectionTextBlock`, which keeps its selection when it loses focus, so it stays marked
+text keeps its selection when it loses focus (`SelectableText.KeepsSelection`), so it stays marked
 while the user types in the box; a press in one block clears the others'. Windows' previewers (PDF,
 Office, web pages) draw in their own window, whose selection Sloperator can't read: a message is about
 the whole file there, unless an area of it is marked (below). A picture or a video is a whole file
@@ -3815,7 +3876,10 @@ App.axaml) as `CodeView`: line numbers 8 in from the panel's edge, no dotted lin
 as the diff, the line with the caret a card's shade, no links followed by a click, tabs kept for a file
 indented with tabs. Highlighting is AvaloniaEdit's own (C#, JavaScript, HTML, CSS, C++, Java, PowerShell,
 PHP, Python, SQL, VB, XML, Markdown, JSON, patches), with TypeScript as JavaScript, XAML and project files
-as XML, shaders as C++ (`CodeView.For`); its colours are for a white page, so each named colour is drawn
+as XML, shaders as C++ (`CodeView.For`), and Rust, which AvaloniaEdit has none of, our own
+(`Highlighting/Rust.xshd`, built into the exe; the user, 2026-11-01, after an agent wrote a Tauri app's
+.rs files: "Rust code highlighting not supported"), its colours named as AvaloniaEdit's definitions name
+theirs; those colours are for a white page, so each named colour is drawn
 in the app's (`DarkColorizer`, see Colours). TextMate grammars (`AvaloniaEdit.TextMate`) would cover more
 languages, but bring several MB of grammars to the exe. TeX's definition doesn't load in AvaloniaEdit 12.
 A file is read as read_file reads it and saved in the encoding it was read in (`CodeFile`: a signature
@@ -4002,7 +4066,6 @@ task nobody waited for. It said "Something went wrong in Sloperator's window: CO
 aborted" in the chat and went into crash.log, twice in one Tauri task (chat 20261101-171229-f4b4fa, the
 user taking it for a crash on switching to Anthropic's API). Nothing is lost, the next Web preview
 starting a WebView2 of its own, so that one is neither written down nor said (`CrashLog.IsWebViewGivenUp`).
-Taken onto 1.3.0 from develop's 9130104 before the release.
 
 ### Terminal
 **Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
@@ -4466,9 +4529,21 @@ as if "Continue." had been sent (a stop before the model had the message runs th
 A chat that ended stopped shows it again when opened from History. Sloperator
 stays on screen while it works but is left out of the agent's screenshots, and steps behind other
 windows for the moment a click lands on it: all of its windows (every chat window, the viewer,
-Video editor, a dialog), found by their process (see Several windows). It is left out only for the instant each screenshot is
-taken, so screen recorders and screen sharing show it the rest of the time (before, an option hid
-it from them for good). Every click and key press the agent makes shows up in a
+Video editor, a dialog), found by their process (see Several windows). It is left out of the agent's
+screenshots alone, so screen recorders and screen sharing show it all the time (before, an option hid
+it from them for good). Over a region where none of its windows are, a screenshot is GDI's picture;
+with some, the Magnification API's (`MagnifierCapture`): the magnifier, its window filter set to
+leave them out, draws the screen into a window of Sloperator's that is never shown and hands over the
+pixels (18 ms for 2560×1080, GDI's 42; made once, on a thread of its own with a message loop, as
+made and gone with each picture it took 236 ms). Until 2026-11-01 its windows were marked excluded
+from capture (WDA_EXCLUDEFROMCAPTURE) for the instant each screenshot was taken, and the click log
+for good. That is how apps protect what they show, and NVIDIA's Instant Replay (ShadowPlay) stopped
+recording at each one: its `C:\ProgramData\NVIDIA Corporation\ShadowPlay\CaptureCore.log` said
+`NVFBC_ERROR_PROTECTED_CONTENT`, "Protected Content is running by PID … Sloperator.exe" and
+`StopDVRCapture` (the user: "Shadowplay screen recording got constantly disabled during the run").
+The marking is still the fallback where the magnifier fails. The magnifier's host window sits at the
+primary screen's corner: put on the second screen, it drew the primary's pixels for that screen's
+region (`WindowsCaptureTests` checks every screen). Every click and key press the agent makes shows up in a
 log in the bottom-right corner that fades after 15 seconds, with a ring where it clicked. The agent
 can't see it and it never takes focus. The ring is in the accent colour (`BbAccent`, handed to the
 overlay when the main window opens, as the overlay draws with Skia outside Avalonia) on a dark
@@ -4483,6 +4558,54 @@ overlay is, so placing them on every frame (25 a second) sent the app being type
 mouse moves a second for as long as the log showed, with the pointer still (measured on 28 October
 2026 with a logging text box in another app, against a scripted stand-in model; after the change, none).
 Focus never left that text box, with Sloperator beside it or over the click point.
+
+After a click that lands where Sloperator is, it comes back over the window it stepped behind, which
+keeps the focus the click gave it. Until 1 November 2026 it stayed behind every window instead: once
+the click has made another app's window the active one, Windows ignores `HWND_TOP` from Sloperator
+(`SetWindowPos` returns true and nothing moves), in the real app and with a bare WinForms window alike
+(over a console window the raise did work). `WindowsHostWindow` now makes each such window
+always-on-top and takes it away again (`HWND_TOPMOST`, then `HWND_NOTOPMOST`, neither activating it),
+which Windows allows and which leaves it over every window that isn't always-on-top; one that was
+always-on-top gets that back. Measured on the laptop with a stand-in model clicking a green window
+under Sloperator: the click reached it, Sloperator was back on top some 150 ms later, the green window
+stayed the active one, and Sloperator wasn't left always-on-top.
+
+Your own mouse and keyboard, which the agent shares with you (`IUserInput`, `WindowsUserInput`; the
+user's pick of the ideas offered, 1 November 2026). Low-level mouse and keyboard hooks on a thread of
+their own watch them from a run's first look at the screen until it ends, not for as long as Sloperator
+runs: every mouse move on the PC passes through them. The agent's input is tagged (`InputTag`) and
+SetCursorPos, which moves its mouse, passes no hook, so what they see is yours (or another program's
+that sends input). Before, a click was the mouse put on the spot, 60 ms, then the press wherever the
+mouse was by then: moved in those 60 ms, it clicked where you were. Each typed character went on its
+own, so your keys landed between them, and a Shift you held changed its letters.
+- Before each action the agent waits until you have left the mouse and keyboard alone for a second,
+  holding nothing down, for as long as that takes ("Waiting for you to leave the mouse and keyboard ·
+  0:03"): an action in the middle of what you do takes the focus from under your typing.
+- It then locks them for as long as the action takes: your moves, clicks, wheel and keys go nowhere.
+  Pause/Break still goes through and ends the lock at once (the stop key's hook is installed when
+  Sloperator starts, so this one, installed later, sees Pause first and passes it on); Ctrl+Alt+Del is
+  Windows' own. Not BlockInput, which takes administrator rights. A press swallowed stays swallowed
+  until let go, and one that went through before the lock goes through until let go: nothing is left
+  stuck down in Windows.
+- If you press anything meanwhile, long typing stops after the piece it is on (200 characters), a series
+  of presses before the next one and a held press at once, and the model is told how far it got. Your
+  presses went nowhere, but they mean you want the mouse and keyboard back: on a laptop without
+  Pause/Break, a click is the way to Stop.
+- If you clicked, typed or scrolled since the screenshot the model's reply was decided on
+  (`ToolContext.UserPressesSeen`, from that screenshot's `ScreenLook.UserPresses`), keys do nothing and
+  the model gets the screen as it is now: a click in the same window moves the focus too. A click, drag,
+  scroll or hover looks again at the 128 px square round where it lands against that screenshot (the
+  pointer drawn in it left out; 1% of the square changed counts, so a blinking caret doesn't): unchanged,
+  it goes ahead; changed, it does nothing and the model gets the screen now. Only a reply's first action
+  can be compared, as its actions change the screen; a later one, after you pressed something, waits for
+  a new look. The rest of a reply after an action held back does nothing either (`ScreenStale`, as when
+  another window's agent acted). Mouse moves count for the wait but not here: the lock keeps them from
+  a click. Each clash costs the model one screenshot more, none while you leave the PC alone.
+- A 4 px frame in the accent colour round the screen the agent works on tells you it has the mouse and
+  keyboard, from its first action until the task ends: four strips of `WindowsInputOverlay`,
+  click-through and left out of the screenshots like the click log, placed only when it shows or moves.
+- A click holds the button down 50 ms; let go of in the same instant, as before, a press can come and
+  go between two looks of a game that reads the mouse once a frame.
 
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
 reads the message before its next step, and a `wait` it is in ends for it. While you type there,
