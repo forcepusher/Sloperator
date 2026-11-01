@@ -33,11 +33,12 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public string SidePanelCaption => IsAuto ? AutoShown is { } shown ? $"{SidePanelNames.Auto} ({shown.Name})" : SidePanelNames.Auto : SelectedSidePanel?.Label ?? "Side panel";
 
-    /// <summary>Every caption Auto can show, so the dropdown is as wide for all of them: it doesn't change width mid-task as Auto goes from panel to panel.</summary>
-    private static readonly IReadOnlyList<string> AutoCaptions = [SidePanelNames.Auto, .. AutoRule.Panels.Select(p => $"{SidePanelNames.Auto} ({p})")];
-
-    /// <summary>The captions the dropdown is as wide as: Auto's all, while Auto is picked; else the pick's own.</summary>
-    public IReadOnlyList<string> SidePanelCaptionSlot => IsAuto ? AutoCaptions : [SidePanelCaption];
+    /// <summary>
+    /// The captions the dropdown is as wide as, whatever is picked: every one Auto can show, "Auto (File inspector)" the
+    /// widest, so it doesn't change width mid-task as Auto goes from panel to panel, nor from one pick to another (the
+    /// user, 2026-11-02: it was as wide as the pick's word outside Auto). Every other pick's word is shorter.
+    /// </summary>
+    public static IReadOnlyList<string> SidePanelCaptionSlot { get; } = [SidePanelNames.Auto, .. AutoRule.Panels.Select(p => $"{SidePanelNames.Auto} ({p})")];
 
     /// <summary>
     /// The × under Auto: the panel closes and Auto stays picked (the user, 2026-11-01: × "should not switch
