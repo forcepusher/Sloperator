@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust highlighting in the Code editor.
 
 ### Changed
-- Sloperator's messages about the model server no longer name LM Studio or Ollama unless the server's
-  port does: the note about a reply cut off at the server's length limit and the notes about a too
+- Sloperator's messages about the model server name LM Studio or Ollama only where it is sure which
+  one it is: the note about a reply cut off at the server's length limit and the notes about a too
   small context or a server with no models say "the server".
 
 ### Fixed

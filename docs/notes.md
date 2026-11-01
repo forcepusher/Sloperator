@@ -2180,10 +2180,11 @@ than "Can't reach the server" and its JSON: a wrong OpenRouter key showed only `
 failed (401): {"error":{"message":"User not found.","code":401}}`. Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
-1234 the Effort tooltip says LM Studio sets it. Only there, where the port names the program, does a
-message name one (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the reply-length
-note: "weird", then "keep the ones apparent by the port"): the reply-length notes, a context too
-small, a server offering no models and LM Studio's model loaded again with more room say "the server".
+1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
+it, or where it is certain: "LM Studio loaded … with a 4k context" comes after LM Studio's own API
+loaded the model again (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the
+reply-length note: "weird", then "if we're absolutely sure it's this or that program, keep that").
+The reply-length notes, a context too small and a server offering no models say "the server".
 A service's website typed for its API (`openrouter.ai`, `groq.com`, `openai.com`, `mistral.ai`,
 `deepseek.com`, `x.ai`, `together.ai`, `fireworks.ai`, `anthropic.com`, `claude.com`, any page of them) has its API
 address tried first, so it just works; another website says it is one, rather than filling the

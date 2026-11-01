@@ -322,8 +322,9 @@ public static partial class ServerProbe
         facts = await TryContextAsync(http, server, ct).ConfigureAwait(false);
         if (facts.Context is { } small && small < ReloadBelow && await ReloadRoomierAsync(http, server, small, ct).ConfigureAwait(false) is { } roomier)
         {
-            onNote?.Invoke($"The server loaded {server.ModelInUse} with a {small / 1024}k context, too small for Sloperator; it runs with {roomier / 1024}k now. " +
-                           "To choose the size yourself, load it on the server with the context length you want.");
+            // LM Studio's own API (/api/v1/models/load) loaded it again: certainly LM Studio, so named.
+            onNote?.Invoke($"LM Studio loaded {server.ModelInUse} with a {small / 1024}k context, too small for Sloperator; it runs with {roomier / 1024}k now. " +
+                           "To choose the size yourself, load it in LM Studio with the context length you want.");
             facts = await TryContextAsync(http, server, ct).ConfigureAwait(false);
         }
         return facts;
