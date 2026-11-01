@@ -174,7 +174,8 @@ Checked in the app, with a stand-in agent that waits for nothing between calls:
 Unity 2048 on the laptop again (Haiku 5.5 through OpenRouter), as hands-off changes how every action is
 made: passed in 14 min 6 s, 69 model calls, 112 tool calls, 3 tool errors (its own setup, Unity exiting 1
 on a first scene and build run), no action held back. Played to 148 in Play mode, a full board to Game
-Over (2424), R, and the built Unity2048.exe checked.
+Over (2424), R, and the built Unity2048.exe checked. The published exe after the fix (28,513,846 bytes, no
+trim warnings) ran the same stand-in steps to the Code editor, nothing in errors.log.
 
 The workstation's part of this pass (two monitors, ShadowPlay during a run, the second-monitor tasks with
 hands-off, the release exe on Qwen) follows below when it has run.
