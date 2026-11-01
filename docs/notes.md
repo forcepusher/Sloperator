@@ -4151,8 +4151,10 @@ no rule in mind for which panel is the relevant one). It shows the panel of the 
 one, and keeps it through the calls that have none (screenshots, clicks, reads, searches): one rule from the call
 alone, its tool, its arguments and what it made, the same for every model and server (`AutoRule`):
 - run_shell, ssh: **Terminal**, as the call starts, so the command's lines come in as it prints them.
-- write_file, edit_file, once the change is in File changes' list (`FileChanges.LastChange`, new since the last
-  call): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
+- write_file, edit_file, once the change is in File changes' list, the file by the path the call was given
+  (`Written`; until the 1.3.0 release check the list's newest change since the last call was taken, and a
+  command then a file in one go, the window's thread still opening the Terminal as both ended, gave the file to
+  the command: Auto stayed on the Terminal): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
   there), in **Web preview**; a picture, animation, video, sound, 3D model or document (Word, Excel, PowerPoint,
   PDF, an SVG elsewhere) in the **File inspector**, which draws it. Code and text (Markdown and tables too) by whose
   file it is (`FileChanges.IsNew`: it wasn't there before the agent first changed it): one the agent made in this
