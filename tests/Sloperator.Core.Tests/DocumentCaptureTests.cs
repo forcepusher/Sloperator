@@ -152,6 +152,20 @@ public sealed class DocumentCaptureTests : IDisposable
     }
 
     [Fact]
+    public void Libreoffice_is_fetched_at_its_newest_version()
+    {
+        // As download.documentfoundation.org/libreoffice/stable/ listed them on 2 November 2026, with a
+        // later 26.8.10 put before an older one: versions are compared as numbers, not as text.
+        const string listing = """
+            <a href="?C=N;O=D">Name</a> <a href="/libreoffice/">Parent Directory</a>
+            <a href="25.8.7/">25.8.7/</a> <a href="26.2.6/">26.2.6/</a> <a href="26.8.10/">26.8.10/</a>
+            <a href="26.8.1/">26.8.1/</a> <a href="26.8.2/">26.8.2/</a> <a href="mailto:hostmaster@documentfoundation.org">
+            """;
+        Assert.Equal("26.8.10", Sloperator.Platform.Windows.LibreOfficeFetch.Newest(listing));
+        Assert.Null(Sloperator.Platform.Windows.LibreOfficeFetch.Newest("<html>Not found</html>"));
+    }
+
+    [Fact]
     public void A_libreoffice_unpacked_into_the_tools_folder_is_found()
     {
         var tools = Path.Combine(_dir, "tools");

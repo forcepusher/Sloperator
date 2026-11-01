@@ -22,6 +22,7 @@ public sealed class WindowsPlatform : IPlatformServices
         Core.Documents.PdfPages.Opener ??= WindowsPdf.Open;
         // Office's documents turned into PDFs, for pictures of them: by Office running hidden, else LibreOffice.
         Core.Documents.DocumentPictures.Converter ??= OfficePdf.Convert;
+        Core.Documents.DocumentPictures.Fetcher ??= LibreOfficeFetch.GetAsync;
     }
 
     public string Name => $"Windows {Environment.OSVersion.Version}";

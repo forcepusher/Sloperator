@@ -47,9 +47,12 @@ internal static partial class TextEdit
                 break;
             }
         }
+        if (hits.Count == 0 && !slides && Rows(oldText) is { } oldRows && Rows(newText) is { } newRows
+            && oldRows.Count == newRows.Count && oldRows.Zip(newRows).All(r => r.First.Count == r.Second.Count))
+            return ReplaceCells(parts, stretches, oldRows, newRows, all);
         if (hits.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document. Read it again with read_file and copy the text exactly; " +
-                "a change must stay within one table cell, text box or run of paragraphs not broken by a table.");
+                "a change must stay within one table cell, text box or run of paragraphs not broken by a table, or be whole table rows as read_file shows them.");
         if (hits.Count > 1 && !all)
             throw new InvalidOperationException($"old_text occurs {hits.Count} times. Include more of the text around it to make it unique, or set replace_all to change every one.");
 
@@ -108,6 +111,86 @@ internal static partial class TextEdit
 
     private static string Unmarked(string text) =>
         string.Join("\n", text.Replace("\r\n", "\n").Split('\n').Select(line => LineMark().Replace(line, "").Replace("**", "")));
+
+    // ---- table rows ------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Table rows as read_file shows a Word table's ("| North | 140 |"), each as its cells' text; null
+    /// for a text that isn't only rows. A Markdown separator row ("|---|---|") is left out.
+    /// </summary>
+    private static List<List<string>>? Rows(string text)
+    {
+        var rows = new List<List<string>>();
+        foreach (var line in text.Replace("\r\n", "\n").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0))
+        {
+            if (line.Length < 2 || line[0] != '|' || line[^1] != '|')
+                return null;
+            var cells = line[1..^1].Split('|').Select(c => c.Trim()).ToList();
+            if (cells.All(c => c.Length > 0 && c.All(ch => ch is '-' or ':')))
+                continue;
+            rows.Add(cells);
+        }
+        return rows.Count > 0 ? rows : null;
+    }
+
+    /// <summary>
+    /// A change given as rows of a Word table, copied from read_file: Haiku changed "| North | 140 |" to
+    /// "| North | 150 |", twice refused as the text crosses cells, then rewrote the document's XML in
+    /// PowerShell (2 November 2026). The rows are matched cell by cell (a run of a row's cells, so a
+    /// single "| 140 |" is the cell that holds just that), and each cell whose text changed is changed
+    /// as its own stretch, keeping its formatting as any other change does.
+    /// </summary>
+    private static (int Count, List<string> Parts) ReplaceCells(Dictionary<string, XDocument> parts, List<Stretch> stretches,
+        List<List<string>> oldRows, List<List<string>> newRows, bool all)
+    {
+        var format = WordFormat;
+        string CellText(XElement tc) => Fold(string.Join(" ", tc.Elements(W + "p").Select(p => string.Concat(format.Units(p).Select(format.UnitText))))).Trim();
+        bool Same(string given, string cell) => Fold(given).Trim() == cell || Fold(Unmarked(given)).Trim() == cell;
+
+        var matches = new List<(string Part, List<XElement[]> Rows, int Column)>();
+        foreach (var (part, xml) in parts)
+            foreach (var table in xml.Descendants(W + "tbl"))
+            {
+                var rows = table.Elements(W + "tr").Select(r => r.Elements(W + "tc").ToArray()).ToList();
+                var texts = rows.Select(r => r.Select(CellText).ToArray()).ToList();
+                for (var r = 0; r + oldRows.Count <= rows.Count; r++)
+                    for (var c = 0; c < rows[r].Length; c++)
+                        if (oldRows.Select((cells, i) => (cells, row: texts[r + i])).All(x => c + x.cells.Count <= x.row.Length
+                                && x.cells.Select((cell, j) => Same(cell, x.row[c + j])).All(same => same)))
+                            matches.Add((part, rows.GetRange(r, oldRows.Count), c));
+            }
+        if (matches.Count == 0)
+            throw new InvalidOperationException("old_text was not found in the document: no table has those rows. Read it again with read_file and copy the rows exactly, or change one cell's text by itself.");
+        if (matches.Count > 1 && !all)
+            throw new InvalidOperationException($"old_text occurs {matches.Count} times. Include more of the row around it to make it unique, or set replace_all to change every one.");
+
+        var changed = new List<string>();
+        foreach (var (part, rows, column) in matches)
+            for (var i = 0; i < rows.Count; i++)
+                for (var j = 0; j < oldRows[i].Count; j++)
+                {
+                    var tc = rows[i][column + j];
+                    var plain = MarkdownDocument.Plain(MarkdownDocument.Inline(Unmarked(newRows[i][j])));
+                    var after = Fold(plain);
+                    var stretch = stretches.FirstOrDefault(s => s.Paragraphs[0].Parent == tc);
+                    if (stretch is null || CellText(tc) == after)
+                        continue;
+                    if (stretch.Paragraphs.Count != tc.Elements(W + "p").Count())
+                        throw new InvalidOperationException("A cell it would change holds a table of its own: change that cell's text by itself.");
+                    // The cell's paragraphs are joined by a line break here and by a space in read_file: one character either way.
+                    var before = Fold(Text(stretch, format).Replace('\n', ' '));
+                    var lead = before.Length - before.TrimStart().Length;
+                    var core = before.Trim();
+                    var prefix = 0;
+                    while (prefix < core.Length && prefix < after.Length && core[prefix] == after[prefix]) prefix++;
+                    var suffix = 0;
+                    while (suffix < core.Length - prefix && suffix < after.Length - prefix && core[^(suffix + 1)] == after[^(suffix + 1)]) suffix++;
+                    Apply(stretch, lead + prefix, lead + core.Length - suffix, Lines(plain[prefix..^suffix], inline: false), format);
+                    if (!changed.Contains(part))
+                        changed.Add(part);
+                }
+        return (matches.Count, changed);
+    }
 
     // ---- finding ---------------------------------------------------------------------------------------
 

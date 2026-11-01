@@ -109,7 +109,11 @@ and Nemotron, asked for a cover letter on the Desktop, deleted the one already t
 across Word's runs and paragraphs (copied from `read_file` with its `# ` and `**` marks or without),
 curly quotes match straight ones, and only what differs is replaced, so the rest keeps its
 formatting. A line break in the new text starts a paragraph like the one it is in, `# ` at its
-start makes a heading, and `**bold**` applies. In a workbook it sets cells written the way
+start makes a heading, and `**bold**` applies. A Word table's rows can be given as `read_file`
+shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
+cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
+2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
+PowerShell. In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses
 it replaces text in the cells. A line `insert row 7` or `delete rows 3-4` changes the rows first, as
@@ -2990,6 +2994,20 @@ template can send the sign-in hash). Pages are cut to what is on them, 24 px of 
 table isn't a sheet of paper. The capture keeps the file and page (`capture-N.json`), so the after of a
 before is `compare` alone: the same page of the same document drawn again. Why a document can't be drawn
 (no Office or LibreOffice, a page it hasn't) is an argument error for the model.
+LibreOffice is found installed (Program Files, its App Paths entry) or unpacked into Sloperator's tools
+folder (Data\tools\LibreOffice, soffice.exe at any depth). With neither program the error tells the model
+to ask the user, then fetch the newest stable Windows x86-64 .msi from
+download.documentfoundation.org/libreoffice/stable/ and unpack it with `msiexec /a <msi> /qn
+TARGETDIR=<tools>\LibreOffice`, which installs nothing and needs no admin or UAC prompt (26.8.2 on the
+laptop, 2 November 2026: a 360 MB download, 1.6 GB unpacked in 33 s, soffice.exe in `program`). Haiku 5.5,
+on a Word file with Office hidden from a scratch build, asked first ("a 360 MB download, 1.6 GB
+unpacked"), and on "yes" downloaded and unpacked it so, and its before and after were drawn by LibreOffice.
+LibreOffice runs headless on a profile Sloperator keeps in %TEMP%\Sloperator\libreoffice-profile, one
+conversion at a time (a named mutex; another meanwhile makes a profile of its own, as all did at first):
+a Word file took 7 s on a new profile, 4 s on the kept one, and the live test's three files 18 s, then
+9 s. A conversion that fails on the kept profile is tried again on a new one and the kept one is made
+again. LibreOffice prints a sheet without Excel's grid and headings. Opt-in tests run the real programs: BB_OFFICE_TESTS=1, and
+BB_LIBREOFFICE=<soffice.exe> (a .docx, .xlsx and .pptx, the sheet's sum worked out).
 The before/after is for the user to see what the work changed visually (a button from red to green),
 wherever that is: what isn't showing is opened or run for its before. The before picture is asked for
 at the start, in its own rule after "Start GUI tasks with a screenshot", also when the mouse and
@@ -3779,9 +3797,28 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   Sloperator. Asked for out of process (`CLSCTX_LOCAL_SERVER`: Office serves its previewers from
   WINWORD/EXCEL/POWERPNT `-Embedding`, others from prevhost.exe), in Sloperator's process only if that
   fails; called through the interfaces' tables, as the trimmed build has no COM interop. Without a
-  previewer, or when it fails, the panel shows the file's text as read_file gives the agent
-  (`DocumentText`; Word's and PowerPoint's as Markdown), a web page its source.
-  A file downloaded from the internet (Zone.Identifier zone 3 or 4, `DownloadMark`) isn't drawn:
+  previewer, or when it fails, a Word, Excel or PowerPoint file (OpenDocument's, an RTF) is turned into
+  a PDF as capture_result's pictures of documents are (`DocumentPictures.Converter`: Office hidden,
+  else LibreOffice, see capture_result in [Tools the agent has](#tools-the-agent-has)) and its pages
+  shown as a PDF's, "1 page as printed" in its details and "Drawing its pages…" meanwhile; the PDF is
+  read into memory and deleted at once,
+  and a file shown next stops the conversion. Only where that can't be does the panel show the file's
+  text as read_file gives the agent (`DocumentText`; Word's and PowerPoint's as Markdown), a web page
+  its source. With no Office and no LibreOffice it says so over the text ("Office or LibreOffice draws
+  its pages, and this PC has neither.") with **Get LibreOffice** (the user, 1 November 2026: LibreOffice
+  in the inspector too, not only for captures). `LibreOfficeFetch` reads the newest version from
+  download.documentfoundation.org/libreoffice/stable/, downloads its .msi with `Downloader` (resumed,
+  checked against the .sha256 beside it) into the tools folder, unpacks it into LibreOffice.part there
+  and renames that LibreOffice once whole, deletes the .msi, and the document is drawn. The band says
+  how it goes ("Downloading … 151 of 359 MB, 13.5 MB/s, 0:15 left", "Unpacking LibreOffice…"), the
+  button greyed meanwhile; closing the panel stops the download, which goes on from where it was next
+  time. The link sends each request to one of many mirrors, and on the laptop one answered 429 to a
+  second download shortly after a first: a refused download is asked for twice more (another mirror).
+  Checked on the laptop (2 November 2026) with a scratch build hiding Office (no previewers, no
+  automation): report.docx, budget.xlsx and deck.pptx drawn by LibreOffice; with none, the band, then
+  Get LibreOffice: a 20 s download, an 8 s unpack, and the pages.
+  A file downloaded from the internet (Zone.Identifier zone 3 or 4, `DownloadMark`) isn't drawn, nor
+  turned into pages (Office or LibreOffice would open it; Preview anyway turns the copy):
   Excel's previewer failed with only E_FAIL ("Unexpected HRESULT…") on a Google Sheets export in
   Downloads, and on our own workbook once marked; unmarked copies drew (1 November 2026). Windows
   blocks such previews because one can follow a link in the file and send the sign-in hash out, so
