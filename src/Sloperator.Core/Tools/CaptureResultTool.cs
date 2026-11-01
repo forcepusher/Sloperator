@@ -160,7 +160,7 @@ public sealed partial class CaptureResultTool : Tool
     /// <summary>A page of a document as it prints; an argument error saying why it can't be drawn.</summary>
     private static (RawImage Picture, int Pages) DrawDocument(string path, int page, ToolContext ctx, CancellationToken ct)
     {
-        try { return DocumentPictures.Draw(path, page, ctx.ScratchDirectory ?? Path.GetTempPath(), ct); }
+        try { return DocumentPictures.Draw(path, page, ctx.ScratchDirectory ?? Path.GetTempPath(), ctx.ToolsDirectory, ct); }
         catch (InvalidOperationException ex) { throw new ToolArgumentException(ex.Message); }
     }
 

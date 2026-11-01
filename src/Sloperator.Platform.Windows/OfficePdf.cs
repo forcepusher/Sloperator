@@ -7,7 +7,9 @@ namespace Sloperator.Platform.Windows;
 /// <summary>
 /// A Word, Excel or PowerPoint file (or OpenDocument's) turned into a PDF, for capture_result's pictures
 /// of documents (<see cref="Core.Documents.DocumentPictures"/>): by Office, running hidden (no window,
-/// no taskbar button; Word 3 s, Excel 1.3 s on the workstation), else LibreOffice without a window.
+/// no taskbar button; Word 3 s, Excel 1.3 s on the workstation), else LibreOffice without a window:
+/// installed, or unpacked into Sloperator's tools folder, which is what the model offers the user when
+/// the PC has neither (free, and unpacked from its .msi it needs no installing, admin or UAC prompt).
 /// Office is driven from Windows PowerShell, as the trimmed build has no COM interop. A copy of Office
 /// the user has open is used as it is and left open: only a hidden one this started is quit.
 /// </summary>
@@ -33,7 +35,7 @@ public static class OfficePdf
     /// such a file in Protected View only, as opening it can fetch what it links to (a remote template)
     /// and send the user's sign-in hash with the request.
     /// </summary>
-    public static void Convert(string source, string pdf, CancellationToken ct)
+    public static void Convert(string source, string pdf, string? tools, CancellationToken ct)
     {
         var name = Path.GetFileName(source);
         if (AppFor(source) is not { } app)
@@ -43,10 +45,15 @@ public static class OfficePdf
                                                 "it isn't drawn. If the user trusts it, they can Unblock it in its Properties.");
         if (Registered($"{app}.Application"))
             Run(OfficeScript(app), source, pdf, ct, $"{app}");
-        else if (LibreOffice() is { } soffice)
+        else if (LibreOffice(tools) is { } soffice)
             RunLibreOffice(soffice, source, pdf, ct);
         else
-            throw new InvalidOperationException($"No program on this PC turns {name} into pages: Microsoft Office or LibreOffice does.");
+            throw new InvalidOperationException($"No program on this PC turns {name} into pages: Microsoft Office or LibreOffice does, and it has neither. " +
+                "LibreOffice is free, and unpacked from its installer it needs no installing: ask the user whether to fetch it (about 360 MB); " +
+                "once they agree, download the Windows x86-64 .msi from https://www.libreoffice.org/download/download-libreoffice/ and unpack it with " +
+                (tools is not null
+                    ? $"msiexec /a \"<the .msi>\" /qn TARGETDIR=\"{Path.Combine(tools, "LibreOffice")}\", then capture again."
+                    : "msiexec /a \"<the .msi>\" /qn TARGETDIR=\"<a folder of its own>\", or install it, then capture again."));
         if (!File.Exists(pdf))
             throw new InvalidOperationException($"{name} wasn't turned into pages: the program made no PDF.");
     }
@@ -136,17 +143,27 @@ public static class OfficePdf
         Wait(start, ct, $"{what} couldn't turn {Path.GetFileName(source)} into pages");
     }
 
-    /// <summary>LibreOffice's soffice.exe where its installer puts it; null without one.</summary>
-    private static string? LibreOffice() =>
-        new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 }
-            .Select(f => Path.Combine(Environment.GetFolderPath(f), "LibreOffice", "program", "soffice.exe"))
-            .FirstOrDefault(File.Exists);
+    /// <summary>
+    /// LibreOffice's soffice.exe: where its installer puts it or says it put it, or unpacked into
+    /// <paramref name="tools"/>\LibreOffice at whatever depth the package's folders leave it; null without one.
+    /// </summary>
+    internal static string? LibreOffice(string? tools)
+    {
+        var places = new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 }
+            .Select(f => Path.Combine(Environment.GetFolderPath(f), "LibreOffice", "program", "soffice.exe")).ToList();
+        using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\soffice.exe"))
+            if (key?.GetValue(null) is string registered)
+                places.Add(registered.Trim('"'));
+        if (tools is not null && Path.Combine(tools, "LibreOffice") is var unpacked && Directory.Exists(unpacked))
+            places.AddRange(Directory.EnumerateFiles(unpacked, "soffice.exe", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 4 }));
+        return places.FirstOrDefault(File.Exists);
+    }
 
     /// <summary>
     /// LibreOffice without a window, with a profile of its own: one the user has open would take the job
     /// and drop it.
     /// </summary>
-    private static void RunLibreOffice(string soffice, string source, string pdf, CancellationToken ct)
+    internal static void RunLibreOffice(string soffice, string source, string pdf, CancellationToken ct)
     {
         var folder = Path.Combine(Path.GetDirectoryName(pdf)!, "libreoffice-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(folder);

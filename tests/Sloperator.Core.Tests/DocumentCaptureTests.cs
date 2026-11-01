@@ -16,7 +16,7 @@ namespace Sloperator.Core.Tests;
 public sealed class DocumentCaptureTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-document-capture-").FullName;
-    private readonly Action<string, string, CancellationToken>? _converter = DocumentPictures.Converter;
+    private readonly Action<string, string, string?, CancellationToken>? _converter = DocumentPictures.Converter;
 
 #if WINDOWS
     public DocumentCaptureTests() => PdfPages.Opener ??= Sloperator.Platform.Windows.WindowsPdf.Open;
@@ -99,7 +99,7 @@ public sealed class DocumentCaptureTests : IDisposable
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Draws with Windows' PDF renderer.");
         var asked = new List<string>();
-        DocumentPictures.Converter = (source, pdf, _) =>
+        DocumentPictures.Converter = (source, pdf, _, _) =>
         {
             asked.Add(source);
             DocumentFiles.Write(pdf, "# Budget\n\n| Item | Jan |\n|---|---|\n| Rent | 1200 |\n", append: false, p => p);
@@ -114,7 +114,7 @@ public sealed class DocumentCaptureTests : IDisposable
         Assert.Empty(Directory.EnumerateFiles(ctx.ScratchDirectory!, "*.pdf"));
 
         // Why the converter couldn't is the model's to read.
-        DocumentPictures.Converter = (_, _, _) => throw new InvalidOperationException("No program on this PC turns budget.xlsx into pages: Microsoft Office or LibreOffice does.");
+        DocumentPictures.Converter = (_, _, _, _) => throw new InvalidOperationException("No program on this PC turns budget.xlsx into pages: Microsoft Office or LibreOffice does.");
         Assert.Contains("Microsoft Office or LibreOffice", (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["file"] = budget }))).Message);
     }
 
@@ -137,7 +137,7 @@ public sealed class DocumentCaptureTests : IDisposable
         {
             var pdf = Path.Combine(scratch, Path.GetFileName(file) + ".pdf");
             Directory.CreateDirectory(scratch);
-            Sloperator.Platform.Windows.OfficePdf.Convert(file, pdf, CancellationToken.None);
+            Sloperator.Platform.Windows.OfficePdf.Convert(file, pdf, null, CancellationToken.None);
             using var pages = PdfPages.Open(pdf);
             Assert.Single(pages.Sizes);
         }
@@ -148,7 +148,51 @@ public sealed class DocumentCaptureTests : IDisposable
 
         File.WriteAllText(budget + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n");
         Assert.Contains("downloaded from the internet", Assert.Throws<InvalidOperationException>(() =>
-            Sloperator.Platform.Windows.OfficePdf.Convert(budget, Path.Combine(scratch, "marked.pdf"), CancellationToken.None)).Message);
+            Sloperator.Platform.Windows.OfficePdf.Convert(budget, Path.Combine(scratch, "marked.pdf"), null, CancellationToken.None)).Message);
+    }
+
+    [Fact]
+    public void A_libreoffice_unpacked_into_the_tools_folder_is_found()
+    {
+        var tools = Path.Combine(_dir, "tools");
+        // msiexec /a puts the package's folders under TARGETDIR as they are.
+        var soffice = Path.Combine(tools, "LibreOffice", "PFiles", "LibreOffice", "program", "soffice.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(soffice)!);
+        File.WriteAllText(soffice, "");
+        var found = Sloperator.Platform.Windows.OfficePdf.LibreOffice(tools);
+        // One installed in Program Files is used first.
+        if (Sloperator.Platform.Windows.OfficePdf.LibreOffice(null) is null)
+            Assert.Equal(soffice, found);
+        else
+            Assert.NotNull(found);
+    }
+
+    /// <summary>
+    /// Opt-in (set BB_LIBREOFFICE to a soffice.exe, which runs it hidden for a few seconds): LibreOffice
+    /// turns our documents into pages, Excel's with its sums worked out, as on a PC without Office.
+    /// </summary>
+    [Fact]
+    public void Libreoffice_turns_documents_into_pages_unseen()
+    {
+        var soffice = Environment.GetEnvironmentVariable("BB_LIBREOFFICE") ?? "";
+        Assert.SkipWhen(soffice.Length == 0, "Set BB_LIBREOFFICE to a soffice.exe to run.");
+        var report = Path.Combine(_dir, "report.docx");
+        DocumentFiles.Write(report, "# Report\n\n| Region | Q3 |\n|---|---|\n| North | 140 |\n", append: false, p => p);
+        var budget = Path.Combine(_dir, "budget.xlsx");
+        DocumentFiles.Write(budget, "# Budget\n\n| Item | Jan | Feb | Total |\n|---|---|---|---|\n| Rent | 1200 | 1200 | =SUM(B2:C2) |\n", append: false, p => p);
+        var deck = Path.Combine(_dir, "deck.pptx");
+        DocumentFiles.Write(deck, "# Plan\n\n- One\n- Two\n", append: false, p => p);
+        var scratch = Path.Combine(_dir, "scratch");
+        Directory.CreateDirectory(scratch);
+        foreach (var file in new[] { report, budget, deck })
+        {
+            var pdf = Path.Combine(scratch, Path.GetFileName(file) + ".pdf");
+            Sloperator.Platform.Windows.OfficePdf.RunLibreOffice(soffice, file, pdf, CancellationToken.None);
+            using var pages = PdfPages.Open(pdf);
+            Assert.NotEmpty(pages.Sizes);
+        }
+        using (var pdf = UglyToad.PdfPig.PdfDocument.Open(Path.Combine(scratch, "budget.xlsx.pdf")))
+            Assert.Contains("2400", string.Join(" ", pdf.GetPages().Select(p => p.Text)));
     }
 #endif
 }

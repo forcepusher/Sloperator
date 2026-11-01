@@ -18,10 +18,11 @@ public static class DocumentPictures
     private const int Margin = 24;
 
     /// <summary>
-    /// Turns the document at the first path into a PDF at the second; set by the platform, null where it
+    /// Turns the document at the first path into a PDF at the second, with the third Sloperator's tools
+    /// folder (where a LibreOffice fetched for it is; null for none); set by the platform, null where it
     /// can't. Throws <see cref="InvalidOperationException"/> saying why, for the model to read.
     /// </summary>
-    public static Action<string, string, CancellationToken>? Converter { get; set; }
+    public static Action<string, string, string?, CancellationToken>? Converter { get; set; }
 
     /// <summary>The kinds the converter takes: what Word, Excel and PowerPoint open, OpenDocument's among them.</summary>
     private static readonly HashSet<string> Office = new(StringComparer.OrdinalIgnoreCase)
@@ -41,7 +42,7 @@ public static class DocumentPictures
     /// <paramref name="scratch"/> and is deleted after. Throws <see cref="InvalidOperationException"/>
     /// saying why it can't (no program for the kind, a page it hasn't).
     /// </summary>
-    public static (RawImage Picture, int Pages) Draw(string path, int page, string scratch, CancellationToken ct)
+    public static (RawImage Picture, int Pages) Draw(string path, int page, string scratch, string? tools, CancellationToken ct)
     {
         var pdf = path;
         if (!Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
@@ -49,7 +50,7 @@ public static class DocumentPictures
             var convert = Converter ?? throw new InvalidOperationException($"Nothing on this system turns {Path.GetExtension(path)} files into pages.");
             Directory.CreateDirectory(scratch);
             pdf = Path.Combine(scratch, $"pages-{Guid.NewGuid():N}.pdf");
-            convert(path, pdf, ct);
+            convert(path, pdf, tools, ct);
         }
         try
         {
