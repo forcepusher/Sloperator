@@ -431,10 +431,18 @@ public sealed partial class AgentSession(
                 justReset = false;
                 TextToolCallParser.TryExtract(reply, tools);
                 cutCall |= reply.FinishReason == "length" && DropCutCalls(reply);
+                // A limit of the server's own, not the context's end: nothing asked for one, and a
+                // server that has one when none is asked (proxyapi.ru's for Claude, LM Studio's Limit
+                // Response Length) cut eight replies in a quarter of an hour of writing code (chat
+                // 20261101-171229-f4b4fa), each thought through again. From here on each request
+                // asks for as long a reply as the context has room for.
+                var askRoom = (cutCall || cutOff && !afterReset) && !_askRoom && requestOptions.MaxTokens is null;
+                _askRoom |= askRoom;
+                var asking = askRoom ? $" From now on it is asked for replies of up to {ReplyRoom() / 1000}k tokens." : "";
                 if (cutCall)
-                    observer.OnNotice("The server's length limit cut a tool call short (in LM Studio: Limit Response Length); it wasn't run, and the model is asked to write in smaller parts.");
+                    observer.OnNotice("The server's length limit cut a tool call short (in LM Studio: Limit Response Length); it wasn't run, and the model is asked to write in smaller parts." + asking);
                 else if (cutOff && !afterReset)
-                    observer.OnNotice("The server stopped the reply at its length limit (in LM Studio: Limit Response Length); asking the model to go on.");
+                    observer.OnNotice("The server stopped the reply at its length limit (in LM Studio: Limit Response Length); asking the model to go on." + asking);
                 // "The task is complete" followed by yet another screenshot: small models can keep
                 // re-verifying forever. A completion claim with only look-only calls ends the turn.
                 // Not a reset it asked for ("Handoff written, all done." with reset_context), nor the
@@ -671,6 +679,28 @@ public sealed partial class AgentSession(
     private bool OutOfRoom(ChatMessage reply) =>
         reply.PromptTokens is not { } prompt || prompt + (reply.CompletionTokens ?? 0) >= contextTokens * 9L / 10;
 
+    /// <summary>The server cut a reply short at a limit of its own: the requests ask for room (<see cref="ReplyRoom"/>).</summary>
+    private bool _askRoom;
+
+    /// <summary>
+    /// The reply limit asked for once the server cut one short: what the context has left, and no more
+    /// than Claude's API is asked for (<see cref="AnthropicMessages.MaxReply"/>); the server's model
+    /// list says nothing of a reply limit (proxyapi.ru's is bare ids), and one that refuses this
+    /// much says its own (see <see cref="OpenAiChatClient"/>).
+    /// </summary>
+    private int ReplyRoom() =>
+        Math.Clamp(contextTokens > 0 ? contextTokens - TokensInUse() - 2_048 : AnthropicMessages.MaxReply, 4_096, AnthropicMessages.MaxReply);
+
+    /// <summary>The options of the step's request: <see cref="ReplyRoom"/> asked for after a cut.</summary>
+    private ChatRequestOptions StepOptions() => !_askRoom ? requestOptions : new ChatRequestOptions
+    {
+        Model = requestOptions.Model,
+        MaxTokens = ReplyRoom(),
+        Extra = requestOptions.Extra,
+        SendReasoning = requestOptions.SendReasoning,
+        Effort = requestOptions.Effort,
+    };
+
     internal static bool LooksFinished(string? content) => content is { Length: > 0 } && CompletionClaim().IsMatch(content);
 
     [GeneratedRegex(@"\b((?<!\b(whether|if|once|when)\s+(the\s+)?)task (is|has been) (now )?(complete|completed|done|finished)|i('ve| have) (successfully )?(completed|finished) (the|your|this) task|everything is done|all done)\b", RegexOptions.IgnoreCase)]
@@ -826,7 +856,7 @@ public sealed partial class AgentSession(
             try
             {
                 var guard = new RepetitionGuard(observer.OnDelta);
-                return await CompleteWithReconnectAsync(request, tools.Definitions(), requestOptions, observer, guard.OnDelta, replying).ConfigureAwait(false);
+                return await CompleteWithReconnectAsync(request, tools.Definitions(), StepOptions(), observer, guard.OnDelta, replying).ConfigureAwait(false);
             }
             catch (RepetitionException) when (++repeats <= MaxRepetitionRetries)
             {

@@ -257,10 +257,33 @@ public sealed class CodeEditorTests : IDisposable
     [InlineData("Water.hlsl", "C++")]
     [InlineData("README.md", "MarkDown")]
     [InlineData("build.ps1", "PowerShell")]
+    [InlineData("engine.rs", "Rust")]
     [InlineData("notes.txt", null)]
     [InlineData("paper.tex", null)]
     public void A_file_is_highlighted_as_its_kind(string file, string? highlighting) =>
         Assert.Equal(highlighting, CodeView.Definition(Core.Projects.CodeLanguages.Of(file))?.Name);
+
+    [Theory]
+    [InlineData("pub fn op_switch(&mut self) {", "pub", "BbSyntaxKeyword")]
+    [InlineData("let n: u32 = 0x1F_u32;", "u32", "BbSyntaxKeyword")]
+    [InlineData("let n: u32 = 0x1F_u32;", "0x1F_u32", "BbSyntaxNumber")]
+    [InlineData("// the heartbeat", "the heartbeat", "BbSyntaxComment")]
+    [InlineData("let s = \"Работа \\\" идёт\";", "Работа", "BbSyntaxString")]
+    [InlineData("let p = r#\"C:\\data\"#;", "C:\\data", "BbSyntaxString")]
+    [InlineData("let c = '\\n';", "'\\n'", "BbSyntaxString")]
+    [InlineData("fn get<'a>(x: &'a str) {}", "'a", "BbSyntaxType")]
+    [InlineData("#[derive(Debug, Clone)]", "derive", "BbSyntaxPreprocessor")]
+    [InlineData("println!(\"{}\", n);", "println!", "BbSyntaxMethod")]
+    [InlineData("let v = text.parse::<u32>()?;", "parse", "BbSyntaxMethod")]
+    [InlineData("let m: HashMap<String, Segment> = HashMap::new();", "Segment", "BbSyntaxType")]
+    public void Rust_is_highlighted_in_the_apps_colours(string line, string token, string colour) =>
+        Assert.Equal(colour, HeadlessApp.Run(() =>
+        {
+            var highlighted = new DocumentHighlighter(new TextDocument(line), CodeView.Definition("Rust")!).HighlightLine(1);
+            var at = line.IndexOf(token, StringComparison.Ordinal);
+            var section = highlighted.Sections.Where(s => s.Offset <= at && s.Offset + s.Length >= at + token.Length).MinBy(s => s.Length);
+            return CodeView.SyntaxColour(section?.Color.Name ?? "");
+        }));
 
     [Fact]
     public void Every_colour_avalonia_edit_names_is_one_of_the_apps_or_the_codes_own()

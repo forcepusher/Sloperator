@@ -121,9 +121,12 @@ public class PromptCacheTests
 
         Assert.Equal(5, server.Requests.Count);
         Assert.Contains("cut off by the server's limit", (string?)server.Requests[2]["messages"]!.AsArray()[^1]!["content"]);
+        // After the cut the run asks for room (max_tokens): a reply limit, not part of what the server reads.
+        Assert.Null(server.Requests[1]["max_tokens"]);
+        Assert.NotNull(server.Requests[2]["max_tokens"]);
         for (var i = 1; i < server.Requests.Count; i++)
         {
-            Assert.Equal(AllBut(server.Requests[0], "messages"), AllBut(server.Requests[i], "messages"));
+            Assert.Equal(AllBut(server.Requests[0], "messages", "max_tokens"), AllBut(server.Requests[i], "messages", "max_tokens"));
             var before = server.Requests[i - 1]["messages"]!.AsArray();
             var after = server.Requests[i]["messages"]!.AsArray();
             Assert.True(after.Count > before.Count, $"request {i + 1} is not longer than the one before it");
@@ -132,10 +135,11 @@ public class PromptCacheTests
         }
     }
 
-    private static string AllBut(JsonObject request, string key)
+    private static string AllBut(JsonObject request, params string[] keys)
     {
         var copy = request.DeepClone().AsObject();
-        copy.Remove(key);
+        foreach (var key in keys)
+            copy.Remove(key);
         return copy.ToJsonString();
     }
 

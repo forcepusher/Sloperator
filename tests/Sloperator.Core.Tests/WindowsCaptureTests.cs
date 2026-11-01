@@ -27,10 +27,53 @@ public class WindowsCaptureTests
         Assert.True(RedShare(WindowsScreenCapture.CaptureNow(region, includeCursor: false)) > 0.9, "the window stayed hidden from other programs' captures");
         Assert.True(GetWindowDisplayAffinity(window.Handle, out var affinity) && affinity == WDA_NONE);
 
-        // One left out of capture for good (the click log) stays that way.
+        // One left out of capture by its own program stays that way.
         SetWindowDisplayAffinity(window.Handle, WDA_EXCLUDEFROMCAPTURE);
         Assert.True(RedShare(capture.Capture(region, includeCursor: false)) < 0.1);
         Assert.True(GetWindowDisplayAffinity(window.Handle, out affinity) && affinity == WDA_EXCLUDEFROMCAPTURE);
+    }
+
+    /// <summary>
+    /// Without marking the window excluded from capture even for a moment, which NVIDIA's Instant Replay
+    /// takes for protected video and stops at: the magnifier draws the screen without it, on every
+    /// screen, and the pointer goes on when asked for.
+    /// </summary>
+    [Fact]
+    public void The_magnifier_leaves_the_windows_out_on_every_screen()
+    {
+        var capture = new WindowsPlatform().Screen;
+        foreach (var screen in capture.GetScreens())
+        {
+            var region = new ScreenRect(screen.X + 40, screen.Y + 40, 160, 160);
+            using var window = new RedWindow(region);
+            Assert.True(RedShare(WindowsScreenCapture.CaptureNow(region, includeCursor: false)) > 0.9, $"the test window isn't on screen at {screen}");
+            var pixels = MagnifierCapture.Capture(region, [window.Handle]);
+            Assert.NotNull(pixels);
+            Assert.True(RedShare(new RawImage(region.Width, region.Height, pixels)) < 0.1, $"the window showed in the magnifier's picture of {screen}");
+            // The region's own pixels, not the primary screen's for another screen's region.
+            var beside = new ScreenRect(region.X + 160, region.Y, 40, 160);
+            Assert.True(Same(WindowsScreenCapture.CaptureNow(beside, includeCursor: false).Bgra, MagnifierCapture.Capture(beside, [window.Handle])!) > 0.9,
+                $"the magnifier's picture beside the window on {screen} isn't what is there");
+        }
+
+        GetCursorPos(out var at);
+        var around = new ScreenRect(at.X - 40, at.Y - 40, 80, 80);
+        using (new RedWindow(around))
+        {
+            var plain = capture.Capture(around, includeCursor: false);
+            var pointed = capture.Capture(around, includeCursor: true);
+            Assert.False(plain.Bgra.AsSpan().SequenceEqual(pointed.Bgra), "no pointer was drawn on the magnifier's picture");
+        }
+    }
+
+    /// <summary>The share of pixels within a few levels of each other's.</summary>
+    private static double Same(byte[] a, byte[] b)
+    {
+        var same = 0;
+        for (var i = 0; i < a.Length; i += 4)
+            if (Math.Abs(a[i] - b[i]) < 8 && Math.Abs(a[i + 1] - b[i + 1]) < 8 && Math.Abs(a[i + 2] - b[i + 2]) < 8)
+                same++;
+        return same / (a.Length / 4.0);
     }
 
     private static double RedShare(RawImage image)

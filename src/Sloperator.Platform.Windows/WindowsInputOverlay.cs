@@ -11,11 +11,13 @@ namespace Sloperator.Platform.Windows;
 /// latest inputs in the bottom-right corner, one drawing an accent-coloured ring where the agent clicked.
 /// </summary>
 /// <remarks>
-/// Both windows are click-through (WS_EX_TRANSPARENT), never activated (WS_EX_NOACTIVATE),
-/// left out of the taskbar and Alt+Tab (WS_EX_TOOLWINDOW) and excluded from screen capture, so
-/// they can't take focus, catch clicks or show up in the model's screenshots. They are drawn with
-/// Skia and use a colour key plus a window-wide opacity rather than per-pixel alpha:
-/// Windows refuses capture exclusion for windows drawn with UpdateLayeredWindow (error 8).
+/// Both windows are click-through (WS_EX_TRANSPARENT), never activated (WS_EX_NOACTIVATE) and
+/// left out of the taskbar and Alt+Tab (WS_EX_TOOLWINDOW), so they can't take focus or catch clicks;
+/// the model's screenshots leave them out with Sloperator's other windows (<see cref="WindowsScreenCapture"/>).
+/// They were excluded from screen capture for good, which stopped NVIDIA's Instant Replay for as long
+/// as the log showed. They are drawn with Skia and use a colour key plus a window-wide opacity rather
+/// than per-pixel alpha: Windows refuses capture exclusion, still the fallback, for windows drawn with
+/// UpdateLayeredWindow (error 8).
 /// </remarks>
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsInputOverlay : IInputOverlay
@@ -141,7 +143,6 @@ internal sealed class WindowsInputOverlay : IInputOverlay
             "SloperatorInputOverlay", "", WS_POPUP, 0, 0, 1, 1, 0, 0, instance, 0);
         // Colour-key transparency (not UpdateLayeredWindow) so that capture exclusion is allowed.
         SetLayeredWindowAttributes(hwnd, ColorKey, 255, LWA_COLORKEY | LWA_ALPHA);
-        SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
         return hwnd;
     }
 

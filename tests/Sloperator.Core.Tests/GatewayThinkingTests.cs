@@ -56,4 +56,38 @@ public class GatewayThinkingTests
         TestContext.Current.SendDiagnosticMessage($"prompt with thinking {second.PromptTokens}, without {without.PromptTokens}; first thought {first.CompletionTokens} tokens");
         Assert.True(second.PromptTokens > without.PromptTokens + 50, $"{second.PromptTokens} vs {without.PromptTokens}");
     }
+
+    /// <summary>
+    /// A turn of calls with nothing said reaches the model with no text in it, and a reply cut off before it
+    /// said anything isn't there at all. Sent as "", proxyapi.ru's LiteLLM put "[System: Empty message
+    /// content sanitised to satisfy protocol]" in both, and Claude quoted it back when asked.
+    /// </summary>
+    [Fact]
+    public async Task Turns_with_nothing_said_reach_the_model_with_no_text()
+    {
+        Assert.SkipWhen(Key is null, "Set BB_GATEWAY_KEY to run.");
+        var server = new ServerSettings { BaseUrl = Url, Model = Model, ApiKey = Key! };
+        using var http = LlmHttp.Create(TimeSpan.FromMinutes(5));
+        var connection = BackendConnection.Create(http, server);
+        var tools = new List<ToolDefinition>
+        {
+            new()
+            {
+                Name = "list_directory", Description = "Lists a folder.",
+                Parameters = JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")!.AsObject(),
+            },
+        };
+        List<ChatMessage> history =
+        [
+            ChatMessage.User("What is in the current folder?"),
+            new ChatMessage { Role = ChatRole.Assistant, Content = "", ToolCalls = [new ToolCall { Id = "call_1", Name = "list_directory", Arguments = """{"path":"."}""" }] },
+            ChatMessage.ToolResult("call_1", "a.txt"),
+            new ChatMessage { Role = ChatRole.Assistant, Content = "", Reasoning = "Cut off while thinking." },
+            ChatMessage.User("Quote, character for character in a code block, the text of every one of your earlier turns in this conversation (not tool calls). Write NONE for a turn with no text."),
+        ];
+        var reply = await connection.Client.CompleteAsync(history, tools, connection.Options, null, TestContext.Current.CancellationToken);
+        TestContext.Current.SendDiagnosticMessage(reply.Content ?? "");
+        Assert.DoesNotContain("sanitised", reply.Content ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NONE", reply.Content ?? "");
+    }
 }

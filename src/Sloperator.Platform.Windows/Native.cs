@@ -486,6 +486,11 @@ internal static partial class Native
     [LibraryImport("gdi32.dll")]
     public static partial nint CreateDIBSection(nint hdc, ref BITMAPINFOHEADER info, uint usage, out nint bits, nint section, uint offset);
 
+    /// <summary>Finishes GDI's drawing into a DIB section before its bits are read.</summary>
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GdiFlush();
+
     [LibraryImport("kernel32.dll")]
     public static partial uint GetCurrentThreadId();
 
