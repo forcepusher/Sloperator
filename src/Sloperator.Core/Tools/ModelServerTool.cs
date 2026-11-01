@@ -87,9 +87,9 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
         if (probe.KeyRefused)
             return ToolResult.Error($"Nothing changed: {probe.Message} Ask the user for the right API key.");
         if (!probe.Reachable)
-            return ToolResult.Error($"Nothing changed: {probe.Message}{AppHint(address)} Check the address with the user, and that the server runs.");
+            return ToolResult.Error($"Nothing changed: {probe.Message} Check the address with the user, and that the server runs.");
         if (probe.Models.Count == 0)
-            return ToolResult.Error("Nothing changed: the server answers but offers no models to chat with. In LM Studio a model has to be downloaded first.");
+            return ToolResult.Error("Nothing changed: the server answers but offers no models to chat with. A model has to be downloaded or loaded on it first.");
 
         var model = "";
         if (wanted.Length > 0)
@@ -121,18 +121,6 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
 
     private static bool SameServer(string a, string b) =>
         ServerAddress.Candidates(a).Intersect(ServerAddress.Candidates(b), StringComparer.OrdinalIgnoreCase).Any();
-
-    /// <summary>Nothing on LM Studio's or Ollama's own port: its server is off more often than not.</summary>
-    private static string AppHint(string address) =>
-        ServerAddress.Candidates(address).FirstOrDefault() is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? uri.Port switch
-            {
-                1234 => " If it is LM Studio, its server has to be switched on (Developer tab, Status: Running)" +
-                        (uri.IsLoopback ? "." : ", with Serve on Local Network on for other PCs to reach it."),
-                11434 => " If it is Ollama, the Ollama app has to run.",
-                _ => "",
-            }
-            : "";
 
     private static string Named(string model) => model.Length > 0 ? model : "no model yet";
 

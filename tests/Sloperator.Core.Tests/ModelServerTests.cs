@@ -95,7 +95,8 @@ public sealed class ModelServerTests
         var offline = await Run(new NobodyThere(), bar, new JsonObject { ["action"] = "connect", ["address"] = "localhost:1234" });
         Assert.True(offline.IsError);
         Assert.StartsWith("Nothing changed:", offline.Text);
-        Assert.Contains("LM Studio, its server has to be switched on", offline.Text);
+        Assert.Contains("that the server runs", offline.Text);
+        Assert.DoesNotContain("LM Studio", offline.Text); // no server program guessed from the port
 
         var wrongKey = await Run(new LocalServer(["m"], key: "right"), bar, new JsonObject { ["action"] = "connect", ["address"] = "http://box:8080/v1", ["api_key"] = "wrong" });
         Assert.True(wrongKey.IsError);

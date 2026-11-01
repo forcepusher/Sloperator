@@ -2177,9 +2177,12 @@ that answers. An API key, if your server needs one, goes next to the address (th
 shows it). A server that answers but turns the key down (none given, a wrong one, an account out
 of credits: HTTP 401, 402, 403) says so, with the server's own words and what to change, rather
 than "Can't reach the server" and its JSON: a wrong OpenRouter key showed only `Chat request
-failed (401): {"error":{"message":"User not found.","code":401}}`. Nothing answering on LM
-Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
-Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run.
+failed (401): {"error":{"message":"User not found.","code":401}}`. The app's messages about the
+server name no server program (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the
+reply-length note: "weird"; and no branching by provider): nothing answering on port 1234 or 11434
+no longer adds how to switch on LM Studio's or Ollama's server, the effort tip on port 1234 no longer
+says LM Studio sets it, and a context too small, a server offering no models and LM Studio's model
+loaded again with more room each say "on the server".
 A service's website typed for its API (`openrouter.ai`, `groq.com`, `openai.com`, `mistral.ai`,
 `deepseek.com`, `x.ai`, `together.ai`, `fireworks.ai`, `anthropic.com`, `claude.com`, any page of them) has its API
 address tried first, so it just works; another website says it is one, rather than filling the

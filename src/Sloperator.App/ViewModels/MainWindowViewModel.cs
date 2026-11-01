@@ -655,8 +655,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                     // (LM Studio's 32000 is 31k), which works.
                     if (context < ServerProbe.MinimumContext * 3 / 4 && !facts.Hosted && !_runDetached)
                         AddNotice($"The server runs {server.ModelInUse} with a {context / 1024}k context, and Sloperator needs about {ServerProbe.MinimumContext / 1024}k: " +
-                                  "its instructions and tools alone take about 9k tokens, and each screenshot about 3k. Load the model with a larger context on the server " +
-                                  "(LM Studio: Context Length when you load it; Ollama: the Context length setting; llama-server: -c).", isError: false);
+                                  "its instructions and tools alone take about 9k tokens, and each screenshot about 3k. Load the model with a larger context on the server.", isError: false);
                 }
             }
             if (!_mcpConnect.IsCompleted)

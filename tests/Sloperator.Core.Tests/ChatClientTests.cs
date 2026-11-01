@@ -713,7 +713,7 @@ public class ContextDetectionTests
         var facts = await ServerProbe.EnsureLoadedAsync(new HttpClient(server), settings, null, CancellationToken.None, notes.Add);
         Assert.Equal(16384, facts.Context);
         Assert.Contains(server.Calls, c => c.StartsWith("POST /api/v1/models/unload") && c.Contains("\"instance_id\":\"m\""));
-        Assert.Equal("LM Studio loaded m with a 4k context, too small for Sloperator; it runs with 16k now. To choose the size yourself, load it in LM Studio with the context length you want.", Assert.Single(notes));
+        Assert.Equal("The server loaded m with a 4k context, too small for Sloperator; it runs with 16k now. To choose the size yourself, load it on the server with the context length you want.", Assert.Single(notes));
 
         // Loaded by the user already, even small: left as it is.
         server.Calls.Clear();
