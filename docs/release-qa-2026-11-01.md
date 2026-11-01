@@ -10,7 +10,9 @@ programs, its GPU, its second monitor or the Qwen server.
 | Check | Where | Result |
 |---|---|---|
 | Unit suites | laptop | App 285 of 285, Core 1220 of 1220 (20 opt-in skipped), after the clean-up and again after the fixes |
-| Unit suites with the opt-in tests on | workstation | App 284 of 285, Core 1220 of 1231 at first: none a product bug, three fixed (below) |
+| Unit suites with the opt-in tests on | workstation | App 285 of 285, Core 1223 of 1232; the 2 failures fail on develop there too (pause keys on its code page) |
+| ComfyUI tasks (`comfy-test.ps1`, Qwen) | workstation | every output good; video timed out after a usable clip, as at 1.2.0 |
+| Second-monitor tasks | workstation | Haiku 5.5 4 of 4, Qwen 4 of 4 (mm-move timed out at 1.2.0) |
 | Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 12 min 51 s: 61 model calls, 66 tool calls, played to 132 and to Game Over in Play mode, built and checked the exe |
 | This version's changes in the published exe (a stand-in agent) | laptop | all as the changelog says; one empty line after a PowerShell error in the Terminal, fixed |
 | ssh, the Terminal and the release exe on the lab VM | workstation | setup lines in the Terminal on the first ssh command, fixed; the rest as the changelog says |
@@ -91,29 +93,50 @@ line break): "5 lines" for four. `ToolTests` checks it now.
 
 ## On the workstation
 
-The workstation thread ran, on 0439af3 (Release build):
+The workstation thread's runs (two monitors, RTX 5070 Ti, the SSH lab VM, Qwen 3.8 27B q6_k_xl on the
+user's server), Release builds of the branch.
 
-- Unit suites with `BB_DESKTOP_TESTS`, the SSH lab (a 3 GB copy, a reboot), real MCP servers through npx
-  and `BB_COMFY_ONLINE`: App 284 of 285, Core 1220 of 1231 (7 skipped, run apart).
-  `GatewayThinkingTests` on OpenRouter Haiku 5.5, `MunitoImageCapTests` and `TextOnlyServerTests` on
-  munito gemma-4-12b: each 1 of 1.
-- Found and fixed (88d509b, its thread's branch fix/ssh-terminal-setup-lines, taken onto the release
-  branch): the first ssh command after logging in (and after a reboot) showed four more lines in the
-  Terminal panel and terminal.json than it printed: the terminal's echo of Sloperator's setup, the prompt,
-  readline's line, sometimes "Last login". The model's copy was clean. The ssh tool handed the panel the
-  command before `RunAsync` started the terminal; `RunAsync` now holds it back until the terminal is up.
-  A new opt-in SSH test fails without the fix; Ssh and CommandLog tests 84 of 84 against the lab.
-- The release exe on Haiku 5.5 and the lab VM: Auto opened the Terminal for the first command ("Auto
-  (Terminal)"), ssh rows read "admin@127.0.0.2 · exit 0 · 1.1 s", PowerShell's "This PC", terminal.json
-  written; the title bar's status and caption right. Second-monitor tasks on Haiku 5.5: 4 of 4.
-- Not product bugs. That PC's code page is 1251: the ANSI code page test (fixed: it uses the PC's own),
-  and two pause-key tests that fail on develop too. Two races between test classes: ComfyOnlineTests
-  beside the Civitai stand-ins (fixed: one collection), ImageEditorTests deleting its folder while a
-  thumbnail was read (fixed: waits, and retries).
+| Test | Result |
+|---|---|
+| Unit suites with `BB_DESKTOP_TESTS`, the SSH lab (a 3 GB copy each way, a reboot), real MCP servers through npx and `BB_COMFY_ONLINE`, on 4f6b241 | App 285 of 285, Core 1223 of 1232 (7 skipped, run apart); the 2 failures are pause-key tests that fail on develop there too |
+| `GatewayThinkingTests` (OpenRouter Haiku 5.5), `MunitoImageCapTests`, `TextOnlyServerTests` (munito gemma-4-12b) | 1 of 1 each |
+| `comfy-test.ps1` on Qwen | every output good, 7 of 9 by the script (below) |
+| Second-monitor tasks (`agent-tasks.ps1` mm-*) | Haiku 5.5 through OpenRouter 4 of 4 (12-38 s, 0 tool errors), Qwen 4 of 4 (36-79 s, 0 tool errors); also proxyapi.ru Haiku 3 of 3 and OpenRouter qwen3.8-27b 4 of 4 |
+| The release exe, Haiku 5.5 through OpenRouter, on the lab VM (Windows 10 LTSC, WebView2 156) | as the changelog says, after the ssh fix (below) |
+| The Image editor on real ComfyUI | 4 versions made with DreamShaper 8, a part redrawn as version 5 in 17 s |
+| Unity 2048 on Qwen | running at the time of writing (about 2 h) |
+
+- comfy-test: picture 2 min 51 s, img2img 6 min 15 s, named 1 min 53 s, sound 2 min 12 s, music
+  2 min 41 s, speech 2 min 55 s, a 3D model 17 min 33 s (a .glb, 3 tool errors on the way), the combo
+  7 min 59 s; video ran its 45 minutes out as at 1.2.0 (a usable 3 s clip first, then retakes). The two
+  the script counts as failed are its own checks: the speech file was named good-morning-voice.mp3
+  (4.0 s) with no folder for the checker, and the CLI's log of the combo's comfyui result stopped after its
+  first file, though the second has its sound (3.01 s by ffprobe).
+- mm-move, which Qwen timed out on at 1.2.0, passed.
+- The release exe: Auto showed the Terminal, then File changes, then the Web preview; the window widened
+  once and never resized between panels; the title bar had the status, the context used and the chat's
+  title, the panel's name over the panel. Terminal rows "admin@127.0.0.2 · exit 0 · 1.1 s" and "This PC",
+  lines dragged into the box, terminal.json written; the Web preview reloaded on an edit from outside,
+  listed console.error, and an area went in ("Red."); History brought back 5 commands and the last page.
+  Nothing in errors.log.
+- Found and fixed there (88d509b, from its branch fix/ssh-terminal-setup-lines): the first ssh command
+  after logging in (and after a reboot) showed four more lines in the Terminal panel and terminal.json
+  than it printed: the terminal's echo of Sloperator's setup, the prompt, readline's line, sometimes "Last
+  login". The model's copy was clean. The ssh tool handed the panel the command before `RunAsync` started
+  the terminal; `RunAsync` now holds it back until the terminal is up. A new opt-in SSH test fails without
+  the fix; the Ssh and CommandLog tests pass 84 of 84 against the lab.
+- On 0439af3, three more failed, none a product bug, all fixed in 61c6e2c: the ANSI code page test
+  (that PC's code page is 1251; it uses the PC's own now), ComfyOnlineTests beside the Civitai stand-ins
+  (one collection now), ImageEditorTests deleting its folder while a thumbnail was read (waits and retries).
 
 ## Left as they are
 
 - With no context use known yet (a chat opened again, before its next request) the title bar reads
   "Connected ● · <chat>": the dot that stands between Connected and the use is followed by the chat's
   separator.
+- A redrawn part's surroundings are not pixel-exact: the picture goes through the model's VAE, a mean
+  change of 2 of 255 outside the mask. Pasting the original back outside the mask (ImageCompositeMasked in
+  sloperator/redraw_area) would keep them exact.
+- Haiku through OpenRouter once sent capture_result's arguments with their names run together
+  ("captionNotepad"): they were left out without a word, and the whole screen was captured, uncaptioned.
 - The workstation's two pause-key tests on its code page or keyboard layout.
