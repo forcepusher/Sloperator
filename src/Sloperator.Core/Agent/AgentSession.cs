@@ -787,20 +787,13 @@ public sealed partial class AgentSession(
         string summary;
         try
         {
-            args = ToolCallRepair.ParseArguments(call.Arguments, tool);
-            // The conversation keeps the call as repaired: sent back as it came, arguments that
-            // aren't JSON can make a server's chat template fail every request after it.
-            if (!ToolCallRepair.IsWholeJson(call.Arguments))
-                call.Arguments = args.ToJsonString(Comfy.ComfyWorkflow.Compact);
-            ToolCallRepair.ApplyNameHints(call.Name, args, tool);
-            ToolCallRepair.NormalizeArguments(args, tool);
-            summary = tool.Describe(args);
+            (args, summary) = PrepareCall(call, tool);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Arguments the tool can't take are the model's to fix, as whatever goes wrong while it runs:
             // anything else thrown here ended the whole run.
-            var bad = ToolResult.Error(ex is ToolArgumentException ? $"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}" : ex.Message);
+            var bad = ToolResult.Error(ArgumentProblem(ex, tool));
             observer.OnToolStarted(call, call.Name);
             observer.OnToolFinished(call, bad);
             return bad;
@@ -827,7 +820,7 @@ public sealed partial class AgentSession(
         }
         catch (ToolArgumentException ex)
         {
-            result = ToolResult.Error($"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}");
+            result = ToolResult.Error(ArgumentProblem(ex, tool));
         }
         catch (OperationCanceledException) when (step.IsCancellationRequested && !ct.IsCancellationRequested)
         {
@@ -848,6 +841,23 @@ public sealed partial class AgentSession(
         observer.OnToolFinished(call, result);
         return result;
     }
+
+    /// <summary>A call's arguments, repaired and normalized for <paramref name="tool"/>, and its card's line; throws on arguments the tool can't take.</summary>
+    private static (JsonObject Args, string Summary) PrepareCall(ToolCall call, Tool tool)
+    {
+        var args = ToolCallRepair.ParseArguments(call.Arguments, tool);
+        // The conversation keeps the call as repaired: sent back as it came, arguments that
+        // aren't JSON can make a server's chat template fail every request after it.
+        if (!ToolCallRepair.IsWholeJson(call.Arguments))
+            call.Arguments = args.ToJsonString(Comfy.ComfyWorkflow.Compact);
+        ToolCallRepair.ApplyNameHints(call.Name, args, tool);
+        ToolCallRepair.NormalizeArguments(args, tool);
+        return (args, tool.Describe(args));
+    }
+
+    /// <summary>What the model is told of arguments <paramref name="tool"/> couldn't take: with its parameters when they were wrong.</summary>
+    private static string ArgumentProblem(Exception ex, Tool tool) =>
+        ex is ToolArgumentException ? $"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}" : ex.Message;
 
     /// <summary>The system prompt from the next request on (an MCP server added mid-run, which the prompt lists).</summary>
     internal void UsePrompt(string prompt) => systemPrompt = prompt;

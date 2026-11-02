@@ -84,13 +84,11 @@ public sealed partial class AgentSession
         string summary;
         try
         {
-            args = ToolCallRepair.ParseArguments(call.Arguments, tool);
-            ToolCallRepair.NormalizeArguments(args, tool);
-            summary = tool.Describe(args);
+            (args, summary) = PrepareCall(call, tool);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return ToolResult.Error(ex.Message);
+            return ToolResult.Error(ArgumentProblem(ex, tool));
         }
         var asked = NeedsApproval(tool);
         if (asked)
@@ -115,7 +113,7 @@ public sealed partial class AgentSession
         }
         catch (ToolArgumentException ex)
         {
-            result = ToolResult.Error($"{ex.Message} Parameters for {tool.Name}: {tool.Parameters.ToJsonString()}");
+            result = ToolResult.Error(ArgumentProblem(ex, tool));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

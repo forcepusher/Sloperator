@@ -187,7 +187,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         return all;
     }
 
-
     /// <summary>
     /// The intro on what Sloperator can do, shown until the chat is used: a message sent or a saved
     /// chat opened. Notices don't count (an MCP server that failed to start): they show above it.
