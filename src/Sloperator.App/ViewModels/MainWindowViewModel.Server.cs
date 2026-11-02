@@ -528,6 +528,18 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     Task IModelServerSwitch.SwitchAsync(string baseUrl, string apiKey, string model) => Dispatcher.UIThread.InvokeAsync(() =>
         SwitchServer(new SavedServer { BaseUrl = baseUrl, ApiKey = apiKey, Model = model }));
 
+    /// <summary>
+    /// The agent's model_server effort: saved and shown as picking it in the dropdown would, even
+    /// where the model takes a nearer level, so the one asked for is back on a model that takes it.
+    /// </summary>
+    Task IModelServerSwitch.SetEffortAsync(string level) => Dispatcher.UIThread.InvokeAsync(() =>
+    {
+        _settings.Server.Effort = level;
+        SaveSettings();
+        OnPropertyChanged(nameof(SelectedEffort));
+        OnPropertyChanged(nameof(EffortToolTip));
+    }).GetTask();
+
     /// <summary>Puts a server, its key and model in the top bar, as typing them there would, then checks it.</summary>
     private Task SwitchServer(SavedServer saved)
     {

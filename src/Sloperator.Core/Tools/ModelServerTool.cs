@@ -16,6 +16,9 @@ public interface IModelServerSwitch
     /// Sloperator's own pick, the strongest one the server offers.
     /// </summary>
     Task SwitchAsync(string baseUrl, string apiKey, string model);
+
+    /// <summary>Picks the effort in the top bar, as its dropdown would: saved, and used from the user's next message on.</summary>
+    Task SetEffortAsync(string level);
 }
 
 /// <summary>
@@ -30,27 +33,30 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
     public override string Name => "model_server";
 
     public override string Description =>
-        "The model server Sloperator itself runs on (you are that model): action=show says the server, model and the models it offers; " +
+        "The model server Sloperator itself runs on (you are that model): action=show says the server, model, effort and the models it offers; " +
         "action=connect switches Sloperator to another server, API key and model, the way the user would in Sloperator's top bar " +
         "(which you can't see or click: Sloperator's window is left out of screenshots). Use it when the user asks to connect, switch to or use " +
-        "another model or AI: LM Studio on this PC is http://localhost:1234/v1 (Ollama http://localhost:11434/v1), Claude is api.anthropic.com, " +
+        "another model or AI; action=effort sets how hard the model thinks (low to max), as the top bar's effort dropdown does, " +
+        "when the user asks to think harder, less or at a given effort. LM Studio on this PC is http://localhost:1234/v1 (Ollama http://localhost:11434/v1), Claude is api.anthropic.com, " +
         "OpenRouter https://openrouter.ai/api/v1, Kilo's free models " + KiloGateway.Address + ". " +
-        "The server is checked first and nothing changes if it doesn't answer or turns the key down. This task finishes on the model you are; " +
-        "the user's next message goes to the new one.";
+        "The server is checked first and nothing changes if it doesn't answer or turns the key down. This task finishes on the model and effort " +
+        "it started with; the user's next message goes to the new ones.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("action", Str("What to do", "show", "connect"), true),
+        ("action", Str("What to do", "show", "connect", "effort"), true),
         ("address", Str("For connect: the server's address, such as http://localhost:1234/v1"), false),
         ("api_key", Str("For connect: the API key the user gave for that server; leave it out for a server without one (an address in use or used before keeps its key)"), false),
-        ("model", Str("For connect: the model to use, as the server lists it; leave it out for the strongest one the server offers"), false));
+        ("model", Str("For connect: the model to use, as the server lists it; leave it out for the strongest one the server offers"), false),
+        ("effort", Str("For effort: how hard the model thinks, least to most", [.. Efforts.Levels]), false));
 
     public override string Describe(JsonObject args) => (GetString(args, "action") ?? "") switch
     {
         // Never the key itself: the tool card shows this.
         "connect" => $"Connect Sloperator to {GetString(args, "address")}" + (GetString(args, "model") is { Length: > 0 } m ? $", model {m}" : "") +
                      (GetString(args, "api_key") is { Length: > 0 } ? ", with an API key" : ""),
+        "effort" => $"Set Sloperator's effort to {GetString(args, "effort")}",
         _ => "Show Sloperator's model server",
     };
 
@@ -65,12 +71,15 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
             {
                 var probe = await ProbeAsync(new ServerSettings { BaseUrl = current.BaseUrl, ApiKey = current.ApiKey, Model = current.Model }, ct).ConfigureAwait(false);
                 var text = $"Sloperator runs on {Named(current.ModelInUse)} at {current.BaseUrl}, " + (current.ApiKey.Length > 0 ? "with an API key." : "without an API key.");
+                text += current.EffortInUse is { } effort ? $" Effort: {effort} (it takes {string.Join(", ", current.EffortLevels)})." : " The model has no effort setting.";
                 return new ToolResult(text + (probe.Reachable ? "\n" + ModelList(probe.Models) : $"\nThe server doesn't answer now: {probe.Message}"));
             }
             case "connect":
                 return await ConnectAsync(args, sw, current, ct).ConfigureAwait(false);
+            case "effort":
+                return await SetEffortAsync(args, sw, current).ConfigureAwait(false);
             default:
-                throw new ToolArgumentException("action must be show or connect.");
+                throw new ToolArgumentException("action must be show, connect or effort.");
         }
     }
 
@@ -111,6 +120,22 @@ public sealed class ModelServerTool(Func<HttpClient>? http = null) : Tool
         return new ToolResult($"Sloperator is now connected to {url} and uses {inUse}{how}" + (key.Length > 0 ? ", with the API key." : ".") + vision +
                               " The top bar shows it. This task finishes on the model it started with; the user's next message goes to the new one, " +
                               "so tell the user it is done and that they can send their next request.");
+    }
+
+    private static async Task<ToolResult> SetEffortAsync(JsonObject args, IModelServerSwitch sw, ServerSettings current)
+    {
+        var wanted = RequireString(args, "effort").Trim().ToLowerInvariant().Replace("extra high", "xhigh").Replace("extra-high", "xhigh");
+        if (!Efforts.Levels.Contains(wanted))
+            throw new ToolArgumentException($"effort must be one of {string.Join(", ", Efforts.Levels)}.");
+        // As the top bar's dropdown, greyed out for such a model: an effort it would never be sent.
+        if (current.EffortLevels.Count == 0)
+            return ToolResult.Error($"Nothing changed: {Named(current.ModelInUse)} has no effort setting Sloperator can send" +
+                                    " (on LM Studio it is set in LM Studio, per model). Tell the user.");
+        await sw.SetEffortAsync(wanted).ConfigureAwait(false);
+        var inUse = current.EffortInUse ?? wanted;
+        var nearest = inUse == wanted ? "" : $" {Named(current.ModelInUse)} doesn't take {wanted}, so it gets {inUse}, the nearest it takes ({string.Join(", ", current.EffortLevels)}).";
+        return new ToolResult($"Sloperator's effort is now {inUse}.{nearest} The top bar shows it. This task finishes on the effort it started with; " +
+                              "the user's next message is answered with the new one, so tell the user it is done.");
     }
 
     private async Task<ProbeResult> ProbeAsync(ServerSettings server, CancellationToken ct)

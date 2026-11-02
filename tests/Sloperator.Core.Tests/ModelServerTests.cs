@@ -26,6 +26,12 @@ public sealed class ModelServerTests
             Current.AutoModel = null;
             return Task.CompletedTask;
         }
+
+        public Task SetEffortAsync(string level)
+        {
+            Current.Effort = level;
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>An LM Studio-like server on plain http: its model list, and 401 for any other key than <paramref name="key"/> when it wants one.</summary>
@@ -141,7 +147,40 @@ public sealed class ModelServerTests
         bar.Current.Model = "a-model";
         bar.Current.AutoModel = null;
         var result = await Run(new LocalServer(["a-model", "b-model"], key: "sk-secret-123"), bar, new JsonObject { ["action"] = "show" });
-        Assert.Equal("Sloperator runs on a-model at http://box:8080/v1, with an API key.\nModels it offers (2): a-model, b-model", result.Text);
+        Assert.Equal("Sloperator runs on a-model at http://box:8080/v1, with an API key. The model has no effort setting.\nModels it offers (2): a-model, b-model", result.Text);
+
+        bar.Current.EffortLevels = ["low", "medium", "high"];
+        var withEffort = await Run(new LocalServer(["a-model"], key: "sk-secret-123"), bar, new JsonObject { ["action"] = "show" });
+        Assert.Contains(" Effort: medium (it takes low, medium, high).", withEffort.Text);
+    }
+
+    [Fact]
+    public async Task Effort_is_set_as_the_dropdown_would_or_the_nearest_the_model_takes()
+    {
+        var bar = new TopBar();
+        bar.Current.EffortLevels = ["low", "medium", "high"];
+        var high = await Run(new NobodyThere(), bar, new JsonObject { ["action"] = "effort", ["effort"] = "High" });
+        Assert.False(high.IsError, high.Text);
+        Assert.Equal("high", bar.Current.Effort);
+        Assert.StartsWith("Sloperator's effort is now high.", high.Text);
+        Assert.Contains("the user's next message is answered with the new one", high.Text);
+
+        // Max is kept for a model that takes it, and this one gets the nearest.
+        var max = await Run(new NobodyThere(), bar, new JsonObject { ["action"] = "effort", ["effort"] = "max" });
+        Assert.Equal("max", bar.Current.Effort);
+        Assert.Contains("doesn't take max, so it gets high", max.Text);
+
+        await Assert.ThrowsAsync<ToolArgumentException>(() => Run(new NobodyThere(), bar, new JsonObject { ["action"] = "effort", ["effort"] = "turbo" }));
+    }
+
+    [Fact]
+    public async Task Nothing_changes_for_a_model_without_an_effort_setting()
+    {
+        var bar = new TopBar();
+        var result = await Run(new NobodyThere(), bar, new JsonObject { ["action"] = "effort", ["effort"] = "low" });
+        Assert.True(result.IsError);
+        Assert.StartsWith("Nothing changed:", result.Text);
+        Assert.Equal(Efforts.Default, bar.Current.Effort);
     }
 
     [Fact]

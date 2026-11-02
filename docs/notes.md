@@ -2403,6 +2403,12 @@ minutes looking for a settings screen, since Sloperator's window is left out of 
 switched nothing; with the tool it connected in one call, 6 seconds, and the next message was
 answered by that server (29 October 2026, the real app against a stand-in server, with and without a key).
 
+`effort` sets the top bar's effort as its dropdown would: saved, used from the next message on (the
+run going on keeps its own, as with the model). A model that takes none (the dropdown greyed out)
+changes nothing, and the result says so; one that doesn't take the level asked for gets the nearest
+it takes, while the one asked for is kept for a model that takes it. `show` names the effort in use
+and the levels the model takes.
+
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
 `console.anthropic.com`, `claude.ai`, or just `claude`) and an Anthropic API key, Sloperator speaks Anthropic's own
@@ -3055,7 +3061,7 @@ prints the traceback and exits with 0.
 | `web_search` | Searches the web: titles, links and snippets (see below) |
 | `fetch_page` | Reads a web page as plain text; `find` returns only the passages that mention some words, `start` reads on in a long page |
 | `mcp_servers` | Adds, removes and lists MCP servers: a server the agent adds starts at once, its tools join the run, and it is kept in `SloperatorData/mcp.json` for later tasks (see below) |
-| `model_server` | The model Sloperator itself runs on: `show` says the server, model and the models it offers; `connect` switches the top bar to another server, key and model, after checking the server answers (see Connecting to a model) |
+| `model_server` | The model Sloperator itself runs on: `show` says the server, model, effort and the models it offers; `connect` switches the top bar to another server, key and model, after checking the server answers; `effort` sets the top bar's effort (see Connecting to a model) |
 | `<server>__<tool>` | Any tool of the MCP servers you or the agent added (see below) |
 
 Settings → General → Safety's first row, **Tool call approval**, picks when the agent asks before acting: "Ask before every action", "Ask before

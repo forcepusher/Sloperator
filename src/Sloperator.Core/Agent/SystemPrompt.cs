@@ -128,7 +128,7 @@ public static class SystemPrompt
                       "Always go through mcp_servers, which saves the server in the user's Settings for later tasks, rather than running it or calling its tools from run_shell or a script of your own.");
         // Asked to connect another model, free Nemotron clicked through other apps for a settings screen: Sloperator's own window isn't in its screenshots.
         if (modelServer)
-            sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, use model_server: " +
+            sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, or to change how hard you think (effort), use model_server: " +
                           "Sloperator's own window is left out of your screenshots, so its settings can't be clicked.");
         // qwen3.8 drove ComfyUI's HTTP API well but wrote wrong node, input and model names from memory.
         sb.AppendLine("- To make pictures, video, sound, music, speech or 3D models, use the comfyui tool (ComfyUI on this PC; it needs no MCP server; " +
