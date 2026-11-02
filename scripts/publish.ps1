@@ -5,7 +5,7 @@
 .DESCRIPTION
   Default: one Sloperator.exe, trimmed to the parts of .NET and the libraries Sloperator uses and
   compressed (about 24 MB). The native libraries (Skia, HarfBuzz) are embedded,
-  packed with Brotli by pack-runtime.cs, and unpacked into Data/runtime next to the exe on first
+  packed with Brotli by pack-runtime.cs, and unpacked into SloperatorData/runtime next to the exe on first
   run. Copy just the exe anywhere and run it.
 
   -Folder: the classic self-contained folder (exe + DLLs), handy for debugging.
@@ -52,7 +52,7 @@ function Publish([string]$out, [string[]]$extra) {
 if ($Folder) {
     $out = Join-Path $publishRoot "Sloperator-$Runtime"
     Publish $out @()
-    New-Item -ItemType Directory -Force (Join-Path $out "Data") | Out-Null
+    New-Item -ItemType Directory -Force (Join-Path $out "SloperatorData") | Out-Null
     Write-Host "Portable folder ready: $out"
     return
 }

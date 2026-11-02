@@ -46,7 +46,7 @@ public sealed class McpConfigException(string message) : Exception(message);
 ///   }
 /// }
 /// </code>
-/// Kept in <c>Data/mcp.json</c> next to the app. Comments and trailing commas are tolerated, and
+/// Kept in <c>SloperatorData/mcp.json</c> next to the app. Comments and trailing commas are tolerated, and
 /// the file is stored as the user typed it.
 /// </summary>
 public sealed class McpConfig

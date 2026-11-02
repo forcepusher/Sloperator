@@ -31,7 +31,7 @@ public sealed record SongScore(double Coherence, double Musicality, double Memor
 /// whether it is music; SongEval gave them 2.4 and 2.7 of 5, and a released song about 4.
 /// </summary>
 /// <remarks>
-/// Set up once in Sloperator's Data\tools\songeval: MuQ and nnAudio by pip (no dependencies, into
+/// Set up once in Sloperator's SloperatorData\tools\songeval: MuQ and nnAudio by pip (no dependencies, into
 /// that folder: ComfyUI's own packages are left alone), SongEval's 100 MB head from GitHub (its
 /// SHA-256 checked), MuQ's 1.3 GB model from Hugging Face on first use. MuQ's weights are CC BY-NC
 /// 4.0: for the user's own videos.

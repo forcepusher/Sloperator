@@ -3,7 +3,7 @@ Sloperator works on your PC to get the job done. Say what you want and watch it 
 It uses the actual desktop via keyboard and mouse when needed.
 
 It is a single portable `Sloperator.exe`. Nothing gets installed.\
-Its settings, chats and whatever it downloads stay in a `Data` folder next to the exe.
+Its settings, chats and whatever it downloads stay in a `SloperatorData` folder next to the exe.
 
 ![Sloperator](docs/Sloperator.png)
 
@@ -41,7 +41,7 @@ Same with MCPs, tell Sloperator what you want to be connected and it'll be done.
 You need Windows and the .NET 10 SDK.
 
 ```powershell
-dotnet build             # debug build, keeps its Data in .dev/
+dotnet build             # debug build, keeps its SloperatorData in .dev/
 dotnet test              # unit tests
 ./scripts/publish.ps1    # makes publish/Sloperator.exe
 ```
@@ -63,4 +63,4 @@ accepts it.
 Privacy: Sloperator sends your messages, files and screenshots only to the model server you pick
 (out of the box, Kilo's free online models), and reaches other servers only when you or a task
 ask for it. It also checks GitHub for a new version once an hour, unless you turn that off in
-Settings. To remove it, delete `Sloperator.exe` and its `Data` folder.
+Settings. To remove it, delete `Sloperator.exe` and its `SloperatorData` folder.

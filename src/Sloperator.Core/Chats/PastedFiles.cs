@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Sloperator.Core.Chats;
 
 /// <summary>
-/// Files Sloperator saves for a message in the chat's pasted files (Data\pasted): a pasted picture, an area
+/// Files Sloperator saves for a message in the chat's pasted files (SloperatorData\pasted): a pasted picture, an area
 /// marked in a side panel, lines picked in the Terminal, named by when they were made.
 /// </summary>
 public static class PastedFiles

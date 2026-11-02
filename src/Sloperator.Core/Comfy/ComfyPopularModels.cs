@@ -13,7 +13,7 @@ public sealed record PopularSnapshot(DateTime Fetched, List<PopularModel> Models
 
 /// <summary>
 /// What people make pictures with now: Civitai's 100 most downloaded checkpoints and LoRAs this
-/// month, kept in Data/comfyui/popular-models.json and fetched again once it is a week old, to be
+/// month, kept in SloperatorData/comfyui/popular-models.json and fetched again once it is a week old, to be
 /// found by what they are for (their tags: anime, furry, photography, landscape…). Searched for
 /// "anime", Civitai ranks its matches by downloads of all time, and years-old SD 1.5 models came
 /// first; the month's most downloaded checkpoints in October 2026 were on bases no model's memory

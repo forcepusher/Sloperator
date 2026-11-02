@@ -155,7 +155,7 @@ public static class MediaPreview
     private static (string, SKBitmap?, string) LookAtVideo(string path, string size, IMediaDecoder? decoder, bool makeTile)
     {
         if (decoder?.Probe(path) is not { } info)
-            return ($"video, {size} (nothing on this PC can decode it to look at it; ffmpeg in Data/tools would)", null, "");
+            return ($"video, {size} (nothing on this PC can decode it to look at it; ffmpeg in SloperatorData/tools would)", null, "");
         var line = info.Describe() + ", " + size;
         // A sound track can be there and be silent; qwen3.8 ran ffmpeg's volumedetect to find out.
         if (info.HasAudio && decoder.OpenAudio(path) is { } sound)
@@ -237,7 +237,7 @@ public static class MediaPreview
     {
         using var reader = decoder?.OpenAudio(path);
         if (reader is null)
-            return ($"sound, {size} (nothing on this PC can decode it to listen to it; ffmpeg in Data/tools would)", null, "");
+            return ($"sound, {size} (nothing on this PC can decode it to listen to it; ffmpeg in SloperatorData/tools would)", null, "");
         var (mono, rate) = ReadMono(reader, TimeSpan.FromMinutes(10));
         var seconds = mono.Length / (double)rate;
         var stats = SoundStats.Of(mono, rate);

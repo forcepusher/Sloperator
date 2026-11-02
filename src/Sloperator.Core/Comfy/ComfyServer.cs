@@ -73,7 +73,7 @@ public sealed record ComfyInstall(string Root, string CodeDir, string Program, C
 
     /// <summary>
     /// Looks for ComfyUI on this PC: the Desktop app, then <paramref name="firstLookIn"/> (Sloperator's
-    /// Data/tools, where it installs one), the folders launchers keep it in (Stability Matrix,
+    /// SloperatorData/tools, where it installs one), the folders launchers keep it in (Stability Matrix,
     /// Pinokio), every fixed drive and the user's own folders, a few levels deep
     /// (C:\ComfyUI_windows_portable, D:\AI\ComfyUI, …): portable builds, and installs of
     /// one's own with a venv or the system's Python. Gives up after <paramref name="budget"/>; the

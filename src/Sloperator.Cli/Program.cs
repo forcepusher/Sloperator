@@ -7,8 +7,8 @@ using Sloperator.Core.Tools;
 
 // Usage: sloperator-cli [--root DIR] [--url URL] [--model ID] [--effort LEVEL] [--yes] [--save-shots DIR] [--full-results] [--attach FILE]... [--then TEXT]... [--no-index] "task"
 //   --root        portable folder (default: SLOPERATOR_HOME, else .dev/ when run from the repository, else the exe folder);
-//                 its Data/mcp.json lists the MCP servers to start, as in the app
-//   --url/--model override the server address and model saved in Data/settings.json; with no model, or one the
+//                 its SloperatorData/mcp.json lists the MCP servers to start, as in the app
+//   --url/--model override the server address and model saved in SloperatorData/settings.json; with no model, or one the
 //                 server doesn't offer, the strongest model it offers is used
 //   --effort      how hard the model thinks: low, medium, high, xhigh or max (saved: medium), for a model that takes it
 //   --yes         approve risky tools without asking
@@ -59,7 +59,7 @@ if (attached.FirstOrDefault(f => !File.Exists(f) && !Directory.Exists(f)) is { }
     return 2;
 }
 
-var paths = new AppPaths(root);
+var paths = AppPaths.Open(root);
 paths.EnsureCreated();
 var settings = new SettingsStore(paths).Load();
 #if WINDOWS
@@ -131,7 +131,7 @@ catch (OperationCanceledException) when (cts.IsCancellationRequested)
     Console.WriteLine("[server] stopped while connecting to the server");
     return 1;
 }
-// MCP servers from Data/mcp.json, as in the app; a broken list is reported and skipped.
+// MCP servers from SloperatorData/mcp.json, as in the app; a broken list is reported and skipped.
 await using var mcp = new McpHost();
 try
 {

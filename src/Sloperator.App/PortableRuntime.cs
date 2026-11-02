@@ -12,7 +12,7 @@ namespace Sloperator.App;
 /// .NET can bundle managed code into one exe, but native libraries (Skia, HarfBuzz, ANGLE) have
 /// to exist as real files. The single-file publish embeds them as a zip packed with Brotli
 /// (scripts/pack-runtime.cs: 2.4 MB less than the zip's own compression); on first
-/// run (or after an update) they are unpacked into <c>Data/runtime</c> next to the exe, never
+/// run (or after an update) they are unpacked into <c>SloperatorData/runtime</c> next to the exe, never
 /// into %TEMP%, so the app stays portable and leaves nothing elsewhere on the system.
 /// </remarks>
 internal static class PortableRuntime
@@ -29,7 +29,10 @@ internal static class PortableRuntime
     public static bool SingleFile { get; } = Assembly.GetExecutingAssembly().GetManifestResourceInfo(PayloadName) is not null;
 
     /// <summary>The portable folder this build keeps its data in (debug builds: <c>.dev/</c> in the repository).</summary>
-    public static AppPaths FindPaths() => new(AppPaths.FindRoot(useRepositoryDevFolder: DebugBuild));
+    /// <remarks>Opened once (see <see cref="AppPaths.Open"/>), so the whole run keeps to the folder its start chose.</remarks>
+    public static AppPaths FindPaths() => _paths ??= AppPaths.Open(AppPaths.FindRoot(useRepositoryDevFolder: DebugBuild));
+
+    private static AppPaths? _paths;
 
     /// <summary>Unpacks the embedded payload if this build has one, then points native loading at it.</summary>
     public static void Prepare(AppPaths paths)
@@ -51,11 +54,11 @@ internal static class PortableRuntime
                 // Another version of Sloperator runs from this folder (a newer download, "Sloperator (1).exe",
                 // started while the old one was open) and holds the libraries: "Sloperator could not
                 // start. UnauthorizedAccessException: Access to the path 'libSkiaSharp.dll' is denied."
-                // This one unpacks beside them; the next start alone goes back to Data/runtime.
+                // This one unpacks beside them; the next start alone goes back to SloperatorData/runtime.
                 // Whatever is left of the folder counts: started by a restart into an update, the old
                 // version, still ending, had let go of libSkiaSharp.dll but not of libHarfBuzzSharp.dll,
                 // and the deleting got rid of the one it looked for before failing on the other.
-                // A Data folder that takes nothing (Program Files) fails beside them too, and says so.
+                // A SloperatorData folder that takes nothing (Program Files) fails beside them too, and says so.
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && Directory.Exists(dir))
                 {
                     dir = Path.Combine(paths.DataDir, $"runtime-{moduleId.ToString("N")[..8]}");

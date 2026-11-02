@@ -1005,7 +1005,7 @@ public sealed class VideoMontageTests : IDisposable
     {
         var board = Video("""{"shots": [{"id": "s1"}]}""");
         var ex = await Assert.ThrowsAsync<VideoException>(() => VideoMontage.JoinAsync(board, null, null, null, CancellationToken.None));
-        Assert.Contains("Data\\tools", ex.Message);
+        Assert.Contains("SloperatorData\\tools", ex.Message);
     }
 }
 
@@ -1220,7 +1220,7 @@ public sealed class VideoEditorToolTests : IDisposable
     public async Task Without_a_path_a_new_video_goes_into_the_videos_folder_and_never_over_another()
     {
         var tool = new VideoEditorTool();
-        var videos = Path.Combine(_dir, "Data", "videos");
+        var videos = Path.Combine(_dir, "SloperatorData", "videos");
         var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, VideosDirectory = videos };
         JsonObject Call() => new()
         {
@@ -1290,7 +1290,7 @@ public sealed class VideoEditorToolTests : IDisposable
     public async Task A_second_video_laid_out_without_a_path_is_a_video_of_its_own()
     {
         // "Two ads, coffee and tea": the tea ad, without a path, was written over the coffee one.
-        var videos = Path.Combine(_dir, "Data", "videos");
+        var videos = Path.Combine(_dir, "SloperatorData", "videos");
         var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, VideosDirectory = videos };
         var tool = new VideoEditorTool();
         JsonObject Call(string json) => new() { ["action"] = "storyboard", ["storyboard"] = JsonNode.Parse(json) };
@@ -1374,7 +1374,7 @@ public sealed class VideoEditorToolTests : IDisposable
     public async Task A_new_video_given_by_name_goes_into_the_videos_folder_not_the_working_one()
     {
         // qwen3.8 gave path "lighthouse": the video was made in the user's home folder.
-        var videos = Path.Combine(_dir, "Data", "videos");
+        var videos = Path.Combine(_dir, "SloperatorData", "videos");
         var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, VideosDirectory = videos };
         var made = await new VideoEditorTool().ExecuteAsync(new JsonObject
         {

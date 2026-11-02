@@ -8,7 +8,7 @@ namespace Sloperator.Core.Ssh;
 /// The servers a chat is logged in to, one <see cref="SshHost"/> per user, host and port, kept
 /// until the chat ends. Logs in with the key the model names, keys named earlier in the chat (as
 /// ssh-agent offers the keys it holds), the keys in ~/.ssh, or a password the user gave. Host
-/// keys are checked against Sloperator's own known_hosts (Data/known_hosts): the first key a server
+/// keys are checked against Sloperator's own known_hosts (SloperatorData/known_hosts): the first key a server
 /// shows is saved, and a different one later is refused, as OpenSSH does.
 /// </summary>
 public sealed class SshHosts(string knownHostsFile) : IDisposable

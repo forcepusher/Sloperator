@@ -233,7 +233,7 @@ public static class VideoMontage
     {
         if (ffmpeg is null)
             throw new VideoException("Joining the shots needs ffmpeg, and there is none on this PC: download a portable build (ffmpeg's own site links them, such as gyan.dev's " +
-                                    "ffmpeg-release-essentials.zip) and unpack it into Sloperator's Data\\tools, where it is found, then join again.");
+                                    "ffmpeg-release-essentials.zip) and unpack it into Sloperator's SloperatorData\\tools, where it is found, then join again.");
         var output = board.VideoFile;
         var temp = Path.Combine(board.Folder, "." + Path.GetFileNameWithoutExtension(output) + ".joining.mp4");
         var (args, length, notes) = Plan(board, file => decoder?.Probe(file)?.HasAudio ?? true, temp);

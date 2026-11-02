@@ -27,7 +27,7 @@
   setup.txt, check.txt and shots\. The VM is reset from its snapshot before every task.
 
 .EXAMPLE
-  ./scripts/sysadmin-test.ps1                              # every task, server and model from Data/settings.json
+  ./scripts/sysadmin-test.ps1                              # every task, server and model from SloperatorData/settings.json
   ./scripts/sysadmin-test.ps1 -Tasks game-server,fix-website -Model qwen3.8-27b@q6_k_xl
   ./scripts/sysadmin-test.ps1 -SelfTest                    # reference solutions only: checks the checks, no model
   ./scripts/sysadmin-test.ps1 -Cli D:\old\sloperator-cli.exe # another build, e.g. to compare with a baseline
@@ -105,7 +105,7 @@ $savedOld = Join-Path $out "known_hosts.old.bak"
 if (Test-Path $userKnownOld) { Copy-Item $userKnownOld $savedOld }
 
 # Sloperator's own known_hosts: a rebuilt lab has new host keys, which Sloperator would rightly refuse.
-$bbKnown = Join-Path $(if ($Root) { $Root } else { Join-Path $LabRepo ".dev" }) "Data\known_hosts"
+$bbKnown = Join-Path $(if ($Root) { $Root } else { Join-Path $LabRepo ".dev" }) "SloperatorData\known_hosts"
 if (Test-Path $bbKnown) {
   @(Get-Content $bbKnown | Where-Object { $_ -notlike "$LabIp *" -and $_ -notlike "$LabIp2 *" }) | Set-Content -Encoding ascii $bbKnown
 }

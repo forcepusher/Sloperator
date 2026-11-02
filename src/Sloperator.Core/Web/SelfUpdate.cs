@@ -53,7 +53,7 @@ public static class SelfUpdate
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
-    /// <summary>Writes down that a check was made at <paramref name="when"/>; a Data folder that takes nothing just means the next start checks again.</summary>
+    /// <summary>Writes down that a check was made at <paramref name="when"/>; a SloperatorData folder that takes nothing just means the next start checks again.</summary>
     public static void Checked(string file, DateTime when)
     {
         try { File.WriteAllText(file, when.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture)); }

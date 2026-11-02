@@ -9,7 +9,7 @@
   .dev\unity2048-archive\ first.
 
 .EXAMPLE
-  ./scripts/unity2048-test.ps1                         # server and model from Data/settings.json
+  ./scripts/unity2048-test.ps1                         # server and model from SloperatorData/settings.json
   ./scripts/unity2048-test.ps1 -Model qwen3.8-27b@q6_k_xl -Hours 10
 #>
 param([string]$Root = "", [string]$Url = "", [string]$Model = "", [double]$Hours = 10,

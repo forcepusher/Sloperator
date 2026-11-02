@@ -8,7 +8,7 @@ using Xunit;
 namespace Sloperator.Core.Tests;
 
 /// <summary>
-/// Several Sloperator windows at once, in one process with one Data folder: the settings each one
+/// Several Sloperator windows at once, in one process with one SloperatorData folder: the settings each one
 /// changes, and the mouse and keyboard their agents take turns with.
 /// </summary>
 public class SeveralWindowsTests : IDisposable

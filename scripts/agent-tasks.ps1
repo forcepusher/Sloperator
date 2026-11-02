@@ -9,7 +9,7 @@
   PASS or FAIL.
 
 .EXAMPLE
-  ./scripts/agent-tasks.ps1                         # server and model from Data/settings.json
+  ./scripts/agent-tasks.ps1                         # server and model from SloperatorData/settings.json
   ./scripts/agent-tasks.ps1 -Tasks mm-type,mm-click # some of them
   ./scripts/agent-tasks.ps1 -Root D:\bb-other       # another portable root with its own settings
   ./scripts/agent-tasks.ps1 -Url http://host:1234/v1 -Model qwen3.8-27b@q4_k_s

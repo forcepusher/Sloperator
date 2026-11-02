@@ -19,8 +19,8 @@ public sealed partial class Updater : ObservableObject
     private bool _due, _checking;
 
     /// <param name="busy">Whether a run is going in any window.</param>
-    /// <param name="checkFile">Where the time of the last check is kept, across starts (Data/update-check.txt).</param>
-    /// <param name="rejectedFile">The version whose download wasn't kept, signed by another publisher (Data/update-rejected.txt).</param>
+    /// <param name="checkFile">Where the time of the last check is kept, across starts (SloperatorData/update-check.txt).</param>
+    /// <param name="rejectedFile">The version whose download wasn't kept, signed by another publisher (SloperatorData/update-rejected.txt).</param>
     /// <param name="signature">A file's Authenticode signature, as Windows checks it.</param>
     internal Updater(Func<bool> busy, string checkFile, string rejectedFile, Func<string, Signature> signature)
     {

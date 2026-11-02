@@ -1485,8 +1485,8 @@ public class AgentSessionTests
     public void What_nothing_on_the_PC_opens_gets_a_tool_in_Sloperators_own_folder()
     {
         // The user's rule, after a PDF was decoded by hand in PowerShell: fetch a portable tool or install the program.
-        var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "", webSearch: true, toolsDirectory: @"D:\Sloperator\Data\tools");
-        Assert.Contains(@"download a portable tool for it into D:\Sloperator\Data\tools (an official build; look it up with web_search), or install the program", prompt);
+        var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "", webSearch: true, toolsDirectory: @"D:\Sloperator\SloperatorData\tools");
+        Assert.Contains(@"download a portable tool for it into D:\Sloperator\SloperatorData\tools (an official build; look it up with web_search), or install the program", prompt);
         Assert.Contains("Accept license agreements", prompt);
         // A reminder whose process died on a quoting error was reported as set.
         Assert.Contains("check that it is running before you say it's set up", prompt);
@@ -1495,9 +1495,9 @@ public class AgentSessionTests
         // A server it uses goes into Settings, not run once from a script and forgotten.
         Assert.Contains("Always go through mcp_servers, which saves the server in the user's Settings", prompt);
         // Helper files go to Sloperator's own folder, not the user's (a reminder script landed in the home folder).
-        Assert.Contains(@"go in D:\Sloperator\Data\scratch, not in the user's folders",
-            SystemPrompt.Build("Test OS", null, "C:\\", "", toolsDirectory: @"D:\Sloperator\Data\tools", scratchDirectory: @"D:\Sloperator\Data\scratch"));
-        Assert.DoesNotContain("web_search", SystemPrompt.Build("Test OS", null, "C:\\", "", toolsDirectory: @"D:\Sloperator\Data\tools"));
+        Assert.Contains(@"go in D:\Sloperator\SloperatorData\scratch, not in the user's folders",
+            SystemPrompt.Build("Test OS", null, "C:\\", "", toolsDirectory: @"D:\Sloperator\SloperatorData\tools", scratchDirectory: @"D:\Sloperator\SloperatorData\scratch"));
+        Assert.DoesNotContain("web_search", SystemPrompt.Build("Test OS", null, "C:\\", "", toolsDirectory: @"D:\Sloperator\SloperatorData\tools"));
     }
 
     [Fact]

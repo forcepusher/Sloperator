@@ -5,14 +5,14 @@ using System.Text;
 namespace Sloperator.App;
 
 /// <summary>
-/// One Sloperator at a time per Data folder: started again (a second double-click on the exe, a
+/// One Sloperator at a time per SloperatorData folder: started again (a second double-click on the exe, a
 /// shortcut), it asks the one that runs to open another window, and ends. Windows side by side
 /// are then one process, which shares the mouse and keyboard, Pause/Break and the chats among them
 /// without any talk between programs (see <see cref="ChatWindows"/>).
 /// </summary>
 /// <remarks>
 /// The one that runs is found by a named mutex and asked over a named pipe of the same name, open
-/// to this Windows user alone. The name stands for the user, the Windows session, the Data folder
+/// to this Windows user alone. The name stands for the user, the Windows session, the SloperatorData folder
 /// and this build: another build in the folder (a newer download started beside the old one) runs
 /// on its own, as it would before.
 /// </remarks>
@@ -30,7 +30,7 @@ internal static class SingleInstance
     private static volatile bool _ending;
 
     /// <summary>
-    /// True when a Sloperator runs from the Data folder already and has opened another window: this
+    /// True when a Sloperator runs from the SloperatorData folder already and has opened another window: this
     /// one is done. Otherwise this one is the Sloperator for the folder, and takes the next starts'
     /// requests from now on (see <see cref="OnOpenWindow"/>).
     /// </summary>

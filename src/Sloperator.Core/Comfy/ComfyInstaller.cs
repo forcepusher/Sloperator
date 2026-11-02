@@ -156,9 +156,9 @@ public static partial class ComfyHardware
 }
 
 /// <summary>
-/// Installs ComfyUI's portable build for this PC into Sloperator's Data/tools: the right archive
+/// Installs ComfyUI's portable build for this PC into Sloperator's SloperatorData/tools: the right archive
 /// from its GitHub release (checked against the SHA-256 GitHub gives), unpacked with 7-Zip (the
-/// PC's own, or 7-Zip's small console 7zr.exe fetched into Data/tools). Windows' own tar can't
+/// PC's own, or 7-Zip's small console 7zr.exe fetched into SloperatorData/tools). Windows' own tar can't
 /// unpack it: the archive is LZMA2, which Windows 10's tar refuses.
 /// </summary>
 public static partial class ComfyInstaller
@@ -222,7 +222,7 @@ public static partial class ComfyInstaller
             ? (url, release.Sha256, release.Tag)
             : (new Uri($"{Releases}/latest/download/{asset}"), null, "latest");
 
-    /// <summary>A 7-Zip that unpacks .7z: the PC's own, one fetched for an earlier task, or 7zr.exe fetched now into Data/tools/7-Zip.</summary>
+    /// <summary>A 7-Zip that unpacks .7z: the PC's own, one fetched for an earlier task, or 7zr.exe fetched now into SloperatorData/tools/7-Zip.</summary>
     internal static async Task<string> SevenZipAsync(string toolsDir, Action<string>? progress, CancellationToken ct)
     {
         var programFiles = new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) };

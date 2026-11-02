@@ -21,7 +21,7 @@
   people saw it), events.jsonl (the lab's log) and shots\.
 
 .EXAMPLE
-  ./scripts/chat-test.ps1                                     # every scenario, server and model from Data/settings.json
+  ./scripts/chat-test.ps1                                     # every scenario, server and model from SloperatorData/settings.json
   ./scripts/chat-test.ps1 -Scenarios inbox,haggle -Url http://host:1234/v1 -Model qwen3.8-27b@q6_k_xl
   ./scripts/chat-test.ps1 -SelfTest                           # the reference stand-in instead of Sloperator: checks the checks, no model or browser
   ./scripts/chat-test.ps1 -Cli D:\old\sloperator-cli.exe        # another build, e.g. to compare with a baseline

@@ -12,12 +12,12 @@
   rubric, without knowing which run had the index.
 
 .EXAMPLE
-  ./scripts/index-bench.ps1 -Settings .dev\index-bench\qwen\Data\settings.json -Label qwen -Runs 2
-  ./scripts/index-bench.ps1 -Settings .dev\index-bench\claude\Data\settings.json -Label claude -Parallel 3
+  ./scripts/index-bench.ps1 -Settings .dev\index-bench\qwen\SloperatorData\settings.json -Label qwen -Runs 2
+  ./scripts/index-bench.ps1 -Settings .dev\index-bench\claude\SloperatorData\settings.json -Label claude -Parallel 3
   ./scripts/index-bench.ps1 -Settings ... -Label try -Tasks repeat -Conditions with -Runs 1
 #>
 param(
-  [Parameter(Mandatory = $true)][string]$Settings,  # a Data\settings.json to start each run's root with (server, model, key)
+  [Parameter(Mandatory = $true)][string]$Settings,  # a SloperatorData\settings.json to start each run's root with (server, model, key)
   [string]$Label = (Get-Date -Format "yyyyMMdd-HHmmss"),
   [string[]]$Tasks = @(),
   [string[]]$Conditions = @("with", "without"),
@@ -121,8 +121,8 @@ function Start-Run($task, [string]$cond, [int]$n, [int]$slot) {
   if (Test-Path (Join-Path $dir "result.json")) { return $null }  # done in an earlier call with this label
   if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
   $root = Join-Path $dir "root"
-  New-Item -ItemType Directory -Force (Join-Path $root "Data") | Out-Null
-  Copy-Item $Settings (Join-Path $root "Data\settings.json")
+  New-Item -ItemType Directory -Force (Join-Path $root "SloperatorData") | Out-Null
+  Copy-Item $Settings (Join-Path $root "SloperatorData\settings.json")
   $project = Get-Slot $task.project $slot
   $prompt = $task.prompt.Replace("{path}", $project)
   $argLine = @("--root", (Quote-Arg $root), "--yes")

@@ -168,7 +168,7 @@ public sealed class ChatWindows
             _notifying = _notifying.ContinueWith(_ => act(notifications), TaskScheduler.Default);
     }
 
-    /// <summary>Sloperator's picture for the notifications, as a file Windows can read: Data\sloperator.png, written once a start.</summary>
+    /// <summary>Sloperator's picture for the notifications, as a file Windows can read: SloperatorData\sloperator.png, written once a start.</summary>
     private string? NotifyIcon()
     {
         if (_notifyIcon is not null)

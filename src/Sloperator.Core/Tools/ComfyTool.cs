@@ -63,7 +63,7 @@ public sealed partial class ComfyTool : Tool
         ("base", Str("find_models: the model it should be made for, e.g. \"SD 1.5\", \"SDXL\", \"Flux\""), false),
         ("url", Str("download: the model file's link, as find_models or a template gives it (a Civitai or Hugging Face page works too)"), false),
         ("model_folder", Str("download: the models folder it goes in (checkpoints, loras, vae, upscale_models, controlnet, embeddings, diffusion_models, text_encoders…); find_models gives it"), false),
-        ("folder", Str("ComfyUI's folder, if it isn't found by itself or another one should be used (install: where to install it, else Sloperator's Data\\tools)"), false));
+        ("folder", Str("ComfyUI's folder, if it isn't found by itself or another one should be used (install: where to install it, else Sloperator's SloperatorData\\tools)"), false));
 
     public override string Describe(JsonObject args)
     {
@@ -273,7 +273,7 @@ public sealed partial class ComfyTool : Tool
         var build = ComfyHardware.Pick(ComfyHardware.Cards(), ComfyInstaller.Arm64);
         var ram = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1073741824.0;
         // Not "isn't installed": a Sloperator that hasn't used one yet doesn't know. Asked for the
-        // month's most downloaded first thing in a fresh Data folder, qwen3.8 read that and ran
+        // month's most downloaded first thing in a fresh SloperatorData folder, qwen3.8 read that and ran
         // action=install, which found the PC's own ComfyUI and started it.
         var installed = hub.SavedInstall is not null ? "isn't running; it runs"
             : "isn't running, and none has been used from this Sloperator yet (action=status finds the PC's own and starts it; action=install is for a PC without one); it would run";

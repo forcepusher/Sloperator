@@ -31,11 +31,11 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private FileSystemWatcher? _watcher;
     private bool _loading;
 
-    /// <summary>Where videos go, a folder each: Sloperator's Data\videos, next to the exe like the rest of its data.</summary>
+    /// <summary>Where videos go, a folder each: Sloperator's SloperatorData\videos, next to the exe like the rest of its data.</summary>
     private readonly string _videosRoot;
 
     /// <param name="chat">The chat the panel is open in, where what is said about the video runs.</param>
-    /// <param name="videosRoot">Where videos go (Sloperator's Data\videos).</param>
+    /// <param name="videosRoot">Where videos go (Sloperator's SloperatorData\videos).</param>
     /// <param name="folder">The video to open; the latest changed one when null.</param>
     public VideoEditorViewModel(PreviewServices previews, MainWindowViewModel chat, string videosRoot, string? folder)
     {
@@ -86,7 +86,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     }
 
     /// <summary>
-    /// A new video in Sloperator's Data\videos, its name typed as a new folder's is in Explorer. Its folder
+    /// A new video in Sloperator's SloperatorData\videos, its name typed as a new folder's is in Explorer. Its folder
     /// is made with the first change: opening the panel to look leaves nothing behind. The user says
     /// in the chat what it is to be.
     /// </summary>

@@ -76,7 +76,7 @@ public class FileChangesTests : IDisposable
     public async Task Files_in_Sloperators_own_Data_folder_are_not_listed()
     {
         // The agent's scratch notes are no change of the user's (the user, 2026-10-27).
-        var data = Path.Combine(_root, "Data");
+        var data = Path.Combine(_root, "SloperatorData");
         var changes = new FileChanges();
         var ctx = new ToolContext
         {
