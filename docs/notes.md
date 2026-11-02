@@ -4992,6 +4992,13 @@ What the runs showed and what changed:
   unless given `seconds` (the taskbar clock ticking counts, so about a minute at most), compares only with
   the screen as it starts and always screenshots at the end. A message that comes while the model
   decides to wait is again seen only at the next change or when the wait runs out.
+  Measured on 2026-11-02 against 1.3.0 (away, haggle, support; scores new / 1.3.0): Qwen 20/21,
+  13/13, 12/12 / 19/21, 13/13, 12/12 in 29, 28, 24 steps / 36, 34, 28; Haiku 21/21, 12/13, 12/12 on
+  both (haggle opened at the limit), away in 41 tool calls / 57. Haiku used `wait_until_change` for
+  the watches and plain `wait` for short pauses; under 1.3.0 it made 13 one- and two-second waits,
+  each with a screenshot, in away. Qwen polled away with `wait` and `screenshot_on_end`. A build and
+  a download that finish off screen in a minute passed 6/6 on both builds: no screenshot from the
+  new `wait`, three from 1.3.0's.
 
 The evening watch crossed a context reset: the handoff note listed every reply and the thank-yous
 it had rightly left alone, nobody was answered twice, and after the reset it again told Sam the
