@@ -63,12 +63,17 @@ $singleFile = @("-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfEx
     "-p:PublishTrimmed=true", "-p:TrimMode=full", "-p:EnableCompressionInSingleFile=true")
 
 # 1) Single-file publish to a staging folder to collect the native libraries it leaves beside the exe.
+#    Untrimmed and uncompressed: the native libraries come out the same, and trimming takes minutes
+#    (the WebView2 interfaces of Avalonia.Controls.WebView, see docs/notes.md). Its deps.json goes to
+#    the staging folder: left in obj, the trimmed publish would take it as up to date and bundle it.
 $stage = Join-Path ([IO.Path]::GetTempPath()) "sloperator-publish-$([guid]::NewGuid().ToString('N'))"
 try {
-    Publish (Join-Path $stage "first") $singleFile
+    $first = Join-Path $stage "first"
+    Publish $first @("-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=false",
+        "-p:PublishDepsFilePath=$(Join-Path $stage 'first.deps.json')")
     $payloadDir = Join-Path $stage "payload"
     New-Item -ItemType Directory -Force $payloadDir | Out-Null
-    Get-ChildItem (Join-Path $stage "first") -File | Where-Object { $_.Extension -in ".dll", ".so", ".dylib" } |
+    Get-ChildItem $first -File | Where-Object { $_.Extension -in ".dll", ".so", ".dylib" } |
         Copy-Item -Destination $payloadDir
     # Packed with Brotli by a script of its own: Windows PowerShell's .NET has no Brotli.
     $packed = Join-Path $stage "runtime.br"
