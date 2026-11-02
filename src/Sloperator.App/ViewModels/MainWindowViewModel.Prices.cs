@@ -10,16 +10,16 @@ public sealed partial class MainWindowViewModel
 {
     // ---- Auto pricing lookup ------------------------------------------------------------------
 
-    /// <summary>The models the agent was asked to look up the prices of since Sloperator started, in any window, by server and model: each once.</summary>
+    /// <summary>The models whose prices were looked up since Sloperator started, in any window, by server and model: each once.</summary>
     private static readonly ConcurrentDictionary<string, bool> PricesAsked = new();
 
     /// <summary>
-    /// The run's <see cref="Core.Agent.AgentSession.PriceNudge"/>, for <paramref name="baseUrl"/> and
+    /// The run's <see cref="Core.Agent.AgentSession.PriceLookup"/>, for <paramref name="baseUrl"/> and
     /// <paramref name="model"/>: with Auto pricing lookup on (Settings > Advanced, the user 2026-11-02),
-    /// a model that replied with no cost from its server and has no prices has the agent asked to look
-    /// them up and keep them with set_api_pricing, once while Sloperator runs. Called on the agent's thread.
+    /// a model that replied with no cost from its server and has no prices has them looked up and kept with
+    /// set_api_pricing in a side task, once while Sloperator runs. Called on the agent's thread.
     /// </summary>
-    private Func<string?> PriceNudgeFor(string baseUrl, string model) => () =>
+    private Func<string?> PriceLookupFor(string baseUrl, string model) => () =>
     {
         if (!_settings.Cost.AutoLookup || model.Length == 0)
             return null;

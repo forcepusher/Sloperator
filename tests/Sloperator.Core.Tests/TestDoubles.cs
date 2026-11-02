@@ -211,6 +211,10 @@ internal sealed class RecordingObserver : IAgentObserver
 
     public void OnToolStarted(ToolCall call, string summary) => ToolsRun.Add(call.Name);
 
+    /// <summary>What the calls said of how they got on, in order (a side task's steps).</summary>
+    public List<string> Progress { get; } = [];
+    public void OnToolProgress(ToolCall call, string text) => Progress.Add(text);
+
     /// <summary>The user's messages that joined the conversation during the run, as sent.</summary>
     public List<UserInput> Delivered { get; } = [];
     public void OnUserMessageDelivered(UserInput input) => Delivered.Add(input);

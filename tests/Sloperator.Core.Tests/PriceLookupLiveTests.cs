@@ -12,17 +12,17 @@ using Xunit;
 namespace Sloperator.Core.Tests;
 
 /// <summary>
-/// Opt-in: how well a real model does with Auto pricing lookup's nudge. A small task (read a file, give its
-/// secret word) runs on a real server with Sloperator's own system prompt and tools; before it ends the model
-/// is asked to look up its prices and keep them with set_api_pricing. Measured: whether it searched, whether it
-/// kept prices, how far they are from the truth, whether it then finished its own task (the secret word in
-/// its last reply, no tool run after the prices were kept), and how many replies and seconds it took.
+/// Opt-in: how well a real model does with Auto pricing lookup's side task. A small task (read a file, give its
+/// secret word) runs on a real server with Sloperator's own system prompt and tools; after its answer a side
+/// task has the model look up its prices and keep them with set_api_pricing. Measured: whether it searched,
+/// whether it kept prices, how far they are from the truth, whether the chat's last word is still the answer
+/// (the secret word, nothing of the lookup in the conversation), and how many replies and seconds it took.
 /// BB_LIVE_URL, BB_LIVE_KEY and BB_LIVE_MODEL pick the server, key and model (as ReplyRoomLiveTests).
 /// The truth is the server's own model list where it prices models (OpenRouter, Kilo), else
 /// BB_LIVE_EXPECT, "input,output,currency" per million tokens ("30,150,₽"; "0,0,$" for a model on the
 /// user's own PC). Run with `-- xUnit.DiagnosticMessages=true` to see the measures.
 /// </summary>
-public class PriceNudgeLiveTests
+public class PriceLookupLiveTests
 {
     private static readonly string? Url = Environment.GetEnvironmentVariable("BB_LIVE_URL");
     private static readonly string Key = Environment.GetEnvironmentVariable("BB_LIVE_KEY") ?? "";
@@ -33,7 +33,7 @@ public class PriceNudgeLiveTests
     private const double Tolerance = 0.15;
 
     [Fact]
-    public async Task The_nudged_model_finds_its_prices_and_keeps_them()
+    public async Task The_side_task_finds_the_prices_and_keeps_them()
     {
         Assert.SkipWhen(Url is null, "Set BB_LIVE_URL to run.");
         var ct = TestContext.Current.CancellationToken;
@@ -50,7 +50,7 @@ public class PriceNudgeLiveTests
 
         var connection = BackendConnection.Create(http, server);
         var kept = new List<ModelPrices>();
-        var profile = Directory.CreateTempSubdirectory("bb-nudge-browser-").FullName;
+        var profile = Directory.CreateTempSubdirectory("bb-prices-browser-").FullName;
         var ctx = new ToolContext
         {
             Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(),
@@ -61,26 +61,27 @@ public class PriceNudgeLiveTests
         var session = new AgentSession(connection.Client, connection.Options,
             ToolRegistry.CreateDefault(false, [new SetApiPricingTool()], includeIndex: false, includeControl: false, includeFindText: false), ctx, prompt,
             contextTokens: connection.ContextTokens);
-        var nudged = 0;
-        session.PriceNudge = () => nudged++ == 0 ? SetApiPricingTool.LookupRequest(connection.Options.Model, connection.Client.BaseUrl) : null;
+        var asked = 0;
+        session.PriceLookup = () => asked++ == 0 ? SetApiPricingTool.LookupRequest(connection.Options.Model, connection.Client.BaseUrl) : null;
         var observer = new RecordingObserver();
         var clock = Stopwatch.StartNew();
-        // A task of its own, whose answer the last reply must still give after the lookup (the user: the
-        // model mustn't get distracted from its goal).
-        var folder = Directory.CreateTempSubdirectory("bb-nudge-task-").FullName;
+        // A task of its own, whose answer must stay the chat's last word (the user: the model mustn't get
+        // distracted from its goal).
+        var folder = Directory.CreateTempSubdirectory("bb-prices-task-").FullName;
         File.WriteAllText(Path.Combine(folder, "notes.txt"), "Shopping list: milk, eggs.\nThe secret word is PELICAN.\n");
 
         await session.RunAsync($"Read notes.txt in {folder} and tell me the secret word it holds.", observer, ct);
 
         clock.Stop();
-        var searches = observer.ToolsRun.Count(t => t is "web_search" or "fetch_page");
-        var keptAt = observer.ToolsRun.LastIndexOf("set_api_pricing");
-        var after = keptAt < 0 ? [] : observer.ToolsRun.Skip(keptAt + 1).ToList();
+        // The side task's calls are its card's progress lines; set_api_pricing's reads "Set the prices of …".
+        var searches = observer.Progress.Count(p => !p.StartsWith("Set the prices", StringComparison.Ordinal));
+        var keptAt = observer.Progress.FindLastIndex(p => p.StartsWith("Set the prices", StringComparison.Ordinal));
+        var after = keptAt < 0 ? [] : observer.Progress.Skip(keptAt + 1).ToList();
         var last = session.History.LastOrDefault(m => m.Role == ChatRole.Assistant)?.Content?.Trim() ?? "";
         var found = kept.LastOrDefault();
         var say = (string text) => TestContext.Current.SendDiagnosticMessage(text);
         say($"{server.BaseUrl} {server.Model}: {clock.Elapsed.TotalSeconds:0} s, {session.History.Count(m => m.Role == ChatRole.Assistant)} replies");
-        say($"tools: {string.Join(", ", observer.ToolsRun)}");
+        say($"tools: {string.Join(", ", observer.ToolsRun)}; side task: {string.Join(" | ", observer.Progress)}");
         say($"kept: {(found is null ? "nothing" : $"input {found.Input}, cached {found.CachedInput}, write {found.CacheWrite}, output {found.Output} {found.Currency}")}");
         say($"truth: {(truth is null ? "unknown" : $"input {truth.Value.Input}, output {truth.Value.Output} {truth.Value.Currency}")}");
         say($"tools after set_api_pricing: {(after.Count == 0 ? "none" : string.Join(", ", after))}");
@@ -89,9 +90,11 @@ public class PriceNudgeLiveTests
             say("notice: " + notice);
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
-        Assert.Equal(1, nudged);
-        // Still on its task: the secret word in the last reply, nothing run after the prices were kept.
+        Assert.Equal(1, asked);
+        // The answer is the last word: the secret word in the last reply, nothing of the lookup in the
+        // conversation, nothing run after the prices were kept.
         Assert.Contains("PELICAN", last, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(session.History, m => m.ToolCalls?.Any(c => c.Name is "set_api_pricing" or "web_search" or "fetch_page") == true);
         Assert.Empty(after);
         Assert.True(searches > 0 || truth is { Input: 0, Output: 0 }, "It kept prices without looking anything up.");
         Assert.NotNull(found);

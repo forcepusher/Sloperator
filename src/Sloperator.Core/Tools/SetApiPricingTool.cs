@@ -7,7 +7,7 @@ namespace Sloperator.Core.Tools;
 /// <summary>
 /// Keeps what a model costs on the server the run is on, per million tokens, as the prices the Cost
 /// estimates panel prices its tokens with (a cost the server reports still wins). The model calls it
-/// after looking the prices up, when Auto pricing lookup nudges it (see <see cref="Agent.AgentSession.PriceNudge"/>)
+/// after looking the prices up, in Auto pricing lookup's side task (see <see cref="Agent.AgentSession.PriceLookup"/>)
 /// or the panel's Look up prices asks (the user, 2026-11-02). Offered where the app keeps prices.
 /// </summary>
 public sealed class SetApiPricingTool : Tool
@@ -28,14 +28,15 @@ public sealed class SetApiPricingTool : Tool
     public override string Describe(JsonObject args) => $"Set the prices of {GetString(args, "model") ?? "the model in use"}";
 
     /// <summary>
-    /// What the model is asked to do, by the nudge and by the panel: find the prices of
+    /// What the model is asked to do, by the side task and by the panel: find the prices of
     /// <paramref name="model"/> on <paramref name="baseUrl"/> on the web, then keep them with this tool.
     /// </summary>
     public static string LookupRequest(string model, string baseUrl) =>
         $"Sloperator has no prices for the model {model} on the server at {baseUrl}, which doesn't report what replies cost. " +
         "Look them up on the web (web_search, then fetch_page): that server's own prices per million tokens for input, cached input (cache read), " +
         "cache write and output, in the currency it bills in. A service that resells another maker's model charges its own prices; " +
-        "a model the user runs on their own PC or network costs nothing: call set_api_pricing with 0 for all four, without searching. " +
+        "a model the user runs on their own PC or network, or one the server gives for free (\"free\" in its id), costs nothing: " +
+        "call set_api_pricing with 0 for all four, without searching. " +
         "Otherwise call set_api_pricing with what you found, leaving out a price you didn't find, and look no further.";
 
     /// <summary>The prices in the arguments; no server, and no model where they name none (see <see cref="ModelPrices.With"/>).</summary>

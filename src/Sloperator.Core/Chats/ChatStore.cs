@@ -23,6 +23,9 @@ public sealed class ChatEntry
     public string? Summary { get; set; }
     public string? State { get; set; }
 
+    /// <summary>What a tool call was given, where its card shows it (a side task's prompt); null for the rest.</summary>
+    public string? Input { get; set; }
+
     /// <summary>The files a tool call made or showed, previewed under it; for a message of the user's, the files that came with it.</summary>
     public List<string>? Files { get; set; }
 

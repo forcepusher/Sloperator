@@ -116,6 +116,12 @@ public sealed class ToolContext
     /// </summary>
     public Func<bool>? ResetContext { get; set; }
 
+    /// <summary>
+    /// Runs a side task (see <see cref="SideTaskTool"/>) on a prompt, with its final answer as the result when
+    /// output is on, and waits for it. Set by the agent session for each run; null outside one.
+    /// </summary>
+    public Func<string, bool, CancellationToken, Task<ToolResult>>? SideTask { get; set; }
+
     /// <summary>Shows the user the app's offer to install text recognition (see <see cref="Agent.IAgentObserver.OfferTextRecognition"/>); null where there is no app (the CLI).</summary>
     public Action? OfferTextRecognition { get; set; }
 

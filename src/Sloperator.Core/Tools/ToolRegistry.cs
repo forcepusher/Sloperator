@@ -63,6 +63,7 @@ public sealed class ToolRegistry
             yield return new WebSearchTool();
             yield return new FetchPageTool();
         }
+        yield return new SideTaskTool();
         yield return new ResetContextTool();
     }
 
