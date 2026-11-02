@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sloperator's folder next to the exe is called `SloperatorData` instead of `Data`, so it is clear
   whose it is. An existing `Data` folder is renamed on the first start, with your chats and settings.
 
+### Fixed
+- Selecting text at the end of the chat no longer makes the chat jump up, and back down when you
+  click away: the chat stays put while the "Selected in the chat" card is over the box.
+
 ## [1.3.0] - 2026-11-01
 ### Added
 - **Auto** in the Side panel dropdown, after None, and picked in every window: no panel until the agent
