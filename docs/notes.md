@@ -2387,7 +2387,7 @@ or `cache_read_input_tokens` (LiteLLM), kept as `ChatMessage.CachedTokens` (Clau
 it too), and the command-line runner prints it after the token counts.
 
 **The agent connects it too**: asked to connect, switch to or use another model (LM Studio on this PC,
-Claude, OpenRouter, a server the user names), the agent uses its `model_server` tool. `connect` takes
+Claude, OpenRouter, a server the user names), the agent uses its `switch_model` tool. It takes
 the address, the key the user gave (an address already in use keeps its own, as does one in the
 top bar's Saved list, so "switch back to Claude" needs no key again; another server gets none) and a model as the server lists it or a unique part of its name (none: Sloperator's pick). The
 server is checked first, as the top bar checks it, and nothing changes if it doesn't answer, turns
@@ -2403,11 +2403,17 @@ minutes looking for a settings screen, since Sloperator's window is left out of 
 switched nothing; with the tool it connected in one call, 6 seconds, and the next message was
 answered by that server (29 October 2026, the real app against a stand-in server, with and without a key).
 
-`effort` sets the top bar's effort as its dropdown would: saved, used from the next message on (the
-run going on keeps its own, as with the model). A model that takes none (the dropdown greyed out)
-changes nothing, and the result says so; one that doesn't take the level asked for gets the nearest
-it takes, while the one asked for is kept for a model that takes it. `show` names the effort in use
-and the levels the model takes.
+`set_effort` sets the top bar's effort as its dropdown would: saved, used from the next message on
+(the run going on keeps its own, as with the model). A model that takes none (the dropdown greyed
+out) changes nothing, and the result says so; one that doesn't take the level asked for gets the
+nearest it takes, while the one asked for is kept for a model that takes it. It is read-only for
+approval, as it changes nothing outside Sloperator, and a "done" with it alone doesn't end the turn
+before it runs. `list_models` says the server, the model and effort in use, the levels the model
+takes and the models the server offers.
+
+These were one `model_server` tool with an `action` (show, connect, effort) until 3 November 2026:
+the user found its five parameters, each good for one action only, and its name too much, so each
+action became a tool of its own with only its own parameters.
 
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
@@ -3061,7 +3067,9 @@ prints the traceback and exits with 0.
 | `web_search` | Searches the web: titles, links and snippets (see below) |
 | `fetch_page` | Reads a web page as plain text; `find` returns only the passages that mention some words, `start` reads on in a long page |
 | `mcp_servers` | Adds, removes and lists MCP servers: a server the agent adds starts at once, its tools join the run, and it is kept in `SloperatorData/mcp.json` for later tasks (see below) |
-| `model_server` | The model Sloperator itself runs on: `show` says the server, model, effort and the models it offers; `connect` switches the top bar to another server, key and model, after checking the server answers; `effort` sets the top bar's effort (see Connecting to a model) |
+| `list_models` | The model Sloperator itself runs on: the server, the model and effort in use, and the models the server offers |
+| `switch_model` | Switches the top bar to another server, key and model, after checking the server answers (see Connecting to a model) |
+| `set_effort` | Sets the top bar's effort, low to max, from the next message on |
 | `<server>__<tool>` | Any tool of the MCP servers you or the agent added (see below) |
 
 Settings → General → Safety's first row, **Tool call approval**, picks when the agent asks before acting: "Ask before every action", "Ask before

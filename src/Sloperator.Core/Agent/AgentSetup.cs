@@ -18,7 +18,7 @@ public static class AgentSetup
     /// <param name="desktopSeat">The window the agent works in (see <see cref="ToolContext.DesktopSeat"/>).</param>
     /// <param name="folderIndex">Whether the agent has index_folder (its tool, prompt line and note); off only to measure what the index changes.</param>
     /// <param name="changes">The chat's list of the files the agent changed (see <see cref="ToolContext.Changes"/>).</param>
-    /// <param name="modelServer">The app's top bar, for the agent to switch the model Sloperator runs on (model_server); null for none.</param>
+    /// <param name="modelServer">The app's top bar, for the agent to switch the model and effort Sloperator runs on (list_models, switch_model, set_effort); null for none.</param>
     /// <param name="chatDirectory">The chat's own folder (see <see cref="ToolContext.ChatDirectory"/>); null where there is no saved chat.</param>
     /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
     /// <param name="setPrices">Keeps a model's prices (the app's Cost estimates), for set_api_pricing; null for no such tool.</param>
@@ -71,7 +71,7 @@ public static class AgentSetup
 
         // The MCP tools are a snapshot: the tool list stays the same for the whole run, unless the
         // agent sets up a server itself (mcp_servers), whose tools then join it.
-        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ModelServerTool()]), .. (setPrices is null ? (Tool[])[] : [new SetApiPricingTool()]), .. mcp.Tools], includeIndex: folderIndex,
+        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ListModelsTool(), new SwitchModelTool(), new SetEffortTool()]), .. (setPrices is null ? (Tool[])[] : [new SetApiPricingTool()]), .. mcp.Tools], includeIndex: folderIndex,
             includeControl: agent.Controls, includeFindText: agent.EnableTextRecognition);
         mcpSetup.Registry = registry;
         string Prompt() => SystemPrompt.Build(platform.Name, screens, ctx.WorkingDirectory, agent.CustomInstructions, mcp.Connected, webSearch: true, paths.ToolsDir, paths.ScratchDir,

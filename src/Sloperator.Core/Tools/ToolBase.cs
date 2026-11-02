@@ -39,7 +39,7 @@ public sealed class ToolContext
     /// <summary>Where relative paths and shell commands start (the user's home folder). Not a limit: tools reach the whole PC.</summary>
     public required string WorkingDirectory { get; init; }
 
-    /// <summary>The app's top bar, for model_server to switch the server, key and model Sloperator runs on; null where there is none (the CLI).</summary>
+    /// <summary>The app's top bar, for switch_model and set_effort to switch the server, key, model and effort Sloperator runs on; null where there is none (the CLI).</summary>
     public IModelServerSwitch? ModelServer { get; init; }
 
     /// <summary>
