@@ -79,7 +79,7 @@ public static class ChatCut
 
     /// <summary>Tools that only look, wait or point: what they did needs no undoing.</summary>
     private static readonly HashSet<string> OnlyLook =
-        ["screenshot", "zoom", "capture_result", "find_text", "read_file", "list_directory", "index_folder", "diff", "web_search", "fetch_page", "subagent", "wait", "wait_until_change", "mouse_move"];
+        ["screenshot", "zoom", "capture_result", "find_text", "read_file", "list_directory", "index_folder", "diff", "web_search", "fetch_page", "wait", "wait_until_change", "mouse_move"];
 
     /// <summary>The tools whose changes File changes keeps, to put back.</summary>
     private static readonly HashSet<string> Kept = ["write_file", "edit_file"];

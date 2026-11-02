@@ -52,9 +52,8 @@ public static class AgentSetup
             Changes = changes,
             Commands = commands,
             ModelServer = modelServer,
-            Client = backend.Client,
-            Options = backend.Options,
-            SetPrices = setPrices,
+            // The run's server, and its model where the call names none.
+            SetPrices = setPrices is null ? null : p => setPrices(p.With(backend.Client.BaseUrl, backend.Options.Model)),
         };
 
         // A model that can't see gets no screen tools, nor does an OS without desktop control, nor

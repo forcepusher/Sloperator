@@ -101,7 +101,7 @@
             <TextBlock Classes="h2" Text="Cost estimates" />
             <CheckBox IsChecked="{Binding Cost.AutoLookup}" Content="Auto pricing lookup" />
             <TextBlock Classes="muted" TextWrapping="Wrap"
-                       Text="When the server doesn't report what replies cost and the model has no prices, they are looked up on the web in the background, shown in the chat." />
+                       Text="When the server doesn't report what replies cost and the model has no prices, the agent is asked to look them up on the web before it finishes." />
 
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."

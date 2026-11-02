@@ -2530,34 +2530,28 @@ carries the prices: a Settings dialog saved, or one saved in another window, lea
 as they are, as it does the server and model.
 
 **Look up prices** (the user, 2026-11-02) sends the chat "Look up the prices of <model> on <host>." from
-the panel, with the panel's words for the model (`LookupContext`): search the web for that server's own
-prices (a reseller charges its own), 0 for a model on the user's own PC or network, and end the reply
-with one line `PRICES {"input": …, "cachedInput": …, "cacheWrite": …, "output": …, "currency": "…"}`,
-null for a price not found. The panel reads that line from each reply the chat gets (`ReplyFinished`)
-while it waits, fills the fields of the model it asked about (even if another was picked meanwhile),
-and says so; a run that ends with no such line gives the button back with a note. The line stays in
-the reply, so the fields can be checked against what the agent found. The search is the agent's own,
-in the chat, with the tools it has (no web_search without it: it then answers from what it knows).
+the panel, with the panel's words for the model (`LookupContext`, from `SetApiPricingTool.LookupRequest`):
+search the web for that server's own prices per million tokens (a reseller charges its own), 0 for a
+model on the user's own PC or network, then keep them with `set_api_pricing`. The panel waits until
+prices for the model it asked about are kept (even if another model was picked meanwhile), and says
+so; a run that ends with none kept gives the button back with a note. The search and the call are the
+agent's own, in the chat, with the tools it has (no web_search without it: it answers from what it knows).
 
-**Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default; the user 2026-11-02) does
-the same without being asked: after a reply, when the model in use has replies with no reported cost
-and no prices, `PriceLookup.RunAsync` runs the subagent tool's helper in the background on the same
-server and model, with web_search and fetch_page only (`PriceLookup.Instructions`, 5 minutes), shown
-as a `subagent` card (its task as the line, the prompt as Input, the answer as Output, progress each
-search or page); then, unless prices were typed meanwhile, a `set_api_pricing` card keeps what it found
-(the user, 2026-11-02: the tool named subagent, a real one, and the prices put by a tool call of their
-own); its tokens count in the chat's spending like any reply's. Once per server and model while
-Sloperator runs, in any window, found or not, so a server whose prices can't be found isn't searched
-after every reply. The Settings dialog saves the switch and leaves the prices to the window.
+`set_api_pricing` (`SetApiPricingTool`, offered where the app keeps prices: `AgentSetup`'s `setPrices`)
+takes input, cached_input, cache_write and output per million tokens, a currency, and a model id (the
+run's model when left out); the run's server is added (`ModelPrices.With`) and the window keeps them
+as the model's prices (`ToolContext.SetPrices`). The panel's fields follow prices kept that way.
 
-The `subagent` tool (`SubagentTool`, read-only, in every run with the web tools) hands a self-contained
-task to a helper on the same server and model with a fresh context: a system line of its own and the
-prompt, the tools web_search, fetch_page, read_file and list_directory (no screen, no changes, no
-subagent of its own), at most 30 replies, the last without tools. Only its final answer comes back
-(thinking left out), so searches and pages stay out of the agent's context; its tokens count in the
-chat's spending. Each step is its card's progress line. The card's Input foldout (`ToolCallItem.Input`,
-saved as the chat entry's `input`) shows the prompt. `set_api_pricing` (`SetApiPricingTool`) keeps a
-model's prices on the server in use through `ToolContext.SetPrices` (the window's Cost estimates).
+**Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default; the user 2026-11-02:
+"Just nudge the model") asks the same without the button. When a run's model is about to end the run
+(a reply with no tool calls) and has replies with no reported cost and no prices, `AgentSession.PriceNudge`
+gives the request, the chat shows a notice ("Asked the model to look up its prices and keep them"), and
+the model gets "[Sloperator] Before you finish: …" as a message; it looks them up, calls set_api_pricing,
+and ends as it was going to. Asked at the end so the task comes first, and in the conversation itself,
+so its cached prompt only grows (a request of its own beside it, an earlier try with a subagent, pushed
+the conversation out of servers that cache one prompt). Once a run, and once per server and model while
+Sloperator runs, in any window, kept or not. Off, nothing is asked. The Settings dialog saves the switch
+and leaves the prices to the window.
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat

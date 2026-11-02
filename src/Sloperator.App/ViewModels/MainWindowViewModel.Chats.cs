@@ -386,7 +386,7 @@ public sealed partial class MainWindowViewModel
             },
             ToolCallItem t => new ChatEntry
             {
-                Kind = ChatEntryKind.Tool, CallId = t.CallId, Name = t.Name, Summary = t.Summary, State = t.State.ToString(), Text = t.ResultText, Input = t.HasInput ? t.Input : null,
+                Kind = ChatEntryKind.Tool, CallId = t.CallId, Name = t.Name, Summary = t.Summary, State = t.State.ToString(), Text = t.ResultText,
                 Files = t.HasPreviews ? t.Previews.Select(p => p.Path).ToList() : t.SavedFiles?.ToList(), Ended = t.Ended,
             },
             NoticeItem n => new ChatEntry { Kind = ChatEntryKind.Notice, Text = n.Text, IsError = n.IsError, Stopped = n.Stopped, Unsent = n.Unsent },
@@ -404,7 +404,6 @@ public sealed partial class MainWindowViewModel
             ChatEntryKind.Assistant => ReplyFrom(e, _previews),
             ChatEntryKind.Tool => new ToolCallItem(e.CallId ?? "", e.Name ?? "", e.Summary ?? "")
             {
-                SavedInput = e.Input,
                 ResultText = e.Text ?? "",
                 // A call that was still running or waiting when the chat was saved never finished.
                 State = Enum.TryParse<ToolItemState>(e.State, out var state) && state is not (ToolItemState.Running or ToolItemState.AwaitingApproval)

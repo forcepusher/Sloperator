@@ -134,11 +134,6 @@ public sealed class ToolContext
     /// <summary>The PC's own browser, run headless, for the web tools to fall back on; null when there is none.</summary>
     public Web.HeadlessBrowser? Browser { get; init; }
 
-    /// <summary>The server and model the agent runs on, for the subagent tool to run its helper on; null where there is none (tests).</summary>
-    public Llm.OpenAiChatClient? Client { get; init; }
-
-    public Llm.ChatRequestOptions? Options { get; init; }
-
     /// <summary>Keeps a model's prices, for set_api_pricing (the app's Cost estimates); null where they can't be kept.</summary>
     public Action<ModelPrices>? SetPrices { get; init; }
 

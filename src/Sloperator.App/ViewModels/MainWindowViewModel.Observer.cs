@@ -87,13 +87,8 @@ public sealed partial class MainWindowViewModel
             if (_runDetached) return;
             FinishCurrent(at, message);
             ShowContextUsage(usage);
-            ReplyFinished?.Invoke(message.Content ?? "");
-            LookUpPricesIfNeeded();
         });
     }
-
-    /// <summary>A reply of the model's came in whole, with its text: for the Cost estimates panel's price lookup.</summary>
-    internal event Action<string>? ReplyFinished;
 
     /// <summary>How full the context is; on the agent's thread, while it waits and its conversation holds still.</summary>
     private (int Used, int Size, int Reset) MeasureContext() =>
