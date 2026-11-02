@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
+using Sloperator.Core.Tools;
 
 namespace Sloperator.App.ViewModels;
 
@@ -47,7 +48,6 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         {
             chat.SpendingChanged += Refresh;
             chat.PropertyChanged += OnChatChanged;
-            chat.ReplyFinished += TakeReply;
         }
         Refresh();
         RefreshAllChats();
@@ -111,6 +111,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         long prompt = spent.Models.Sum(m => m.Input + m.CacheRead + m.CacheWrite), read = spent.Models.Sum(m => m.CacheRead);
         CacheNote = prompt == 0 ? "" : $"{(double)read / prompt:0%} of the prompt was read from the server's cache{Saved(spent, settings)}.";
         ShowPrices();
+        SeeKept();
     }
 
     /// <summary>", saving ~$0.21" where the prices of a model say what its cache reads would have cost as plain input.</summary>
@@ -138,8 +139,9 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
     private void ShowPrices()
     {
         var (url, model) = _priced();
-        if (_prices.Model == model && OpenAiChatClient.NormalizeBaseUrl(_prices.BaseUrl) == OpenAiChatClient.NormalizeBaseUrl(url))
-            return; // the fields are being typed in: left alone
+        // The fields are being typed in: left alone, unless set_api_pricing kept others meanwhile.
+        if (_prices.Model == model && OpenAiChatClient.NormalizeBaseUrl(_prices.BaseUrl) == OpenAiChatClient.NormalizeBaseUrl(url) && Same(_settings().For(url, model), _prices))
+            return;
         _prices = _settings().For(url, model) is { } typed ? Copy(typed) : new ModelPrices { BaseUrl = url, Model = model };
         PricesFor = model.Length > 0 ? $"{model} on {Host(url)}" : "No model picked at the top yet";
         OnPricesChanged();
@@ -155,6 +157,11 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         OnPropertyChanged(nameof(OutputPrice));
         OnPropertyChanged(nameof(PriceCurrency));
     }
+
+    /// <summary>The prices kept are those in the fields (none kept: none typed either).</summary>
+    private static bool Same(ModelPrices? kept, ModelPrices shown) => kept is null
+        ? !shown.IsSet
+        : (kept.Input, kept.CachedInput, kept.CacheWrite, kept.Output, kept.Currency) == (shown.Input, shown.CachedInput, shown.CacheWrite, shown.Output, shown.Currency);
 
     private static ModelPrices Copy(ModelPrices p) => new()
         { BaseUrl = p.BaseUrl, Model = p.Model, Input = p.Input, CachedInput = p.CachedInput, CacheWrite = p.CacheWrite, Output = p.Output, Currency = p.Currency };
@@ -180,9 +187,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     private static string Show(decimal? price) => price?.ToString(CultureInfo.InvariantCulture) ?? "";
 
-    /// <summary>"3", "0.30" or "0,30"; anything else counts as empty.</summary>
-    internal static decimal? Parse(string? text) =>
-        decimal.TryParse(text?.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var price) && price >= 0 ? price : null;
+    private static decimal? Parse(string? text) => ModelPrices.Parse(text);
 
     // ---- looking prices up ------------------------------------------------------------------
 
@@ -202,9 +207,8 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     /// <summary>
     /// Look up prices: asks the agent in the chat to find what the model in use costs on its server
-    /// (web_search, fetch_page) and to end its reply with a line the panel reads them from, which
-    /// fills the fields (the user, 2026-11-02). The search is the agent's, in view in the chat, and
-    /// the line stays in its reply, so what the fields got can be checked against what it found.
+    /// (web_search, fetch_page) and keep it with set_api_pricing, which fills the fields (the user,
+    /// 2026-11-02). The search and the call are the agent's, in view in the chat.
     /// </summary>
     [RelayCommand]
     private void LookUpPrices()
@@ -213,72 +217,28 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
             return;
         _lookingUp = Copy(_prices);
         _lookupSent = false;
-        LookupNote = "Asked the agent to look them up on the web: the fields fill in when it answers.";
+        LookupNote = "Asked the agent to look them up on the web: the fields fill in when it keeps them.";
         OnLookupChanged();
         _send($"Look up the prices of {_prices.Model} on {Host(_prices.BaseUrl)}.");
         _lookupSent = true;
     }
 
-    internal const string LinePrefix = "PRICES";
-
     /// <summary>What the lookup's message tells the model, with it.</summary>
     internal static string LookupContext(ModelPrices p) =>
-        $"[The Cost estimates panel is open beside the chat. Look up on the web (web_search, then fetch_page) what the model {p.Model} costs " +
-        $"on the server at {p.BaseUrl}, per million tokens: input, cached input (cache read), cache write and output, in the currency that server bills in. " +
-        "Go by that server's own price page: a service that resells another maker's model charges its own prices. " +
-        "A model the user runs on their own PC or network costs nothing: give 0 for all four. " +
-        "End your reply with this one line, not in a code block, a number for each price found and null for one not found; " +
-        $"the panel fills its fields from it:\n{LinePrefix} {{\"input\": 3, \"cachedInput\": 0.3, \"cacheWrite\": 3.75, \"output\": 15, \"currency\": \"$\"}}]";
+        "[The Cost estimates panel is open beside the chat. " + SetApiPricingTool.LookupRequest(p.Model, p.BaseUrl) + " The panel shows them once kept.]";
 
-    /// <summary>A reply came: one with the prices line fills the fields of the model asked about.</summary>
-    public void TakeReply(string text)
+    /// <summary>set_api_pricing kept prices for the model asked about: the lookup is done.</summary>
+    private void SeeKept()
     {
-        if (_lookingUp is not { } asked || ReadLine(text) is not { } found)
-            return;
-        found.BaseUrl = asked.BaseUrl;
-        found.Model = asked.Model;
-        _save(found);
-        if (_prices.Model == asked.Model && _prices.BaseUrl == asked.BaseUrl)
-        {
-            _prices = Copy(found);
-            OnPricesChanged();
-        }
-        Refresh();
-        RefreshAllChats();
-        EndLookup(found.IsSet ? "Filled in from the agent's search: check them against what it found." : "The agent found no prices: type them here.");
+        if (_lookingUp is { } asked && _settings().For(asked.BaseUrl, asked.Model) is not null)
+            EndLookup("Kept by the agent with set_api_pricing: check them against what it found.");
     }
 
-    /// <summary>The run ended: a lookup still waiting got no prices line.</summary>
+    /// <summary>The run ended: a lookup still waiting got no prices kept.</summary>
     public void RunEnded()
     {
         if (_lookingUp is not null && _lookupSent)
-            EndLookup("The agent's reply had no prices line: it may say why in the chat. Type them here, or look them up again.");
-    }
-
-    /// <summary>The prices in the reply's last "PRICES {…}" line; null without one that reads.</summary>
-    public static ModelPrices? ReadLine(string text)
-    {
-        foreach (var line in text.Split('\n').Reverse())
-        {
-            var at = line.IndexOf(LinePrefix + " {", StringComparison.Ordinal);
-            if (at < 0)
-                continue;
-            try
-            {
-                if (System.Text.Json.Nodes.JsonNode.Parse(line[(at + LinePrefix.Length)..].Trim().Trim('`')) is not System.Text.Json.Nodes.JsonObject json)
-                    return null;
-                decimal? Price(string key) => json[key] is System.Text.Json.Nodes.JsonValue v
-                    ? v.TryGetValue<decimal>(out var d) ? d : v.TryGetValue<string>(out var s) ? Parse(s) : null
-                    : null;
-                var currency = json["currency"] is System.Text.Json.Nodes.JsonValue c && c.TryGetValue<string>(out var unit) && unit.Trim().Length > 0 ? unit.Trim() : "$";
-                return new ModelPrices { Input = Price("input"), CachedInput = Price("cachedInput"), CacheWrite = Price("cacheWrite"), Output = Price("output"), Currency = currency };
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                return null;
-            }
-        }
-        return null;
+            EndLookup("The agent kept no prices: its reply may say why. Type them here, or look them up again.");
     }
 
     private void EndLookup(string note)
@@ -360,6 +320,5 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
             return;
         _chat.SpendingChanged -= Refresh;
         _chat.PropertyChanged -= OnChatChanged;
-        _chat.ReplyFinished -= TakeReply;
     }
 }

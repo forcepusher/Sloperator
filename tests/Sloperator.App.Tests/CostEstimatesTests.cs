@@ -47,7 +47,7 @@ public sealed class CostEstimatesTests
     }
 
     [Fact]
-    public void Look_up_prices_asks_the_agent_and_its_prices_line_fills_the_fields()
+    public void Look_up_prices_asks_the_agent_and_what_it_keeps_fills_the_fields()
     {
         var settings = new CostSettings();
         var sent = new List<string>();
@@ -59,13 +59,15 @@ public sealed class CostEstimatesTests
         vm.LookUpPricesCommand.Execute(null);
         Assert.Equal("Look up the prices of anthropic/claude-haiku-5-5 on api.proxyapi.ru.", Assert.Single(sent));
         Assert.Contains("https://api.proxyapi.ru/v1", context);
-        Assert.Contains("PRICES {", context);
+        Assert.Contains("set_api_pricing", context);
         Assert.False(vm.CanLookUp);
         Assert.Null(vm.About([])); // the lookup's words go with its own message only
 
-        vm.TakeReply("Searching…"); // a step before the answer
+        vm.Refresh(); // a reply before it keeps them
         Assert.True(vm.IsLookingUp);
-        vm.TakeReply("proxyapi.ru lists Haiku 5.5 at 30 ₽ in and 150 ₽ out.\n\nPRICES {\"input\": 30, \"cachedInput\": null, \"cacheWrite\": null, \"output\": 150, \"currency\": \"₽\"}");
+        // set_api_pricing, through the window
+        settings.Set(new ModelPrices { BaseUrl = "https://api.proxyapi.ru/v1", Model = "anthropic/claude-haiku-5-5", Input = 30, Output = 150, Currency = "₽" });
+        vm.Refresh();
         Assert.False(vm.IsLookingUp);
         Assert.Equal("30", vm.InputPrice);
         Assert.Equal("", vm.CachedInputPrice);
@@ -77,18 +79,7 @@ public sealed class CostEstimatesTests
         vm.LookUpPricesCommand.Execute(null);
         vm.RunEnded();
         Assert.True(vm.CanLookUp);
-        Assert.Contains("no prices line", vm.LookupNote);
-    }
-
-    [Theory]
-    [InlineData("PRICES {\"input\": \"0,5\", \"output\": 2}", 0.5, 2, "$")]
-    [InlineData("Done.\n`PRICES {\"input\": 0, \"cachedInput\": 0, \"cacheWrite\": 0, \"output\": 0, \"currency\": \"$\"}`", 0, 0, "$")]
-    public void The_prices_line_reads_numbers_and_text(string reply, double input, double output, string currency)
-    {
-        var p = CostEstimatesViewModel.ReadLine(reply)!;
-        Assert.Equal((decimal)input, p.Input);
-        Assert.Equal((decimal)output, p.Output);
-        Assert.Equal(currency, p.Currency);
+        Assert.Contains("kept no prices", vm.LookupNote);
     }
 
     private static Spending Spent(string url, decimal cost)

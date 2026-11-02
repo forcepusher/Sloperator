@@ -21,6 +21,8 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
 
     public UpdateSettings Updates => Settings.Updates;
 
+    public CostSettings Cost => Settings.Cost;
+
     /// <summary>Sloperator updating itself: Check for updates asks it now, and the line beside the button says what it found.</summary>
     public required Updater Updater { get; init; }
 

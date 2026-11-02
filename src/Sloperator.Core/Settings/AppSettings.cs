@@ -417,6 +417,12 @@ public sealed class CostSettings
 {
     public List<ModelPrices> Prices { get; set; } = [];
 
+    /// <summary>
+    /// Auto pricing lookup (Settings > Advanced, on by default): a model whose server reports no cost and
+    /// that has no prices has the agent asked to look them up and keep them (see <see cref="Agent.AgentSession.PriceNudge"/>).
+    /// </summary>
+    public bool AutoLookup { get; set; } = true;
+
     /// <summary>The prices typed for <paramref name="model"/> on <paramref name="baseUrl"/>; null when none were.</summary>
     public ModelPrices? For(string baseUrl, string model)
     {
@@ -447,6 +453,17 @@ public sealed class ModelPrices
 
     [JsonIgnore]
     public bool IsSet => Input is not null || CachedInput is not null || CacheWrite is not null || Output is not null;
+
+    /// <summary>"3", "0.30" or "0,30"; anything else (a negative price too) counts as none.</summary>
+    public static decimal? Parse(string? text) =>
+        decimal.TryParse(text?.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var price) && price >= 0 ? price : null;
+
+    /// <summary>A copy for <paramref name="baseUrl"/>, and for <paramref name="model"/> where it names none.</summary>
+    public ModelPrices With(string baseUrl, string model) => new()
+    {
+        BaseUrl = baseUrl, Model = Model.Length > 0 ? Model : model,
+        Input = Input, CachedInput = CachedInput, CacheWrite = CacheWrite, Output = Output, Currency = Currency,
+    };
 
     public decimal Of(Llm.TokenCount count) =>
         (count.Input * (Input ?? 0) + count.CacheRead * (CachedInput ?? Input ?? 0) + count.CacheWrite * (CacheWrite ?? Input ?? 0) + count.Output * (Output ?? 0)) / 1_000_000m;

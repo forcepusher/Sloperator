@@ -767,7 +767,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             var backend = BackendConnection.Create(_http, server);
             backend.Client.Spending = _spent;
             var session = _session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
-                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands);
+                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
+                setPrices: KeepPricesFromAgent);
+            session.PriceNudge = PriceNudgeFor(backend.Client.BaseUrl, backend.Options.Model);
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);
             var imagesKey = session.SeesImages ? runKey : null;

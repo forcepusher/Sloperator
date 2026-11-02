@@ -21,10 +21,11 @@ public static class AgentSetup
     /// <param name="modelServer">The app's top bar, for the agent to switch the model Sloperator runs on (model_server); null for none.</param>
     /// <param name="chatDirectory">The chat's own folder (see <see cref="ToolContext.ChatDirectory"/>); null where there is no saved chat.</param>
     /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
+    /// <param name="setPrices">Keeps a model's prices (the app's Cost estimates), for set_api_pricing; null for no such tool.</param>
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
         object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
-        CommandLog? commands = null)
+        CommandLog? commands = null, Action<ModelPrices>? setPrices = null)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);
@@ -51,6 +52,8 @@ public static class AgentSetup
             Changes = changes,
             Commands = commands,
             ModelServer = modelServer,
+            // The run's server, and its model where the call names none.
+            SetPrices = setPrices is null ? null : p => setPrices(p.With(backend.Client.BaseUrl, backend.Options.Model)),
         };
 
         // A model that can't see gets no screen tools, nor does an OS without desktop control, nor
@@ -68,7 +71,7 @@ public static class AgentSetup
 
         // The MCP tools are a snapshot: the tool list stays the same for the whole run, unless the
         // agent sets up a server itself (mcp_servers), whose tools then join it.
-        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ModelServerTool()]), .. mcp.Tools], includeIndex: folderIndex,
+        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ModelServerTool()]), .. (setPrices is null ? (Tool[])[] : [new SetApiPricingTool()]), .. mcp.Tools], includeIndex: folderIndex,
             includeControl: agent.Controls, includeFindText: agent.EnableTextRecognition);
         mcpSetup.Registry = registry;
         string Prompt() => SystemPrompt.Build(platform.Name, screens, ctx.WorkingDirectory, agent.CustomInstructions, mcp.Connected, webSearch: true, paths.ToolsDir, paths.ScratchDir,

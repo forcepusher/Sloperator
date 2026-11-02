@@ -2541,14 +2541,39 @@ carries the prices: a Settings dialog saved, or one saved in another window, lea
 as they are, as it does the server and model.
 
 **Look up prices** (the user, 2026-11-02) sends the chat "Look up the prices of <model> on <host>." from
-the panel, with the panel's words for the model (`LookupContext`): search the web for that server's own
-prices (a reseller charges its own), 0 for a model on the user's own PC or network, and end the reply
-with one line `PRICES {"input": …, "cachedInput": …, "cacheWrite": …, "output": …, "currency": "…"}`,
-null for a price not found. The panel reads that line from each reply the chat gets (`ReplyFinished`)
-while it waits, fills the fields of the model it asked about (even if another was picked meanwhile),
-and says so; a run that ends with no such line gives the button back with a note. The line stays in
-the reply, so the fields can be checked against what the agent found. The search is the agent's own,
-in the chat, with the tools it has (no web_search without it: it then answers from what it knows).
+the panel, with the panel's words for the model (`LookupContext`, from `SetApiPricingTool.LookupRequest`):
+search the web for that server's own prices per million tokens (a reseller charges its own), 0 for a
+model on the user's own PC or network, then keep them with `set_api_pricing`. The panel waits until
+prices for the model it asked about are kept (even if another model was picked meanwhile), and says
+so; a run that ends with none kept gives the button back with a note. The search and the call are the
+agent's own, in the chat, with the tools it has (no web_search without it: it answers from what it knows).
+
+`set_api_pricing` (`SetApiPricingTool`, offered where the app keeps prices: `AgentSetup`'s `setPrices`)
+takes input, cached_input, cache_write and output per million tokens, a currency, and a model id (the
+run's model when left out); the run's server is added (`ModelPrices.With`) and the window keeps them
+as the model's prices (`ToolContext.SetPrices`). The panel's fields follow prices kept that way.
+
+**Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default; the user 2026-11-02:
+"Just nudge the model") asks the same without the button. When a run's model is about to end the run
+(a reply with no tool calls) and has replies with no reported cost and no prices, `AgentSession.PriceNudge`
+gives the request, the chat shows a notice ("Asked the model to look up its prices and keep them"), and
+the model gets "[Sloperator] Before you finish: …" as a message; it looks them up, calls set_api_pricing,
+and ends as it was going to. Asked at the end so the task comes first, and in the conversation itself,
+so its cached prompt only grows (a request of its own beside it, an earlier try with a subagent, pushed
+the conversation out of servers that cache one prompt). Once a run, and once per server and model while
+Sloperator runs, in any window, kept or not. Off, nothing is asked. The Settings dialog saves the switch
+and leaves the prices to the window.
+
+Measured with `PriceNudgeLiveTests` (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
+a file and give its secret word, the nudge comes before the end, and the test checks the prices kept against
+the truth (the server's model list, else BB_LIVE_EXPECT), that the last reply still gives the word, and that
+nothing runs after set_api_pricing. With the first wording ("Then finish as you were going to") Qwen 3.8 27B
+on LM Studio kept 0, then searched on and ended "I've handled the pricing lookup." without the word, and
+Nemotron ended on the prices. With the request to end on the full answer to the user's request ("the
+prices need no mention") and to keep 0 at once for an own-PC model and look no further, 6 of 6 passed:
+Kilo free Nemotron 0/0 $ (25-44 s), proxyapi.ru Haiku 5.5 30/3/37.5/150 ₽ from its model page, exact
+(16-17 s), Qwen 0 (34-87 s; once it first ran four shell commands about the server). Haiku once still
+added the prices after the answer.
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat

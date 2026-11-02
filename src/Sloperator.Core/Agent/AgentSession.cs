@@ -86,6 +86,14 @@ public sealed partial class AgentSession(
     /// <summary>The most pictures the server takes in one request, as a refusal showed (0: none known).</summary>
     public int MaxImages { get; private set; }
 
+    /// <summary>
+    /// Auto pricing lookup (the user, 2026-11-02): asked as a run is about to end, it gives what to ask the
+    /// model when the prices of the run's model are to be looked up (its server reports no cost and it has
+    /// none; see <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. The model is asked once
+    /// a run: it looks them up, keeps them with set_api_pricing, and the run then ends as it would have.
+    /// </summary>
+    public Func<string?>? PriceNudge { get; set; }
+
     /// <summary>Conversation so far (without the system prompt). Can be shared across sessions so settings changes keep the chat.</summary>
     public List<ChatMessage> History { get; } = history ?? [];
 
@@ -370,6 +378,7 @@ public sealed partial class AgentSession(
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
         var cutOffs = 0;
         var missChecked = false;
+        var priceNudged = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
         // wrong" in the next message is a failed try, and the time since the last look-up goes on.
@@ -479,6 +488,17 @@ public sealed partial class AgentSession(
                         missChecked = true;
                         observer.OnNotice("The last click changed nothing on screen; asked the model to check it before finishing.");
                         History.Add(ChatMessage.User(MissedEndNote));
+                        continue;
+                    }
+                    // Prices to look up: asked before the end, so the task is done first and the
+                    // conversation, cached as it is, only grows (a request of its own would push it out
+                    // of a server that caches one prompt).
+                    if (!priceNudged && PriceNudge?.Invoke() is { } lookup)
+                    {
+                        priceNudged = true;
+                        observer.OnNotice("Asked the model to look up its prices and keep them (Auto pricing lookup).");
+                        History.Add(ChatMessage.User("[Sloperator] Before you finish: " + lookup + " After that, end with your final answer to the user's request in full, " +
+                                                     "as you would have without this note: the prices need no mention."));
                         continue;
                     }
                     // Compact context, picked as the model wrote this answer: before the end.

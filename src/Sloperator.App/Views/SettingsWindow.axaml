@@ -98,6 +98,11 @@
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="Taller screens are scaled down, never up. Smaller uses less context, but clicks miss more." />
 
+            <TextBlock Classes="h2" Text="Cost estimates" />
+            <CheckBox IsChecked="{Binding Cost.AutoLookup}" Content="Auto pricing lookup" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="When the server doesn't report what replies cost and the model has no prices, the agent is asked to look them up on the web before it finishes." />
+
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."
                        ToolTip.Tip="{Binding Paths.McpConfigFile, StringFormat='Kept in {0}'}" />
