@@ -2614,6 +2614,12 @@ last reply gives the word and that the conversation holds no lookup call. Side t
 kept a paid listing's 0.06/0.35 $ for the ":free" model (in the chat it had kept 0); with "or one the server
 gives for free ("free" in its id)" added to the request, 0 at once, 2 of 2.
 
+Some makers charge more per token for long prompts (Claude Haiku 5.5: $0.10 / $0.50 up to 100k
+tokens, $0.50 / $2.50 above), and an agent's prompts soon grow past such a limit (the Unity chat run
+above averaged 210k). The request asks for the long-prompt rates where prices depend on the length
+(the user, 2026-11-03): the short ones had Haiku's cost shown five times too low. Anthropic's Haiku 5.5,
+`PriceLookupLiveTests`, 2 of 2: 0.5 / 0.05 / 0.625 / 2.5 $, from Anthropic's pricing page.
+
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
 (`spent` in its file) and kept apart from the conversation, which a context reset replaces. Servers
@@ -3212,6 +3218,20 @@ called that test optional, so the note is now asked to carry a check still to do
 task. Replayed from the log with the reply after the handoff asked for again (no screenshots: the
 saved chat keeps none, so the screen was said in words), the old prompt went on to the test once in
 three tries and twice checked the log and wrapped up; the new one started the test all three times.
+
+All of the user's request is the task, the prompt says too: how long it has taken or how much is done
+is no reason to stop or leave part of it out, work the answer would list as still to do is done
+first when the agent can do it, and a test the user says the result can be put through (a test
+suite, a test server, a VM) is part of the check. Building a Unity game's chat feature and its
+server (Haiku 5.5, xhigh, 2 November 2026), the run thought it was "already using a lot of effort"
+after 20 minutes and answered with what it hadn't done: the tests the user said ran on a VM with a
+local backend, the button's own icon, a look at it in the scene. Sloperator shows the model no
+token counts, so that was the model trimming the task on its own (Anthropic's guidance calls it
+early stopping, or context anxiety in long runs). Played again from the saved chat at its last
+step (`StopReplayLiveTests`, three tries each), both prompts went on with one more call every
+time, so a single step doesn't tell them apart: with the line, two of three went to work it had
+left (an end-to-end check against the local backend, the button's icon); without it, one of three
+(the scene), the others a branch check and notes for the next agent.
 
 With several monitors the agent sees one at a time: screenshots show the screen it looked at last
 (the primary at first) and `screen=N` switches. All coordinates refer to the screen in the latest
@@ -4550,11 +4570,20 @@ presses for it at more points than errors:
   up gets a note to search before the next try, and from the third since the last look-up every one
   does, as errors do. A try is a call that does something: a command, a script, a file written, a
   ComfyUI job, a piece of a video.
-- After ten minutes of tries with nothing looked up (three tries at least, and only time in a run:
-  not while the user is away between messages), or eight tries however quick (probing how Blender
-  5.2 sets a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran
-  out of time), every next try's result says it is time to look
-  things up, until the model does. The record is kept for the chat, so "still wrong" in the next
+- After ten minutes of runs with nothing looked up (three at least, and only time in a run: not
+  while the user is away between messages), or four runs however quick (probing how Blender 5.2 sets
+  a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of
+  time), the run's result says it is time to look things up, and again every fourth run after it
+  until the model does. A run is a command, a script, an MCP call that changes something, a ComfyUI
+  job or a piece of a video; a file written or edited is no run for this (it still counts as a try
+  for the rest). Until 2026-11-03 it was eight tries, edits included, and every try after them got
+  the note: building a Unity chat feature (Haiku 5.5, xhigh), 15 of the run's 17 look-up notes were
+  this one, most of them after edits and passing builds, and Haiku made look-ups "for something" to
+  obey it. Played over that run's calls (with its look-ups where they were), the new rule gives 10
+  such notes; at eight runs it would give 3. On the Blender 5.2 scatter task from the command
+  line (Haiku 5.5 xhigh, two runs each, 2026-11-03) both builds made the scene right every time;
+  the old one took 326 and 188 s with 4 and 1 notes and 16 and 9 look-ups, the new one 271 and
+  182 s with 2 and 1 notes and 11 and 8 look-ups. The record is kept for the chat, so "still wrong" in the next
   message counts against the tries before it. A command that reads the installed version's own API
   (`inspect.signature`, `--help`, `Get-Help`, `pip show`) counts as looking it up for this, and a
   plan to check something ("let's check the signature of FadeIn in moviepy 2.x") is no web search:

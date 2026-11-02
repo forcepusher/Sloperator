@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- The note telling the agent it's time to look things up comes far less often: file edits no longer
+  count as tries, only commands, scripts and jobs, and it comes once every four such runs without a
+  search rather than on every one after eight.
+- The agent is told that all of your request is the task: it no longer stops partway because the work
+  has taken long, and when you say how the result can be tested (a test suite, a VM), it runs that test.
+- Auto pricing lookup and **Look up prices** keep a model's long-prompt prices where its maker charges
+  more for long prompts (Claude Haiku 5.5 above 100k tokens), so the cost shown isn't too low.
 
 ## [1.4.0] - 2026-11-03
 ### Added
