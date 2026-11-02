@@ -1,6 +1,6 @@
 // Packs the native libraries of a single-file publish for publish.ps1: a zip with its files stored
 // as they are, the whole of it compressed with Brotli at its best. PortableRuntime unpacks it into
-// Data/runtime on first run. Brotli makes them 7.6 MB where the zip's own compression made 10.
+// SloperatorData/runtime on first run. Brotli makes them 7.6 MB where the zip's own compression made 10.
 //
 //   dotnet run scripts/pack-runtime.cs -- <folder of libraries> <payload file>
 using System.IO.Compression;

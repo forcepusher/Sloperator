@@ -5,5 +5,5 @@ publish/
 *.user
 .vs/
 
-## Dev builds keep their portable folder (Data/) here
+## Dev builds keep their portable folder (SloperatorData/) here
 /.dev/

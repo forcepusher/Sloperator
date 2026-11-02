@@ -8,7 +8,7 @@ namespace Sloperator.Core.Web;
 /// run headless to load one page and print its DOM. Used where a plain HTTP request gets nowhere:
 /// Bing's results (it serves non-browsers results that ignore most of the query), pages built by
 /// JavaScript, and sites that turn away non-browsers. Nothing is downloaded or installed; the
-/// browser profile lives in Sloperator's own Data folder, not the user's.
+/// browser profile lives in Sloperator's own SloperatorData folder, not the user's.
 /// </summary>
 public sealed class HeadlessBrowser(string executable, string profileDirectory)
 {

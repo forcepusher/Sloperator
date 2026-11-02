@@ -7,7 +7,7 @@ namespace Sloperator.Core.Media;
 
 /// <summary>
 /// Video and sound through ffmpeg, for what the OS can't read itself (WebM, Opus, MKV…): the one on
-/// the PATH, one the agent put in Data/tools, or the one that comes with ComfyUI. Frames and samples
+/// the PATH, one the agent put in SloperatorData/tools, or the one that comes with ComfyUI. Frames and samples
 /// come through a pipe, so nothing is written to disk.
 /// </summary>
 public sealed partial class FfmpegDecoder(Func<IEnumerable<string>> searchFolders) : IMediaDecoder

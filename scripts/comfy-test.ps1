@@ -1,7 +1,7 @@
 # ComfyUI benchmark: Sloperator makes pictures, video, sound, music, speech and a 3D model with the
 # ComfyUI on this PC, each from one plain request, and the results are checked from the run's log
 # (the files the comfyui tool reported, their kind, length and sound). Uses the model in
-# Data/settings.json under the root. Runs land in .dev/comfy/<time>/, one log per task and a results.md.
+# SloperatorData/settings.json under the root. Runs land in .dev/comfy/<time>/, one log per task and a results.md.
 #
 #   ./scripts/comfy-test.ps1                      # all tasks
 #   ./scripts/comfy-test.ps1 -Tasks picture,sound  # some of them
@@ -11,7 +11,7 @@ param(
     [string[]]$Tasks = @('picture', 'img2img', 'named', 'video', 'sound', 'music', 'speech', 'model3d', 'combo'),
     [switch]$StopComfy,
     [int]$MinutesPerTask = 45,
-    # A portable root of its own (its Data/ holds settings.json); Sloperator's .dev/ by default.
+    # A portable root of its own (its SloperatorData/ holds settings.json); Sloperator's .dev/ by default.
     [string]$Root
 )
 $ErrorActionPreference = 'Stop'

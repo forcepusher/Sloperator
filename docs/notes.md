@@ -13,7 +13,7 @@ your network), llama.cpp's llama-server, vLLM, or a hosted API.
 ## Portable layout
 No installer, no registry (but for one key while Notify me when done is on, see there), nothing in
 AppData or %TEMP%. Ship just `Sloperator.exe`: on first run it
-unpacks its native UI libraries into `Data/runtime` next to itself. They are embedded as a zip of
+unpacks its native UI libraries into `SloperatorData/runtime` next to itself. They are embedded as a zip of
 the files stored as they are, packed whole with Brotli (`scripts/pack-runtime.cs`, quality 11, 16 MB
 window): 7.6 MB where the zip's own Deflate made 10.0 (Skia, PDFium, ANGLE and HarfBuzz, 23 MB
 unpacked; measured 2026-10-29), and the exe 2.4 MB smaller. Unpacking them takes about 0.4 s, once.
@@ -30,29 +30,40 @@ it white under WGL; GDI screenshots and their leaving Sloperator out work as bef
 ```
 Sloperator/
   Sloperator.exe
-  Data/        settings.json, chats/ (see Chat history), runtime/ (unpacked by the single-file exe), browser/ (see Web search),
-               tools/ (portable programs the agent downloaded), scratch/ (helper files it made for a task),
-               comfyui/ (ComfyUI's address and folder, the log of a server Sloperator started, see Pictures, video and sound),
-               pasted/ (pictures pasted into the chat, see Files in a message),
-               videos/ (a folder per video: storyboard, frames, shots, song and the video, see Videos),
-               index/ (the indexes of the folders the agent indexed, a file each, see Folder index),
-               webview/ (the Web preview panel's WebView2 profile, see Web preview),
-               crash.log (errors no code caught, see below), errors.log (every error shown, see below),
-               sloperator.png (the notifications' icon, see Notify me when done),
-               update-check.txt (when Sloperator last asked GitHub for a new version, see Updates)
+  SloperatorData/ settings.json, chats/ (see Chat history), runtime/ (unpacked by the single-file exe), browser/ (see Web search),
+                  tools/ (portable programs the agent downloaded), scratch/ (helper files it made for a task),
+                  comfyui/ (ComfyUI's address and folder, the log of a server Sloperator started, see Pictures, video and sound),
+                  pasted/ (pictures pasted into the chat, see Files in a message),
+                  videos/ (a folder per video: storyboard, frames, shots, song and the video, see Videos),
+                  index/ (the indexes of the folders the agent indexed, a file each, see Folder index),
+                  webview/ (the Web preview panel's WebView2 profile, see Web preview),
+                  crash.log (errors no code caught, see below), errors.log (every error shown, see below),
+                  sloperator.png (the notifications' icon, see Notify me when done),
+                  update-check.txt (when Sloperator last asked GitHub for a new version, see Updates)
 ```
 
 Set `SLOPERATOR_HOME` to use a different root. Debug builds use `.dev/` in the repository.
+
+The folder was called `Data` up to 1.3.0; a plain "Data" beside `Sloperator.exe` in Downloads says
+nothing of whose it is (the user, 2026-11-02). `AppPaths.Open` renames an earlier version's `Data`
+to `SloperatorData` at start (one `Directory.Move`, a rename on the same drive), so chats, settings
+and downloaded tools stay, before anything else touches the folder: the app's `PortableRuntime.FindPaths`
+(kept for the run, so single-instance, the crash log and the windows all agree) and the command-line
+runner. Only a `Data` that holds something of Sloperator's (settings.json, chats/, runtime/, tools/,
+videos/ or pictures/) moves; another program's `Data` stays as it is, and a `SloperatorData` already
+there wins. While the move fails (an earlier version still runs from the folder and holds its
+runtime libraries, as in a restart into an update), that start keeps to `Data`, as the version it
+shares the folder with does, and a later start moves it.
 The agent itself works across the whole PC; relative paths and shell commands start in your home folder.
-Files it makes only to get a task done (a script, the script a reminder runs) go in `Data/scratch`
+Files it makes only to get a task done (a script, the script a reminder runs) go in `SloperatorData/scratch`
 rather than among yours: a reminder used to leave its script in the home folder. `settings.json`
 also keeps the main window's size and place, and it opens there again unless that place is no
 longer on a screen. It is never bigger than the screen it opens on: the default 900x793 is taller
 than a 1920x1080 laptop screen at 150% has room for, and the title bar opened above the screen
 with the message box under the taskbar.
 
-Every error Sloperator shows also goes into `Data/errors.log`: when, where it was shown (the chat,
-named by its title and its file in `Data/chats`; the banner under the top bar, with the server's
+Every error Sloperator shows also goes into `SloperatorData/errors.log`: when, where it was shown (the chat,
+named by its title and its file in `SloperatorData/chats`; the banner under the top bar, with the server's
 address; Video editor, with the video's folder; a start that failed), what it said, and the
 whole exception behind it, stack trace and all. That covers the red lines in the chat (a run that
 ended on a server's answer or a bug, a run that couldn't start, settings or a pasted picture that
@@ -64,15 +75,15 @@ took even that: a task that looked as if it had ended on "The server broke off i
 nothing to say what the server sent, nor whether the task was done. Past 1 MB the log keeps its
 newer half, from the start of an entry.
 
-An error no code caught goes into `Data/crash.log` with its stack trace. One in the window says so
+An error no code caught goes into `SloperatorData/crash.log` with its stack trace. One in the window says so
 in the chat, and the window and a run in progress go on; one that ends Sloperator is shown in the
 chat at the next start, and one that keeps it from starting in a message box. Before, such an
 error closed the window and left no trace of why. Put in a folder Windows doesn't let it write
 in (Program Files), it says to move `Sloperator.exe` to a folder of your own, rather than
 "Access to the path '…\Data\runtime' is denied". A newer version started from the folder where an
 older one is still open (`Sloperator (1).exe` downloaded next to `Sloperator.exe`) unpacks its
-libraries into `Data/runtime-<id>` beside the ones the old one holds; that failed to start before,
-and the folder goes once nothing uses it. Any of `Data/runtime` left after a failed delete counts as
+libraries into `SloperatorData/runtime-<id>` beside the ones the old one holds; that failed to start before,
+and the folder goes once nothing uses it. Any of `SloperatorData/runtime` left after a failed delete counts as
 held: it went by `libSkiaSharp.dll` alone, and a restart into an update (see Updates), with the old
 version still ending, had let go of that one but not of HarfBuzz, so the delete took Skia away and
 the new version didn't start (2026-10-30, 1 of 4 restarts).
@@ -126,7 +137,7 @@ a budget workbook took qwen3.8 24 minutes through Excel's COM interface from Pow
 without Office it couldn't be done at all.
 
 When nothing on the PC opens a file or does a job the agent needs (another format, a conversion, an
-archive), it downloads a portable tool into `Data/tools`, where later tasks find it, or installs the
+archive), it downloads a portable tool into `SloperatorData/tools`, where later tasks find it, or installs the
 program, rather than decoding the file by hand. It also accepts the license agreements and
 first-run prompts of the programs it uses (Office asks on its first start).
 
@@ -143,13 +154,13 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   templates (without the ones built on paid API nodes) and the examples custom node packs bring,
   and marks the ones whose models and nodes are installed. With `name` it shows one as an API-format workflow, one node per line, with the
   template's own notes, the inputs a run usually changes and the models it needs (with download
-  links for missing ones), and saves it in `Data/scratch/comfyui/` to edit. Templates are kept in the
+  links for missing ones), and saves it in `SloperatorData/scratch/comfyui/` to edit. Templates are kept in the
   editor's format, with subgraphs, bypassed nodes, reroutes and promoted widgets: ComfyUI's own page,
   loaded in the PC's Edge or Chrome run headless, turns them into the format `/prompt` runs,
   exactly as its Run button does, so no copy of that conversion has to keep up with ComfyUI's
   releases. The browser stays up a few minutes between uses and never outlives Sloperator (it runs
   in a job object that Windows ends with Sloperator). Each start gets a profile folder of its own in
-  `Data/comfyui/browser/`, and browsers earlier starts left running there are ended first, found by
+  `SloperatorData/comfyui/browser/`, and browsers earlier starts left running there are ended first, found by
   their command line. Edge and Chrome can quit with 0 the moment they start, which read as "The
   browser closed at once (exit code 0)": with headless mode turned off by their HeadlessModeEnabled
   policy (they say "Headless mode is disallowed by the system admin."), Sloperator runs the browser
@@ -174,11 +185,11 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   pictures was made (prompt, negative prompt, sampler and schedule as ComfyUI names them, CFG,
   steps, size, clip skip, hires pass and its upscaler), with what AUTOMATIC1111's settings are in
   ComfyUI. The file is found on Civitai by its SHA-256, worked out once in the background and kept
-  with the file's size and time in `Data/comfyui/model-hashes.json` (6.6 GB took 7 s); Civitai's
+  with the file's size and time in `SloperatorData/comfyui/model-hashes.json` (6.6 GB took 7 s); Civitai's
   quick AutoV1 hash, tried first, gave this PC's Pony Diffusion V6 XL and Juggernaut XL the cards of
   other models of the same size, fine-tunes that share those bytes. A card waits ten seconds at
   most, so a 27 GB checkpoint's first hash finishes in the background and its card comes with a
-  later call. Cards are kept in `Data/comfyui/model-cards.json`; a file Civitai doesn't know gets
+  later call. Cards are kept in `SloperatorData/comfyui/model-cards.json`; a file Civitai doesn't know gets
   its base model from its own tensor names. A run that makes its pictures at under half the size
   its checkpoint is made for says so, image to image too (judged by the picture it made, with how
   to scale and pad the picture it starts from), and so does a LoRA on a checkpoint of another base
@@ -211,19 +222,19 @@ from memory, and those were often wrong, so the model doesn't work from memory h
 - **ComfyUI itself.** The user's own ComfyUI comes first, whatever kind it is. One that runs (at
   the address used last, or on ComfyUI's usual ports: the portable build's 8188, the Desktop app's
   8000) is used as it runs, and the first answer says which one it is. Otherwise Sloperator starts the
-  one used last, or finds one: the ComfyUI Desktop app, `Data/tools`, the folders Stability Matrix
+  one used last, or finds one: the ComfyUI Desktop app, `SloperatorData/tools`, the folders Stability Matrix
   and Pinokio install it in, then every drive and the user's folders a few levels deep, a portable
   build's ComfyUI folder one level deeper still; portable builds, installs with a venv and plain git
   clones all count, and the one used most recently wins. It starts it hidden (on the CPU when its
-  PyTorch is built for a graphics card the PC hasn't got), its output in `Data/comfyui/server.log`,
+  PyTorch is built for a graphics card the PC hasn't got), its output in `SloperatorData/comfyui/server.log`,
   without the browser page the portable build opens at every start. Only a PC without one gets one
   with `action=install` (which says so and downloads nothing when there is one): the portable build that suits the graphics card Windows lists (NVIDIA's, the
   CUDA 12.6 one for a GTX 10 series or older, AMD's for a Radeon RX 6000 or newer on Windows 11,
   Intel's for an Arc), else NVIDIA's run on the CPU (`--cpu`, as ComfyUI's README says; started
-  without it, its CUDA PyTorch crashed on the laptop's Iris Xe). It goes into `Data/tools`: the
+  without it, its CUDA PyTorch crashed on the laptop's Iris Xe). It goes into `SloperatorData/tools`: the
   latest release from GitHub (about 2 GB, checked against the SHA-256 GitHub gives, taken up again
   where it stopped after a cut), unpacked by the PC's 7-Zip or 7-Zip's own 7zr.exe fetched into
-  `Data/tools` (Windows 10's tar can't unpack its LZMA2). On the CPU, the tool says so with every
+  `SloperatorData/tools` (Windows 10's tar can't unpack its LZMA2). On the CPU, the tool says so with every
   start, template list and model search: SD 1.5 checkpoints at about 512 pixels, since anything much
   bigger takes very long or doesn't fit in memory. Once the
   task is over it is closed, after the jobs still in its queue (the CLI waits for them before it
@@ -231,7 +242,7 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   another Sloperator process runs then (the command line, another build), which may be between two of
   its jobs: each counts only its own tasks. A ComfyUI the user started keeps running, and only lets go of the models the task's jobs
   loaded, so the GPU is free. Sloperator tells its own from the user's by the process it started,
-  kept in `Data/comfyui/state.json`, and by the port it listens on, whatever language Windows
+  kept in `SloperatorData/comfyui/state.json`, and by the port it listens on, whatever language Windows
   writes netstat's LISTENING in. One it started that doesn't come up (too slow, or the user
   pressed Stop) is closed rather than left running hidden, and so is one with nothing queued when
   Sloperator ends (its last window closed while a task used it: the task's end never came, and
@@ -252,7 +263,7 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   years-old SD 1.5 models first, and a model's memory stops at its training: in October 2026 half of
   Civitai's 100 most downloaded checkpoints of the month were on Anima, a base model none of them
   knew, and others on Krea 2, Z-Image Turbo and MiniMax H3. Sloperator keeps the month's 100 most
-  downloaded checkpoints and LoRAs, with their tags, in `Data/comfyui/popular-models.json`, fetched
+  downloaded checkpoints and LoRAs, with their tags, in `SloperatorData/comfyui/popular-models.json`, fetched
   again once a week. `find_models` without words lists them (by `kind` and `base`) with the base
   models they are on; with words, the ones whose tags match ("furry": Nova Furry AM, a newer
   version of the user's model, on Anima) come before the search's own results. Models tagged as
@@ -294,7 +305,7 @@ length, loudness, clipping and silences in words, a 3D model (GLB, glTF, OBJ, PL
 sides (an FBX with animations also at four times of its first, from the front left, in a row under
 them), an animated GIF or WebP as frames.
 Video and sound are decoded by Windows' own Media Foundation (MP4/H.264, MOV, MP3, AAC, FLAC, WAV
-play on every Windows 10 and 11), else by ffmpeg when one is on the PATH, in `Data/tools` or in
+play on every Windows 10 and 11), else by ffmpeg when one is on the PATH, in `SloperatorData/tools` or in
 ComfyUI's folder; 3D models are drawn by Sloperator itself. A glTF's node tree is walked with two
 guards: a node already on the way down to it is skipped (a loop), and nodes shared without a loop
 stop after four visits per node (10,000 at least); a one-node loop took 0.2 s with the old 100,000-visit
@@ -488,13 +499,13 @@ guessed before the template was shown (the error now lists the template's usual 
 answering for a while during the speech task, git's progress on stderr, a checkpoint the RIFE pack
 couldn't load, and a retry that left out the length and size of the first run (a rerun of a template
 without changes the last one made now comes with a note saying which). Three of the results went to
-`Data/scratch`; the prompt has since been told that what the user asked for never goes there.
+`SloperatorData/scratch`; the prompt has since been told that what the user asked for never goes there.
 
 ### A user's chat played again, and what model cards changed
 The chat that led to model cards: "Generate me a bunny picture using this as a reference sheet using
 furry nova model" with the user's sheet, then "A bit too young looking, make him mature", and "And
 more furry ofc" and "The style is off" typed 23 and 31 seconds into that run, played with the
-command-line runner's `--then` on qwen3.8 (each run in a Data folder of its own; the pictures were
+command-line runner's `--then` on qwen3.8 (each run in a SloperatorData folder of its own; the pictures were
 kept safe for work by a custom instruction):
 
 | Build | Time | Model calls · tool calls (errors) | What it did |
@@ -543,9 +554,9 @@ plain message:
 | --- | --- | --- | --- | --- |
 | In the app: a beach photo pasted into the box, "Turn this photo into a watercolor painting." | installed ComfyUI (the NVIDIA build, started with `--cpu`), `sloperator/image_to_image`, downloaded the SD 1.5 checkpoint the template links to | a watercolor of the same beach, rocks, runner and reflections, 704×440 | 12:10 after the archive was in place (below), 4:45 of it generating | 15 (4) |
 | "Make a picture of a cozy wooden cabin in a snowy forest at dusk with the DreamShaper 8 model." | `find_models` found DreamShaper 8 on Civitai; downloaded it (2.0 GB in 1:39, SHA-256 checked); `sloperator/text_to_image` | a 768×512 picture | 10:57, 7:25 of it generating | 7 (0) |
-| The watercolor again, from the command line (`--attach`), in a Data folder of its own with no ComfyUI | installed ComfyUI (2 GB from GitHub, unpacked and started in 3:38), downloaded SD 1.5 (2:25, named and checked), `sloperator/image_to_image` | a watercolor that keeps the photo's layout (0.88, see below) | 12:55 | 8 (2) |
+| The watercolor again, from the command line (`--attach`), in a SloperatorData folder of its own with no ComfyUI | installed ComfyUI (2 GB from GitHub, unpacked and started in 3:38), downloaded SD 1.5 (2:25, named and checked), `sloperator/image_to_image` | a watercolor that keeps the photo's layout (0.88, see below) | 12:55 | 8 (2) |
 
-With the user's own portable ComfyUI on the same laptop instead, in a fresh Data folder each time:
+With the user's own portable ComfyUI on the same laptop instead, in a fresh SloperatorData folder each time:
 running already (as they start it, with their SD 1.5 checkpoint), "Make a picture of a red fox
 sitting in fresh snow, as a watercolor." used it as it ran ("Using the ComfyUI that already runs
 at http://127.0.0.1:8188/ (from …); it keeps running after this task."), installed nothing and
@@ -590,11 +601,11 @@ comfyui-mcp up by itself when the user asks for it.
 **Image editor** in the Side panel dropdown (`ImageEditorViewModel`, `ImageEditorPanel`; least 760),
 a sibling of the Video editor for single pictures (the user's request through the coordinator, 2026-11-01; named
 Picture generator until the user asked for Image editor the same day, and the code's names with it).
-Its pictures are folders in Data\pictures (`AppPaths.PicturesDir`, beside Data\videos), a folder each, and a
+Its pictures are folders in SloperatorData\pictures (`AppPaths.PicturesDir`, beside SloperatorData\videos), a folder each, and a
 picture's **versions** are the picture files in its folder, oldest first by when they were written
 (`PictureFolder.Versions`). Nothing else is kept: the agent makes a version by running the comfyui tool with
 `save_to` the picture's folder (the tool copies what the run makes there), so a redo is a new version and the
-earlier ones stay, without anything to keep in step. A `FileSystemWatcher` on Data\pictures reads it again 250 ms
+earlier ones stay, without anything to keep in step. A `FileSystemWatcher` on SloperatorData\pictures reads it again 250 ms
 after writing rests (`Refresh`), and a new version of the picture shown is shown.
 
 **The panel**: the pictures in a 180 column, the one changed last first (its newest version 160 wide, its name,
@@ -615,7 +626,7 @@ pick), and the model is told the picture's folder and all its versions, and to m
 that folder (image_to_image to keep the layout, text_to_image from the prompt in its metadata). **A part to
 redraw**: a left drag over the big picture marks a box (the File inspector's `ZoomBox` mark; a click picks the
 version whole), and a picture of the part (`DocumentArea.SaveNew`, shared with the File inspector) and a mask of
-it go to Data\pasted: `PictureFolder.SaveMask` writes a PNG as big as the picture, white in the box, black
+it go to SloperatorData\pasted: `PictureFolder.SaveMask` writes a PNG as big as the picture, white in the box, black
 elsewhere, its edge a soft ramp (a fortieth of the box's shorter side, 4 px at least) so the redraw blends. The
 card is "Area of version 2 · Lighthouse", and the model is told the version's path, the box in its pixels, the
 mask's path, and to run **sloperator/redraw_area** with 4.image, 5.image, 2.text and save_to the folder.
@@ -639,8 +650,8 @@ panel showed version 2 with "Denoise 0.75" and "From Sloperator_00001_.png" in i
 ## Videos
 (Films until 2026-10-25, when the user had film, take and sound track renamed video, clip and
 sound line everywhere: texts, the model's tool (`video`, was `film`) and guides, code, files and
-saved names, the user's call being no backwards compatibility. `Data\films`, a root .json of kind
-"film", a try's `.take2` and the `tracks`/`track` keys aren't read; videos live in `Data\videos`, a
+saved names, the user's call being no backwards compatibility. `SloperatorData\films`, a root .json of kind
+"film", a try's `.take2` and the `tracks`/`track` keys aren't read; videos live in `SloperatorData\videos`, a
 shot's tries are `.try2`, the keys `soundLines`/`soundLine`. In code an earlier version of a piece
 is a `VideoVersion` (`VideoVersions`), no longer a take. The tool's description had still named
 the Takes folders of a day before; it names References and Generated now.)
@@ -655,9 +666,9 @@ same video the panel shows. A video can start in either and go on in the other.
 
 **A video is its folder** (the user's call, 2026-10-24: "I want the entire film to be
 folder-driven", and "We don't need the film file storyboard.json anymore right?"), in
-`Data/videos/<title>` next to the exe like the rest of Sloperator's data (the user's choice: it is
+`SloperatorData/videos/<title>` next to the exe like the rest of Sloperator's data (the user's choice: it is
 portable; the first build put videos in the PC's Videos folder). A path the model gives that isn't
-from a drive ("lighthouse") is a folder in `Data/videos` too: taken from the working folder, as until
+from a drive ("lighthouse") is a folder in `SloperatorData/videos` too: taken from the working folder, as until
 2026-10-23, qwen3.8's "lighthouse" was made in the user's home, where Video editor doesn't look.
 **Its title is the folder's name** (2026-10-24, with the user's "I want it to work just like a file
 explorer, where you can right click and rename films"): reading a video takes it from the folder, so
@@ -873,7 +884,7 @@ whether it is music. SongEval gave them 2.4 and 2.7, a released song 3.9 to 4.3 
 excerpts of it too, its intro 3.2), and the Paper Boat video made again 4.1. It is trained on songs
 with singing: instrumentals scored 2.5 to 3.3 in every style tried (a soft hummed lullaby 3.7), so
 for an instrumental it is a rough guide. It runs with ComfyUI's own Python (which has PyTorch),
-set up once in `Data/tools/songeval`: MuQ and nnAudio by pip into that folder (ComfyUI's own
+set up once in `SloperatorData/tools/songeval`: MuQ and nnAudio by pip into that folder (ComfyUI's own
 packages left alone; MuQ's MuLan half, which needs x_clip, stubbed out), SongEval's 100 MB head from
 GitHub with its SHA-256 checked, MuQ's 1.3 GB model from Hugging Face with `HF_HOME` in that folder.
 torchaudio can't load files in ComfyUI 0.41's Python (its torchcodec lacks FFmpeg's libraries), so
@@ -927,7 +938,7 @@ one's width to the other's: the view model sets the new tool in one change (it w
 and the window shrank to the chat and grew back), the window sets the panel's content itself (a
 binding took it after the layout), and the dropdown's list is closed first (it lingered a frame over
 the resized window). Measured after: popup closed, then one frame with all of the switch, for every
-pick of None, Video editor and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. File inspector, Image editor, Web preview and Terminal go through `BoxPicks` (one each), which also tells the panel when its card left the box some other way, so it lets go of the pick, and cuts what the model is told of a pick at 20,000 characters (`BoxPicks.Capped`). Their files made for a pick (an area's picture, lines' text) are named by `PastedFiles.NewPath` in Data/pasted and deleted unsent by `PastedFiles.TryDelete`. The panels that follow the disk (the Code editor's tree, the Web preview's page folder, the Image editor's pictures) watch it through `FolderWatch` and read it once a burst rests (`Debounce`, 250 ms). `Debounce` makes its timer stopped: Avalonia's `DispatcherTimer` constructor that takes the handler starts the timer at once, which made each of those panels read or reload once more a quarter second after it opened (release check, 2026-11-01). Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Web preview or Image editor) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
+pick of None, Video editor and File changes either way. The window's place is saved without the panel. **What a panel gives a message is a card of what was picked in it** over the box (the user, 2026-10-25, after a message sent with File changes open showed only a grey "File changes" over its words): a pick (`MainWindowViewModel.Pick`, an `AttachmentItem` with a caption). With nothing picked there is no card, and a message the user types goes as it is, with no word of the panel (`WithSidePanel`; the user, 2026-10-28: until then a card of the whole item, `ISidePanel.Whole`, stood there, and File changes selected its first file by itself, so a card of what they never picked went with every message, with no × to take it off). The panel's own messages (Make the video) still say what it shows. A pick has no × as the user's own files have (`AttachmentItem.CanRemove` is false for a pick; the user's call: a pick is unpicked in its panel, a click away or Esc, so box and panel can't disagree). Every panel puts what it picks in the box through `Pick`, so a new one gets this as is; `SidePanelCardTests` fails if a × in the box is shown for anything but `CanRemove`. File inspector, Image editor, Web preview and Terminal go through `BoxPicks` (one each), which also tells the panel when its card left the box some other way, so it lets go of the pick, and cuts what the model is told of a pick at 20,000 characters (`BoxPicks.Capped`). Their files made for a pick (an area's picture, lines' text) are named by `PastedFiles.NewPath` in SloperatorData/pasted and deleted unsent by `PastedFiles.TryDelete`. The panels that follow the disk (the Code editor's tree, the Web preview's page folder, the Image editor's pictures) watch it through `FolderWatch` and read it once a burst rests (`Debounce`, 250 ms). `Debounce` makes its timer stopped: Avalonia's `DispatcherTimer` constructor that takes the handler starts the timer at once, which made each of those panels read or reload once more a quarter second after it opened (release check, 2026-11-01). Sent, the cards go with the message (`UserInput.Cards`, kept in the chat as `ChatEntry.Cards`) and show in its bubble as its files do, a pick by its caption; a chat saved before shows its grey line as it was. A pick that is a picture (an area marked in File inspector, Web preview or Image editor) shows the picture itself, up to 32 high and 120 wide (`Border.cardThumb`), where its card had the file icon, its caption beside it, over the box and in the bubble: one card for every panel (the coordinator, 2026-11-01: a generic file icon said nothing of what was marked; `AttachmentItem.HasThumbnail`). **The × at the right end of every panel's top bar** closes the panel, as None in the dropdown does (the user, 2026-10-25): one control for all of them (`SidePanelClose`, 32 square as the Side panel dropdown, 8 right of the button beside it), so it looks and sits the same in each. Every panel's top bar is the chat's (`Border.bar`, see One look for every control), its fields 32 high as everywhere. **Made narrower, the panel gives way first** (`SidePanelColumns`,
 `MainWindow.FitColumns` on the columns' SizeChanged): down to its least (`SidePanelOption.MinWidth`,
 splitter included: Video editor 770, where its top bar still fits in one row with the video's name cut
 short; File changes 560), then the window stops, at the panel's least plus the chat's 660 (no more than
@@ -1429,11 +1440,11 @@ black looked like a fault; and a new task looking for a video by name searched t
 folder. The frame tool now says when a frame is made from words alone in a video with a sheet.
 
 ## Chat history
-Every chat is saved on its own in `Data/chats/` from its first message on, after every step, and
+Every chat is saved on its own in `SloperatorData/chats/` from its first message on, after every step, and
 named after that message. **History** next to **New chat** lists them, the latest first: pick one to
 read it and carry on where it stopped (the model gets the conversation back), or delete it with its
 trash button. The pictures the model was shown (screenshots, zoomed crops, pictures tools made or
-the user sent) are kept beside the chat, in `Data/chats/<id>/` as `0001.jpg`, `0002.png`… in the
+the user sent) are kept beside the chat, in `SloperatorData/chats/<id>/` as `0001.jpg`, `0002.png`… in the
 order they came, each written once, before the chat that names it. The saved conversation keeps
 each picture where it was as its file name in that folder, and opening the chat reads them back,
 so the model carries on with the context it had, here or on another computer the chat file and its
@@ -1468,7 +1479,7 @@ text's own and has Copy for the selection), under Copy, on its words or anywhere
 on its files (their menu has Copy image or Copy file). Greyed out while a task runs, which would go on writing after the cut. It takes the message and every line after it out of
 the chat, cuts the model's conversation where the model had the message (the replies, thinking,
 Claude's signed thinking blocks and pictures after it go too), deletes the pictures in
-`Data/chats/<id>/` the conversation no longer names once the shorter chat is on the disk, and puts
+`SloperatorData/chats/<id>/` the conversation no longer names once the shorter chat is on the disk, and puts
 the message back in the box with its files. Undoing the first message forgets the chat altogether:
 its file, folder and list of changes, and its History row. The chat on screen and the conversation
 are separate lists, and don't line up one to one: messages sent together are one message to the
@@ -2012,7 +2023,7 @@ first, then the status word, and the dot stays, 12 from History, the status in t
 Measured, not a width breakpoint, as the status words and the dropdown's name differ in length.
 `WholeRowTests` checks each part is in full or past the clipped right edge. Since 2026-10-31 the
 status is in the title bar (see Title bar), and the top bar has nothing that gives way. Starting Sloperator
-again does the same: one Sloperator runs per `Data` folder (`SingleInstance`), and a second start of
+again does the same: one Sloperator runs per `SloperatorData` folder (`SingleInstance`), and a second start of
 the exe asks it for another window and ends at once. All the windows are one process
 (`ChatWindows` keeps them), so what they share needs no talk between programs; Sloperator ends with
 its last chat window. Until the user chose this (2026-10-23, "I prefer simple solutions"), each
@@ -2022,9 +2033,9 @@ the captures, claim files for open chats, and a Pause/Break passed on from proce
 
 How a second start finds the first: a named mutex `Local\Sloperator-<hash>` says one runs, and it is
 asked over a named pipe of the same name, open to this Windows user only. The hash stands for the
-user, the Windows session, the `Data` folder and the build (the exe's module id): another build in
+user, the Windows session, the `SloperatorData` folder and the build (the exe's module id): another build in
 the same folder (a newer download started beside the old one, "Sloperator (1).exe") runs on its own.
-Two processes on one `Data` folder share nothing of the above: not the turn with the mouse and
+Two processes on one `SloperatorData` folder share nothing of the above: not the turn with the mouse and
 keyboard, the open chats, Pause/Break or each other's windows in screenshots, which the
 process-per-window design had guards for (gone with it). The same goes for one run as administrator
 and a start the running one didn't answer in time. The pipe is listened on from the first line of `Main`, so a start a moment after another
@@ -2136,7 +2147,7 @@ rule: ab54de2d-…). No package: the Windows SDK projection (`net10.0-windows10.
 megabytes to the exe, and the Community Toolkit's notifications package needs it. An exe that isn't
 installed needs its app id registered for Windows 10 to show its toasts: Sloperator writes
 `HKCU\Software\Classes\AppUserModelId\Sloperator` (DisplayName, IconUri) at the first notification of
-each start, with the icon as `Data\sloperator.png`, which Windows reads the picture from. That key is
+each start, with the icon as `SloperatorData\sloperator.png`, which Windows reads the picture from. That key is
 the one thing Sloperator writes outside its folder, and only with the setting on: turning it off
 deletes the key and takes down the notifications still up. Windows keeps a key of its own per app
 under `Notifications\Settings` (whether the user allowed it in Windows' settings), which is left be.
@@ -2162,7 +2173,7 @@ They wait under the box, × takes one off, and they go with the next message; a 
 files alone. The agent gets each one's full path, to work on it with its tools (a picture to start
 a ComfyUI job from, a document to read, a folder to go through), and sees the pictures among them
 as `read_file` shows a picture; a model that can't see images gets the paths. A pasted picture is
-saved as a PNG in `Data/pasted` first and deleted with its chat; dropped files stay where they
+saved as a PNG in `SloperatorData/pasted` first and deleted with its chat; dropped files stay where they
 are. Text on the clipboard is pasted as text, also when a picture comes with it (cells copied from
 Excel bring one). The message's bubble shows its pictures and the names of its other files, and a
 click opens one. A saved chat keeps the paths, not the pictures: carrying on, the model looks at a
@@ -2378,7 +2389,7 @@ be switched on). Otherwise the top bar takes the server, key and model as if typ
 checked again. The run going on keeps the model it started with (the connection is made when a
 message is sent), so the agent says it is done and the next message goes to the new model; a
 context size learnt during that run isn't carried to the new server. The key never shows on the tool
-card or in the result; it is in the chat as the user typed it, and in `Data/settings.json`, as one
+card or in the result; it is in the chat as the user typed it, and in `SloperatorData/settings.json`, as one
 typed in the top bar. The CLI has no top bar and no such tool. Before, free Nemotron asked to
 "connect Sloperator to my LM Studio at http://localhost:5311/v1" clicked through other apps for five
 minutes looking for a settings screen, since Sloperator's window is left out of its screenshots, and
@@ -2973,7 +2984,7 @@ prints the traceback and exits with 0.
 | `copy` | Files and folders between this PC and an SSH host, or from one host to another (`user@host:/path`, as for scp), byte for byte |
 | `web_search` | Searches the web: titles, links and snippets (see below) |
 | `fetch_page` | Reads a web page as plain text; `find` returns only the passages that mention some words, `start` reads on in a long page |
-| `mcp_servers` | Adds, removes and lists MCP servers: a server the agent adds starts at once, its tools join the run, and it is kept in `Data/mcp.json` for later tasks (see below) |
+| `mcp_servers` | Adds, removes and lists MCP servers: a server the agent adds starts at once, its tools join the run, and it is kept in `SloperatorData/mcp.json` for later tasks (see below) |
 | `model_server` | The model Sloperator itself runs on: `show` says the server, model and the models it offers; `connect` switches the top bar to another server, key and model, after checking the server answers (see Connecting to a model) |
 | `<server>__<tool>` | Any tool of the MCP servers you or the agent added (see below) |
 
@@ -3001,7 +3012,7 @@ of what you've done", and for a change "what it was before and how it looks afte
 fresh, without the pointer, at the screen's own resolution; a window is cut to its DWM frame (no
 invisible borders) and the screen it is mostly on, a box maps like a click's x/y. A window another
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
-moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`Data/chats/<id>/capture-N.png`,
+moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the
 chat does), shown open on the card as a file preview; the model gets the same crop as a JPEG at the
 zoom's quality, no larger than a screenshot of that screen. The app names the chat when a run starts
@@ -3050,7 +3061,7 @@ table isn't a sheet of paper. The capture keeps the file and page (`capture-N.js
 before is `compare` alone: the same page of the same document drawn again. Why a document can't be drawn
 (no Office or LibreOffice, a page it hasn't) is an argument error for the model.
 LibreOffice is found installed (Program Files, its App Paths entry) or unpacked into Sloperator's tools
-folder (Data\tools\LibreOffice, soffice.exe at any depth). With neither program the error tells the model
+folder (SloperatorData\tools\LibreOffice, soffice.exe at any depth). With neither program the error tells the model
 to ask the user, then fetch the newest stable Windows x86-64 .msi from
 download.documentfoundation.org/libreoffice/stable/ and unpack it with `msiexec /a <msi> /qn
 TARGETDIR=<tools>\LibreOffice`, which installs nothing and needs no admin or UAC prompt (26.8.2 on the
@@ -3346,7 +3357,7 @@ that answers came first 20 times, in the first three 24 times and in the first t
 (`FolderIndexTests.Questions_about_this_repository_find_the_file_that_answers_them`). A search takes
 15-70 ms; on a Unity project of 37,000 files, 0.4 s.
 
-**Where it lives.** `Data/index`, a file per folder, named after it and a hash of its path
+**Where it lives.** `SloperatorData/index`, a file per folder, named after it and a hash of its path
 (gzip): 720 KB for this repository (373 files, 4 MB of text), 200 KB for a Unity project of 7,857
 files (231 of them read), 6.8 MB for one of 37,011 files (3,753 read, 80 MB of text). Every call
 brings it up to date: the folder is walked again and only files whose size or time changed are read
@@ -3459,7 +3470,7 @@ this chat. Index it now…". A project is the nearest folder above with a `.git`
 solution or an engine's project (Unity, Unreal, Godot), or else with a package or build file
 (`package.json`, `Cargo.toml`, a `.csproj`…); never the home folder or a drive, and not one of
 fewer than 25 files, which is read faster than indexed (one the model is making), nor Sloperator's own
-Data folder (run from a checkout, a download into `Data\scratch` had the model told to index the
+SloperatorData folder (run from a checkout, a download into `SloperatorData\scratch` had the model told to index the
 Sloperator repository, 2026-10-26). Once per project in
 a chat, and again after a context reset, which drops the overview: the app starts a session for
 every message, so the note looks back over the chat for the projects already indexed and the notes
@@ -3551,13 +3562,13 @@ still credited any program writing in the project folder at that moment; exact a
 command's processes hooked (Detours, as MSBuild's FileTracker does) or ETW as administrator, which
 the user didn't want. A list kept before drops its entries saved with `"known": false` (a file a
 command changed before Sloperator read it); a file a command added is kept. At most 500 files. Remote
-calls (`host`) change nothing here, and neither do files in Sloperator's own Data folder (the parent of
+calls (`host`) change nothing here, and neither do files in Sloperator's own SloperatorData folder (the parent of
 the scratch and tools folders, as the index note's `InOwnData`): the agent's scratch notes there are
 no change of the user's (the user, 2026-10-27); a list kept before keeps such entries. Word, Excel, PowerPoint and PDF files compare by the text
 read_file shows. The diff is each file as it is now against what it held before the first change
 (Myers, `LineDiff`), in the order they were first changed, paths relative to the folder they all
 share; a file back as it was, or made and deleted again, drops out. The list is kept with the chat
-in `Data/chats/changes/<id>.json` (written after each call, deleted with the chat), so a chat opened
+in `SloperatorData/chats/changes/<id>.json` (written after each call, deleted with the chat), so a chat opened
 again from History shows it again; a new chat starts empty.
 
 **The panel** (Side panel, File changes; "Diff", then "Code diff", then "Code changes", until the user renamed it on
@@ -3924,7 +3935,7 @@ to drag over; the live previewer's window is hidden meanwhile, as nothing can dr
 window. Esc, Area off, another file or sending turns it back to live. Drawing the text again with
 `RenderTargetBitmap` gave a blank picture, hence the screen. The mark is the accent's outline over
 a faint fill of it (`ZoomBox.DrawMark`, also drawn by `PdfPageView` on its page).
-A picture of the area is then cut and saved as Data/pasted/Area <time>.png (deleted with the chat, as
+A picture of the area is then cut and saved as SloperatorData/pasted/Area <time>.png (deleted with the chat, as
 pasted pictures are; one unpicked before it is sent is deleted at once) and picked into the box as
 "Area on page 2 · report.pdf", "Area of frame 38 · clip.mp4", "Area · chart.png", with no × as every
 tool's pick. It is cut from the best source: the PDF page drawn again by Windows' PDF renderer for the area alone
@@ -4122,7 +4133,7 @@ day, as an Auto panel to come will be the live view of the model's work; the cod
 `Avalonia.Controls.WebView` 12.1.1 (MIT; `NativeWebView`, WebView2 on Windows, trim-safe): no browser in the
 exe, WebView2 being Windows' own Edge runtime: the published exe grew 0.24 MB (28,141,496 to 28,384,893 bytes
 against develop 4d0fd59, no trim warnings), and the trimmed exe ran the panel as the Debug build did. Its profile (cookies, cache, local storage) is kept in
-Data\webview (`AppPaths.WebViewDir`, set as WebView2's user data folder in `EnvironmentRequested`), so the app
+SloperatorData\webview (`AppPaths.WebViewDir`, set as WebView2's user data folder in `EnvironmentRequested`), so the app
 stays portable.
 
 **Ways in.** Open file in its bar (a picker of .html and .htm, in the shown page's folder), a page dropped on
@@ -4174,7 +4185,7 @@ window, so Area takes a picture of the page as it is (CapturePreview, the view's
 page's own view (its size in CSS pixels and how far it is scrolled, from a script), shows the picture frozen
 in a `ZoomBox` in place of the page, and the user drags a box on it. The live page is hidden only once the
 picture is there (hidden first, WebView2 might not draw it). The box goes in as "Area · index.html", a
-picture of it cut from the frozen one and saved as Data/pasted/Area <time>.png (`DocumentArea.SaveNew`,
+picture of it cut from the frozen one and saved as SloperatorData/pasted/Area <time>.png (`DocumentArea.SaveNew`,
 shared with the File inspector's areas, deleted when unpicked before sending), and the model is told where
 it is in CSS pixels of the page's view ("x 8-201, y 6-46 of the 856x635 CSS pixels of the page's view",
 and how far the page was scrolled when it was). Esc or Area off goes back to the live page. Checked in the
@@ -4245,11 +4256,11 @@ the output at its last line; off, a new command doesn't take the view from the o
 
 **Lines selected** (150 ms after the selection rests, as the Code editor's; a part of a line means the line)
 go into the box as "Lines 2980-2981 · 1..3000 | % {…" (the command's first line, cut at 40 characters). The
-lines are saved as Data/pasted/Terminal <time>.txt, the pick's file (deleted when unpicked before sending, as
+lines are saved as SloperatorData/pasted/Terminal <time>.txt, the pick's file (deleted when unpicked before sending, as
 an area's picture is), and the message tells the model the command, where it ran, how it ended, how many lines
 it printed in all, and the lines numbered as the panel shows them, up to 20,000 characters.
 
-**Kept with the chat** in Data/chats/<id>/terminal.json (`CommandLog.KeepIn`, set when a run starts, as the
+**Kept with the chat** in SloperatorData/chats/<id>/terminal.json (`CommandLog.KeepIn`, set when a run starts, as the
 chat gets its id then; written when each command ends, through a temporary file of its own, `AtomicFile`, as
 two commands can end at once), so a chat opened from
 History shows its commands, and deleting the chat deletes them with its folder. A command still running when
@@ -4300,11 +4311,11 @@ alone, its tool, its arguments and what it made, the same for every model and se
   opened at what the agent wrote in it, lit (`CodeEditorViewModel.OpenLit`, then its Watch follows the next
   writes); a file that was there before (the user's code) in **File changes**, where what the agent took out shows
   beside what it put in, lit as with the panel open, with Discard and Stage; a new file outside the editor's folder
-  in File changes too. A file on a server, or in Sloperator's own Data, isn't in the list and shows nothing.
+  in File changes too. A file on a server, or in Sloperator's own SloperatorData, isn't in the list and shows nothing.
 - video: the **Video editor**, on the call's video (by its folder or its name in the videos folder, else the one
   changed last, which the tool goes on with), as it starts, so the piece being made shows "Making it…"; and again
   once it ends, which opens a video the call only then made.
-- comfyui: a run with save_to a picture of the Image editor's (a folder right in Data\pictures) in the **Image
+- comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
 
@@ -4542,7 +4553,7 @@ their text. A page comes in parts of 6,000 characters (about 1.5k tokens), so a 
 flood the context, and `find` returns just the matching lines with a little context and the heading
 they sit under. A page that turns away plain requests, or that its scripts build, is loaded in the
 headless browser instead. A PDF comes as its text, page by page, like `read_file` reads one. The last eight pages are kept in memory, so reading on
-doesn't download a page again. The browser's profile is `Data/browser`; like ComfyUI's, it is
+doesn't download a page again. The browser's profile is `SloperatorData/browser`; like ComfyUI's, it is
 started with `--do-not-de-elevate`, or under a Sloperator run as administrator it would quit at once
 and leave no page to read. Where the browser's HeadlessModeEnabled policy is off, the tools say so
 instead of reading an empty page; a browser that gives back nothing at all (Edge quits with 21 on a
@@ -4616,14 +4627,14 @@ The SSH client is built in (SSH.NET), so no
   the server refuses the key, the old connection stays. `new_login` does the same with exactly
   the key and/or password given, also to see that a login is now refused. A key that worked once
   in the chat is offered to the next servers too, as ssh-agent does.
-- Host keys are checked against `Data/known_hosts`: the first key a server shows is saved, a
+- Host keys are checked against `SloperatorData/known_hosts`: the first key a server shows is saved, a
   different one later is refused, as OpenSSH does. A connection lost to a reboot is made
   again on the next call, retried for 45 seconds while the server comes back.
 
 ### MCP servers
 Sloperator is an MCP client: any [Model Context Protocol](https://modelcontextprotocol.io) server adds its
 tools to the list above. Paste the `mcpServers` block from the server's README into Settings;
-it is the same format Claude Desktop, LM Studio and Cursor use, and it is kept in `Data/mcp.json`:
+it is the same format Claude Desktop, LM Studio and Cursor use, and it is kept in `SloperatorData/mcp.json`:
 
 ```json
 {
@@ -4649,7 +4660,7 @@ server is doing, and a server that fails to start is reported in the chat; the o
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
 use has an MCP server (Blender, a database, a browser), it installs what the server needs, adds it
 (`add` with a name and a command or url, as in the file), and its tools join the run at once and
-stay for later tasks; the entry lands in `Data/mcp.json`, where Settings shows it. Its prompt says
+stay for later tasks; the entry lands in `SloperatorData/mcp.json`, where Settings shows it. Its prompt says
 to always go through `mcp_servers` rather than run a server or call its tools from a script, so
 every server it uses ends up there. A settings dialog left open shows a server the agent adds within
 a second, and Save keeps it: the list is written only when you changed it, and then merged with
@@ -4794,7 +4805,7 @@ run is going in any window waits for the last run to end (`ChatWindows.BusyChang
 competes with a task for the connection, and the line doesn't show up mid-task.
 
 Once an hour holds across starts too: every check (the button's as well) writes its time to
-`Data/update-check.txt`, and a start checks 5 s on only when the last check was an hour or more ago
+`SloperatorData/update-check.txt`, and a start checks 5 s on only when the last check was an hour or more ago
 (or there is none, or it can't be read); otherwise its first check waits until an hour after the
 last (`SelfUpdate.FirstCheckIn`), and the hourly ones go on from there. Before (2026-10-30), every
 start checked, so opening and closing Sloperator a few times an hour asked GitHub each time, and
@@ -4823,9 +4834,9 @@ compared exactly), read from the same WinVerifyTrust state through `WTHelperGetP
 not the thumbprint: a renewed certificate keeps the subject. Plain P/Invoke (LibraryImport) and
 `X509Certificate2` over the CERT_CONTEXT, which HTTPS already brings in: no package, trim-safe.
 - Rejected (unsigned, invalid, another publisher): `<exe>.new` is deleted, the version goes to
-  `Data/update-rejected.txt`, and that version isn't downloaded again; a later one is. The
+  `SloperatorData/update-rejected.txt`, and that version isn't downloaded again; a later one is. The
   windows' line shows nothing; Settings → Advanced → Updates says "Sloperator 1.2.0 couldn't be verified",
-  and `Data/errors.log` has why ("it is not validly signed (0x800B0100), the running exe is signed
+  and `SloperatorData/errors.log` has why ("it is not validly signed (0x800B0100), the running exe is signed
   by CN=…").
 - Couldn't be checked (no revocation answer, the file couldn't be read: 0x8007xxxx): the download is
   deleted too, nothing is written down, and the next hourly check tries again. A running exe whose
@@ -4846,7 +4857,7 @@ when the second rename fails the first is undone), starts the new exe with `--re
 (the windows' chats in the order they opened, empty for a window without one) and ends. The new
 build opens a window for each and opens its chat, as History would. The two never talk: the new
 build's `SingleInstance` name is its own, so it doesn't hand its start to the old one still ending,
-and `PortableRuntime` unpacks beside the old one's `Data/runtime` while that holds it. A new exe
+and `PortableRuntime` unpacks beside the old one's `SloperatorData/runtime` while that holds it. A new exe
 that doesn't start goes back to `<exe>.new` and the old one stays in place. Not restarted, the swap
 is made when the last window closes, without starting again. Each start deletes `<exe>.old` and a
 leftover `<exe>.new` or `<exe>.new.part`, quietly, unless they are still held.
@@ -4866,7 +4877,7 @@ lookup at a stand-in for GitHub's API and pages, for tests only.
 Requires the .NET 10 SDK.
 
 ```powershell
-dotnet build                      # debug build; keeps its Data/ in .dev/
+dotnet build                      # debug build; keeps its SloperatorData/ in .dev/
 dotnet test                       # unit tests, and the chat's layout laid out headless (Sloperator.App.Tests)
 ./scripts/publish.ps1             # single-file publish/Sloperator.exe, trimmed and compressed (about 24 MB)
 ./scripts/publish.ps1 -Folder     # classic self-contained folder in publish/Sloperator-win-x64
@@ -4878,7 +4889,7 @@ dotnet run --project src/Sloperator.Cli -- --yes --then "brighter" --then "@20 a
 ./scripts/sysadmin-vm.ps1         # once: the portable Debian lab VM (QEMU in .dev/sysadmin-lab, nothing installed)
 ./scripts/sysadmin-test.ps1       # sysadmin tickets on that VM over SSH, checked over SSH and from this PC
 ./scripts/chat-test.ps1           # Sloperator chats with scripted people for you in local look-alike chat apps (drives your mouse and keyboard)
-./scripts/index-bench.ps1 -Settings .dev\index-bench\qwen\Data\settings.json -Label qwen   # code tasks with and without the folder index (--no-index), see docs/folder-index-benchmark.md
+./scripts/index-bench.ps1 -Settings .dev\index-bench\qwen\SloperatorData\settings.json -Label qwen   # code tasks with and without the folder index (--no-index), see docs/folder-index-benchmark.md
 ./scripts/comfy-test.ps1          # Sloperator makes a picture, a video, sounds, music, speech and a 3D model with this PC's ComfyUI
 ```
 

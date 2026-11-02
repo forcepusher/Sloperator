@@ -96,7 +96,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
             if (!File.Exists(clip))
                 throw new VideoException($"{frame.Label} is where shot {of} ends, and shot {of} isn't made yet: make it first.");
             if (media is null)
-                throw new VideoException($"Nothing on this PC can read video to take {frame.Label} from {of} (ffmpeg in Sloperator's Data\\tools would).");
+                throw new VideoException($"Nothing on this PC can read video to take {frame.Label} from {of} (ffmpeg in Sloperator's SloperatorData\\tools would).");
             await Task.Run(() =>
             {
                 using var reader = media.OpenVideo(clip, Math.Max(board.Width, board.Height)) ?? throw new VideoException($"{clip} has no picture this PC can read.");
@@ -184,7 +184,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     private string Still(string video)
     {
         if (media is null)
-            throw new VideoException($"Nothing on this PC can read video to take a picture from {Path.GetFileName(video)} (ffmpeg in Sloperator's Data\\tools would).");
+            throw new VideoException($"Nothing on this PC can read video to take a picture from {Path.GetFileName(video)} (ffmpeg in Sloperator's SloperatorData\\tools would).");
         using var reader = media.OpenVideo(video, 2048) ?? throw new VideoException($"{video} has no picture this PC can read.");
         using var frame = VideoCheck.MiddleFrame(reader) ?? throw new VideoException($"No frame of {video} could be read.");
         var still = Path.Combine(Path.GetTempPath(), $"sloperator-{Guid.NewGuid():N}.png");
@@ -407,7 +407,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     /// </summary>
     public double PlaceSound(string sound, double at, double seconds, string target)
     {
-        using var reader = media?.OpenAudio(sound) ?? throw new VideoException($"{sound} can't be read on this PC (ffmpeg in Sloperator's Data\\tools would).");
+        using var reader = media?.OpenAudio(sound) ?? throw new VideoException($"{sound} can't be read on this PC (ffmpeg in Sloperator's SloperatorData\\tools would).");
         var (rate, channels) = (reader.SampleRate, Math.Max(1, reader.Channels));
         var samples = new float[(long)Math.Round(seconds * rate) * channels];
         var offset = (long)Math.Round(at * rate) * channels;
@@ -583,7 +583,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         if (sound.Source != VideoSound.Foley)
             throw new VideoException($"Sound {sound.Id} isn't foley.");
         var ffmpeg = media?.Ffmpeg ?? throw new VideoException("Foley is made from the clips under it, cut out with ffmpeg, and there is none on this PC: download a portable build " +
-                                                              "(gyan.dev's ffmpeg-release-essentials.zip) and unpack it into Sloperator's Data\\tools, where it is found.");
+                                                              "(gyan.dev's ffmpeg-release-essentials.zip) and unpack it into Sloperator's SloperatorData\\tools, where it is found.");
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var (from, to) = FoleyStretch(board, sound);
         var count = Math.Max(1, (int)Math.Ceiling((to - from) / FoleyPiece - 1e-6));

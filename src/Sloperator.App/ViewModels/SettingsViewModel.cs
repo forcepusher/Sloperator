@@ -72,7 +72,7 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
 
     // ---- MCP servers -------------------------------------------------------------------
 
-    /// <summary>The text of Data/mcp.json as the user edits it; saved as typed.</summary>
+    /// <summary>The text of SloperatorData/mcp.json as the user edits it; saved as typed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(McpError), nameof(HasMcpError))]
     private string _mcpConfigText = mcpConfigText;

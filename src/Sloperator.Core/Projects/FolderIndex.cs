@@ -62,7 +62,7 @@ internal sealed record IndexChanges(int Added, int Changed, int Removed, TimeSpa
 /// A folder's index, as a code editor keeps one: every file of the project (what .gitignore and
 /// the tools' own folders leave out is left out), the definitions in each, and the words of each
 /// part of a file, for search (see <see cref="IndexSearch"/>) and the overview (see
-/// <see cref="ProjectOverview"/>). It lives in Sloperator's Data/index, a file per folder, and is
+/// <see cref="ProjectOverview"/>). It lives in Sloperator's SloperatorData/index, a file per folder, and is
 /// brought up to date on every use: a file whose size and time are unchanged isn't read again.
 /// <para>
 /// Words, not embeddings: Cursor ranks a project's parts by embeddings a model of its own makes,
@@ -357,7 +357,7 @@ internal sealed class FolderIndex
 
     /// <summary>
     /// The index of <paramref name="root"/>, brought up to date: from memory, from its file in
-    /// <paramref name="store"/> (Data/index), or built now. With <paramref name="store"/> null it
+    /// <paramref name="store"/> (SloperatorData/index), or built now. With <paramref name="store"/> null it
     /// lives in memory only. Only for one user of it at a time (tests): Sloperator's windows share
     /// an index, so they go through <see cref="UseAsync{T}"/>.
     /// </summary>
@@ -468,7 +468,7 @@ internal sealed class FolderIndex
         return full.Length > (root?.Length ?? 0) ? full.TrimEnd('\\', '/') : full;
     }
 
-    /// <summary>The index file of a folder: its name, for a person looking in Data/index, and a hash of its path.</summary>
+    /// <summary>The index file of a folder: its name, for a person looking in SloperatorData/index, and a hash of its path.</summary>
     internal static string StorePath(string store, string root)
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(root.ToLowerInvariant())))[..12].ToLowerInvariant();

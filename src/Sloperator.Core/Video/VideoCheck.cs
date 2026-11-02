@@ -36,7 +36,7 @@ public static partial class VideoCheck
 
     public static VideoLook Shot(Storyboard board, VideoShot shot, string clip, IMediaDecoder decoder)
     {
-        var info = decoder.Probe(clip) ?? throw new VideoException($"{clip} can't be read on this PC (ffmpeg in Sloperator's Data\\tools would).");
+        var info = decoder.Probe(clip) ?? throw new VideoException($"{clip} can't be read on this PC (ffmpeg in Sloperator's SloperatorData\\tools would).");
         var text = new StringBuilder();
         var faults = new List<string>();
         text.AppendLine($"Shot {shot.Id} ({Path.GetFileName(clip)}): {info.Describe()}; the storyboard gives it {N(shot.Seconds)} s.");

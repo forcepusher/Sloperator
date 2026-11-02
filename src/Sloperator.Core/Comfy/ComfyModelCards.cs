@@ -27,11 +27,11 @@ public sealed record ModelCard(string Title, string Page, string? Base, IReadOnl
 /// asks for quality tags and booru-style tags, and its maker's own pictures were made at 768x1344
 /// with a 1.5x hires pass. The pictures came out young, soft and off-style, four times running. A
 /// file is found on Civitai by its SHA-256, worked out once and kept with the file's size and time
-/// in Data/comfyui/model-hashes.json (6.9 GB took 7 s here). The quick hash of 64 KB a megabyte in
+/// in SloperatorData/comfyui/model-hashes.json (6.9 GB took 7 s here). The quick hash of 64 KB a megabyte in
 /// (Civitai's "AutoV1") was tried first and gave this PC's Pony Diffusion V6 XL the card of
 /// "Incomplete anime pony", a fine-tune of it of the same size: models trained on one base with
 /// its text encoder left as it was share those bytes. Cards are kept in
-/// Data/comfyui/model-cards.json, and a file Civitai doesn't know is asked about again after a week.
+/// SloperatorData/comfyui/model-cards.json, and a file Civitai doesn't know is asked about again after a week.
 /// </summary>
 public sealed partial class ComfyModelCards(string stateDirectory)
 {

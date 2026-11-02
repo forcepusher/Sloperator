@@ -14,7 +14,7 @@ namespace Sloperator.App.Views;
 
 /// <summary>
 /// The Web preview panel, on the left of the chat window: the page in Avalonia's web view (WebView2 on
-/// Windows, its profile in Data\webview), its errors under it. What WebView2 does that the web view doesn't
+/// Windows, its profile in SloperatorData\webview), its errors under it. What WebView2 does that the web view doesn't
 /// pass on (a script before the page's own, its folder served at an https host, a picture of the page) is
 /// asked of WebView2 itself (<see cref="Platform.Windows.WebView2Page"/>).
 /// </summary>

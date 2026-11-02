@@ -10,8 +10,8 @@ public static class SystemPrompt
     /// <param name="screens">One per monitor, the primary first; null when the model can't see images.</param>
     /// <param name="mcpServers">Connected MCP servers whose tools are in the tool list.</param>
     /// <param name="webSearch">Whether web_search and fetch_page are in the tool list.</param>
-    /// <param name="toolsDirectory">Where portable programs the agent downloads go (Sloperator's Data/tools), or null to leave it out.</param>
-    /// <param name="scratchDirectory">Where helper files the agent makes go (Sloperator's Data/scratch), or null to leave it out.</param>
+    /// <param name="toolsDirectory">Where portable programs the agent downloads go (Sloperator's SloperatorData/tools), or null to leave it out.</param>
+    /// <param name="scratchDirectory">Where helper files the agent makes go (Sloperator's SloperatorData/scratch), or null to leave it out.</param>
     /// <param name="madeDirectory">Where what the agent makes for the user goes when they name no place (Documents\Sloperator), or null to leave it out.</param>
     /// <param name="folderIndex">Whether index_folder is in the tool list.</param>
     /// <param name="control">Whether the mouse and keyboard tools are in the tool list along with the screen's (the user can turn them off in Settings).</param>

@@ -17,7 +17,7 @@ namespace Sloperator.Core.Tests;
 /// <summary>MCP support: the config file, how tools are shown to the model, and a real MCP server running in-process.</summary>
 public class McpTests
 {
-    // ---- Data/mcp.json ---------------------------------------------------------------
+    // ---- SloperatorData/mcp.json ---------------------------------------------------------------
 
     [Fact]
     public void The_standard_config_shape_is_understood()
@@ -88,7 +88,7 @@ public class McpTests
     public void The_config_file_round_trips_as_typed()
     {
         var dir = Directory.CreateTempSubdirectory("bb-mcp-").FullName;
-        var path = Path.Combine(dir, "Data", "mcp.json");
+        var path = Path.Combine(dir, "SloperatorData", "mcp.json");
         Assert.Equal(McpConfig.Template, McpConfig.Load(path)); // no file yet
         const string text = "{\n  // mine\n  \"mcpServers\": {}\n}";
         McpConfig.Save(path, text);

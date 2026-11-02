@@ -85,7 +85,7 @@ public sealed class ReplyCapture
 }
 
 /// <summary>
-/// A chat saved in Data/chats: what the window showed, and the conversation the model had, so it
+/// A chat saved in SloperatorData/chats: what the window showed, and the conversation the model had, so it
 /// can be picked up again. The pictures the model was shown are kept beside it, in a folder named
 /// after the chat (see <see cref="ChatPictures"/>), and the conversation names each one's file.
 /// </summary>
@@ -152,7 +152,7 @@ public sealed class ChatHeader
     public Spending? Spent { get; set; }
 }
 
-/// <summary>Every chat is its own file, Data/chats/&lt;id&gt;.json, written whenever the chat changes.</summary>
+/// <summary>Every chat is its own file, SloperatorData/chats/&lt;id&gt;.json, written whenever the chat changes.</summary>
 public sealed class ChatStore(string dir)
 {
     public string Folder { get; } = dir;
@@ -298,7 +298,7 @@ public sealed class ChatStore(string dir)
 
     private string PathOf(string id) => Path.Combine(Folder, Path.GetFileName(id) + ".json");
 
-    /// <summary>Where the chat's pictures are kept: Data/chats/&lt;id&gt;/.</summary>
+    /// <summary>Where the chat's pictures are kept: SloperatorData/chats/&lt;id&gt;/.</summary>
     public string PicturesOf(string id) => Path.Combine(Folder, Path.GetFileName(id));
 
     private byte[]? ReadPicture(string id, string name)

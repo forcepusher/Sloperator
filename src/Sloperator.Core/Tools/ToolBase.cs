@@ -152,20 +152,20 @@ public sealed class ToolContext
     /// <summary>Reads video and sound, so the model can look at them (frames, waveforms); null when nothing can.</summary>
     public Media.IMediaDecoder? Media { get; init; }
 
-    /// <summary>Sloperator's Data/tools, where portable helpers it sets up for a job live (the song judge); null when there is none.</summary>
+    /// <summary>Sloperator's SloperatorData/tools, where portable helpers it sets up for a job live (the song judge); null when there is none.</summary>
     public string? ToolsDirectory { get; init; }
 
-    /// <summary>Where videos go, a folder each (Sloperator's Data/videos, where the Video editor panel finds them); null when there is none.</summary>
+    /// <summary>Where videos go, a folder each (Sloperator's SloperatorData/videos, where the Video editor panel finds them); null when there is none.</summary>
     public string? VideosDirectory { get; init; }
 
-    /// <summary>Where folder indexes are kept (Sloperator's Data/index, see <see cref="IndexFolderTool"/>); null to keep them in memory only.</summary>
+    /// <summary>Where folder indexes are kept (Sloperator's SloperatorData/index, see <see cref="IndexFolderTool"/>); null to keep them in memory only.</summary>
     public string? IndexDirectory { get; init; }
 
-    /// <summary>Where helper files for a task go (Sloperator's Data/scratch); null to use the system's temp folder.</summary>
+    /// <summary>Where helper files for a task go (Sloperator's SloperatorData/scratch); null to use the system's temp folder.</summary>
     public string? ScratchDirectory { get; init; }
 
     /// <summary>
-    /// The chat's own folder, beside its saved pictures (Data/chats/&lt;id&gt;): what capture_result
+    /// The chat's own folder, beside its saved pictures (SloperatorData/chats/&lt;id&gt;): what capture_result
     /// takes goes there, so the chat shows it when opened again and deletes it with itself. Null
     /// where there is no saved chat (the command line).
     /// </summary>

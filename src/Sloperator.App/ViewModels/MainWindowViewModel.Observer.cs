@@ -218,7 +218,7 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>The chat, as the error log names it: its title and file, once it has them.</summary>
     private string ChatPlace() =>
-        _chatId is null ? "a new chat" : $"chat \"{_chatTitle}\", Data\\chats\\{_chatId}.json";
+        _chatId is null ? "a new chat" : $"chat \"{_chatTitle}\", SloperatorData\\chats\\{_chatId}.json";
 
     void IAgentObserver.OnToolStarted(ToolCall call, string summary) => PostTimed(at =>
     {
@@ -314,7 +314,7 @@ public sealed partial class MainWindowViewModel
                     AddStopNotice(stopped, isError: false, compacting: compacting);
                     break;
                 case AgentStopReason.Error:
-                    AddStopNotice((detail ?? "Something went wrong.") + (logged ? @" Details are in Data\crash.log." : ""), isError: true, error: error, compacting: compacting);
+                    AddStopNotice((detail ?? "Something went wrong.") + (logged ? @" Details are in SloperatorData\crash.log." : ""), isError: true, error: error, compacting: compacting);
                     break;
             }
 

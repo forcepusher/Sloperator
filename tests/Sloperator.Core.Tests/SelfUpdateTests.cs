@@ -84,7 +84,7 @@ public class SelfUpdateTests : IDisposable
 
         File.WriteAllText(file, "not a time");
         Assert.Null(SelfUpdate.LastCheck(file));
-        // A Data folder that takes nothing: no error, the next start just checks.
+        // A SloperatorData folder that takes nothing: no error, the next start just checks.
         SelfUpdate.Checked(Path.Combine(_root, "not there", "update-check.txt"), at);
     }
 

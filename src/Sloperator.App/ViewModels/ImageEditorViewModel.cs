@@ -75,7 +75,7 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 
 /// <summary>
 /// The Image editor panel, beside the chat, a sibling of the Video editor for single pictures:
-/// the pictures in Data\pictures (a folder each, its versions the picture files in it), the picked one big
+/// the pictures in SloperatorData\pictures (a folder each, its versions the picture files in it), the picked one big
 /// with its versions under it, and how the version shown was made beside it (its Prompt metadata, as the
 /// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
 /// picture's folder, so a redo is a new version and the earlier ones stay. A click on a picture or a
@@ -86,7 +86,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 {
     private readonly MainWindowViewModel? _chat;
 
-    /// <summary>Where the pictures are: Data\pictures.</summary>
+    /// <summary>Where the pictures are: SloperatorData\pictures.</summary>
     public string Root { get; }
 
     /// <summary>Where pictures of marked parts and their masks go for the message: the chat's pasted files.</summary>

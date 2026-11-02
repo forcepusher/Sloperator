@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Sloperator.Core.Tests;
 
-/// <summary>Saved chats in Data/chats: what the History dropdown lists, and what is kept to carry on with a chat.</summary>
+/// <summary>Saved chats in SloperatorData/chats: what the History dropdown lists, and what is kept to carry on with a chat.</summary>
 public class ChatStoreTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "bb-chats-" + Guid.NewGuid().ToString("N"));

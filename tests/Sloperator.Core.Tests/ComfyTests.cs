@@ -1166,7 +1166,7 @@ public class ComfyToolTests : IDisposable
         Assert.False(shown.IsError, shown.Text);
         Assert.Contains("\"9\": {\"class_type\":\"SaveImage\"", shown.Text);
         Assert.Contains("Models: all 1 installed.", shown.Text);
-        var saved = Path.Combine(_home, "Data", "scratch", "comfyui", "fox.json");
+        var saved = Path.Combine(_home, "SloperatorData", "scratch", "comfyui", "fox.json");
         Assert.True(File.Exists(saved));
 
         // The saved file runs as it is.

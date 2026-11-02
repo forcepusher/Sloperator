@@ -10,7 +10,7 @@
   game\ (the files it wrote), check\ (the checker's screenshots and check.json), summary.txt.
 
 .EXAMPLE
-  ./scripts/game2048-test.ps1                         # server and model from Data/settings.json
+  ./scripts/game2048-test.ps1                         # server and model from SloperatorData/settings.json
   ./scripts/game2048-test.ps1 -Url http://host:1234/v1 -Model qwen3.8-27b@q4_k_s -Hours 6
 #>
 param([string]$Root = "", [string]$Url = "", [string]$Model = "", [double]$Hours = 4)

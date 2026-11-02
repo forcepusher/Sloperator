@@ -5,7 +5,7 @@ namespace Sloperator.Core.Comfy;
 /// <summary>
 /// The ComfyUI server Sloperator works with: where it is, whether it runs, and what it offers. One
 /// per process, shared by every run, since there is one ComfyUI (and one GPU) on the PC. Its
-/// address and folder are kept in Data/comfyui/state.json for later starts.
+/// address and folder are kept in SloperatorData/comfyui/state.json for later starts.
 /// </summary>
 public sealed class ComfyHub(string stateDirectory)
 {
@@ -13,7 +13,7 @@ public sealed class ComfyHub(string stateDirectory)
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ComfyHub> Hubs = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The one hub for a Data folder's state, made on first use and kept for the process's life (its caches and browser outlast a run).</summary>
+    /// <summary>The one hub for a SloperatorData folder's state, made on first use and kept for the process's life (its caches and browser outlast a run).</summary>
     public static ComfyHub For(string stateDirectory) => Hubs.GetOrAdd(Path.GetFullPath(stateDirectory), dir => new ComfyHub(dir));
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -51,7 +51,7 @@ public sealed class ComfyHub(string stateDirectory)
 
     public string LogFile => Path.Combine(stateDirectory, "server.log");
 
-    /// <summary>Sloperator's Data/tools, beside Data/comfyui: where it installs ComfyUI, and looks for it first.</summary>
+    /// <summary>Sloperator's SloperatorData/tools, beside SloperatorData/comfyui: where it installs ComfyUI, and looks for it first.</summary>
     public string ToolsDirectory { get; init; } = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(stateDirectory))!, "tools");
 
     private IReadOnlyList<ComfyInstall> FindInstalls(CancellationToken ct) => ComfyInstall.Find(TimeSpan.FromSeconds(20), ct, [ToolsDirectory]);
@@ -160,9 +160,9 @@ public sealed class ComfyHub(string stateDirectory)
                 var found = FindInstalls(ct);
                 install = found.FirstOrDefault()
                           ?? throw new ComfyApiException("ComfyUI isn't running (at ports 8188 and 8000) and isn't installed in any usual place on this PC (looked for the Desktop app, " +
-                                                         "in Sloperator's Data\\tools, Stability Matrix's and Pinokio's folders, and on every drive a few folders deep). " +
+                                                         "in Sloperator's SloperatorData\\tools, Stability Matrix's and Pinokio's folders, and on every drive a few folders deep). " +
                                                          "If it is somewhere else, give its folder in folder=. Otherwise install it with action=install: " +
-                                                         "the portable build that suits this PC's graphics card (or its CPU) goes into Sloperator's Data\\tools, about 2 GB to download.");
+                                                         "the portable build that suits this PC's graphics card (or its CPU) goes into Sloperator's SloperatorData\\tools, about 2 GB to download.");
                 if (found.Count > 1)
                     notes.Add($"Found ComfyUI in {found.Count} places ({string.Join("; ", found.Select(f => f.Root))}); using the one used most recently. Give another one's folder in folder= to use it instead.");
                 if (install.Kind == ComfyInstallKind.Desktop && address.Port == ComfyProcess.DefaultPort)
@@ -215,7 +215,7 @@ public sealed class ComfyHub(string stateDirectory)
 
     /// <summary>
     /// Installs ComfyUI's portable build that suits this PC (see <see cref="ComfyHardware.Pick"/>)
-    /// into <paramref name="folder"/>, Sloperator's Data/tools unless told otherwise, and makes it the
+    /// into <paramref name="folder"/>, Sloperator's SloperatorData/tools unless told otherwise, and makes it the
     /// one to use. Without a folder, a ComfyUI that already runs or is on the PC is kept instead:
     /// the answer says where it is.
     /// </summary>

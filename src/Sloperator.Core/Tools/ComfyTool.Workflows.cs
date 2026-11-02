@@ -297,7 +297,7 @@ public sealed partial class ComfyTool
         }
     }
 
-    /// <summary>Keeps a workflow where the model can edit it and run it again: Data/scratch/comfyui/&lt;name&gt;.json.</summary>
+    /// <summary>Keeps a workflow where the model can edit it and run it again: SloperatorData/scratch/comfyui/&lt;name&gt;.json.</summary>
     private static string SaveWorkflow(ToolContext ctx, string name, ComfyWorkflow workflow)
     {
         var dir = Path.Combine(ctx.ScratchDirectory ?? Path.GetTempPath(), "comfyui");

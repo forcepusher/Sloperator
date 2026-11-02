@@ -361,7 +361,7 @@ public sealed partial class MainWindowViewModel
         }, DispatcherPriority.Background);
     }
 
-    /// <summary>Where a chat's commands are kept: Data/chats/id/terminal.json, beside its pictures, so it goes with the chat.</summary>
+    /// <summary>Where a chat's commands are kept: SloperatorData/chats/id/terminal.json, beside its pictures, so it goes with the chat.</summary>
     private string CommandsFile(string chatId) => Path.Combine(_chats.PicturesOf(chatId), "terminal.json");
 
     // ---- the Code editor panel's folder and unsaved files ---------------------------------------
@@ -375,7 +375,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>Files edited in the Code editor panel and not saved yet, by path: kept while the window is open, so closing the panel loses nothing.</summary>
     internal Dictionary<string, CodeDraft> CodeDrafts { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Where a chat's list is kept: Data/chats/changes/id.json.</summary>
+    /// <summary>Where a chat's list is kept: SloperatorData/chats/changes/id.json.</summary>
     private string ChangesFile(string chatId) => Path.Combine(_chats.Folder, "changes", Path.GetFileName(chatId) + ".json");
 
     /// <summary>Files dropped on the side panel: the panel takes them, or they go with the next message.</summary>

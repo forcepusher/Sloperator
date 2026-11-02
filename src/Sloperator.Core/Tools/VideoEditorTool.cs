@@ -40,7 +40,7 @@ public sealed class VideoEditorTool : Tool
         "Nothing is video-wide, so a change remakes only what it changes: write the video's look into every frame's and shot's prompt. " +
         "model is what one is made with: a model or workflow in words (\"z image turbo\", \"juggernaut xl\", \"my pony workflow\"), matched against what ComfyUI has installed, " +
         "or none for the best installed one; action=models lists what is installed for each kind of picture, video and song. " +
-        "Without path a new video goes into a folder of its own in Sloperator's Data\\videos, where the Video editor panel finds it " +
+        "Without path a new video goes into a folder of its own in Sloperator's SloperatorData\\videos, where the Video editor panel finds it " +
         "(Sloperator is portable: what it makes stays next to it). " +
         "A shot that starts on the last frame of the one before goes on with the same camera; " +
         "a new first frame is a cut to another scene or angle. Every shot starts on a frame: the video model animates a picture well and draws one badly. " +
@@ -685,7 +685,7 @@ public sealed class VideoEditorTool : Tool
         if (id is { Length: > 0 } && board.Shot(id) is null && board.Frame(id) is { } frame)
             return await CheckFrameAsync(board, frame, ctx, ct).ConfigureAwait(false);
         if (ctx.Media is not { } decoder)
-            throw new VideoException("Nothing on this PC can read video to check it (ffmpeg in Sloperator's Data\\tools would).");
+            throw new VideoException("Nothing on this PC can read video to check it (ffmpeg in Sloperator's SloperatorData\\tools would).");
         if (id is { Length: > 0 })
         {
             var shot = board.Shot(id) ?? throw new VideoException($"There is no frame or shot \"{id}\" in this video.");

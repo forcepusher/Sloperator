@@ -4,7 +4,7 @@ using Sloperator.Core.Settings;
 namespace Sloperator.Core;
 
 /// <summary>
-/// Every error Sloperator shows, written down in Data/errors.log: where it was shown, what it said,
+/// Every error Sloperator shows, written down in SloperatorData/errors.log: where it was shown, what it said,
 /// and the whole exception behind it when there was one. The chat keeps only the line, and a
 /// window gone or a chat deleted took even that: a task that seemed to end on a server's error
 /// left nothing to tell what the server had said, nor whether the task was done.
@@ -19,7 +19,7 @@ public static class ErrorLog
 
     public static string FileName(AppPaths paths) => Path.Combine(paths.DataDir, "errors.log");
 
-    /// <summary>Starts writing to Data/errors.log; before (in the tests, the command-line runner) nothing is written.</summary>
+    /// <summary>Starts writing to SloperatorData/errors.log; before (in the tests, the command-line runner) nothing is written.</summary>
     public static void Start(AppPaths paths) => _file = FileName(paths);
 
     /// <summary>Writes nothing from now on.</summary>
@@ -27,7 +27,7 @@ public static class ErrorLog
 
     /// <summary>
     /// Adds what was shown <paramref name="where"/> ("chat \"Build it\"", "Video editor") to the log,
-    /// with the exception behind it, if the Data folder takes it.
+    /// with the exception behind it, if the SloperatorData folder takes it.
     /// </summary>
     public static void Write(string where, string shown, Exception? error = null)
     {

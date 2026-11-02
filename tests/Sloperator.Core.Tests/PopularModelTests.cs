@@ -94,7 +94,7 @@ public class PopularModelTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Contains("Civitai's most downloaded checkpoints this month", result.Text);
         Assert.Contains("The month's most downloaded are on these base models: Anima 2, ", result.Text);
-        // No ComfyUI runs and none has been used from this Data folder: that isn't "not installed".
+        // No ComfyUI runs and none has been used from this SloperatorData folder: that isn't "not installed".
         Assert.Contains("none has been used from this Sloperator yet (action=status finds the PC's own", result.Text);
         Assert.DoesNotContain("isn't installed", result.Text);
         Assert.Contains("1. MiaoMiao Harem (2.9B): checkpoint for Anima, 4.8 GB, #1 this month (Civitai,", result.Text);

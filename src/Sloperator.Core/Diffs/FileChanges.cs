@@ -210,7 +210,7 @@ public sealed class FileChanges
     }
 
     /// <summary>
-    /// Whether a path is in Sloperator's own Data folder (the one holding its scratch and tools): the
+    /// Whether a path is in Sloperator's own SloperatorData folder (the one holding its scratch and tools): the
     /// agent's notes and downloads there are no change of the user's (the user, 2026-10-27).
     /// </summary>
     private static bool InOwnData(string path, ToolContext ctx) =>

@@ -337,7 +337,7 @@ public class FolderIndexTests : IDisposable
     {
         var project = Path.Combine(_dir, "portable");
         Write("portable/src/App.cs", "public class App { }\n");
-        var store = Path.Combine(project, "Data", "index");
+        var store = Path.Combine(project, "SloperatorData", "index");
 
         await Run(Ctx(store), project);
         var again = (await Run(Ctx(store), project)).Text;
@@ -584,13 +584,13 @@ public class FolderIndexTests : IDisposable
         // An argument under another name ("file_path") is read as the tool reads it.
         Assert.NotNull(new ProjectNudge().Check(read, new JsonObject { ["file_path"] = file }.ToJsonString(), ok, ctx));
 
-        // Sloperator's own Data folder is no project of the user's, even inside a checkout of Sloperator.
+        // Sloperator's own SloperatorData folder is no project of the user's, even inside a checkout of Sloperator.
         var own = Path.Combine(_dir, "bbrepo");
         Directory.CreateDirectory(Path.Combine(own, ".git"));
         for (var i = 0; i < ProjectNudge.MinFiles; i++)
             Write($"bbrepo/src/File{i}.cs", "class C {}");
-        var scratch = Path.Combine(own, "publish", "Data", "scratch");
-        var download = Write("bbrepo/publish/Data/scratch/pgtest/pg.jar", "x");
+        var scratch = Path.Combine(own, "publish", "SloperatorData", "scratch");
+        var download = Write("bbrepo/publish/SloperatorData/scratch/pgtest/pg.jar", "x");
         var bbCtx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = _dir, IndexDirectory = _store, ScratchDirectory = scratch };
         Assert.Null(new ProjectNudge().Check(new ShellTool(), new JsonObject { ["command"] = $"cd \"{Path.GetDirectoryName(download)}\"; Expand-Archive pg.zip" }.ToJsonString(), ok, bbCtx));
         Assert.NotNull(new ProjectNudge().Check(read, Args(Path.Combine(own, "src", "File1.cs")), ok, bbCtx));
@@ -825,7 +825,7 @@ public class FolderIndexTests : IDisposable
         Assert.Equal(ToolRisk.ReadOnly, registry.Find("index_folder")!.Risk);
         Assert.IsType<IndexFolderTool>(ToolCallRepair.ResolveTool("codebase_search", registry));
         Assert.Contains("index it with index_folder", SystemPrompt.Build("Test OS", null, "C:\\", ""));
-        Assert.Equal(Path.Combine("C:\\Data", "index"), new AppPaths("C:\\").IndexDir);
+        Assert.Equal(Path.Combine("C:\\SloperatorData", "index"), new AppPaths("C:\\").IndexDir);
         // Left out to measure what it changes (sloperator-cli --no-index): the tool and the prompt's line.
         Assert.Null(ToolRegistry.CreateDefault(includeScreenTools: false, includeIndex: false).Find("index_folder"));
         Assert.DoesNotContain("index_folder", SystemPrompt.Build("Test OS", null, "C:\\", "", folderIndex: false));

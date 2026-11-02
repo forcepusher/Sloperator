@@ -159,9 +159,9 @@ internal sealed partial class ProjectNudge
     }
 
     /// <summary>
-    /// Whether a path is in Sloperator's own Data folder (the one holding its scratch and tools), which is
+    /// Whether a path is in Sloperator's own SloperatorData folder (the one holding its scratch and tools), which is
     /// no project of the user's. Run from a checkout, Sloperator keeps it inside its own repository: a
-    /// download into Data\scratch had the model told to index E:\Repos\Sloperator.
+    /// download into SloperatorData\scratch had the model told to index E:\Repos\Sloperator.
     /// </summary>
     private static bool InOwnData(string path, ToolContext ctx) =>
         new[] { ctx.ScratchDirectory, ctx.ToolsDirectory }

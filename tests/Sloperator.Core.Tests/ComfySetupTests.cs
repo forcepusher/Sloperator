@@ -734,7 +734,7 @@ public class ComfyModelToolTests : IDisposable
         Assert.False(install.IsError, install.Text);
         Assert.Contains($"A ComfyUI runs already, at {_comfy.Url}; nothing was downloaded", install.Text);
         Assert.Contains($"Using the ComfyUI that already runs at {_comfy.Url} (from {_comfy.CodeDir}); it keeps running after this task.", install.Text);
-        Assert.False(Directory.Exists(Path.Combine(_home, "Data", "tools", "ComfyUI_windows_portable")));
+        Assert.False(Directory.Exists(Path.Combine(_home, "SloperatorData", "tools", "ComfyUI_windows_portable")));
     }
 
     [Fact]

@@ -9,7 +9,7 @@ public sealed class McpSetup(McpHost host, string configFile)
 {
     public McpHost Host { get; } = host;
 
-    /// <summary>Data/mcp.json, where a server the agent adds is kept for later tasks and shows in Settings.</summary>
+    /// <summary>SloperatorData/mcp.json, where a server the agent adds is kept for later tasks and shows in Settings.</summary>
     public string ConfigFile { get; } = configFile;
 
     /// <summary>The run's tools, which a new server's tools join.</summary>
@@ -26,7 +26,7 @@ public sealed class McpSetup(McpHost host, string configFile)
 /// <summary>
 /// The agent adds, removes and lists its own MCP servers: the ones the user sees and edits in Settings.
 /// A program with an MCP server (Blender, a database, a browser) is far better driven through it
-/// than through its window; before, the agent could only write Data/mcp.json and the servers in it
+/// than through its window; before, the agent could only write SloperatorData/mcp.json and the servers in it
 /// started with the app, so a server it set up was there in the next run at the earliest. Now a
 /// server it adds starts at once, its tools join the run, and it is kept for later tasks.
 /// </summary>

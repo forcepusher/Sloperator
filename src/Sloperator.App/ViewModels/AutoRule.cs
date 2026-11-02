@@ -13,8 +13,8 @@ public sealed record AutoTarget(string Panel, string? Path = null);
 public sealed record AutoWritten(string Path, bool Made);
 
 /// <summary>
-/// Where the panels Auto shows look: the Image editor's pictures (Data\pictures), the Video editor's videos
-/// (Data\videos), the web page the agent wrote last in the chat (null before one), and the folder the Code
+/// Where the panels Auto shows look: the Image editor's pictures (SloperatorData\pictures), the Video editor's videos
+/// (SloperatorData\videos), the web page the agent wrote last in the chat (null before one), and the folder the Code
 /// editor shows (the one the user opened, else the agent's project; null before either).
 /// </summary>
 public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? LastPage = null, string? EditorFolder = null);

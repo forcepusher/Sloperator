@@ -5,26 +5,40 @@ namespace Sloperator.Core.Settings;
 /// <code>
 /// Sloperator/
 ///   Sloperator.exe
-///   Data/settings.json
-///   Data/mcp.json  (MCP servers, if any)
-///   Data/chats/    (saved chats, one file each)
-///   Data/browser/  (profile of the headless browser web search falls back on)
-///   Data/webview/  (profile of the Web preview panel's web view)
-///   Data/runtime/  (native libraries unpacked by the single-file build)
-///   Data/known_hosts (host keys of the servers the agent logged in to over SSH)
-///   Data/tools/    (portable programs the agent downloaded for its tasks)
-///   Data/scratch/  (helper files the agent made for its tasks: scripts and the like)
-///   Data/pasted/   (pictures pasted into the chat from the clipboard)
-///   Data/videos/    (one folder per video: its storyboard, frames, shots, song and the video)
-///   Data/pictures/  (one folder per picture of the Image editor panel: its versions)
-///   Data/index/    (the indexes of the folders the agent indexed, a file each)
-///   Data/errors.log (every error Sloperator showed, see <see cref="ErrorLog"/>)
+///   SloperatorData/settings.json
+///   SloperatorData/mcp.json  (MCP servers, if any)
+///   SloperatorData/chats/    (saved chats, one file each)
+///   SloperatorData/browser/  (profile of the headless browser web search falls back on)
+///   SloperatorData/webview/  (profile of the Web preview panel's web view)
+///   SloperatorData/runtime/  (native libraries unpacked by the single-file build)
+///   SloperatorData/known_hosts (host keys of the servers the agent logged in to over SSH)
+///   SloperatorData/tools/    (portable programs the agent downloaded for its tasks)
+///   SloperatorData/scratch/  (helper files the agent made for its tasks: scripts and the like)
+///   SloperatorData/pasted/   (pictures pasted into the chat from the clipboard)
+///   SloperatorData/videos/    (one folder per video: its storyboard, frames, shots, song and the video)
+///   SloperatorData/pictures/  (one folder per picture of the Image editor panel: its versions)
+///   SloperatorData/index/    (the indexes of the folders the agent indexed, a file each)
+///   SloperatorData/errors.log (every error Sloperator showed, see <see cref="ErrorLog"/>)
 /// </code>
 /// </summary>
-public sealed class AppPaths(string root)
+public sealed class AppPaths
 {
-    public string Root { get; } = Path.GetFullPath(root);
-    public string DataDir => Path.Combine(Root, "Data");
+    /// <summary>The folder next to the exe that holds all of Sloperator's own files.</summary>
+    public const string DataFolderName = "SloperatorData";
+
+    /// <summary>What <see cref="DataFolderName"/> was called up to 1.3.0 (see <see cref="Open"/>).</summary>
+    public const string OldDataFolderName = "Data";
+
+    public AppPaths(string root) : this(root, DataFolderName) { }
+
+    private AppPaths(string root, string dataFolder)
+    {
+        Root = Path.GetFullPath(root);
+        DataDir = Path.Combine(Root, dataFolder);
+    }
+
+    public string Root { get; }
+    public string DataDir { get; }
     public string SettingsFile => Path.Combine(DataDir, "settings.json");
 
     /// <summary>The MCP server list, in the format MCP READMEs show (see <see cref="Mcp.McpConfig"/>).</summary>
@@ -82,9 +96,34 @@ public sealed class AppPaths(string root)
     public void EnsureCreated() => Directory.CreateDirectory(DataDir);
 
     /// <summary>
+    /// The paths under <paramref name="root"/>, with the Data folder of an earlier version moved to
+    /// <see cref="DataFolderName"/> first, so its chats and settings stay. A Data folder with none of
+    /// Sloperator's files in it (another program's, beside the exe in Downloads) is left alone. While
+    /// the move can't be made (an earlier version still runs from the folder and holds its files),
+    /// this start keeps to the old folder, as that version does, and a later start moves it.
+    /// </summary>
+    public static AppPaths Open(string root)
+    {
+        root = Path.GetFullPath(root);
+        var data = Path.Combine(root, DataFolderName);
+        var old = Path.Combine(root, OldDataFolderName);
+        if (Directory.Exists(data) || !IsSloperators(old))
+            return new AppPaths(root);
+        try { Directory.Move(old, data); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        // Another start may have moved it meanwhile: whichever folder is there now counts.
+        return Directory.Exists(data) ? new AppPaths(root) : new AppPaths(root, OldDataFolderName);
+    }
+
+    private static bool IsSloperators(string dir) =>
+        Directory.Exists(dir)
+        && (File.Exists(Path.Combine(dir, "settings.json"))
+            || new[] { "chats", "runtime", "tools", "videos", "pictures" }.Any(d => Directory.Exists(Path.Combine(dir, d))));
+
+    /// <summary>
     /// The portable root: SLOPERATOR_HOME if set, otherwise the folder of the executable. With
     /// <paramref name="useRepositoryDevFolder"/>, a build running inside the repository uses
-    /// <c>.dev/</c> there instead, so the debug app and the CLI share one Data folder.
+    /// <c>.dev/</c> there instead, so the debug app and the CLI share one SloperatorData folder.
     /// </summary>
     public static string FindRoot(bool useRepositoryDevFolder)
     {

@@ -36,7 +36,7 @@
   </Target>
 
   <!-- Single-file builds: publish.ps1 passes the native libraries, a zip packed with Brotli
-       (pack-runtime.cs), which PortableRuntime unpacks into Data/runtime on first run. -->
+       (pack-runtime.cs), which PortableRuntime unpacks into SloperatorData/runtime on first run. -->
   <ItemGroup Condition="'$(RuntimePayload)' != ''">
     <EmbeddedResource Include="$(RuntimePayload)" LogicalName="Sloperator.runtime.br" />
   </ItemGroup>

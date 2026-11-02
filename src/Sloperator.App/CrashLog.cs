@@ -7,7 +7,7 @@ namespace Sloperator.App;
 /// <summary>
 /// What went wrong where no code caught it. Sloperator runs for hours on its own; without this, an
 /// exception nothing caught closed the window and left no trace of why. Each one goes into
-/// Data/crash.log; one that ended Sloperator is also shown in the chat at the next start, and one
+/// SloperatorData/crash.log; one that ended Sloperator is also shown in the chat at the next start, and one
 /// that kept it from starting in a message box.
 /// </summary>
 internal static class CrashLog
@@ -67,7 +67,7 @@ internal static class CrashLog
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    /// <summary>Adds the exception to the log, if the Data folder takes it.</summary>
+    /// <summary>Adds the exception to the log, if the SloperatorData folder takes it.</summary>
     public static void Write(string where, Exception ex)
     {
         if (_paths is not { } paths)
@@ -122,7 +122,7 @@ internal static class CrashLog
         // Put in Program Files (or another folder Windows keeps users out of), it said only
         // "UnauthorizedAccessException: Access to the path '…\Data\runtime' is denied."
         if (ex is UnauthorizedAccessException && _paths is { } paths && !CanWrite(paths.DataDir))
-            MessageBoxW(0, $"Sloperator keeps its settings and chats in a Data folder next to Sloperator.exe, and Windows doesn't let it write in {paths.Root}.\n\n" +
+            MessageBoxW(0, $"Sloperator keeps its settings and chats in a SloperatorData folder next to Sloperator.exe, and Windows doesn't let it write in {paths.Root}.\n\n" +
                            "Move Sloperator.exe to a folder of your own, such as Documents or the Desktop, and start it from there.", "Sloperator", 0x10 /* MB_ICONERROR */);
         else
             MessageBoxW(0, $"Sloperator could not start.\n\n{Summary(ex)}" + (_paths is { } p ? $"\n\nDetails: {FileName(p)}" : ""), "Sloperator", 0x10 /* MB_ICONERROR */);

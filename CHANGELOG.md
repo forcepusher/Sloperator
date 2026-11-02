@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Waiting is two tools for the agent: `wait` waits a set time, as for a build or a download, with
   no screenshot unless it asks for one; `wait_until_change` waits until the screen changes and
   then shows it.
+- Sloperator's folder next to the exe is called `SloperatorData` instead of `Data`, so it is clear
+  whose it is. An existing `Data` folder is renamed on the first start, with your chats and settings.
 
 ## [1.3.0] - 2026-11-01
 ### Added

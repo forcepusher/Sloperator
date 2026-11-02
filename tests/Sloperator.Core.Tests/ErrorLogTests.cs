@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Sloperator.Core.Tests;
 
-/// <summary>Data/errors.log: every error Sloperator showed, with the exception behind it.</summary>
+/// <summary>SloperatorData/errors.log: every error Sloperator showed, with the exception behind it.</summary>
 public sealed class ErrorLogTests : IDisposable
 {
     private readonly string _home = Path.Combine(Path.GetTempPath(), "bb-errorlog-" + Guid.NewGuid().ToString("N"));

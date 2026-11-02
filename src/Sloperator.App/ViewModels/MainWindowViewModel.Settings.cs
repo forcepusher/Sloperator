@@ -124,7 +124,7 @@ public sealed partial class MainWindowViewModel
 
     // ---- MCP servers ----------------------------------------------------------------
 
-    /// <summary>Starts the servers in Data/mcp.json (stopping any running ones) and reports the ones that fail in the chat.</summary>
+    /// <summary>Starts the servers in SloperatorData/mcp.json (stopping any running ones) and reports the ones that fail in the chat.</summary>
     private async Task ConnectMcpAsync()
     {
         IReadOnlyList<McpServerConfig> servers;
@@ -142,7 +142,7 @@ public sealed partial class MainWindowViewModel
             AddNotice($"MCP server \"{s.Name}\" is not available: {s.Error} (Settings)", isError: true);
     }
 
-    /// <summary>A line in the chat; an error goes into Data/errors.log too, with the exception behind it.</summary>
+    /// <summary>A line in the chat; an error goes into SloperatorData/errors.log too, with the exception behind it.</summary>
     internal void AddNotice(string text, bool isError, Exception? error = null)
     {
         if (isError)
@@ -156,6 +156,6 @@ public sealed partial class MainWindowViewModel
     public void ShowProblem(string text, Exception? error = null)
     {
         if (_problemsShown.Add(text))
-            AddNotice(text + @" Details are in Data\crash.log.", isError: true, error);
+            AddNotice(text + @" Details are in SloperatorData\crash.log.", isError: true, error);
     }
 }

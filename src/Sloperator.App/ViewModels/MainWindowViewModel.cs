@@ -28,7 +28,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private readonly ChatWindows _windows;
     private readonly HttpClient _http = LlmHttp.Create(Timeout.InfiniteTimeSpan);
     private List<ChatMessage> _history = [];
-    /// <summary>The file names given to the pictures in the chat, kept beside it in Data/chats/&lt;id&gt;/.</summary>
+    /// <summary>The file names given to the pictures in the chat, kept beside it in SloperatorData/chats/&lt;id&gt;/.</summary>
     private ChatPictures _pictures = new();
     private readonly ChatStore _chats;
     private readonly ChatSaver _chatSaver;
@@ -409,7 +409,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
     /// <summary>
     /// A picture from the clipboard or dragged in without a file (a screenshot, a picture copied in
-    /// a browser): saved as a PNG in Data/pasted, since the agent works on files, and attached like a
+    /// a browser): saved as a PNG in SloperatorData/pasted, since the agent works on files, and attached like a
     /// dropped one.
     /// </summary>
     public void AttachPicture(Avalonia.Media.Imaging.Bitmap picture) => SavePasted(path => picture.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default));

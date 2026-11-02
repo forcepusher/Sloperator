@@ -463,7 +463,7 @@ public sealed partial class Storyboard
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         return list;
     }
-    /// <summary>The videos in <paramref name="root"/> (Sloperator's Data\videos), the latest changed first.</summary>
+    /// <summary>The videos in <paramref name="root"/> (Sloperator's SloperatorData\videos), the latest changed first.</summary>
     public static IReadOnlyList<string> Recent(string root)
     {
         try
