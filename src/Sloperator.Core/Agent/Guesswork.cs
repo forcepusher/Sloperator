@@ -25,7 +25,8 @@ namespace Sloperator.Core.Agent;
 /// model itself calls wrong, or the user does, counts as a failed one; a question the model asks
 /// itself about how something is done, which it goes on without looking up, gets a note to search,
 /// as does the next failed script after an error it was told to look up and went on past; and after ten
-/// minutes of tries, or eight quick ones, with nothing looked up, every next try says it is time to look.
+/// minutes of runs (commands, scripts, jobs: not edits), or four quick ones, with nothing looked up, the
+/// next run says it is time to look, and every fourth after it until the model does.
 /// </para>
 /// <para>
 /// Sloperator doesn't search for the model. It used to, and put the results under the step with the
@@ -41,18 +42,20 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// <summary>Failures since the last look-up (within <see cref="Window"/>) before every next one gets a note.</summary>
     internal const int Tries = 3;
 
-    /// <summary>Time spent on tries with nothing looked up before every next try says it is time to look.</summary>
+    /// <summary>Time spent on runs with nothing looked up before the next run says it is time to look.</summary>
     internal static readonly TimeSpan CheckAfter = TimeSpan.FromMinutes(10);
 
-    /// <summary>Tries in that time it takes as well: a long wait or one long render is no guesswork.</summary>
+    /// <summary>Runs in that time it takes as well: a long wait or one long render is no guesswork.</summary>
     internal const int CheckTries = 3;
 
     /// <summary>
-    /// Tries with nothing looked up that make it time to look however quick they were: probing
-    /// Blender 5.2 for how a modifier's inputs are set, qwen3.8 ran 17 scripts in 7 minutes after
-    /// its last search and ran out of time without the file.
+    /// Runs with nothing looked up that make it time to look however quick they were, and the runs
+    /// between one such note and the next: probing Blender 5.2 for how a modifier's inputs are set,
+    /// qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of time without the
+    /// file. Said on every try after eight, edits included, the note came with nearly every edit of
+    /// a Unity chat feature (15 of its 17 notes), and Haiku 5.5 searched "for something" to obey it.
     /// </summary>
-    internal const int CheckBurst = 8;
+    internal const int CheckBurst = 4;
 
     /// <summary>
     /// Look-ups in a row, with no try between them, after which the model is told the installed
@@ -107,14 +110,14 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         "rather than trying variations of what didn't work.";
 
     internal static string CheckNote(TimeSpan worked, int tries) =>
-        $"[Sloperator] Time to look things up: {tries} tries{(worked.TotalMinutes >= 1 ? $" and {(int)worked.TotalMinutes} minutes" : "")} since anything was last looked up. " +
+        $"[Sloperator] Time to look things up: {tries} tries{(worked.TotalMinutes >= 1 ? $" and {(int)worked.TotalMinutes} minute{((int)worked.TotalMinutes == 1 ? "" : "s")}" : "")} since anything was last looked up. " +
         "Search the web for guidance on what you are doing now (the official documentation, the makers' guides and examples, " +
         "for the version in use) before your next try: a better way is often one search away, even when things seem to work.";
 
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
     private readonly Dictionary<string, int> _seen = [];
     private readonly Queue<int> _failures = new();
-    private int _calls, _triesSince, _lookUpsSinceTry, _lookedUpAt = -SearchGap;
+    private int _calls, _triesSince, _checkSaidAt, _lookUpsSinceTry, _lookedUpAt = -SearchGap;
     private TimeSpan _worked;
     private DateTime? _tick;
     private bool _lookedUp, _firstSaid, _tried, _triedInRun;
@@ -204,7 +207,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         if (tool is WebSearchTool or FetchPageTool)
         {
             _failures.Clear();
-            (_lookedUp, _worked, _triesSince, _lookedUpAt, _pending) = (true, TimeSpan.Zero, 0, _calls, null);
+            (_lookedUp, _worked, _triesSince, _checkSaidAt, _lookedUpAt, _pending) = (true, TimeSpan.Zero, 0, 0, _calls, null);
             (_noted, _ignored, _asked) = (false, false, false);
             _lookUpsSinceTry++;
             // Only where there is something installed to ask: tries made in the task, or a request that
@@ -215,14 +218,17 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         // Reading the installed version's own API (inspect.signature, --help) is looking it up too,
         // and what the note on a long search asks for.
         if (Reads(tool, arguments))
-            (_worked, _triesSince, _lookUpsSinceTry) = (TimeSpan.Zero, 0, 0);
+            (_worked, _triesSince, _checkSaidAt, _lookUpsSinceTry) = (TimeSpan.Zero, 0, 0, 0);
         var isTry = IsTry(tool, arguments is null ? null : ActionOf(arguments)) && !Reads(tool, arguments);
+        // Only a run says it is time to look: an edit is the work itself, and a coding task makes many.
+        var isRun = isTry && tool is not (WriteFileTool or EditFileTool);
         if (isTry)
         {
-            _triesSince++;
             _triedInRun = true;
             _lookUpsSinceTry = 0;
         }
+        if (isRun)
+            _triesSince++;
         var pending = _pending;
         _pending = null;
         _tried = false;
@@ -232,7 +238,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         if (ErrorLine(result, ErrorsInText(tool)) is not { } line)
         {
             _tried = isTry;
-            return pending ?? (isTry && (_worked >= CheckAfter && _triesSince >= CheckTries || _triesSince >= CheckBurst) ? CheckNote(_worked, _triesSince) : null);
+            return pending ?? (isRun && CheckDue() ? CheckNote(_worked, _triesSince) : null);
         }
 
         var signature = Signature(line);
@@ -256,6 +262,20 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         if (failed is not null && Searchable(line))
             _noted = true;
         return failed ?? pending;
+    }
+
+    /// <summary>
+    /// Whether this run gets <see cref="CheckNote"/>: ten minutes of runs, or <see cref="CheckBurst"/> quick
+    /// ones, with nothing looked up; once, then again every <see cref="CheckBurst"/> runs until the model looks.
+    /// </summary>
+    private bool CheckDue()
+    {
+        if (!(_worked >= CheckAfter && _triesSince >= CheckTries || _triesSince >= CheckBurst))
+            return false;
+        if (_checkSaidAt > 0 && _triesSince - _checkSaidAt < CheckBurst)
+            return false;
+        _checkSaidAt = _triesSince;
+        return true;
     }
 
     /// <summary>Counts a failed try; the note for a failure seen before or for one too many since the last look-up, or null.</summary>

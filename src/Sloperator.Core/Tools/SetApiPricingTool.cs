@@ -34,7 +34,9 @@ public sealed class SetApiPricingTool : Tool
     public static string LookupRequest(string model, string baseUrl) =>
         $"Sloperator has no prices for the model {model} on the server at {baseUrl}, which doesn't report what replies cost. " +
         "Look them up on the web (web_search, then fetch_page): that server's own prices per million tokens for input, cached input (cache read), " +
-        "cache write and output, in the currency it bills in. A service that resells another maker's model charges its own prices; " +
+        "cache write and output, in the currency it bills in. Where they depend on the prompt's length (one rate up to some number of tokens, " +
+        "another above it), give the rates for long prompts, the higher ones: an agent's prompts grow past such limits. " +
+        "A service that resells another maker's model charges its own prices; " +
         "a model the user runs on their own PC or network, or one the server gives for free (\"free\" in its id), costs nothing: " +
         "call set_api_pricing with 0 for all four, without searching. " +
         "Otherwise call set_api_pricing with what you found, leaving out a price you didn't find, and look no further.";

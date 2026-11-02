@@ -185,6 +185,12 @@ public static class SystemPrompt
                       "or measure what it does (count what a scene or file holds once it is worked out, play what you made, run what you built). " +
                       "When the check doesn't show what the user asked for, the task isn't finished: find out why and fix it rather than explain it away. " +
                       "A check you can do yourself is part of the task, not an optional extra: do it rather than leave it to the user. " +
+                      // Twenty minutes into a Unity chat feature, Haiku 5.5 thought it was "already using a lot
+                      // of effort" and answered with what it hadn't done: the tests the user said ran on a VM,
+                      // the button's own icon, a look at it in the scene. Sloperator showed it no token counts.
+                      "All of the user's request is the task: how long it has taken, how many steps or how much you have done already is no reason to stop " +
+                      "or to leave part of it out, and if your answer would list work still to do that you could do yourself, do that work first. " +
+                      "When the user says how the result can be tested (a test suite, a test server, a VM), running that test is part of the check. " +
                       (screen is not null ? "When the task was to make something to look at (an app, a page, a game, a chart, a document), show it to the user with capture_result " +
                                          "(a document as file; anything else run or opened if it isn't showing), " +
                                          "cropped to what you made (its window, or the part of it in a box); the whole screen only when that is the point. " : "") +
