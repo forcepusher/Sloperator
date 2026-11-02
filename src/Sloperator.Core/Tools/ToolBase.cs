@@ -70,7 +70,7 @@ public sealed class ToolContext
     /// <summary>
     /// The screen as the model last saw it: the agent sets it before each reply's tool calls, and
     /// the first action of the reply clears it, as the screen then changes in ways the model hasn't
-    /// seen yet. A wait for a change compares it with the screen now (see <see cref="WaitTool"/>).
+    /// seen yet. A click compares it with the screen now where it aims, after the user pressed something.
     /// </summary>
     public ScreenLook? Seen { get; set; }
 

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.
+- Waiting is two tools for the agent: `wait` waits a set time, as for a build or a download, with
+  no screenshot unless it asks for one; `wait_until_change` waits until the screen changes and
+  then shows it.
 
 ## [1.3.0] - 2026-11-01
 ### Added

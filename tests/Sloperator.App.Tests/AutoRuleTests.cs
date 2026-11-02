@@ -114,7 +114,7 @@ public sealed class AutoRuleTests : IDisposable
     [Fact]
     public void Calls_with_no_panel_keep_the_panel_as_it_is()
     {
-        foreach (var tool in new[] { "screenshot", "mouse_click", "type_text", "read_file", "list_directory", "web_search", "fetch_page", "find_text", "wait", "blender/run" })
+        foreach (var tool in new[] { "screenshot", "mouse_click", "type_text", "read_file", "list_directory", "web_search", "fetch_page", "find_text", "wait", "wait_until_change", "blender/run" })
         {
             Assert.Null(AtStart(tool));
             Assert.Null(AtEnd(tool, made: [Path.Combine(_dir, "shot.png")]));

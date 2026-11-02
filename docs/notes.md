@@ -2914,7 +2914,8 @@ prints the traceback and exits with 0.
 | `capture_result` | A picture of what the agent made for the user: a window (`window`, part of its title), a box (`x`, `y`, `width`, `height`) or the whole screen, with a `caption`; `file` shows a picture file instead; `compare` (earlier captures or picture files) with `labels` and `columns` puts them all in one picture, the new one last (see below) |
 | `mouse_move`, `mouse_drag`, `scroll` | Mouse control in screenshot coordinates; a drag can hold `modifiers` too |
 | `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held |
-| `wait` | Waits up to 10 minutes, then screenshots; with `until_change` it stops as soon as the screen changes (a reply in a chat, a window or page that finished loading) |
+| `wait` | Waits a set time, up to 10 minutes, as for a build or a download; a screenshot at the end only with `screenshot_on_end` |
+| `wait_until_change` | Waits until the screen changes from how it was when the wait started (a reply in a chat, a window or page that finished loading), up to `seconds`, or without it until it does (a message or Stop ends it too), then screenshots (see below) |
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
@@ -2935,7 +2936,7 @@ shell commands and file changes" or "Never ask" (`agent.approval`). The label re
 
 Settings → General → Safety has **Enable screenshots** and **Enable keyboard and mouse control**, both on by
 default (`agent.enableScreenshots`, `agent.enableControl`). Screenshots off takes away `screenshot`,
-`zoom`, `capture_result` and `wait`, and with them the mouse and keyboard tools, whatever the second box says: the
+`zoom`, `capture_result`, `wait` and `wait_until_change`, and with them the mouse and keyboard tools, whatever the second box says: the
 user's rule is no clicking blind, so that box is greyed out then. Control off keeps the three that
 look and takes away `mouse_*`, `scroll`, `type_text` and `press_keys`; the prompt's rules for
 clicking give way to one line saying the agent can look but not act, and to do the work through
@@ -4702,7 +4703,7 @@ own, so your keys landed between them, and a Shift you held changed its letters.
   go between two looks of a game that reads the mouse once a frame.
 
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
-reads the message before its next step, and a `wait` it is in ends for it. While you type there,
+reads the message before its next step, and a wait it is in ends for it. While you type there,
 its clicks and key presses hold off (for up to a minute), so they don't land in your typing. That
 includes a click whose target it is still looking for, and the rest of a series of key presses or
 of long text it is typing, which then goes back to the window it was meant for. A line above the
@@ -4721,7 +4722,7 @@ the model's reply in progress, thinking or writing, is cut off and left out of t
 (what streamed stays on screen, with "Interrupted to read your message."), or the tool calls it is
 running are stopped and the rest of that reply's calls not run, each saying so to the model, and
 the next step starts with the messages. Without it a long think went on for minutes past a
-correction that made it pointless. A wait (`wait`, a ComfyUI job) already ended for any message.
+correction that made it pointless. A wait (`wait`, `wait_until_change`, a ComfyUI job) already ended for any message.
 Leaving the chat, the messages still waiting go back in the box.
 
 Such a message reaches the model marked as sent while it worked on the request, which it names
@@ -4987,8 +4988,19 @@ What the runs showed and what changed:
 - A desktop notification covered the support chat; the click on its close button came after it
   had closed, and closed the chat instead (see the fresh look above).
 - `wait` with `until_change` slept through a message that arrived while the model was deciding to
-  wait (three minutes); it now ends at once when the screen already differs from the screenshot
-  the model decided on.
+  wait (three minutes); it then ended at once when the screen already differed from the screenshot
+  the model decided on. Since 2026-11-02 waiting is two tools, as the user asked: `wait` (a set
+  time, no screenshot unless `screenshot_on_end`) and `wait_until_change`, which waits until a change
+  unless given `seconds` (the taskbar clock ticking counts, so about a minute at most), compares only with
+  the screen as it starts and always screenshots at the end. A message that comes while the model
+  decides to wait is again seen only at the next change or when the wait runs out.
+  Measured on 2026-11-02 against 1.3.0 (away, haggle, support; scores new / 1.3.0): Qwen 20/21,
+  13/13, 12/12 / 19/21, 13/13, 12/12 in 29, 28, 24 steps / 36, 34, 28; Haiku 21/21, 12/13, 12/12 on
+  both (haggle opened at the limit), away in 41 tool calls / 57. Haiku used `wait_until_change` for
+  the watches and plain `wait` for short pauses; under 1.3.0 it made 13 one- and two-second waits,
+  each with a screenshot, in away. Qwen polled away with `wait` and `screenshot_on_end`. A build and
+  a download that finish off screen in a minute passed 6/6 on both builds: no screenshot from the
+  new `wait`, three from 1.3.0's.
 
 The evening watch crossed a context reset: the handoff note listed every reply and the thank-yous
 it had rightly left alone, nobody was answered twice, and after the reset it again told Sam the
