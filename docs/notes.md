@@ -2529,8 +2529,9 @@ sum serves all: new = prompt − cache read − cache write, each priced apart. 
 
 Prices are typed per million tokens for the model in use on the server in use (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.
-Typed prices win over the server's cost. A chat with models in two currencies, or one with no price
-and no cost, shows no total. Prices from the servers' model lists (OpenRouter, Kilo give
+The server's cost wins over typed prices (the user, 2026-11-02): they count only for a model whose
+server says none. A chat with models in two currencies, or one with no price and no cost, shows no
+total. Prices from the servers' model lists (OpenRouter, Kilo give
 `input_cache_read`/`input_cache_write`) and models.dev were looked at (2026-11-02) and not used yet:
 models.dev has no address for Anthropic, OpenAI or Google, and matching proxyapi.ru's
 `anthropic/claude-haiku-5-5` by id would give Anthropic's dollar price for a ruble one. proxyapi.ru

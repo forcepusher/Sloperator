@@ -78,7 +78,7 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
 
     public bool HasPriceModel => PriceModel.Length > 0;
 
-    public string PricesFor => $"For {PriceModel} on {Host(PriceServer)}, per million tokens. Empty, the cost is what the server reports (OpenRouter and Kilo do).";
+    public string PricesFor => $"For {PriceModel} on {Host(PriceServer)}, per million tokens. Where the server reports the cost (OpenRouter and Kilo do), that is used instead.";
 
     private static string Host(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Authority : url;
 

@@ -67,6 +67,16 @@ public class SpendingTests
     }
 
     [Fact]
+    public void The_server_cost_wins_over_typed_prices()
+    {
+        var spent = new Spending();
+        spent.Add(Server, "a", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0, Cost = 0.5m });
+        var settings = new CostSettings();
+        settings.Set(new ModelPrices { BaseUrl = Server, Model = "a", Input = 3, Currency = "₽" });
+        Assert.Equal((0.5m, "$", false), spent.Total(settings));
+    }
+
+    [Fact]
     public void Prices_with_nothing_typed_are_dropped()
     {
         var settings = new CostSettings();

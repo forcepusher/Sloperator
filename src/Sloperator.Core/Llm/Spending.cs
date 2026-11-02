@@ -71,8 +71,8 @@ public sealed class Spending
     }
 
     /// <summary>
-    /// What the chat cost: by the prices typed in Settings where there are some for the model,
-    /// else by what its server said. Null when a model has neither, or the prices are in more than
+    /// What the chat cost: by what its server said where it says (OpenRouter, Kilo), else by
+    /// the prices typed in Settings for the model. Null when a model has neither, or the prices are in more than
     /// one currency. <c>Estimate</c> when it comes from typed prices or not every reply had a cost.
     /// </summary>
     public (decimal Amount, string Currency, bool Estimate)? Total(CostSettings settings)
@@ -87,17 +87,17 @@ public sealed class Spending
             foreach (var count in Models)
             {
                 string each;
-                if (settings.For(count.BaseUrl, count.Model) is { } prices)
-                {
-                    amount += prices.Of(count);
-                    each = prices.Currency;
-                    estimate = true;
-                }
-                else if (count.Costed > 0)
+                if (count.Costed > 0)
                 {
                     amount += count.Cost;
                     each = "$";
                     estimate |= count.Costed < count.Replies;
+                }
+                else if (settings.For(count.BaseUrl, count.Model) is { } prices)
+                {
+                    amount += prices.Of(count);
+                    each = prices.Currency;
+                    estimate = true;
                 }
                 else
                     return null;
