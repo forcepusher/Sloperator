@@ -2553,32 +2553,44 @@ takes input, cached_input, cache_write and output per million tokens, a currency
 run's model when left out); the run's server is added (`ModelPrices.With`) and the window keeps them
 as the model's prices (`ToolContext.SetPrices`). The panel's fields follow prices kept that way.
 
+**side_task** (`SideTaskTool`, the user 2026-11-02: "temporary job that stays out of the chat's context";
+"can be used for anything, folder or script summary etc"): the model hands a self-contained job (task, prompt,
+output) to itself in a conversation of its own, `AgentSession.RunSideTaskAsync` through
+`ToolContext.SideTask`: the same server and model, a system prompt saying it is a side task that doesn't
+see the main conversation, which waits for it, and the run's tools but side_task, reset_context and
+capture_result. It never runs beside the chat: the call waits until it ends (an answer without calls, or
+50 replies at most). Output is off by default: the call then returns only "The side task is done. It
+returns nothing: output wasn't enabled.", and the side task is told nothing it writes goes back; with
+`output: true` its final answer is the result. The description says to enable output to get something
+back. Its calls are lines of progress on its card; one that needs the user's OK gets a card of its own to
+ask on. Pictures a call returns are left out (text only). A server's failure ends the side task with an
+error, not the run. The card: the task as its line, the prompt as its Input foldout (`ToolCallItem.Input`,
+saved as the entry's `input`), and an Output only with output on, or for a failure's reason
+(`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
+
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default) asks the same without the
-button, as a **side task** (the user, 2026-11-02: "temporary job that stays out of the chat's context").
-When a run's model has given its answer (a reply with no tool calls) and has replies with no reported cost
-and no prices, `AgentSession.PriceLookup` gives the request and `RunSideTaskAsync` runs it on the same
-server and model in a conversation of its own: a short system prompt, the request, and only web_search,
-fetch_page and set_api_pricing. It ends once set_api_pricing has kept prices, with no reply after it; at
-most 12 replies. Then the run ends. Nothing of it joins the chat's context, so the answer is the model's
-last word. It runs after the answer, not beside it; a message the user sends meanwhile is answered after
-it. A server's failure ends the side task, not the run; Stop ends both, with no "stopped" note for the
-model (its answer was whole). The chat shows it as one `side_task` card: "Look up the prices of <model>" as
-its line, the request as its Input foldout (`ToolCallItem.Input`, saved as the entry's `input`), each call
-as its progress, and no Output, since it only keeps prices (the user: an Output only for a side task that
-returns something; a failure's reason still shows there). Its replies are counted in the chat's cost. Once
-a run, and once per server and model while Sloperator runs, in any window, kept or not. Off, nothing is
-looked up. The Settings dialog saves the switch and leaves the prices to the window.
+button, as a side task with no output. `AgentSession.PriceLookup` is asked after each step until it gives
+the request: as soon as a reply came with no cost from the server (the server's own cost wins) and the model
+has no prices. Then `LookUpPricesAsync` runs it right after that step's calls, before the next step, or,
+when the run's first reply was its answer, after that answer, and the run then ends. It gets only
+web_search, fetch_page and set_api_pricing and ends once set_api_pricing has kept prices. Nothing of it
+joins the chat's context, so the answer is the model's last word. A message the user sends meanwhile is
+answered after it; Stop after the answer ends the run with no "stopped" note for the model. Its card reads
+"Look up the prices of <model>", with no Output. Its replies are counted in the chat's cost. Once a run,
+and once per server and model while Sloperator runs, in any window, kept or not. Off, nothing is looked
+up. The Settings dialog saves the switch and leaves the prices to the window.
 
 Before the side task it was a nudge in the conversation itself ("[Sloperator] Before you finish: …", so
 the cached prompt only grew). That took over the user's reply (2026-11-02, Anthropic's own server, Haiku
 5.5 xhigh): the model had answered (it held back an `rm` for the user's go-ahead), then after the lookup
 wrote its answer anew, opening on a made-up "The server didn't run into any problems" and ending on the
 prices, and that was the run's reply. Hiding what it wrote after the nudge, and ending the run once the
-prices were kept, were tried and turned down for the side task. Its cost: a request of its own, a few
+prices were kept, were tried and turned down for the side task (whose first version, run only after the
+answer and with a system prompt about prices alone, the user also sent back). Its cost: a request of its own, a few
 thousand tokens with no cached prefix, and on a server that caches one prompt the chat's prompt is read
 anew on the next message.
 
-Measured with `PriceLookupLiveTests` (was PriceNudgeLiveTests) (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
+Measured with `PriceLookupLiveTests` (was PriceNudgeLiveTests; unit tests in `SideTaskTests`) (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
 a file and give its secret word, the nudge comes before the end, and the test checks the prices kept against
 the truth (the server's model list, else BB_LIVE_EXPECT), that the last reply still gives the word, and that
 nothing runs after set_api_pricing. With the first wording ("Then finish as you were going to") Qwen 3.8 27B

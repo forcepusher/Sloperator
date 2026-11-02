@@ -87,10 +87,11 @@ public sealed partial class AgentSession(
     public int MaxImages { get; private set; }
 
     /// <summary>
-    /// Auto pricing lookup (the user, 2026-11-02): asked as a run is about to end, it gives the task when the
-    /// prices of the run's model are to be looked up (its server reports no cost and it has none; see
-    /// <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. Once a run, after the answer, the
-    /// model looks them up and keeps them with set_api_pricing in a side task (see <see cref="RunSideTaskAsync"/>).
+    /// Auto pricing lookup (the user, 2026-11-02): asked after each of a run's steps until it gives the task,
+    /// when the prices of the run's model are to be looked up (a reply came with no cost from its server and
+    /// it has none; see <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. Then, once a run,
+    /// the model looks them up and keeps them in a side task (see <see cref="LookUpPricesAsync"/>): right
+    /// after that step's calls, or after the answer when that was the first reply.
     /// </summary>
     public Func<string?>? PriceLookup { get; set; }
 
@@ -373,6 +374,8 @@ public sealed partial class AgentSession(
             toolContext.Ask = (images, question, ct2) => toolContext.SeesImages ? eyes.AskAsync(images, question, ct2) : Task.FromResult<string?>(null);
         }
         toolContext.ResetContext ??= ModelAsksReset;
+        // A side_task call's: its steps are lines on its card, set as its progress when it starts.
+        toolContext.SideTask = (task, output, c) => RunSideTaskAsync(task, output, null, null, toolContext.Progress, observer, c);
         toolContext.OfferTextRecognition = observer.OfferTextRecognition;
         toolContext.InConversation ??= text => History.Any(m => m.Content?.Contains(text, StringComparison.Ordinal) == true ||
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
@@ -490,16 +493,14 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
-                    // Prices to look up: a side task once the answer is written, out of the chat's context.
-                    // Asked in the conversation itself, the model wrote its answer anew after the lookup,
-                    // Haiku 5.5 with the prices in it and a line made up on top (2026-11-02).
+                    // Prices still to look up (the run's first reply was its answer): the side task
+                    // comes after it, and the run ends after the side task.
                     if (!pricesLooked && tools.Find("set_api_pricing") is not null && PriceLookup?.Invoke() is { } lookup)
                     {
                         pricesLooked = true;
                         try
                         {
-                            await RunSideTaskAsync($"Look up the prices of {requestOptions.Model}", lookup, ["web_search", "fetch_page", "set_api_pricing"],
-                                t => t is SetApiPricingTool, observer, ct).ConfigureAwait(false);
+                            await LookUpPricesAsync(lookup, observer, ct).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) when (ct.IsCancellationRequested)
                         {
@@ -594,6 +595,13 @@ public sealed partial class AgentSession(
                 // Haiku took one for an injection and went on without it.
                 if (notes.Count > 0)
                     History.Add(ChatMessage.User(string.Join("\n", notes)));
+                // Prices to look up, as soon as a reply came with no cost from the server (whose own
+                // cost would win): a side task now, between steps, while the chat waits.
+                if (!pricesLooked && tools.Find("set_api_pricing") is not null && PriceLookup?.Invoke() is { } prices)
+                {
+                    pricesLooked = true;
+                    await LookUpPricesAsync(prices, observer, ct).ConfigureAwait(false);
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -617,6 +625,27 @@ public sealed partial class AgentSession(
             try { await toolContext.FinishRunAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
             catch (TimeoutException) { }
         }
+    }
+
+    /// <summary>
+    /// Auto pricing lookup's side task on <paramref name="lookup"/>, out of the chat's context: with web_search,
+    /// fetch_page and set_api_pricing only, done once the prices are kept, and with no output, since it only
+    /// keeps them. Its own side_task card. Asked in the conversation itself, the model wrote its answer anew
+    /// after the lookup, Haiku 5.5 with the prices in it and a line made up on top (2026-11-02).
+    /// </summary>
+    private async Task LookUpPricesAsync(string lookup, IAgentObserver observer, CancellationToken ct)
+    {
+        var task = $"Look up the prices of {requestOptions.Model}";
+        var card = new ToolCall
+        {
+            Id = "side-" + Guid.NewGuid().ToString("N")[..8],
+            Name = SideTaskTool.ToolName,
+            Arguments = new JsonObject { ["task"] = task, ["prompt"] = lookup, ["output"] = false }.ToJsonString(),
+        };
+        observer.OnToolStarted(card, task);
+        var looked = await RunSideTaskAsync(lookup, false, ["web_search", "fetch_page", "set_api_pricing"], t => t is SetApiPricingTool,
+            text => observer.OnToolProgress(card, text), observer, ct).ConfigureAwait(false);
+        observer.OnToolFinished(card, looked);
     }
 
     /// <summary>How many dropped connections one step survives.</summary>

@@ -339,7 +339,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// What the call was given, as its Input foldout shows it: a side task's prompt (its task is the card's
     /// line, the user 2026-11-02). Empty for other tools, whose line says it.
     /// </summary>
-    public string Input => SavedInput ?? (Name == Core.Agent.AgentSession.SideTaskName && Arguments.Length > 0 ? PromptOf(Arguments) : "");
+    public string Input => SavedInput ?? (Name == Core.Tools.SideTaskTool.ToolName && Arguments.Length > 0 ? PromptOf(Arguments) : "");
 
     public bool HasInput => Input.Length > 0;
 

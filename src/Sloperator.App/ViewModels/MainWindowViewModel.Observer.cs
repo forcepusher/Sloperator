@@ -238,7 +238,9 @@ public sealed partial class MainWindowViewModel
     {
         if (_runDetached) return;
         var item = FindOrAddTool(call, call.Name);
-        item.ResultText = result.Text.Length > 3000 ? result.Text[..3000] + "\n…" : result.Text.TrimEnd();
+        // A side task without output returns nothing to show (the user, 2026-11-02): its card has no Output, but for a failure's reason.
+        item.ResultText = call.Name == SideTaskTool.ToolName && !result.IsError && !SideTaskTool.OutputIn(call.Arguments) ? ""
+            : result.Text.Length > 3000 ? result.Text[..3000] + "\n…" : result.Text.TrimEnd();
         item.Progress = "";
         // Files the call made or showed get a preview (a player, a model to turn), which says more
         // than the picture made for the model; anything else keeps its screenshot.

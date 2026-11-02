@@ -7,8 +7,8 @@ using Xunit;
 
 namespace Sloperator.Core.Tests;
 
-/// <summary>Auto pricing lookup: after a run's answer, a side task looks up its model's prices and keeps them with set_api_pricing, out of the chat's context.</summary>
-public class PriceLookupTests
+/// <summary>Side tasks: the model's side_task calls, and Auto pricing lookup's after a run's answer, which keeps the model's prices with set_api_pricing, out of the chat's context.</summary>
+public class SideTaskTests
 {
     private static ToolContext Context(List<ModelPrices> kept) => new()
     {
@@ -50,10 +50,41 @@ public class PriceLookupTests
         // and the conversation holds nothing of the lookup.
         Assert.Equal(["reply Done: the folder is tidy."], observer.Events.Where(e => e.StartsWith("reply", StringComparison.Ordinal)));
         Assert.Equal(["user", "assistant"], session.History.Select(m => m.Role));
-        Assert.Equal([AgentSession.SideTaskName], observer.ToolsRun);
+        Assert.Equal([SideTaskTool.ToolName], observer.ToolsRun);
         Assert.Equal(["Set the prices of the model in use"], observer.Progress);
-        // Only to keep the prices: no Output.
-        Assert.Equal("", observer.Results.Single().Text);
+        // Only to keep the prices: nothing to return (the window shows no Output for it).
+        Assert.Equal(AgentSession.NoOutputText, observer.Results.Single().Text);
+    }
+
+    [Fact]
+    public async Task The_prices_are_looked_up_as_soon_as_a_reply_came_without_a_cost_while_the_chat_waits()
+    {
+        var kept = new List<ModelPrices>();
+        var file = Path.Combine(Directory.CreateTempSubdirectory("bb-side-").FullName, "notes.txt");
+        File.WriteAllText(file, "PELICAN");
+        var server = new ScriptedServer(
+            Sse.ToolCall("r1", "read_file", new JsonObject { ["path"] = file }.ToJsonString()),
+            Sse.ToolCall("c1", "set_api_pricing", new JsonObject { ["input"] = 1, ["output"] = 2 }.ToJsonString()),
+            Sse.Text("The word is PELICAN."));
+        var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
+        var asked = 0;
+        var session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false, [new SetApiPricingTool()]), Context(kept), "sys")
+        {
+            PriceLookup = () => asked++ == 0 ? SetApiPricingTool.LookupRequest("anthropic/claude-haiku-5-5", "https://api.proxyapi.ru/v1") : null,
+        };
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Read notes.txt", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Single(kept);
+        // After the first step's call, before the next step: the side task's request comes second.
+        Assert.Equal(3, server.Requests.Count);
+        Assert.Contains("side task for Sloperator", server.Requests[1].ToJsonString());
+        Assert.Contains("PELICAN", server.Requests[2].ToJsonString());
+        Assert.Equal(["read_file", "side_task"], observer.ToolsRun);
+        Assert.Equal("The word is PELICAN.", session.History[^1].Content);
+        Assert.Equal(1, asked);
     }
 
     [Fact]
@@ -89,6 +120,40 @@ public class PriceLookupTests
         Assert.DoesNotContain("set_api_pricing\",\"arguments", next);
         Assert.Equal("It holds 3 files.", session.History[^1].Content);
         Assert.Equal(1, asked);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_side_task_the_model_calls_runs_apart_and_returns_its_answer_only_with_output_on(bool output)
+    {
+        var args = new JsonObject { ["task"] = "Count the files", ["prompt"] = "Count the files in C:/work.", ["output"] = output }.ToJsonString();
+        var server = new ScriptedServer(
+            Sse.ToolCall("s1", "side_task", args),
+            Sse.Text("3 files."),
+            Sse.Text("Done."));
+        var client = new OpenAiChatClient(new HttpClient(server), "http://localhost:1234/v1", null);
+        var session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false), Context([]), "sys");
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Tidy the folder", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(3, server.Requests.Count);
+        // Its own conversation: the prompt, not the chat; the run's tools but another side task and those of the chat.
+        var side = server.Requests[1].ToJsonString();
+        Assert.Contains("Count the files in C:/work.", side);
+        Assert.DoesNotContain("Tidy the folder", side);
+        Assert.Contains(output ? "answer with what the task asks for" : "Nothing you write goes back", side);
+        var tools = server.Requests[1]["tools"]!.AsArray().Select(t => (string)t!["function"]!["name"]!).ToList();
+        Assert.Contains("read_file", tools);
+        Assert.DoesNotContain("side_task", tools);
+        Assert.DoesNotContain("reset_context", tools);
+        // The chat waited for it, and got its answer only with output on.
+        var result = session.History.Single(m => m.Role == ChatRole.Tool).Content;
+        Assert.Equal(output ? "3 files." : AgentSession.NoOutputText, result);
+        Assert.DoesNotContain(session.History, m => m.Content == "3 files." && m.Role == ChatRole.Assistant);
+        Assert.Equal(["side_task"], observer.ToolsRun);
     }
 
     [Fact]

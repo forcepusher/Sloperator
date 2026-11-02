@@ -419,7 +419,7 @@ public sealed class CostSettings
 
     /// <summary>
     /// Auto pricing lookup (Settings > Advanced, on by default): a model whose server reports no cost and
-    /// that has no prices has them looked up and kept in a side task after the run's answer (see <see cref="Agent.AgentSession.PriceLookup"/>).
+    /// that has no prices has them looked up and kept in a side task, as soon as a reply shows it (see <see cref="Agent.AgentSession.PriceLookup"/>).
     /// </summary>
     public bool AutoLookup { get; set; } = true;
 
