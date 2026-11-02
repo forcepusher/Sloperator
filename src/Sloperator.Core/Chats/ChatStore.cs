@@ -97,6 +97,9 @@ public sealed class SavedChat
     public List<ChatEntry> Entries { get; set; } = [];
     public List<ChatMessage> History { get; set; } = [];
 
+    /// <summary>The tokens the chat sent and got back, and what they cost; null in chats saved before it was kept.</summary>
+    public Spending? Spent { get; set; }
+
     /// <summary>The folder opened in the Code editor panel in this chat; null when none was opened there.</summary>
     public string? Folder { get; set; }
 

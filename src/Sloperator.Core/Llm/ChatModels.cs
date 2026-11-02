@@ -64,6 +64,12 @@ public sealed class ChatMessage
     /// <summary>For replies: of <see cref="PromptTokens"/>, those the server read from its prompt cache, when it says.</summary>
     public int? CachedTokens { get; set; }
 
+    /// <summary>For replies: of <see cref="PromptTokens"/>, those the server wrote to its prompt cache, when it says.</summary>
+    public int? CacheWriteTokens { get; set; }
+
+    /// <summary>For replies: what the server says the reply cost, in dollars (OpenRouter, Kilo).</summary>
+    public decimal? Cost { get; set; }
+
     /// <summary>For replies: why the server stopped ("stop", "tool_calls", "length" when out of room).</summary>
     public string? FinishReason { get; set; }
 

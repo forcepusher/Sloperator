@@ -271,6 +271,9 @@ public sealed partial class OpenAiChatClient
             : [];
     }
 
+    /// <summary>Where every reply's tokens are counted: the chat's (see <see cref="Llm.Spending"/>); none when null.</summary>
+    public Spending? Spending { get; set; }
+
     /// <summary>
     /// Sends the conversation and streams the reply. Returns the fully assembled assistant message,
     /// including any tool calls. <paramref name="onSending"/> hears how much of the request has gone out.
@@ -282,6 +285,19 @@ public sealed partial class OpenAiChatClient
         Action<StreamDelta>? onDelta,
         CancellationToken ct,
         Action<long, long>? onSending = null)
+    {
+        var reply = await SendAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+        Spending?.Add(_baseUrl, options.Model, reply);
+        return reply;
+    }
+
+    private async Task<ChatMessage> SendAsync(
+        IReadOnlyList<ChatMessage> messages,
+        IReadOnlyList<ToolDefinition> tools,
+        ChatRequestOptions options,
+        Action<StreamDelta>? onDelta,
+        CancellationToken ct,
+        Action<long, long>? onSending)
     {
         if (_anthropic)
             return await CompleteClaudeAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
@@ -450,7 +466,8 @@ public sealed partial class OpenAiChatClient
         var blocks = new List<JsonObject>();
         var finished = false;
         string? finishReason = null;
-        int? promptTokens = null, completionTokens = null, cachedTokens = null;
+        int? promptTokens = null, completionTokens = null, cachedTokens = null, cacheWriteTokens = null;
+        decimal? cost = null;
 
         while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
         {
@@ -501,6 +518,10 @@ public sealed partial class OpenAiChatClient
                 // OpenAI's name for it (OpenRouter and LiteLLM say it too), else LiteLLM's Anthropic one.
                 cachedTokens = (usage["prompt_tokens_details"] is JsonObject promptDetails ? GetInt(promptDetails, "cached_tokens") : null)
                                ?? GetInt(usage, "cache_read_input_tokens") ?? cachedTokens;
+                cacheWriteTokens = (usage["prompt_tokens_details"] is JsonObject writeDetails ? GetInt(writeDetails, "cache_write_tokens") : null)
+                                   ?? GetInt(usage, "cache_creation_input_tokens") ?? cacheWriteTokens;
+                // What the reply cost, in dollars: OpenRouter and Kilo say.
+                cost = usage["cost"] is JsonValue spent && spent.TryGetValue<decimal>(out var dollars) ? dollars : cost;
             }
             if (chunk?["choices"] is not JsonArray { Count: > 0 } choices || choices[0] is not JsonObject choice)
                 continue;
@@ -611,6 +632,8 @@ public sealed partial class OpenAiChatClient
             PromptTokens = promptTokens,
             CompletionTokens = completionTokens,
             CachedTokens = cachedTokens,
+            CacheWriteTokens = cacheWriteTokens,
+            Cost = cost,
         };
         // Not Claude's thinking cut off before its signature came (a reply that ran out of room
         // mid-thought): sent back, it would be refused.

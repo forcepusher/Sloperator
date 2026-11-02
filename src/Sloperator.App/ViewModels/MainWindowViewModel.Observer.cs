@@ -96,6 +96,7 @@ public sealed partial class MainWindowViewModel
 
     private void ShowContextUsage((int Used, int Size, int Reset) usage)
     {
+        ShowCost();
         if (usage.Size <= 0) return;
         ContextUsage = $"{usage.Used / 1000.0:0}k of {ContextSizes.Format(usage.Size)} used";
     }

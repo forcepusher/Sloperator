@@ -96,6 +96,8 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(ChatTitle));
         ContextUsage = "";
+        _spent = new();
+        ShowCost();
     }
 
     private void OpenChat(PastChat row)
@@ -124,6 +126,8 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(ChatTitle));
         _history = chat.History;
+        _spent = chat.Spent ?? new();
+        ShowCost();
         _pictures = new(_chats.NextPictureNumber(chat.Id));
         UseChanges(FileChanges.Load(ChangesFile(chat.Id)), chat.Folder, Core.Tools.CommandLog.Load(CommandsFile(chat.Id)));
         Changes.TurnsUpTo(chat.Entries.Max(e => e.Turn) ?? 0);
@@ -267,6 +271,8 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(ChatTitle));
         ContextUsage = "";
+        _spent = new();
+        ShowCost();
         AutoChatChanged();
         MarkCurrentChat();
     }
@@ -316,7 +322,7 @@ public sealed partial class MainWindowViewModel
     private SavedChat? SnapshotHistory()
     {
         var pictures = new Dictionary<string, byte[]>();
-        try { return new SavedChat { History = ChatStore.ForSaving(_history, _pictures, pictures), NewPictures = pictures }; }
+        try { return new SavedChat { History = ChatStore.ForSaving(_history, _pictures, pictures), NewPictures = pictures, Spent = _spent.IsEmpty ? null : _spent.Copy() }; }
         catch (Exception ex) when (ex is InvalidOperationException or NullReferenceException or ArgumentException) { return null; }
     }
 

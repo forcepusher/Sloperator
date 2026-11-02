@@ -412,6 +412,46 @@ public sealed class UpdateSettings
     public bool Automatic { get; set; } = true;
 }
 
+/// <summary>Prices typed in Settings, a model on a server each, for the chat cost beside the context line.</summary>
+public sealed class CostSettings
+{
+    public List<ModelPrices> Prices { get; set; } = [];
+
+    /// <summary>The prices typed for <paramref name="model"/> on <paramref name="baseUrl"/>; null when none were.</summary>
+    public ModelPrices? For(string baseUrl, string model)
+    {
+        var url = Llm.OpenAiChatClient.NormalizeBaseUrl(baseUrl);
+        return Prices.Find(p => p.Model == model && Llm.OpenAiChatClient.NormalizeBaseUrl(p.BaseUrl) == url && p.IsSet);
+    }
+
+    /// <summary>Keeps <paramref name="prices"/> for its model, in place of what was there; prices with nothing typed are dropped.</summary>
+    public void Set(ModelPrices prices)
+    {
+        var url = Llm.OpenAiChatClient.NormalizeBaseUrl(prices.BaseUrl);
+        Prices.RemoveAll(p => p.Model == prices.Model && Llm.OpenAiChatClient.NormalizeBaseUrl(p.BaseUrl) == url);
+        if (prices.IsSet)
+            Prices.Add(prices);
+    }
+}
+
+/// <summary>What a model costs, per million tokens, in <see cref="Currency"/>; a price left empty is taken as the input price (cache) or nothing (input, output).</summary>
+public sealed class ModelPrices
+{
+    public string BaseUrl { get; set; } = "";
+    public string Model { get; set; } = "";
+    public decimal? Input { get; set; }
+    public decimal? CachedInput { get; set; }
+    public decimal? CacheWrite { get; set; }
+    public decimal? Output { get; set; }
+    public string Currency { get; set; } = "$";
+
+    [JsonIgnore]
+    public bool IsSet => Input is not null || CachedInput is not null || CacheWrite is not null || Output is not null;
+
+    public decimal Of(Llm.TokenCount count) =>
+        (count.Input * (Input ?? 0) + count.CacheRead * (CachedInput ?? Input ?? 0) + count.CacheWrite * (CacheWrite ?? Input ?? 0) + count.Output * (Output ?? 0)) / 1_000_000m;
+}
+
 public sealed class AppSettings
 {
     public ServerSettings Server { get; set; } = new();
@@ -419,6 +459,7 @@ public sealed class AppSettings
     public PanelSettings Panels { get; set; } = new();
     public NotifySettings Notify { get; set; } = new();
     public UpdateSettings Updates { get; set; } = new();
+    public CostSettings Cost { get; set; } = new();
 
     /// <summary>The main window's last size and place; null until it was first closed.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

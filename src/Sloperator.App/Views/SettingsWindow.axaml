@@ -98,6 +98,24 @@
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="Taller screens are scaled down, never up. Smaller uses less context, but clicks miss more." />
 
+            <TextBlock Classes="h2" Text="Cost" />
+            <StackPanel Spacing="4" IsVisible="{Binding HasPriceModel}">
+              <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                <TextBlock Classes="label" Text="Input" />
+                <TextBlock Grid.Column="1" Classes="label" Text="Cached input" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Cache write" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Output" />
+                <TextBlock Grid.Column="4" Classes="label" Text="Currency" />
+                <TextBox Grid.Row="1" Text="{Binding InputPrice}" AutomationProperties.Name="Input" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CachedInputPrice}" AutomationProperties.Name="Cached input" />
+                <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding CacheWritePrice}" AutomationProperties.Name="Cache write" />
+                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding OutputPrice}" AutomationProperties.Name="Output" />
+                <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding PriceCurrency}" AutomationProperties.Name="Currency" />
+              </Grid>
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PricesFor}" />
+            </StackPanel>
+            <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !HasPriceModel}" Text="Prices are typed for the model in use: pick one at the top first." />
+
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."
                        ToolTip.Tip="{Binding Paths.McpConfigFile, StringFormat='Kept in {0}'}" />

@@ -70,6 +70,46 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
         set => Agent.ScreenshotSize = (ScreenshotSize)Math.Clamp(value, 0, ScreenshotSizes.Length - 1);
     }
 
+    // ---- Cost ------------------------------------------------------------------------
+
+    /// <summary>The server and model in use, whose prices the Cost fields edit.</summary>
+    public string PriceServer { get; init; } = "";
+    public string PriceModel { get; init; } = "";
+
+    public bool HasPriceModel => PriceModel.Length > 0;
+
+    public string PricesFor => $"For {PriceModel} on {Host(PriceServer)}, per million tokens. Where the server reports the cost (OpenRouter and Kilo do), that is used instead.";
+
+    private static string Host(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Authority : url;
+
+    private ModelPrices? _prices;
+
+    /// <summary>The model's prices as typed; kept in the settings while any of them is set.</summary>
+    private ModelPrices Prices => _prices ??= Settings.Cost.For(PriceServer, PriceModel) ?? new ModelPrices { BaseUrl = PriceServer, Model = PriceModel };
+
+    public string InputPrice { get => Show(Prices.Input); set => Change(() => Prices.Input = Parse(value)); }
+    public string CachedInputPrice { get => Show(Prices.CachedInput); set => Change(() => Prices.CachedInput = Parse(value)); }
+    public string CacheWritePrice { get => Show(Prices.CacheWrite); set => Change(() => Prices.CacheWrite = Parse(value)); }
+    public string OutputPrice { get => Show(Prices.Output); set => Change(() => Prices.Output = Parse(value)); }
+
+    public string PriceCurrency
+    {
+        get => Prices.Currency;
+        set => Change(() => Prices.Currency = string.IsNullOrWhiteSpace(value) ? "$" : value.Trim());
+    }
+
+    private void Change(Action change)
+    {
+        change();
+        Settings.Cost.Set(Prices);
+    }
+
+    private static string Show(decimal? price) => price?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+
+    /// <summary>"3", "0.30" or "0,30"; anything else counts as empty.</summary>
+    private static decimal? Parse(string? text) =>
+        decimal.TryParse(text?.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var price) && price >= 0 ? price : null;
+
     // ---- MCP servers -------------------------------------------------------------------
 
     /// <summary>The text of Data/mcp.json as the user edits it; saved as typed.</summary>

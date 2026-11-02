@@ -2511,6 +2511,32 @@ the line says it can last until tomorrow and to pick another free model. Which m
 gone, the strongest free one is used, as on any server. With a Kilo key (and credits) all its
 models are listed.
 
+## Cost
+The top bar shows what the chat has cost so far after the context's use: "$0.08" when the server
+said (OpenRouter and Kilo put `usage.cost`, in dollars, in a reply's last chunk), "~$0.08" or
+"~12.50 ₽" from prices typed in Settings > Advanced > Cost, and nothing when its model has neither
+(LM Studio, proxyapi.ru, Anthropic's API: their replies carry tokens only). Its tooltip gives the
+tokens by model: read anew, from the cache, into it, and out.
+
+Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
+notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
+(`spent` in its file) and kept apart from the conversation, which a context reset replaces. Servers
+in OpenAI's format count cached tokens inside `prompt_tokens`; Anthropic's `input_tokens` leaves
+them out, and its replies are given the OpenAI shape (`PromptTokens` = read + written + new), so one
+sum serves all: new = prompt − cache read − cache write, each priced apart. Cache writes come from
+`prompt_tokens_details.cache_write_tokens` (OpenRouter, Kilo, proxyapi.ru) or
+`cache_creation_input_tokens` (LiteLLM, Anthropic).
+
+Prices are typed per million tokens for the model in use on the server in use (`cost.prices` in
+settings.json, a model and address each), in any currency; empty cache prices are the input price.
+The server's cost wins over typed prices (the user, 2026-11-02): they count only for a model whose
+server says none. A chat with models in two currencies, or one with no price and no cost, shows no
+total. Prices from the servers' model lists (OpenRouter, Kilo give
+`input_cache_read`/`input_cache_write`) and models.dev were looked at (2026-11-02) and not used yet:
+models.dev has no address for Anthropic, OpenAI or Google, and matching proxyapi.ru's
+`anthropic/claude-haiku-5-5` by id would give Anthropic's dollar price for a ruble one. proxyapi.ru
+lists its prices only on its site, and `GET /proxyapi/balance` needs a key allowed to ask.
+
 ## Context window
 The OpenAI API has no field for the context length, so Sloperator asks each server its own way:
 LM Studio (`/api/v0/models/{id}`, `loaded_context_length`, after loading the model if needed),

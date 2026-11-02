@@ -126,10 +126,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
     /// <summary>How full the model's context is, next to the server status: "35k of 100k used". Empty until a run's first step.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasContextUsage))]
+    [NotifyPropertyChangedFor(nameof(HasContextUsage), nameof(CostShown))]
     private string _contextUsage = "";
 
     public bool HasContextUsage => ContextUsage.Length > 0;
+
+    /// <summary>What the chat has cost so far, after the context's use: "$0.08", or "~$0.08" from prices typed in Settings. Empty while nothing prices its model.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChatCost), nameof(CostShown))]
+    private string _chatCost = "";
+
+    public bool HasChatCost => ChatCost.Length > 0;
+
+    /// <summary>The cost as the top bar shows it: after the context's use, with a dot between as between the bar's other parts.</summary>
+    public string CostShown => HasContextUsage ? " · " + ChatCost : ChatCost;
+
+    /// <summary>The tokens behind <see cref="ChatCost"/>, by model.</summary>
+    [ObservableProperty]
+    private string _chatCostTip = "";
+
+    /// <summary>The chat on screen's tokens and their cost, kept apart from its conversation (which a context reset replaces) and saved with it.</summary>
+    private Spending _spent = new();
+
+    private void ShowCost()
+    {
+        var total = _spent.Total(_settings.Cost);
+        ChatCost = total is var (amount, currency, estimate) ? Spending.Format(amount, currency, estimate) : "";
+        ChatCostTip = _spent.Describe();
+    }
 
     /// <summary>
     /// The intro on what Sloperator can do, shown until the chat is used: a message sent or a saved
@@ -707,7 +731,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // Named now, not at the first save: what capture_result takes goes into the chat's folder.
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
-            var session = _session = AgentSetup.Create(BackendConnection.Create(_http, server), _platform, _settings.Agent, _paths, _mcp, _ssh, history,
+            var backend = BackendConnection.Create(_http, server);
+            backend.Client.Spending = _spent;
+            var session = _session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands);
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);
