@@ -4580,7 +4580,10 @@ presses for it at more points than errors:
   the note: building a Unity chat feature (Haiku 5.5, xhigh), 15 of the run's 17 look-up notes were
   this one, most of them after edits and passing builds, and Haiku made look-ups "for something" to
   obey it. Played over that run's calls (with its look-ups where they were), the new rule gives 10
-  such notes; at eight runs it would give 3. The record is kept for the chat, so "still wrong" in the next
+  such notes; at eight runs it would give 3. On the Blender 5.2 scatter task from the command
+  line (Haiku 5.5 xhigh, two runs each, 2026-11-03) both builds made the scene right every time;
+  the old one took 326 and 188 s with 4 and 1 notes and 16 and 9 look-ups, the new one 271 and
+  182 s with 2 and 1 notes and 11 and 8 look-ups. The record is kept for the chat, so "still wrong" in the next
   message counts against the tries before it. A command that reads the installed version's own API
   (`inspect.signature`, `--help`, `Get-Help`, `pip show`) counts as looking it up for this, and a
   plan to check something ("let's check the signature of FadeIn in moviepy 2.x") is no web search:
