@@ -2570,7 +2570,9 @@ capture_result. It never runs beside the chat: the call waits until it ends (an 
 returns nothing: output wasn't enabled.", and the side task is told nothing it writes goes back; with
 `output: true` its final answer is the result. The description says to enable output to get something
 back. Its calls are lines of progress on its card; one that needs the user's OK gets a card of its own to
-ask on. Pictures a call returns are left out (text only). A server's failure ends the side task with an
+ask on. Their arguments are repaired as the main conversation's are (`AgentSession.PrepareCall`: JSON
+repair, name hints, normalizing), and wrong ones get the same error with the tool's parameters
+(`ArgumentProblem`; since the 1.4.0 release check). Pictures a call returns are left out (text only). A server's failure ends the side task with an
 error, not the run. The card: the task as its line, the prompt as its Input foldout (`ToolCallItem.Input`,
 saved as the entry's `input`), and an Output only with output on, or for a failure's reason
 (`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
