@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Sloperator.Core.Agent;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
@@ -180,9 +181,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     private static string Show(decimal? price) => price?.ToString(CultureInfo.InvariantCulture) ?? "";
 
-    /// <summary>"3", "0.30" or "0,30"; anything else counts as empty.</summary>
-    internal static decimal? Parse(string? text) =>
-        decimal.TryParse(text?.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var price) && price >= 0 ? price : null;
+    private static decimal? Parse(string? text) => ModelPrices.Parse(text);
 
     // ---- looking prices up ------------------------------------------------------------------
 
@@ -219,21 +218,14 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         _lookupSent = true;
     }
 
-    internal const string LinePrefix = "PRICES";
-
     /// <summary>What the lookup's message tells the model, with it.</summary>
     internal static string LookupContext(ModelPrices p) =>
-        $"[The Cost estimates panel is open beside the chat. Look up on the web (web_search, then fetch_page) what the model {p.Model} costs " +
-        $"on the server at {p.BaseUrl}, per million tokens: input, cached input (cache read), cache write and output, in the currency that server bills in. " +
-        "Go by that server's own price page: a service that resells another maker's model charges its own prices. " +
-        "A model the user runs on their own PC or network costs nothing: give 0 for all four. " +
-        "End your reply with this one line, not in a code block, a number for each price found and null for one not found; " +
-        $"the panel fills its fields from it:\n{LinePrefix} {{\"input\": 3, \"cachedInput\": 0.3, \"cacheWrite\": 3.75, \"output\": 15, \"currency\": \"$\"}}]";
+        "[The Cost estimates panel is open beside the chat. " + PriceLookup.Instructions(p.Model, p.BaseUrl) + "\nThe panel fills its fields from that line.]";
 
     /// <summary>A reply came: one with the prices line fills the fields of the model asked about.</summary>
     public void TakeReply(string text)
     {
-        if (_lookingUp is not { } asked || ReadLine(text) is not { } found)
+        if (_lookingUp is not { } asked || PriceLookup.Read(text) is not { } found)
             return;
         found.BaseUrl = asked.BaseUrl;
         found.Model = asked.Model;
@@ -253,32 +245,6 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
     {
         if (_lookingUp is not null && _lookupSent)
             EndLookup("The agent's reply had no prices line: it may say why in the chat. Type them here, or look them up again.");
-    }
-
-    /// <summary>The prices in the reply's last "PRICES {…}" line; null without one that reads.</summary>
-    public static ModelPrices? ReadLine(string text)
-    {
-        foreach (var line in text.Split('\n').Reverse())
-        {
-            var at = line.IndexOf(LinePrefix + " {", StringComparison.Ordinal);
-            if (at < 0)
-                continue;
-            try
-            {
-                if (System.Text.Json.Nodes.JsonNode.Parse(line[(at + LinePrefix.Length)..].Trim().Trim('`')) is not System.Text.Json.Nodes.JsonObject json)
-                    return null;
-                decimal? Price(string key) => json[key] is System.Text.Json.Nodes.JsonValue v
-                    ? v.TryGetValue<decimal>(out var d) ? d : v.TryGetValue<string>(out var s) ? Parse(s) : null
-                    : null;
-                var currency = json["currency"] is System.Text.Json.Nodes.JsonValue c && c.TryGetValue<string>(out var unit) && unit.Trim().Length > 0 ? unit.Trim() : "$";
-                return new ModelPrices { Input = Price("input"), CachedInput = Price("cachedInput"), CacheWrite = Price("cacheWrite"), Output = Price("output"), Currency = currency };
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                return null;
-            }
-        }
-        return null;
     }
 
     private void EndLookup(string note)

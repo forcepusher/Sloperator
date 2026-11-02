@@ -417,6 +417,12 @@ public sealed class CostSettings
 {
     public List<ModelPrices> Prices { get; set; } = [];
 
+    /// <summary>
+    /// Auto pricing lookup (Settings > Advanced, on by default): a model whose server reports no cost and
+    /// that has no prices has them looked up on the web in the background (see <see cref="Agent.PriceLookup"/>).
+    /// </summary>
+    public bool AutoLookup { get; set; } = true;
+
     /// <summary>The prices typed for <paramref name="model"/> on <paramref name="baseUrl"/>; null when none were.</summary>
     public ModelPrices? For(string baseUrl, string model)
     {
@@ -447,6 +453,10 @@ public sealed class ModelPrices
 
     [JsonIgnore]
     public bool IsSet => Input is not null || CachedInput is not null || CacheWrite is not null || Output is not null;
+
+    /// <summary>"3", "0.30" or "0,30"; anything else (a negative price too) counts as none.</summary>
+    public static decimal? Parse(string? text) =>
+        decimal.TryParse(text?.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var price) && price >= 0 ? price : null;
 
     public decimal Of(Llm.TokenCount count) =>
         (count.Input * (Input ?? 0) + count.CacheRead * (CachedInput ?? Input ?? 0) + count.CacheWrite * (CacheWrite ?? Input ?? 0) + count.Output * (Output ?? 0)) / 1_000_000m;

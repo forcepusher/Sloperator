@@ -38,9 +38,9 @@ public sealed partial class MainWindowViewModel
         // What the user changed, over what another window's Settings saved while the dialog was
         // open: its copy still had the setting the other window changed, and took it back.
         var updated = _settings.With(dialog.Opened, dialog.Settings);
-        // The server, key, model and context size live in the top bar, not in the dialog; prices in the Cost estimates panel.
+        // The server, key, model and context size live in the top bar, not in the dialog; prices in the Cost estimates panel (Auto pricing lookup is the dialog's).
         updated.Server = _settings.Server;
-        updated.Cost = _settings.Cost;
+        updated.Cost.Prices = _settings.Cost.Prices;
         updated.Window = _settings.Window;
         _settings = updated;
         OnPropertyChanged(nameof(ApprovalNote));
@@ -81,7 +81,7 @@ public sealed partial class MainWindowViewModel
     {
         var taken = applied.Clone();
         taken.Server = _settings.Server;
-        taken.Cost = _settings.Cost;
+        taken.Cost.Prices = _settings.Cost.Prices;
         taken.Window = _settings.Window;
         _settings = taken;
         OnPropertyChanged(nameof(ApprovalNote));

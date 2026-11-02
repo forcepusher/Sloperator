@@ -85,7 +85,7 @@ public sealed class CostEstimatesTests
     [InlineData("Done.\n`PRICES {\"input\": 0, \"cachedInput\": 0, \"cacheWrite\": 0, \"output\": 0, \"currency\": \"$\"}`", 0, 0, "$")]
     public void The_prices_line_reads_numbers_and_text(string reply, double input, double output, string currency)
     {
-        var p = CostEstimatesViewModel.ReadLine(reply)!;
+        var p = Sloperator.Core.Agent.PriceLookup.Read(reply)!;
         Assert.Equal((decimal)input, p.Input);
         Assert.Equal((decimal)output, p.Output);
         Assert.Equal(currency, p.Currency);

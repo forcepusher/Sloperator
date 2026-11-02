@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write and output per million tokens, in any currency), typed right there or filled in by **Look up
   prices**, which asks the agent in the chat to find them on the web; and what all your chats cost
   together, with the five most expensive.
+- **Auto pricing lookup** in Settings > Advanced, on by default: when the server doesn't report what
+  replies cost and the model has no prices, they are looked up on the web in the background, once per
+  model, shown in the chat as a `look_up_prices` call, and kept as the model's prices.
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.

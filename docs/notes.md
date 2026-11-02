@@ -2539,6 +2539,16 @@ and says so; a run that ends with no such line gives the button back with a note
 the reply, so the fields can be checked against what the agent found. The search is the agent's own,
 in the chat, with the tools it has (no web_search without it: it then answers from what it knows).
 
+**Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default; the user 2026-11-02) does
+the same without being asked: after a reply, when the model in use has replies with no reported cost
+and no prices, `PriceLookup.RunAsync` runs a small agent of its own in the background on the same
+server and model, with web_search and fetch_page only (`PriceLookup.Instructions`, at most 10 replies,
+the last without tools, 5 minutes), and the chat shows it as a `look_up_prices` tool card whose
+progress line is each search or page. Prices it finds are kept as the model's, unless some were typed
+meanwhile; its tokens count in the chat's spending like any reply's. Once per server and model while
+Sloperator runs, in any window, found or not, so a server whose prices can't be found isn't searched
+after every reply. The Settings dialog saves the switch and leaves the prices to the window.
+
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
 (`spent` in its file) and kept apart from the conversation, which a context reset replaces. Servers

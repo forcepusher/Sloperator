@@ -88,6 +88,7 @@ public sealed partial class MainWindowViewModel
             FinishCurrent(at, message);
             ShowContextUsage(usage);
             ReplyFinished?.Invoke(message.Content ?? "");
+            LookUpPricesIfNeeded();
         });
     }
 
