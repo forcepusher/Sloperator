@@ -196,14 +196,7 @@ internal sealed class RecordingObserver : IAgentObserver
     public List<string> Events { get; } = [];
 
     public void OnStepStarted(int step) => Events.Add($"step {step}");
-    public void OnDelta(StreamDelta delta)
-    {
-        if (delta.Channel == StreamChannel.Content) Streamed += delta.Text;
-        FirstDelta.TrySetResult();
-    }
-
-    /// <summary>The words of the replies as they streamed, without their thinking.</summary>
-    public string Streamed { get; private set; } = "";
+    public void OnDelta(StreamDelta delta) => FirstDelta.TrySetResult();
     public void OnAssistantMessage(ChatMessage message) => Events.Add("reply " + message.Content);
 
     /// <summary>Runs while an OK is asked for, before the answer (e.g. the user pressing Stop meanwhile).</summary>

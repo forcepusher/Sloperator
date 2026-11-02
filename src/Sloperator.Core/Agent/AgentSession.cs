@@ -249,14 +249,13 @@ public sealed partial class AgentSession(
     /// after the run, not something on top of a task in progress. Marked as that, a message sent as
     /// the model wrote its final answer told it to carry on with a task it had already finished.
     /// </param>
-    /// <returns>Whether a message joined the conversation.</returns>
-    private bool DeliverIncoming(bool turnEnded, IAgentObserver observer)
+    private void DeliverIncoming(bool turnEnded, IAgentObserver observer)
     {
         List<UserInput> delivered;
         lock (_incoming)
         {
             if (!_arrived.IsCancellationRequested)
-                return false;
+                return;
             // A fresh token for the next message; the one a wait may still hold stays cancelled.
             _arrived = new CancellationTokenSource();
             toolContext.UserMessage = _arrived.Token;
@@ -284,7 +283,6 @@ public sealed partial class AgentSession(
         }
         foreach (var input in delivered)
             observer.OnUserMessageDelivered(input);
-        return delivered.Count > 0;
     }
 
     /// <summary>What the user asked for in this run, quoted to the model when a message of theirs comes in on top of it.</summary>
@@ -381,11 +379,6 @@ public sealed partial class AgentSession(
         var cutOffs = 0;
         var missChecked = false;
         var priceNudged = false;
-        // From the price nudge on: the lookup is an errand of the app's, and the user's answer is the
-        // reply before it. What the model writes meanwhile isn't shown (its thinking and calls are):
-        // asked to finish with its answer again, Haiku 5.5 rewrote it with the prices in it, and a
-        // line of its own made up on top (2026-11-02). A message of the user's ends the errand.
-        var errand = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
         // wrong" in the next message is a failed try, and the time since the last look-up goes on.
@@ -402,8 +395,7 @@ public sealed partial class AgentSession(
             for (var step = 1; ; step++)
             {
                 ct.ThrowIfCancellationRequested();
-                if (DeliverIncoming(turnEnded, observer))
-                    errand = false;
+                DeliverIncoming(turnEnded, observer);
                 turnEnded = false;
                 // The reset first: its handoff note is a reply of its own, and the step's reply
                 // comes after it, in a new step.
@@ -422,7 +414,7 @@ public sealed partial class AgentSession(
                 {
                     try
                     {
-                        reply = await CompleteWithResetAsync(request, observer, ct, thinking.Token, wordsShown: !errand).ConfigureAwait(false);
+                        reply = await CompleteWithResetAsync(request, observer, ct, thinking.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (thinking.Interrupted(ct))
                     {
@@ -463,7 +455,7 @@ public sealed partial class AgentSession(
                     reply.ToolCalls!.All(c => ToolCallRepair.ResolveTool(c.Name, tools) is { Risk: ToolRisk.ReadOnly } t && t is not (ResetContextTool or CaptureResultTool)))
                     reply.ToolCalls = null;
                 History.Add(reply);
-                observer.OnAssistantMessage(errand ? WithoutWords(reply) : reply);
+                observer.OnAssistantMessage(reply);
 
                 if (!reply.HasToolCalls)
                 {
@@ -500,10 +492,13 @@ public sealed partial class AgentSession(
                     }
                     // Prices to look up: asked before the end, so the task is done first and the
                     // conversation, cached as it is, only grows (a request of its own would push it out
-                    // of a server that caches one prompt).
+                    // of a server that caches one prompt). The run ends once they are kept (below), so
+                    // the answer before the note stays the last thing the model said: asked to finish
+                    // with its answer again, Haiku 5.5 wrote it anew with the prices in it and a line
+                    // made up on top, and that was the reply the user got (2026-11-02).
                     if (!priceNudged && PriceNudge?.Invoke() is { } lookup)
                     {
-                        priceNudged = errand = true;
+                        priceNudged = true;
                         observer.OnNotice("Asked the model to look up its prices and keep them (Auto pricing lookup).");
                         History.Add(ChatMessage.User(PriceNote(lookup)));
                         continue;
@@ -529,6 +524,7 @@ public sealed partial class AgentSession(
                 var called = reply.ToolCalls!.Select(c => ToolCallRepair.ResolveTool(c.Name, tools)).ToList();
                 guesswork?.Read(reply, called);
                 var notes = new List<string>();
+                var pricesKept = false;
                 using var calls = new StepScope(this, ct);
                 foreach (var call in reply.ToolCalls!)
                 {
@@ -539,6 +535,7 @@ public sealed partial class AgentSession(
                         continue;
                     }
                     var result = await RunToolAsync(call, observer, ct, calls.Token).ConfigureAwait(false);
+                    pricesKept |= priceNudged && !result.IsError && ToolCallRepair.ResolveTool(call.Name, tools) is SetApiPricingTool;
                     // A call Interrupt stopped failed for no fault of the model's.
                     // Each note the model is sent shows in the chat as a line of its own, as the
                     // user asked: what Sloperator tells the model is no secret.
@@ -588,6 +585,15 @@ public sealed partial class AgentSession(
                 // Haiku took one for an injection and went on without it.
                 if (notes.Count > 0)
                     History.Add(ChatMessage.User(string.Join("\n", notes)));
+                // The prices the note asked for are kept: the run ends without another reply, the
+                // answer before the note being the last word. A message of the user's goes on.
+                if (pricesKept && !HasIncoming)
+                {
+                    if (ResetDue())
+                        await ResetContextAsync(observer, ct, asked: true).ConfigureAwait(false);
+                    observer.OnFinished(AgentStopReason.Completed, null);
+                    return;
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -655,19 +661,11 @@ public sealed partial class AgentSession(
 
     /// <summary>
     /// Auto pricing lookup's note, after the model's answer to the user: <paramref name="lookup"/>, and that the
-    /// answer before it stands. Asked for the answer again after the lookup, a model wrote it anew.
+    /// answer stands and the run ends with set_api_pricing (see the run's end once prices are kept).
     /// </summary>
     internal static string PriceNote(string lookup) =>
         "[Sloperator] Your answer above has reached the user and stays their answer. One more thing, for Sloperator itself: " + lookup +
-        " The user doesn't see what you write from here on, so don't repeat or add to your answer: once set_api_pricing is done, reply only \"Prices kept.\"";
-
-    /// <summary>A reply as the user is shown it during the price lookup: its thinking and calls, not its words.</summary>
-    private static ChatMessage WithoutWords(ChatMessage reply) => new()
-    {
-        Role = reply.Role, Content = "", Reasoning = reply.Reasoning, ToolCalls = reply.ToolCalls, FinishReason = reply.FinishReason,
-        PromptTokens = reply.PromptTokens, CompletionTokens = reply.CompletionTokens, CachedTokens = reply.CachedTokens,
-        CacheWriteTokens = reply.CacheWriteTokens, Cost = reply.Cost,
-    };
+        " The run ends when set_api_pricing is done, so write nothing beside that call.";
 
     /// <summary>Whether the tool results since the model's previous reply include a click that changed nothing.</summary>
     private bool LastClickMissed()
@@ -889,15 +887,14 @@ public sealed partial class AgentSession(
     /// (twice at most) before giving up.
     /// </summary>
     /// <param name="replying">The run's token, or also cancelled by <see cref="Interrupt"/>: the reply and the waits to send it again. A reset goes by <paramref name="ct"/>.</param>
-    /// <param name="wordsShown">False for a reply whose words the user isn't shown (see <see cref="WithoutWords"/>): only its thinking streams.</param>
-    private async Task<ChatMessage> CompleteWithResetAsync(List<ChatMessage> request, IAgentObserver observer, CancellationToken ct, CancellationToken replying, bool wordsShown = true)
+    private async Task<ChatMessage> CompleteWithResetAsync(List<ChatMessage> request, IAgentObserver observer, CancellationToken ct, CancellationToken replying)
     {
         var repeats = 0;
         for (var attempt = 0; ; attempt++)
         {
             try
             {
-                var guard = new RepetitionGuard(wordsShown ? observer.OnDelta : d => { if (d.Channel == StreamChannel.Reasoning) observer.OnDelta(d); });
+                var guard = new RepetitionGuard(observer.OnDelta);
                 return await CompleteWithReconnectAsync(request, tools.Definitions(), StepOptions(), observer, guard.OnDelta, replying).ConfigureAwait(false);
             }
             catch (RepetitionException) when (++repeats <= MaxRepetitionRetries)

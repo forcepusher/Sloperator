@@ -24,7 +24,7 @@ public class PriceNudgeTests
         var server = new ScriptedServer(
             Sse.Text("Done: the folder is tidy."),
             Sse.ToolCall("c1", "set_api_pricing", args),
-            Sse.Text("Prices kept. The folder is tidy."));
+            Sse.Text("Prices kept. The folder is tidy."));  // not asked for: the run ends with the prices kept
         var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
         var asked = 0;
         var session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false, [new SetApiPricingTool()]), Context(kept), "sys")
@@ -37,21 +37,19 @@ public class PriceNudgeTests
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Contains(observer.Notices, n => n.Contains("look up its prices", StringComparison.Ordinal));
-        Assert.Equal(3, server.Requests.Count);
+        Assert.Equal(2, server.Requests.Count);
         Assert.Contains("stays their answer. One more thing, for Sloperator itself: Sloperator has no prices for the model anthropic/claude-haiku-5-5", server.Requests[1].ToJsonString());
         var prices = Assert.Single(kept);
         Assert.Equal(("https://api.proxyapi.ru/v1", "anthropic/claude-haiku-5-5", 30m, 150m, "₽"), (prices.BaseUrl, prices.Model, prices.Input, prices.Output, prices.Currency));
-        Assert.Equal(1, asked); // once a run: the second end stands without asking again
-        // The answer the user is shown is the one before the lookup: what the model wrote after it
-        // (Haiku 5.5 rewrote its answer with the prices in it) neither streams nor shows.
-        Assert.Equal(["reply Done: the folder is tidy.", "reply ", "reply "], observer.Events.Where(e => e.StartsWith("reply", StringComparison.Ordinal)));
-        Assert.Equal("Done: the folder is tidy.", observer.Streamed);
-        // The model's conversation keeps what it wrote.
-        Assert.Equal("Prices kept. The folder is tidy.", session.History[^1].Content);
+        Assert.Equal(1, asked);
+        // The answer before the note is the model's last word: asked for it again after the lookup,
+        // Haiku 5.5 rewrote it with the prices in it, and that was the reply the user got.
+        Assert.Equal("Done: the folder is tidy.", session.History.Last(m => m.Role == ChatRole.Assistant && !string.IsNullOrEmpty(m.Content)).Content);
+        Assert.Equal(ChatRole.Tool, session.History[^1].Role);
     }
 
     [Fact]
-    public async Task A_message_of_the_users_during_the_lookup_is_answered_where_they_see_it()
+    public async Task A_message_of_the_users_during_the_lookup_is_answered()
     {
         var args = new JsonObject { ["input"] = 30, ["output"] = 150 }.ToJsonString();
         AgentSession? session = null;
@@ -76,8 +74,8 @@ public class PriceNudgeTests
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Single(observer.Delivered);
-        Assert.Equal("reply It holds 3 files.", observer.Events.Last(e => e.StartsWith("reply", StringComparison.Ordinal)));
-        Assert.EndsWith("It holds 3 files.", observer.Streamed, StringComparison.Ordinal);
+        Assert.Equal(3, server.Requests.Count);
+        Assert.Equal("It holds 3 files.", session.History[^1].Content);
     }
 
     [Fact]

@@ -2558,7 +2558,7 @@ as the model's prices (`ToolContext.SetPrices`). The panel's fields follow price
 (a reply with no tool calls) and has replies with no reported cost and no prices, `AgentSession.PriceNudge`
 gives the request, the chat shows a notice ("Asked the model to look up its prices and keep them"), and
 the model gets "[Sloperator] Your answer above has reached the user and stays their answer. …" as a
-message; it looks them up, calls set_api_pricing, and ends with "Prices kept.", which isn't shown. Asked at the end so the task comes first, and in the conversation itself,
+message; it looks them up and calls set_api_pricing, and the run ends there, with no reply after it. Asked at the end so the task comes first, and in the conversation itself,
 so its cached prompt only grows (a request of its own beside it, an earlier try with a subagent, pushed
 the conversation out of servers that cache one prompt). Once a run, and once per server and model while
 Sloperator runs, in any window, kept or not. Off, nothing is asked. The Settings dialog saves the switch
@@ -2575,15 +2575,14 @@ Kilo free Nemotron 0/0 $ (25-44 s), proxyapi.ru Haiku 5.5 30/3/37.5/150 ₽ from
 (16-17 s), Qwen 0 (34-87 s; once it first ran four shell commands about the server). Haiku once still
 added the prices after the answer.
 
-That answer after the lookup took over the user's reply (2026-11-02, chat on Anthropic's own server, Haiku 5.5
-xhigh): the model had answered (it held back an `rm` for the user's go-ahead), then after the lookup wrote the
-answer anew, opening on a made-up "The server didn't run into any problems" and ending on the prices, and the
-window showed that as the run's reply. Now the answer before the nudge is the user's answer, the same for every
-model: the nudge says it stands, that the user doesn't see what comes next, and to reply only "Prices kept."; and
-from the nudge until a message of the user's comes in, `AgentSession` streams and shows the replies' thinking and
-calls but not their words (`WithoutWords`), so the window's last reply, its notification and its pictures stay
-the answer. The model's conversation keeps what it wrote. A message of the user's during the lookup ends that,
-and the reply to it shows. `PriceNudgeLiveTests` now looks for the secret word in the answer before the nudge.
+That answer after the lookup took over the user's reply (2026-11-02, Anthropic's own server, Haiku 5.5 xhigh):
+the model had answered (it held back an `rm` for the user's go-ahead), then after the lookup wrote the answer
+anew, opening on a made-up "The server didn't run into any problems" and ending on the prices, and that was
+the run's reply. Hiding what the model wrote after the note was tried and turned down by the user. Now the run
+ends once set_api_pricing has kept the prices (no reply is asked for after it), so the answer before the note
+is the model's last word, for every model; the note says the answer stands and to write nothing beside the
+call. A message of the user's during the lookup goes on as usual. The conversation then ends on the call's
+result, and the next message joins it (Anthropic's format joins turns of the same role).
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
