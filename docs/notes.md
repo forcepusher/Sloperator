@@ -2553,6 +2553,17 @@ the conversation out of servers that cache one prompt). Once a run, and once per
 Sloperator runs, in any window, kept or not. Off, nothing is asked. The Settings dialog saves the switch
 and leaves the prices to the window.
 
+Measured with `PriceNudgeLiveTests` (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
+a file and give its secret word, the nudge comes before the end, and the test checks the prices kept against
+the truth (the server's model list, else BB_LIVE_EXPECT), that the last reply still gives the word, and that
+nothing runs after set_api_pricing. With the first wording ("Then finish as you were going to") Qwen 3.8 27B
+on LM Studio kept 0, then searched on and ended "I've handled the pricing lookup." without the word, and
+Nemotron ended on the prices. With the request to end on the full answer to the user's request ("the
+prices need no mention") and to keep 0 at once for an own-PC model and look no further, 6 of 6 passed:
+Kilo free Nemotron 0/0 $ (25-44 s), proxyapi.ru Haiku 5.5 30/3/37.5/150 ₽ from its model page, exact
+(16-17 s), Qwen 0 (34-87 s; once it first ran four shell commands about the server). Haiku once still
+added the prices after the answer.
+
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
 (`spent` in its file) and kept apart from the conversation, which a context reset replaces. Servers

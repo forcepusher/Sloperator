@@ -35,8 +35,8 @@ public sealed class SetApiPricingTool : Tool
         $"Sloperator has no prices for the model {model} on the server at {baseUrl}, which doesn't report what replies cost. " +
         "Look them up on the web (web_search, then fetch_page): that server's own prices per million tokens for input, cached input (cache read), " +
         "cache write and output, in the currency it bills in. A service that resells another maker's model charges its own prices; " +
-        "a model the user runs on their own PC or network costs nothing (0 for all four). " +
-        "Then call set_api_pricing with what you found, leaving out a price you didn't find.";
+        "a model the user runs on their own PC or network costs nothing: call set_api_pricing with 0 for all four, without searching. " +
+        "Otherwise call set_api_pricing with what you found, leaving out a price you didn't find, and look no further.";
 
     /// <summary>The prices in the arguments; no server, and no model where they name none (see <see cref="ModelPrices.With"/>).</summary>
     public static ModelPrices From(JsonObject args) => new()

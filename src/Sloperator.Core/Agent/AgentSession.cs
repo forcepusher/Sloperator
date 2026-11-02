@@ -497,7 +497,8 @@ public sealed partial class AgentSession(
                     {
                         priceNudged = true;
                         observer.OnNotice("Asked the model to look up its prices and keep them (Auto pricing lookup).");
-                        History.Add(ChatMessage.User("[Sloperator] Before you finish: " + lookup + " Then finish as you were going to."));
+                        History.Add(ChatMessage.User("[Sloperator] Before you finish: " + lookup + " After that, end with your final answer to the user's request in full, " +
+                                                     "as you would have without this note: the prices need no mention."));
                         continue;
                     }
                     // Compact context, picked as the model wrote this answer: before the end.
