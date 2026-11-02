@@ -72,7 +72,7 @@ public sealed class Spending
 
     /// <summary>
     /// What the chat cost: by what its server said where it says (OpenRouter, Kilo), else by
-    /// the prices typed in Settings for the model. Null when a model has neither, or the prices are in more than
+    /// the prices typed for the model in the Cost estimates panel. Null when a model has neither, or the prices are in more than
     /// one currency. <c>Estimate</c> when it comes from typed prices or not every reply had a cost.
     /// </summary>
     public (decimal Amount, string Currency, bool Estimate)? Total(CostSettings settings)
@@ -86,28 +86,21 @@ public sealed class Spending
             var estimate = false;
             foreach (var count in Models)
             {
-                string each;
-                if (count.Costed > 0)
-                {
-                    amount += count.Cost;
-                    each = "$";
-                    estimate |= count.Costed < count.Replies;
-                }
-                else if (settings.For(count.BaseUrl, count.Model) is { } prices)
-                {
-                    amount += prices.Of(count);
-                    each = prices.Currency;
-                    estimate = true;
-                }
-                else
+                if (CostOf(count, settings) is not var (each, unit, guess) || currency is not null && currency != unit)
                     return null;
-                if (currency is not null && currency != each)
-                    return null;
-                currency = each;
+                amount += each;
+                currency = unit;
+                estimate |= guess;
             }
             return (amount, currency!, estimate);
         }
     }
+
+    /// <summary>What one model's tokens cost: what its server said where it says, else by the prices typed for it; null with neither.</summary>
+    public static (decimal Amount, string Currency, bool Estimate)? CostOf(TokenCount count, CostSettings settings) =>
+        count.Costed > 0 ? (count.Cost, "$", count.Costed < count.Replies)
+        : settings.For(count.BaseUrl, count.Model) is { } prices ? (prices.Of(count), prices.Currency, true)
+        : null;
 
     /// <summary>"$0.08", "~$0.0042", "~12.50 ₽": a cent's fraction is shown while the total is under a dollar.</summary>
     public static string Format(decimal amount, string currency, bool estimate)

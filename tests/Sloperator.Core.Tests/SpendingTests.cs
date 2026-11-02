@@ -96,3 +96,27 @@ public class SpendingTests
     public void Totals_read_as_money(decimal amount, string currency, bool estimate, string shown) =>
         Assert.Equal(shown, Spending.Format(amount, currency, estimate));
 }
+
+/// <summary>What a chat spent, read from the start of its file for the Cost estimates panel's all-chats total.</summary>
+public sealed class ChatSpendingStoreTests : IDisposable
+{
+    private readonly string _dir = Directory.CreateTempSubdirectory("bb-spent-").FullName;
+
+    public void Dispose() => Directory.Delete(_dir, recursive: true);
+
+    [Fact]
+    public void The_history_list_reads_what_each_chat_spent()
+    {
+        var store = new Chats.ChatStore(_dir);
+        var spent = new Spending();
+        spent.Add("https://openrouter.ai/api/v1", "a", new ChatMessage { PromptTokens = 100, CompletionTokens = 5, Cost = 0.25m });
+        // A long chat: the spending is near the start, before the megabytes of conversation.
+        var history = Enumerable.Range(0, 400).Select(i => ChatMessage.User(new string('x', 1000))).ToList();
+        store.Save(new Chats.SavedChat { Id = "c1", Title = "Long", Updated = DateTime.UtcNow, History = history, Spent = spent });
+        store.Save(new Chats.SavedChat { Id = "c2", Title = "Old", Updated = DateTime.UtcNow.AddDays(-1), History = history });
+
+        var list = store.List();
+        Assert.Equal(0.25m, Assert.Single(list, h => h.Id == "c1").Spent!.Models[0].Cost);
+        Assert.Null(Assert.Single(list, h => h.Id == "c2").Spent);
+    }
+}

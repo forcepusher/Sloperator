@@ -55,7 +55,7 @@ public interface IWatchPanel : ISidePanel
 public static class SidePanelNames
 {
     public const string None = "None", Auto = "Auto", FileChanges = "File changes", FileInspector = "File inspector", CodeEditor = "Code editor",
-        ImageEditor = "Image editor", VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal";
+        ImageEditor = "Image editor", VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal", CostEstimates = "Cost estimates";
 }
 
 /// <summary>The Watch button's words under Auto, for every panel that has one.</summary>
@@ -122,6 +122,8 @@ public sealed partial class MainWindowViewModel
             OpenIn: "Web preview", Opens: Core.Web.PreviewPage.IsPage),
         new(SidePanelNames.Terminal, "The agent's commands and all they print", 600, 0,
             vm => new TerminalViewModel(vm, vm._paths.PastedDir)),
+        new(SidePanelNames.CostEstimates, "What the chat cost, and the prices behind it", 560, 0,
+            vm => new CostEstimatesViewModel(vm)),
     ]);
 
     /// <summary>

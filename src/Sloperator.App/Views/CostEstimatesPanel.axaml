@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.CostEstimatesPanel"
+             x:DataType="vm:CostEstimatesViewModel"
+             Background="{StaticResource BbBackground}">
+
+  <UserControl.Styles>
+    <!-- The tables' figures: right-aligned, so their digits line up. -->
+    <Style Selector="TextBlock.figure">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.big">
+      <Setter Property="FontSize" Value="28" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.row">
+      <Setter Property="BorderBrush" Value="{StaticResource BbLine}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="0,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- What the panel is for, then × to close it. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <TextBlock Classes="muted" Text="What this chat cost, and the prices behind it" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="4" Margin="16,4,16,24">
+        <!-- This chat: its total, where it comes from, and model by model the tokens behind it. -->
+        <TextBlock Classes="h2" Text="This chat" />
+        <TextBlock Classes="big" Text="{Binding Total}" AutomationProperties.Name="Total" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TotalNote}" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding CacheNote}" IsVisible="{Binding CacheNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <StackPanel IsVisible="{Binding HasModels}" Margin="0,8,0,0">
+          <Border Classes="row">
+            <Grid ColumnDefinitions="*,64,72,88,88,72,88">
+              <TextBlock Classes="label" Text="Model" />
+              <TextBlock Grid.Column="1" Classes="label figure" Text="Replies" />
+              <TextBlock Grid.Column="2" Classes="label figure" Text="Input" ToolTip.Tip="Prompt tokens read anew" />
+              <TextBlock Grid.Column="3" Classes="label figure" Text="Cache read" ToolTip.Tip="Prompt tokens read from the server's cache" />
+              <TextBlock Grid.Column="4" Classes="label figure" Text="Cache write" ToolTip.Tip="Prompt tokens written to the server's cache" />
+              <TextBlock Grid.Column="5" Classes="label figure" Text="Output" ToolTip.Tip="Reply tokens, thinking included" />
+              <TextBlock Grid.Column="6" Classes="label figure" Text="Cost" />
+            </Grid>
+          </Border>
+          <ItemsControl ItemsSource="{Binding Models}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ModelCostRow">
+                <Border Classes="row">
+                  <Grid ColumnDefinitions="*,64,72,88,88,72,88">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Model}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Model}" />
+                      <TextBlock Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding Server}" /><Run Text=" · " /><Run Text="{Binding Source}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Classes="figure" Text="{Binding Replies}" />
+                    <TextBlock Grid.Column="2" Classes="figure" Text="{Binding Input}" />
+                    <TextBlock Grid.Column="3" Classes="figure" Text="{Binding CacheRead}" />
+                    <TextBlock Grid.Column="4" Classes="figure" Text="{Binding CacheWrite}" />
+                    <TextBlock Grid.Column="5" Classes="figure" Text="{Binding Output}" />
+                    <TextBlock Grid.Column="6" Classes="figure" Text="{Binding Cost}" ToolTip.Tip="{Binding Source}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <!-- The prices of the model in use, for servers that don't report a reply's cost. -->
+        <TextBlock Classes="h2" Text="Prices of the model in use" Margin="0,20,0,4" />
+        <TextBlock Classes="muted" Text="{Binding PricesFor}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PricesFor}" />
+        <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" Margin="0,8,0,0"
+              IsEnabled="{Binding HasPricedModel}">
+          <TextBlock Classes="label" Text="Input" />
+          <TextBlock Grid.Column="1" Classes="label" Text="Cached input" />
+          <TextBlock Grid.Column="2" Classes="label" Text="Cache write" />
+          <TextBlock Grid.Column="3" Classes="label" Text="Output" />
+          <TextBlock Grid.Column="4" Classes="label" Text="Currency" />
+          <TextBox Grid.Row="1" Text="{Binding InputPrice}" AutomationProperties.Name="Input" />
+          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CachedInputPrice}" AutomationProperties.Name="Cached input" />
+          <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding CacheWritePrice}" AutomationProperties.Name="Cache write" />
+          <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding OutputPrice}" AutomationProperties.Name="Output" />
+          <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding PriceCurrency}" AutomationProperties.Name="Currency" />
+        </Grid>
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,4,0,0"
+                   Text="Per million tokens. Used only where the server doesn't report what a reply cost: OpenRouter and Kilo do, and their cost always wins. An empty cache price counts as the input price." />
+
+        <!-- Every saved chat together, and the dearest ones. -->
+        <TextBlock Classes="h2" Text="All chats" Margin="0,20,0,4" />
+        <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding AllChats}" AutomationProperties.Name="All chats" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding AllChatsNote}" />
+        <StackPanel IsVisible="{Binding HasTopChats}" Margin="0,8,0,0">
+          <TextBlock Classes="label" Text="Most expensive" Margin="0,0,0,2" />
+          <ItemsControl ItemsSource="{Binding TopChats}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ChatCostRow">
+                <Border Classes="row">
+                  <Grid ColumnDefinitions="*,64,80">
+                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Classes="muted figure" Text="{Binding When}" />
+                    <TextBlock Grid.Column="2" Classes="figure" Text="{Binding Cost}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

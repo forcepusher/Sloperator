@@ -2514,9 +2514,20 @@ models are listed.
 ## Cost
 The top bar shows what the chat has cost so far after the context's use: "$0.08" when the server
 said (OpenRouter and Kilo put `usage.cost`, in dollars, in a reply's last chunk), "~$0.08" or
-"~12.50 ₽" from prices typed in Settings > Advanced > Cost, and nothing when its model has neither
+"~12.50 ₽" from prices typed in the Cost estimates panel, and nothing when its model has neither
 (LM Studio, proxyapi.ru, Anthropic's API: their replies carry tokens only). Its tooltip gives the
 tokens by model: read anew, from the cache, into it, and out.
+
+The Cost estimates side panel (`CostEstimatesViewModel`, the user 2026-11-02, in place of the Cost
+fields first put in Settings > Advanced) shows the same total big, a row per model (replies, tokens,
+cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
+served (and, with typed input and cached prices, what that saved), the price fields of the model in
+use (saved as typed), and every saved chat's total per currency with the five dearest. That last part
+reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History
+list reads titles: no chat is loaded whole. Chats saved before the spending was kept, or with it
+further in (from the first build of this, where it came last), aren't counted. Settings no longer
+carries the prices: a Settings dialog saved, or one saved in another window, leaves a window's prices
+as they are, as it does the server and model.
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
