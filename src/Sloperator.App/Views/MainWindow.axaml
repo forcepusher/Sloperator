@@ -740,6 +740,11 @@
                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" />
                   </Expander>
 
+                  <!-- What it was given, where the line can't say it all: a side task's prompt. -->
+                  <Expander IsVisible="{Binding HasInput}" Header="Input" Padding="8,4" HorizontalAlignment="Stretch">
+                    <views:SelectableText Text="{Binding Input}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                  </Expander>
+
                   <Expander IsVisible="{Binding HasResult}" Header="Output" Padding="8,4" HorizontalAlignment="Stretch">
                     <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>

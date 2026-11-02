@@ -87,12 +87,12 @@ public sealed partial class AgentSession(
     public int MaxImages { get; private set; }
 
     /// <summary>
-    /// Auto pricing lookup (the user, 2026-11-02): asked as a run is about to end, it gives what to ask the
-    /// model when the prices of the run's model are to be looked up (its server reports no cost and it has
-    /// none; see <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. The model is asked once
-    /// a run: it looks them up, keeps them with set_api_pricing, and the run then ends as it would have.
+    /// Auto pricing lookup (the user, 2026-11-02): asked as a run is about to end, it gives the task when the
+    /// prices of the run's model are to be looked up (its server reports no cost and it has none; see
+    /// <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. Once a run, after the answer, the
+    /// model looks them up and keeps them with set_api_pricing in a side task (see <see cref="RunSideTaskAsync"/>).
     /// </summary>
-    public Func<string?>? PriceNudge { get; set; }
+    public Func<string?>? PriceLookup { get; set; }
 
     /// <summary>Conversation so far (without the system prompt). Can be shared across sessions so settings changes keep the chat.</summary>
     public List<ChatMessage> History { get; } = history ?? [];
@@ -378,7 +378,7 @@ public sealed partial class AgentSession(
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
         var cutOffs = 0;
         var missChecked = false;
-        var priceNudged = false;
+        var pricesLooked = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
         // wrong" in the next message is a failed try, and the time since the last look-up goes on.
@@ -490,18 +490,29 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
-                    // Prices to look up: asked before the end, so the task is done first and the
-                    // conversation, cached as it is, only grows (a request of its own would push it out
-                    // of a server that caches one prompt). The run ends once they are kept (below), so
-                    // the answer before the note stays the last thing the model said: asked to finish
-                    // with its answer again, Haiku 5.5 wrote it anew with the prices in it and a line
-                    // made up on top, and that was the reply the user got (2026-11-02).
-                    if (!priceNudged && PriceNudge?.Invoke() is { } lookup)
+                    // Prices to look up: a side task once the answer is written, out of the chat's context.
+                    // Asked in the conversation itself, the model wrote its answer anew after the lookup,
+                    // Haiku 5.5 with the prices in it and a line made up on top (2026-11-02).
+                    if (!pricesLooked && tools.Find("set_api_pricing") is not null && PriceLookup?.Invoke() is { } lookup)
                     {
-                        priceNudged = true;
-                        observer.OnNotice("Asked the model to look up its prices and keep them (Auto pricing lookup).");
-                        History.Add(ChatMessage.User(PriceNote(lookup)));
-                        continue;
+                        pricesLooked = true;
+                        try
+                        {
+                            await RunSideTaskAsync($"Look up the prices of {requestOptions.Model}", lookup, ["web_search", "fetch_page", "set_api_pricing"],
+                                t => t is SetApiPricingTool, observer, ct).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                        {
+                            // The answer was complete: no note that the task was stopped.
+                            observer.OnFinished(AgentStopReason.Cancelled, null);
+                            return;
+                        }
+                        // The user wrote meanwhile: the answer ended the turn, and theirs is next.
+                        if (HasIncoming)
+                        {
+                            turnEnded = true;
+                            continue;
+                        }
                     }
                     // Compact context, picked as the model wrote this answer: before the end.
                     if (ResetDue())
@@ -524,7 +535,6 @@ public sealed partial class AgentSession(
                 var called = reply.ToolCalls!.Select(c => ToolCallRepair.ResolveTool(c.Name, tools)).ToList();
                 guesswork?.Read(reply, called);
                 var notes = new List<string>();
-                var pricesKept = false;
                 using var calls = new StepScope(this, ct);
                 foreach (var call in reply.ToolCalls!)
                 {
@@ -535,7 +545,6 @@ public sealed partial class AgentSession(
                         continue;
                     }
                     var result = await RunToolAsync(call, observer, ct, calls.Token).ConfigureAwait(false);
-                    pricesKept |= priceNudged && !result.IsError && ToolCallRepair.ResolveTool(call.Name, tools) is SetApiPricingTool;
                     // A call Interrupt stopped failed for no fault of the model's.
                     // Each note the model is sent shows in the chat as a line of its own, as the
                     // user asked: what Sloperator tells the model is no secret.
@@ -585,15 +594,6 @@ public sealed partial class AgentSession(
                 // Haiku took one for an injection and went on without it.
                 if (notes.Count > 0)
                     History.Add(ChatMessage.User(string.Join("\n", notes)));
-                // The prices the note asked for are kept: the run ends without another reply, the
-                // answer before the note being the last word. A message of the user's goes on.
-                if (pricesKept && !HasIncoming)
-                {
-                    if (ResetDue())
-                        await ResetContextAsync(observer, ct, asked: true).ConfigureAwait(false);
-                    observer.OnFinished(AgentStopReason.Completed, null);
-                    return;
-                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -658,14 +658,6 @@ public sealed partial class AgentSession(
     internal const string MissedEndNote =
         "[Sloperator] Your last click changed nothing on screen, so it probably missed, yet you ended there. Zoom in on what you meant to click: " +
         "if it isn't selected or changed, click it again; if it already was, say so.";
-
-    /// <summary>
-    /// Auto pricing lookup's note, after the model's answer to the user: <paramref name="lookup"/>, and that the
-    /// answer stands and the run ends with set_api_pricing (see the run's end once prices are kept).
-    /// </summary>
-    internal static string PriceNote(string lookup) =>
-        "[Sloperator] Your answer above has reached the user and stays their answer. One more thing, for Sloperator itself: " + lookup +
-        " The run ends when set_api_pricing is done, so write nothing beside that call.";
 
     /// <summary>Whether the tool results since the model's previous reply include a click that changed nothing.</summary>
     private bool LastClickMissed()
