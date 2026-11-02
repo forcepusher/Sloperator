@@ -4931,6 +4931,21 @@ framework-dependent exe, and double-clicking it on the laptop (only the portable
 showed "You must install .NET Desktop Runtime"; the published exe was already self-contained. Each
 debug folder now holds the runtime too: about 240 files, 123 MB.
 
+`publish.ps1` publishes twice: a first pass only to collect the native libraries (libSkiaSharp,
+libHarfBuzzSharp) that the single-file build leaves beside the exe, and the real one with them
+packed in. Trimming takes about 2.5 min on the laptop since Live preview (it was about 15 s): 93% of
+ILLink's time goes to `TypeMapInfo.FindAndAddDefaultInterfaceImplementations`, which walks the
+WebView2 COM interfaces of Avalonia.Controls.WebView (`ICoreWebView2_16` builds on `_15`, and so on,
+each naming every interface below it) along every path without remembering any, about 2^16 walks.
+ILLink 10.0.14 is no faster, and dotnet/runtime main has the same walk (2 November 2026). So the
+first pass is neither trimmed nor compressed: its native libraries are byte for byte the same, and
+it takes 15 s instead of 179. Its deps.json is written to the staging folder: left in obj, the
+trimmed pass took it as up to date (the SDK's cache of its inputs leaves PublishTrimmed out) and
+bundled the untrimmed one, 54 KB instead of 33. With that, the exe came out byte for byte the same
+as before (28,622,742 bytes, develop d0bfb5f) and `publish.ps1` took 216 s from clean instead of 350.
+The Brotli packing is 38 s of quality 11 compression; quality 10 takes 21 s and makes the exe
+0.15 MB bigger, so it stays at 11.
+
 ### Several monitors
 `agent-tasks.ps1` has four tasks for a second monitor (skipped with one), each checking the end
 state itself: `mm-type` types into a Notepad on screen 2 that the request doesn't place, `mm-open`
