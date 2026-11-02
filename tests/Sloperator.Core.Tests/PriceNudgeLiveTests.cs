@@ -15,8 +15,9 @@ namespace Sloperator.Core.Tests;
 /// Opt-in: how well a real model does with Auto pricing lookup's nudge. A small task (read a file, give its
 /// secret word) runs on a real server with Sloperator's own system prompt and tools; before it ends the model
 /// is asked to look up its prices and keep them with set_api_pricing. Measured: whether it searched, whether it
-/// kept prices, how far they are from the truth, whether it then finished its own task (the secret word in
-/// its last reply, no tool run after the prices were kept), and how many replies and seconds it took.
+/// kept prices, how far they are from the truth, whether it had finished its own task (the secret word in
+/// the answer before the lookup, which is the one the user is shown; no tool run after the prices were kept),
+/// and how many replies and seconds it took.
 /// BB_LIVE_URL, BB_LIVE_KEY and BB_LIVE_MODEL pick the server, key and model (as ReplyRoomLiveTests).
 /// The truth is the server's own model list where it prices models (OpenRouter, Kilo), else
 /// BB_LIVE_EXPECT, "input,output,currency" per million tokens ("30,150,₽"; "0,0,$" for a model on the
@@ -65,8 +66,8 @@ public class PriceNudgeLiveTests
         session.PriceNudge = () => nudged++ == 0 ? SetApiPricingTool.LookupRequest(connection.Options.Model, connection.Client.BaseUrl) : null;
         var observer = new RecordingObserver();
         var clock = Stopwatch.StartNew();
-        // A task of its own, whose answer the last reply must still give after the lookup (the user: the
-        // model mustn't get distracted from its goal).
+        // A task of its own, whose answer the reply before the lookup must give (the user: the model mustn't
+        // get distracted from its goal).
         var folder = Directory.CreateTempSubdirectory("bb-nudge-task-").FullName;
         File.WriteAllText(Path.Combine(folder, "notes.txt"), "Shopping list: milk, eggs.\nThe secret word is PELICAN.\n");
 
@@ -76,6 +77,8 @@ public class PriceNudgeLiveTests
         var searches = observer.ToolsRun.Count(t => t is "web_search" or "fetch_page");
         var keptAt = observer.ToolsRun.LastIndexOf("set_api_pricing");
         var after = keptAt < 0 ? [] : observer.ToolsRun.Skip(keptAt + 1).ToList();
+        var nudge = session.History.FindIndex(m => m.Role == ChatRole.User && m.Content?.StartsWith("[Sloperator] Your answer above", StringComparison.Ordinal) == true);
+        var answer = session.History.Take(nudge < 0 ? session.History.Count : nudge).LastOrDefault(m => m.Role == ChatRole.Assistant)?.Content?.Trim() ?? "";
         var last = session.History.LastOrDefault(m => m.Role == ChatRole.Assistant)?.Content?.Trim() ?? "";
         var found = kept.LastOrDefault();
         var say = (string text) => TestContext.Current.SendDiagnosticMessage(text);
@@ -84,14 +87,15 @@ public class PriceNudgeLiveTests
         say($"kept: {(found is null ? "nothing" : $"input {found.Input}, cached {found.CachedInput}, write {found.CacheWrite}, output {found.Output} {found.Currency}")}");
         say($"truth: {(truth is null ? "unknown" : $"input {truth.Value.Input}, output {truth.Value.Output} {truth.Value.Currency}")}");
         say($"tools after set_api_pricing: {(after.Count == 0 ? "none" : string.Join(", ", after))}");
-        say($"last reply: {last.ReplaceLineEndings(" / ")}");
+        say($"answer: {answer.ReplaceLineEndings(" / ")}");
+        say($"last reply (not shown): {last.ReplaceLineEndings(" / ")}");
         foreach (var notice in observer.Notices)
             say("notice: " + notice);
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Equal(1, nudged);
-        // Still on its task: the secret word in the last reply, nothing run after the prices were kept.
-        Assert.Contains("PELICAN", last, StringComparison.OrdinalIgnoreCase);
+        // Still on its task: the secret word in its answer, nothing run after the prices were kept.
+        Assert.Contains("PELICAN", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(after);
         Assert.True(searches > 0 || truth is { Input: 0, Output: 0 }, "It kept prices without looking anything up.");
         Assert.NotNull(found);

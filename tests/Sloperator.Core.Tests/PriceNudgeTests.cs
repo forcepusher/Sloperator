@@ -38,10 +38,46 @@ public class PriceNudgeTests
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Contains(observer.Notices, n => n.Contains("look up its prices", StringComparison.Ordinal));
         Assert.Equal(3, server.Requests.Count);
-        Assert.Contains("Before you finish: Sloperator has no prices for the model anthropic/claude-haiku-5-5", server.Requests[1].ToJsonString());
+        Assert.Contains("stays their answer. One more thing, for Sloperator itself: Sloperator has no prices for the model anthropic/claude-haiku-5-5", server.Requests[1].ToJsonString());
         var prices = Assert.Single(kept);
         Assert.Equal(("https://api.proxyapi.ru/v1", "anthropic/claude-haiku-5-5", 30m, 150m, "₽"), (prices.BaseUrl, prices.Model, prices.Input, prices.Output, prices.Currency));
         Assert.Equal(1, asked); // once a run: the second end stands without asking again
+        // The answer the user is shown is the one before the lookup: what the model wrote after it
+        // (Haiku 5.5 rewrote its answer with the prices in it) neither streams nor shows.
+        Assert.Equal(["reply Done: the folder is tidy.", "reply ", "reply "], observer.Events.Where(e => e.StartsWith("reply", StringComparison.Ordinal)));
+        Assert.Equal("Done: the folder is tidy.", observer.Streamed);
+        // The model's conversation keeps what it wrote.
+        Assert.Equal("Prices kept. The folder is tidy.", session.History[^1].Content);
+    }
+
+    [Fact]
+    public async Task A_message_of_the_users_during_the_lookup_is_answered_where_they_see_it()
+    {
+        var args = new JsonObject { ["input"] = 30, ["output"] = 150 }.ToJsonString();
+        AgentSession? session = null;
+        var server = new ScriptedServer(
+            Sse.Text("Done: the folder is tidy."),
+            Sse.ToolCall("c1", "set_api_pricing", args),
+            Sse.Text("It holds 3 files."));
+        var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
+        var context = new ToolContext
+        {
+            Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(),
+            SetPrices = _ => session!.Steer("How many files are left?"),
+        };
+        var asked = 0;
+        session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false, [new SetApiPricingTool()]), context, "sys")
+        {
+            PriceNudge = () => asked++ == 0 ? SetApiPricingTool.LookupRequest("anthropic/claude-haiku-5-5", "https://api.proxyapi.ru/v1") : null,
+        };
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Tidy the folder", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Single(observer.Delivered);
+        Assert.Equal("reply It holds 3 files.", observer.Events.Last(e => e.StartsWith("reply", StringComparison.Ordinal)));
+        Assert.EndsWith("It holds 3 files.", observer.Streamed, StringComparison.Ordinal);
     }
 
     [Fact]

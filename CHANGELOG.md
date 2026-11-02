@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto pricing lookup** in Settings > Advanced, on by default: when the server doesn't report what
   replies cost and the model has no prices, the agent is asked before it finishes to look them up on
   the web and keep them with its new `set_api_pricing` tool, once per model (a notice in the chat says so).
+  It asks after the agent has answered you, and that answer stays the reply you see.
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.
