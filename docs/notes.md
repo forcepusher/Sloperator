@@ -1736,6 +1736,13 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
   (`KeepsSelection` on the conversation); a press in one block clears the others', a click that
   selects nothing or Esc lets it go, a scroll bar doesn't. Blocks of one reply selected by a drag
   across them stay selected too (`MarkdownView` no longer clears them when the first loses focus there).
+- The card makes the box taller and the chat's view shorter. At the chat's end the chat followed its
+  end, so what had just been selected jumped up about 60 pixels under the mouse, and down again when
+  the card went (the user, 2026-11-03). While the card is up the chat now stays where it was, its last
+  lines under the box, and follows its end again once the card goes (sent, or let go) if it wasn't
+  scrolled meanwhile; only when the box would cover the selection's end does it move, just enough to
+  show it (`MainWindow.HoldChatForQuote`). Higher up the chat never moved: a ScrollViewer keeps its
+  offset when its view gets shorter.
 - Sent, the model is told it before the user's words, in `UserInput.Context` with whatever an open
   panel says: `[The user selected this in the chat, which is what they refer to:` and the text, cut at
   `BoxPicks.MaxChars` as a pick is (`MainWindowViewModel.WithQuote`). The card goes with the message

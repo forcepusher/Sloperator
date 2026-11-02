@@ -509,6 +509,54 @@ public partial class MainWindow : Window
 
     private void Quote() => (DataContext as MainWindowViewModel)?.SetQuote(string.Join(Environment.NewLine, ChatSelection().Select(t => t.SelectedText)));
 
+    /// <summary>Whether the selection's card is over the box, which it makes taller.</summary>
+    private bool _quoteShown;
+
+    /// <summary>Where the chat was when the card came while it followed its end: it follows again once the card goes, if still there.</summary>
+    private double? _heldAt;
+
+    /// <summary>
+    /// The card coming in grows the box and the chat's view gets shorter: at the chat's end the chat
+    /// followed it, and what the user had just selected jumped up under the mouse, and down again when
+    /// the card went (the user, 2026-11-03). The chat stays where it is while the card is up, its last
+    /// lines under the box, unless that hides the selection's end: then it moves just enough to show it.
+    /// </summary>
+    private void HoldChatForQuote(bool shown)
+    {
+        if (shown == _quoteShown)
+            return;
+        _quoteShown = shown;
+        if (shown)
+        {
+            if (_stickToBottom)
+                (_heldAt, _stickToBottom) = (ChatScroll.Offset.Y, false);
+            Dispatcher.UIThread.Post(ShowSelectionEnd, DispatcherPriority.Background);
+        }
+        else
+        {
+            // Sent with the message, or let go where it was selected: the chat follows its end again.
+            if (_heldAt is { } at && Math.Abs(ChatScroll.Offset.Y - at) < 0.5)
+                _stickToBottom = true;
+            _heldAt = null;
+        }
+    }
+
+    /// <summary>The end of what is selected in the chat, scrolled into view if the box grown by its card went over it.</summary>
+    private void ShowSelectionEnd()
+    {
+        if (ChatSelection().LastOrDefault() is not { } text)
+            return;
+        var end = text.TextLayout.HitTestTextPosition(Math.Max(text.SelectionStart, text.SelectionEnd));
+        if (text.TranslatePoint(end.BottomLeft, ChatScroll) is not { } bottom)
+            return;
+        var over = bottom.Y + 4 - ChatScroll.Viewport.Height;
+        if (over <= 0)
+            return;
+        ChatScroll.Offset = new Vector(ChatScroll.Offset.X, Math.Min(MaxOffset, ChatScroll.Offset.Y + over));
+        if (_heldAt is not null)
+            _heldAt = ChatScroll.Offset.Y;
+    }
+
     private static bool OnScrollBar(RoutedEventArgs e) =>
         (e.Source as Visual)?.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(includeSelf: true) is not null;
 
@@ -559,6 +607,8 @@ public partial class MainWindow : Window
             if (change.PropertyName == nameof(MainWindowViewModel.Quote) && vm.Quote is null)
                 foreach (var text in ChatSelection())
                     text.ClearSelection();
+            if (change.PropertyName == nameof(MainWindowViewModel.Quote))
+                HoldChatForQuote(vm.Quote is not null);
         };
         // The messages selected in gone (another chat opened, Undo): their card goes too.
         vm.Items.CollectionChanged += (_, e) =>
