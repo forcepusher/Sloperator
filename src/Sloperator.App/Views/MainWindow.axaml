@@ -311,11 +311,11 @@
 
   <!-- The title bar over all of it (TitleBar), the side panel's column too. -->
   <DockPanel x:Name="Root">
-  <!-- The title bar reads "Sloperator · Connected ● 15k of 256k used · <chat>" (the user, 2026-10-31):
+  <!-- The title bar reads "Sloperator · Connected ● 15k of 256k used · $0.08 · <chat>" (the user, 2026-10-31):
        the status light stands where a dot would, with a space more on each side than a dot (8). The window's
        title, "<chat> - Sloperator", is the taskbar's. The state: the status word, the light, the
-       context's use, each part whole or not at all (WholeRow): in a narrow window the context's use
-       goes first, then the light, and the word stays. With a side panel open it all starts over the
+       context's use, the chat's cost, each part whole or not at all (WholeRow): in a narrow window the
+       cost goes first, then the context's use, then the light, and the word stays. With a side panel open it all starts over the
        chat, where it is without one, and the panel's name is over the panel (the user, 2026-10-31;
        Bar.Inset follows the chat's column, MainWindow). -->
   <views:TitleBar x:Name="Bar" DockPanel.Dock="Top" Text="Sloperator" Subtitle="{Binding ChatTitle}" Caption="{Binding SidePanelName}">
@@ -325,6 +325,8 @@
         <Ellipse Classes="status" Classes.checking="{Binding IsChecking}" Classes.connected="{Binding IsConnected}" Classes.failed="{Binding IsFailed}"
                  Width="8" Height="8" VerticalAlignment="Center" Margin="8,0" />
         <TextBlock Classes="muted" Text="{Binding ContextUsage}" IsVisible="{Binding HasContextUsage}"
+                   VerticalAlignment="Center" />
+        <TextBlock Classes="muted" Text="{Binding CostShown}" IsVisible="{Binding HasChatCost}" ToolTip.Tip="{Binding ChatCostTip}"
                    VerticalAlignment="Center" />
       </views:WholeRow>
     </views:TitleBar.Status>

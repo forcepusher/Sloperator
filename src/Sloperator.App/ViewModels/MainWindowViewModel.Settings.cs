@@ -8,7 +8,7 @@ public sealed partial class MainWindowViewModel
     // ---- settings -------------------------------------------------------------------
 
     public SettingsViewModel CreateSettingsViewModel() =>
-        new(_settings.Clone(), _paths, LoadMcpConfig(), _mcp.Statuses) { Updater = Updater, TextLanguages = _platform.Text?.Languages() };
+        new(_settings.Clone(), _paths, LoadMcpConfig(), _mcp.Statuses) { Updater = Updater, TextLanguages = _platform.Text?.Languages(), PriceServer = _settings.Server.BaseUrl, PriceModel = _settings.Server.ModelInUse };
 
     /// <summary>
     /// mcp.json as it is, read again a moment later when caught while the agent replaces it:
@@ -43,6 +43,7 @@ public sealed partial class MainWindowViewModel
         updated.Window = _settings.Window;
         _settings = updated;
         OnPropertyChanged(nameof(ApprovalNote));
+        ShowCost();
         OnScreenNoteChanged();
         SaveSettings();
         // Written only when the user changed the list: a dialog left open while the agent added a
@@ -82,6 +83,7 @@ public sealed partial class MainWindowViewModel
         taken.Window = _settings.Window;
         _settings = taken;
         OnPropertyChanged(nameof(ApprovalNote));
+        ShowCost();
         OnScreenNoteChanged();
         if (mcpChanged)
             RestartMcp();

@@ -98,6 +98,32 @@
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="Taller screens are scaled down, never up. Smaller uses less context, but clicks miss more." />
 
+            <TextBlock Classes="h2" Text="Cost" />
+            <StackPanel Spacing="4" IsVisible="{Binding HasPriceModel}">
+              <Grid Classes="form" ColumnDefinitions="160,*">
+                <TextBlock Classes="label" Text="Input" />
+                <TextBox Grid.Column="1" Text="{Binding InputPrice}" HorizontalAlignment="Stretch" AutomationProperties.Name="Input" />
+              </Grid>
+              <Grid Classes="form" ColumnDefinitions="160,*">
+                <TextBlock Classes="label" Text="Cached input" />
+                <TextBox Grid.Column="1" Text="{Binding CachedInputPrice}" HorizontalAlignment="Stretch" AutomationProperties.Name="Cached input" />
+              </Grid>
+              <Grid Classes="form" ColumnDefinitions="160,*">
+                <TextBlock Classes="label" Text="Cache write" />
+                <TextBox Grid.Column="1" Text="{Binding CacheWritePrice}" HorizontalAlignment="Stretch" AutomationProperties.Name="Cache write" />
+              </Grid>
+              <Grid Classes="form" ColumnDefinitions="160,*">
+                <TextBlock Classes="label" Text="Output" />
+                <TextBox Grid.Column="1" Text="{Binding OutputPrice}" HorizontalAlignment="Stretch" AutomationProperties.Name="Output" />
+              </Grid>
+              <Grid Classes="form" ColumnDefinitions="160,*">
+                <TextBlock Classes="label" Text="Currency" />
+                <TextBox Grid.Column="1" Text="{Binding PriceCurrency}" HorizontalAlignment="Stretch" AutomationProperties.Name="Currency" />
+              </Grid>
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PricesFor}" />
+            </StackPanel>
+            <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !HasPriceModel}" Text="Prices are typed for the model in use: pick one at the top first." />
+
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."
                        ToolTip.Tip="{Binding Paths.McpConfigFile, StringFormat='Kept in {0}'}" />
