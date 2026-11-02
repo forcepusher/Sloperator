@@ -94,11 +94,15 @@ public sealed class SavedChat
     public string Id { get; set; } = "";
     public string Title { get; set; } = "";
     public DateTime Updated { get; set; }
+
+    /// <summary>
+    /// The tokens the chat sent and got back, and what they cost; null in chats saved before it was
+    /// kept. Near the file's start, after the title, where the History list reads (see <see cref="ChatHeader"/>).
+    /// </summary>
+    public Spending? Spent { get; set; }
+
     public List<ChatEntry> Entries { get; set; } = [];
     public List<ChatMessage> History { get; set; } = [];
-
-    /// <summary>The tokens the chat sent and got back, and what they cost; null in chats saved before it was kept.</summary>
-    public Spending? Spent { get; set; }
 
     /// <summary>The folder opened in the Code editor panel in this chat; null when none was opened there.</summary>
     public string? Folder { get; set; }
@@ -143,6 +147,9 @@ public sealed class ChatHeader
     public string Id { get; set; } = "";
     public string Title { get; set; } = "";
     public DateTime Updated { get; set; }
+
+    /// <summary>What the chat spent, for the Cost estimates panel's all-chats total; null when it wasn't kept or didn't fit the start read.</summary>
+    public Spending? Spent { get; set; }
 }
 
 /// <summary>Every chat is its own file, Data/chats/&lt;id&gt;.json, written whenever the chat changes.</summary>
@@ -180,7 +187,7 @@ public sealed class ChatStore(string dir)
     {
         try
         {
-            var head = new byte[4096];
+            var head = new byte[8192];
             int length;
             using (var stream = File.OpenRead(file))
                 length = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
@@ -191,10 +198,16 @@ public sealed class ChatStore(string dir)
             while (json.Read() && json.TokenType == JsonTokenType.PropertyName)
             {
                 var name = json.GetString();
-                if (name is not ("id" or "title" or "updated") || !json.Read())
+                if (name is not ("id" or "title" or "updated" or "spent") || !json.Read())
                     break; // the contents follow
                 if (name == "title") header.Title = json.GetString() ?? "";
                 if (name == "updated") header.Updated = json.GetDateTime();
+                if (name == "spent")
+                {
+                    // Cut off by the end of what was read: the list goes on without it.
+                    try { header.Spent = JsonSerializer.Deserialize(ref json, ChatJson.Default.Spending); }
+                    catch (JsonException) { break; }
+                }
             }
             return header;
         }

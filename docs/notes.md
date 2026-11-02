@@ -2514,9 +2514,30 @@ models are listed.
 ## Cost
 The top bar shows what the chat has cost so far after the context's use: "$0.08" when the server
 said (OpenRouter and Kilo put `usage.cost`, in dollars, in a reply's last chunk), "~$0.08" or
-"~12.50 ₽" from prices typed in Settings > Advanced > Cost, and nothing when its model has neither
+"~12.50 ₽" from prices typed in the Cost estimates panel, and nothing when its model has neither
 (LM Studio, proxyapi.ru, Anthropic's API: their replies carry tokens only). Its tooltip gives the
 tokens by model: read anew, from the cache, into it, and out.
+
+The Cost estimates side panel (`CostEstimatesViewModel`, the user 2026-11-02, in place of the Cost
+fields first put in Settings > Advanced) shows the same total big, a row per model (replies, tokens,
+cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
+served (and, with typed input and cached prices, what that saved), the price fields of the model in
+use (saved as typed), and every saved chat's total per currency with the five dearest. That last part
+reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History
+list reads titles: no chat is loaded whole. Chats saved before the spending was kept, or with it
+further in (from the first build of this, where it came last), aren't counted. Settings no longer
+carries the prices: a Settings dialog saved, or one saved in another window, leaves a window's prices
+as they are, as it does the server and model.
+
+**Look up prices** (the user, 2026-11-02) sends the chat "Look up the prices of <model> on <host>." from
+the panel, with the panel's words for the model (`LookupContext`): search the web for that server's own
+prices (a reseller charges its own), 0 for a model on the user's own PC or network, and end the reply
+with one line `PRICES {"input": …, "cachedInput": …, "cacheWrite": …, "output": …, "currency": "…"}`,
+null for a price not found. The panel reads that line from each reply the chat gets (`ReplyFinished`)
+while it waits, fills the fields of the model it asked about (even if another was picked meanwhile),
+and says so; a run that ends with no such line gives the button back with a note. The line stays in
+the reply, so the fields can be checked against what the agent found. The search is the agent's own,
+in the chat, with the tools it has (no web_search without it: it then answers from what it knows).
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat

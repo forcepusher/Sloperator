@@ -153,7 +153,40 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         var total = _spent.Total(_settings.Cost);
         ChatCost = total is var (amount, currency, estimate) ? Spending.Format(amount, currency, estimate) : "";
         ChatCostTip = _spent.Describe();
+        SpendingChanged?.Invoke();
     }
+
+    /// <summary>The chat's tokens or the prices changed, or another chat is on screen: for the Cost estimates panel.</summary>
+    internal event Action? SpendingChanged;
+
+    /// <summary>The chat on screen's spending, read by the Cost estimates panel.</summary>
+    internal Spending Spent => _spent;
+
+    internal CostSettings CostSettings => _settings.Cost;
+
+    /// <summary>The server and model requests go to now, whose prices the Cost estimates panel edits.</summary>
+    internal (string BaseUrl, string Model) PricedModel => (_settings.Server.BaseUrl, _settings.Server.ModelInUse);
+
+    /// <summary>Prices typed in the Cost estimates panel: kept in the settings, and the costs shown again.</summary>
+    internal void SetPrices(ModelPrices prices)
+    {
+        _settings.Cost.Set(prices);
+        SaveSettings();
+        ShowCost();
+    }
+
+    /// <summary>Every saved chat's title, time and spending (read from the start of each file), with the chat on screen as it is now.</summary>
+    internal List<ChatHeader> ChatSpending()
+    {
+        var all = _chats.List();
+        if (_chatId is { } id)
+        {
+            all.RemoveAll(h => h.Id == id);
+            all.Insert(0, new ChatHeader { Id = id, Title = _chatTitle ?? "This chat", Updated = DateTime.UtcNow, Spent = _spent.Copy() });
+        }
+        return all;
+    }
+
 
     /// <summary>
     /// The intro on what Sloperator can do, shown until the chat is used: a message sent or a saved

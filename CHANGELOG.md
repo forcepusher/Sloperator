@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - The chat's cost in the top bar, after the context's use: what OpenRouter and Kilo say each reply
-  cost, always used where the server says it; otherwise, from prices you type in Settings > Advanced >
-  Cost for the model in use (input, cached input, cache write and output, per million tokens, in any
-  currency), an estimate marked "~". Hover it for the tokens behind it. It counts the whole chat,
-  across context resets, and is saved with it.
+  cost, always used where the server says it; otherwise an estimate marked "~" from prices you type
+  for the model. Hover it for the tokens behind it. It counts the whole chat, across context resets,
+  and is saved with it.
+- **Cost estimates** in the Side panel dropdown: the chat's total and, model by model, its replies,
+  tokens (new, read from the cache, written to it, out) and cost, with where each cost comes from and
+  how much of the prompt the cache served; the prices of the model in use (input, cached input, cache
+  write and output per million tokens, in any currency), typed right there or filled in by **Look up
+  prices**, which asks the agent in the chat to find them on the web; and what all your chats cost
+  together, with the five most expensive.
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.
