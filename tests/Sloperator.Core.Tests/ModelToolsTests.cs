@@ -8,8 +8,8 @@ using Xunit;
 
 namespace Sloperator.Core.Tests;
 
-/// <summary>The agent connecting Sloperator itself to another model (model_server).</summary>
-public sealed class ModelServerTests
+/// <summary>The agent connecting Sloperator itself to another model and setting its effort (list_models, switch_model, set_effort).</summary>
+public sealed class ModelToolsTests
 {
     /// <summary>The top bar: what it shows, and what the tool switched it to.</summary>
     private sealed class TopBar : IModelServerSwitch
@@ -24,6 +24,12 @@ public sealed class ModelServerTests
             Current.ApiKey = apiKey;
             Current.Model = model;
             Current.AutoModel = null;
+            return Task.CompletedTask;
+        }
+
+        public Task SetEffortAsync(string level)
+        {
+            Current.Effort = level;
             return Task.CompletedTask;
         }
     }
@@ -57,14 +63,20 @@ public sealed class ModelServerTests
     private static ToolContext Context(TopBar bar) =>
         new() { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(), ModelServer = bar };
 
-    private static Task<ToolResult> Run(HttpMessageHandler server, TopBar bar, JsonObject args) =>
-        new ModelServerTool(() => new HttpClient(server)).ExecuteAsync(args, Context(bar), CancellationToken.None);
+    private static Task<ToolResult> Switch(HttpMessageHandler server, TopBar bar, JsonObject args) =>
+        new SwitchModelTool(() => new HttpClient(server)).ExecuteAsync(args, Context(bar), CancellationToken.None);
+
+    private static Task<ToolResult> List(HttpMessageHandler server, TopBar bar) =>
+        new ListModelsTool(() => new HttpClient(server)).ExecuteAsync([], Context(bar), CancellationToken.None);
+
+    private static Task<ToolResult> Effort(TopBar bar, string level) =>
+        new SetEffortTool().ExecuteAsync(new JsonObject { ["level"] = level }, Context(bar), CancellationToken.None);
 
     [Fact]
     public async Task Connect_switches_the_top_bar_to_a_server_that_answers()
     {
         var bar = new TopBar();
-        var result = await Run(new LocalServer(["qwen3.8-27b", "gemma-4-12b-it"]), bar, new JsonObject { ["action"] = "connect", ["address"] = "localhost:1234" });
+        var result = await Switch(new LocalServer(["qwen3.8-27b", "gemma-4-12b-it"]), bar, new JsonObject { ["address"] = "localhost:1234" });
         Assert.False(result.IsError, result.Text);
         // The address that answered, no key, and no model picked: the strongest one is Sloperator's pick.
         Assert.Equal([("http://localhost:1234/v1", "", "")], bar.Switched);
@@ -77,12 +89,12 @@ public sealed class ModelServerTests
     {
         var server = new LocalServer(["qwen3.8-27b", "gemma-4-12b-it", "gemma-4-31b-it"]);
         var bar = new TopBar();
-        var picked = await Run(server, bar, new JsonObject { ["action"] = "connect", ["address"] = "http://localhost:1234/v1", ["model"] = "QWEN3.8" });
+        var picked = await Switch(server, bar, new JsonObject { ["address"] = "http://localhost:1234/v1", ["model"] = "QWEN3.8" });
         Assert.False(picked.IsError, picked.Text);
         Assert.Equal("qwen3.8-27b", bar.Switched.Single().Model);
 
         // "gemma" could be either: nothing changes, and the result names them.
-        var vague = await Run(server, bar, new JsonObject { ["action"] = "connect", ["address"] = "http://localhost:1234/v1", ["model"] = "gemma" });
+        var vague = await Switch(server, bar, new JsonObject { ["address"] = "http://localhost:1234/v1", ["model"] = "gemma" });
         Assert.True(vague.IsError);
         Assert.Single(bar.Switched);
         Assert.Contains("gemma-4-12b-it, gemma-4-31b-it", vague.Text);
@@ -92,12 +104,12 @@ public sealed class ModelServerTests
     public async Task Nothing_changes_when_the_server_does_not_answer_or_refuses_the_key()
     {
         var bar = new TopBar();
-        var offline = await Run(new NobodyThere(), bar, new JsonObject { ["action"] = "connect", ["address"] = "localhost:1234" });
+        var offline = await Switch(new NobodyThere(), bar, new JsonObject { ["address"] = "localhost:1234" });
         Assert.True(offline.IsError);
         Assert.StartsWith("Nothing changed:", offline.Text);
         Assert.Contains("LM Studio, its server has to be switched on", offline.Text);
 
-        var wrongKey = await Run(new LocalServer(["m"], key: "right"), bar, new JsonObject { ["action"] = "connect", ["address"] = "http://box:8080/v1", ["api_key"] = "wrong" });
+        var wrongKey = await Switch(new LocalServer(["m"], key: "right"), bar, new JsonObject { ["address"] = "http://box:8080/v1", ["api_key"] = "wrong" });
         Assert.True(wrongKey.IsError);
         Assert.Contains("Ask the user for the right API key", wrongKey.Text);
         Assert.Empty(bar.Switched);
@@ -109,25 +121,25 @@ public sealed class ModelServerTests
     {
         var server = new LocalServer(["a-model", "b-model"], key: "sk-secret-123");
         var bar = new TopBar();
-        var args = new JsonObject { ["action"] = "connect", ["address"] = "http://box:8080/v1", ["api_key"] = "sk-secret-123" };
-        var result = await Run(server, bar, args);
+        var args = new JsonObject { ["address"] = "http://box:8080/v1", ["api_key"] = "sk-secret-123" };
+        var result = await Switch(server, bar, args);
         Assert.False(result.IsError, result.Text);
         Assert.Equal("sk-secret-123", bar.Current.ApiKey);
         Assert.DoesNotContain("sk-secret", result.Text);
-        Assert.DoesNotContain("sk-secret", new ModelServerTool().Describe(args));
+        Assert.DoesNotContain("sk-secret", new SwitchModelTool().Describe(args));
 
         // Another model on the same server keeps the key the user gave before.
-        var other = await Run(server, bar, new JsonObject { ["action"] = "connect", ["address"] = "box:8080", ["model"] = "b-model" });
+        var other = await Switch(server, bar, new JsonObject { ["address"] = "box:8080", ["model"] = "b-model" });
         Assert.False(other.IsError, other.Text);
         Assert.Equal(("http://box:8080/v1", "sk-secret-123", "b-model"), bar.Switched[^1]);
 
         // A key isn't carried to another server.
-        await Run(new LocalServer(["c"]), bar, new JsonObject { ["action"] = "connect", ["address"] = "http://other:1234/v1" });
+        await Switch(new LocalServer(["c"]), bar, new JsonObject { ["address"] = "http://other:1234/v1" });
         Assert.Equal("", bar.Switched[^1].Key);
 
         // Back to a server saved in the top bar: its key comes with it.
         bar.Current.Saved.Add(new SavedServer { BaseUrl = "http://box:8080/v1", ApiKey = "sk-secret-123" });
-        var back = await Run(server, bar, new JsonObject { ["action"] = "connect", ["address"] = "box:8080" });
+        var back = await Switch(server, bar, new JsonObject { ["address"] = "box:8080" });
         Assert.False(back.IsError, back.Text);
         Assert.Equal("sk-secret-123", bar.Switched[^1].Key);
     }
@@ -140,18 +152,51 @@ public sealed class ModelServerTests
         bar.Current.ApiKey = "sk-secret-123";
         bar.Current.Model = "a-model";
         bar.Current.AutoModel = null;
-        var result = await Run(new LocalServer(["a-model", "b-model"], key: "sk-secret-123"), bar, new JsonObject { ["action"] = "show" });
-        Assert.Equal("Sloperator runs on a-model at http://box:8080/v1, with an API key.\nModels it offers (2): a-model, b-model", result.Text);
+        var result = await List(new LocalServer(["a-model", "b-model"], key: "sk-secret-123"), bar);
+        Assert.Equal("Sloperator runs on a-model at http://box:8080/v1, with an API key. The model has no effort setting.\nModels it offers (2): a-model, b-model", result.Text);
+
+        bar.Current.EffortLevels = ["low", "medium", "high"];
+        var withEffort = await List(new LocalServer(["a-model"], key: "sk-secret-123"), bar);
+        Assert.Contains(" Effort: medium (it takes low, medium, high).", withEffort.Text);
+    }
+
+    [Fact]
+    public async Task Effort_is_set_as_the_dropdown_would_or_the_nearest_the_model_takes()
+    {
+        var bar = new TopBar();
+        bar.Current.EffortLevels = ["low", "medium", "high"];
+        var high = await Effort(bar, "High");
+        Assert.False(high.IsError, high.Text);
+        Assert.Equal("high", bar.Current.Effort);
+        Assert.StartsWith("Sloperator's effort is now high.", high.Text);
+        Assert.Contains("the user's next message is answered with the new one", high.Text);
+
+        // Max is kept for a model that takes it, and this one gets the nearest.
+        var max = await Effort(bar, "max");
+        Assert.Equal("max", bar.Current.Effort);
+        Assert.Contains("doesn't take max, so it gets high", max.Text);
+
+        await Assert.ThrowsAsync<ToolArgumentException>(() => Effort(bar, "turbo"));
+    }
+
+    [Fact]
+    public async Task Nothing_changes_for_a_model_without_an_effort_setting()
+    {
+        var bar = new TopBar();
+        var result = await Effort(bar, "low");
+        Assert.True(result.IsError);
+        Assert.StartsWith("Nothing changed:", result.Text);
+        Assert.Equal(Efforts.Default, bar.Current.Effort);
     }
 
     [Fact]
     public async Task Without_the_app_there_is_no_tool_and_nothing_to_switch()
     {
         var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath() };
-        var result = await new ModelServerTool().ExecuteAsync(new JsonObject { ["action"] = "show" }, ctx, CancellationToken.None);
-        Assert.True(result.IsError);
+        foreach (Tool tool in new Tool[] { new ListModelsTool(), new SwitchModelTool(), new SetEffortTool() })
+            Assert.True((await tool.ExecuteAsync(new JsonObject { ["address"] = "localhost:1234", ["level"] = "high" }, ctx, CancellationToken.None)).IsError);
 
-        Assert.Contains("use model_server", SystemPrompt.Build("Test OS", null, "C:\\", "", modelServer: true));
-        Assert.DoesNotContain("model_server", SystemPrompt.Build("Test OS", null, "C:\\", ""));
+        Assert.Contains("use switch_model; to change how hard you think (effort), set_effort", SystemPrompt.Build("Test OS", null, "C:\\", "", modelServer: true));
+        Assert.DoesNotContain("switch_model", SystemPrompt.Build("Test OS", null, "C:\\", ""));
     }
 }

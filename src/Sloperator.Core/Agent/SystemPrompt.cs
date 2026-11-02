@@ -15,7 +15,7 @@ public static class SystemPrompt
     /// <param name="madeDirectory">Where what the agent makes for the user goes when they name no place (Documents\Sloperator), or null to leave it out.</param>
     /// <param name="folderIndex">Whether index_folder is in the tool list.</param>
     /// <param name="control">Whether the mouse and keyboard tools are in the tool list along with the screen's (the user can turn them off in Settings).</param>
-    /// <param name="modelServer">Whether model_server is in the tool list.</param>
+    /// <param name="modelServer">Whether list_models, switch_model and set_effort are in the tool list.</param>
     public static string Build(string platformName, IReadOnlyList<ScreenSpace>? screens, string workingDirectory, string customInstructions,
         IReadOnlyList<McpServerStatus>? mcpServers = null, bool webSearch = false, string? toolsDirectory = null, string? scratchDirectory = null,
         bool folderIndex = true, bool control = true, bool modelServer = false, bool findText = true, string? madeDirectory = null)
@@ -128,7 +128,7 @@ public static class SystemPrompt
                       "Always go through mcp_servers, which saves the server in the user's Settings for later tasks, rather than running it or calling its tools from run_shell or a script of your own.");
         // Asked to connect another model, free Nemotron clicked through other apps for a settings screen: Sloperator's own window isn't in its screenshots.
         if (modelServer)
-            sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, use model_server: " +
+            sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, use switch_model; to change how hard you think (effort), set_effort: " +
                           "Sloperator's own window is left out of your screenshots, so its settings can't be clicked.");
         // qwen3.8 drove ComfyUI's HTTP API well but wrote wrong node, input and model names from memory.
         sb.AppendLine("- To make pictures, video, sound, music, speech or 3D models, use the comfyui tool (ComfyUI on this PC; it needs no MCP server; " +

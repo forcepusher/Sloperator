@@ -5,7 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Asked to think harder or less, the agent sets the effort in the top bar itself (low to max), for
+  your next message on, as the effort dropdown would.
+
 ### Changed
+- The agent's model_server tool is now three: list_models, switch_model and set_effort, each with
+  only the settings it needs.
 - The note telling the agent it's time to look things up comes far less often: file edits no longer
   count as tries, only commands, scripts and jobs, and it comes once every four such runs without a
   search rather than on every one after eight.

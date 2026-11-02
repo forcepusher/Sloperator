@@ -783,7 +783,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _unread = null;
             await Task.Run(() => input is null ? session.CompactAsync(this, ct) : session.RunAsync(input, this, ct), CancellationToken.None);
             // A server error may have revealed the real context size; keep it for the next run.
-            // Not for another server or model picked meanwhile (by the user, or the agent's model_server).
+            // Not for another server or model picked meanwhile (by the user, or the agent's switch_model).
             if (ImagesKey(server) == runKey)
             {
                 _settings.Server.LearnContextLimit(session.ContextTokens);
