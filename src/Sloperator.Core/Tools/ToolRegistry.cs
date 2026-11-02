@@ -62,6 +62,7 @@ public sealed class ToolRegistry
         {
             yield return new WebSearchTool();
             yield return new FetchPageTool();
+            yield return new SubagentTool();
         }
         yield return new ResetContextTool();
     }

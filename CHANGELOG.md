@@ -17,8 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prices**, which asks the agent in the chat to find them on the web; and what all your chats cost
   together, with the five most expensive.
 - **Auto pricing lookup** in Settings > Advanced, on by default: when the server doesn't report what
-  replies cost and the model has no prices, they are looked up on the web in the background, once per
-  model, shown in the chat as a `look_up_prices` call, and kept as the model's prices.
+  replies cost and the model has no prices, a subagent looks them up on the web in the background, once
+  per model, and a `set_api_pricing` call keeps what it found as the model's prices.
+- A `subagent` tool: the agent hands a self-contained research task to a helper with a fresh context of
+  its own (web search, pages, files and folders; no screen, no changes), and gets back only its final
+  answer. Its card is named after the task, with the prompt under Input and the answer under Output.
+- A `set_api_pricing` tool, for the agent to keep a model's prices when you ask it to find or set them.
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.

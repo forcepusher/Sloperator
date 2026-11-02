@@ -2541,13 +2541,23 @@ in the chat, with the tools it has (no web_search without it: it then answers fr
 
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default; the user 2026-11-02) does
 the same without being asked: after a reply, when the model in use has replies with no reported cost
-and no prices, `PriceLookup.RunAsync` runs a small agent of its own in the background on the same
-server and model, with web_search and fetch_page only (`PriceLookup.Instructions`, at most 10 replies,
-the last without tools, 5 minutes), and the chat shows it as a `look_up_prices` tool card whose
-progress line is each search or page. Prices it finds are kept as the model's, unless some were typed
-meanwhile; its tokens count in the chat's spending like any reply's. Once per server and model while
+and no prices, `PriceLookup.RunAsync` runs the subagent tool's helper in the background on the same
+server and model, with web_search and fetch_page only (`PriceLookup.Instructions`, 5 minutes), shown
+as a `subagent` card (its task as the line, the prompt as Input, the answer as Output, progress each
+search or page); then, unless prices were typed meanwhile, a `set_api_pricing` card keeps what it found
+(the user, 2026-11-02: the tool named subagent, a real one, and the prices put by a tool call of their
+own); its tokens count in the chat's spending like any reply's. Once per server and model while
 Sloperator runs, in any window, found or not, so a server whose prices can't be found isn't searched
 after every reply. The Settings dialog saves the switch and leaves the prices to the window.
+
+The `subagent` tool (`SubagentTool`, read-only, in every run with the web tools) hands a self-contained
+task to a helper on the same server and model with a fresh context: a system line of its own and the
+prompt, the tools web_search, fetch_page, read_file and list_directory (no screen, no changes, no
+subagent of its own), at most 30 replies, the last without tools. Only its final answer comes back
+(thinking left out), so searches and pages stay out of the agent's context; its tokens count in the
+chat's spending. Each step is its card's progress line. The card's Input foldout (`ToolCallItem.Input`,
+saved as the chat entry's `input`) shows the prompt. `set_api_pricing` (`SetApiPricingTool`) keeps a
+model's prices on the server in use through `ToolContext.SetPrices` (the window's Cost estimates).
 
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat

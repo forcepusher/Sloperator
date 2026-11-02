@@ -8,16 +8,13 @@ namespace Sloperator.Core.Agent;
 
 /// <summary>
 /// What a model costs on a server, found on the web by the model itself: the Cost estimates panel's
-/// Look up prices asks the agent in the chat, and Auto pricing lookup (<see cref="RunAsync"/>) asks a
-/// small agent of its own in the background, with web_search and fetch_page only, on the same server
-/// and model. Both end on a line the prices are read from (<see cref="Read"/>).
+/// Look up prices asks the agent in the chat, and Auto pricing lookup (<see cref="RunAsync"/>) runs the
+/// subagent tool in the background, with web_search and fetch_page only, on the same server and model.
+/// Both end on a line the prices are read from (<see cref="Read"/>).
 /// </summary>
 public static class PriceLookup
 {
     public const string LinePrefix = "PRICES";
-
-    /// <summary>At most this many replies: searches and pages read, then the answer.</summary>
-    private const int MaxSteps = 10;
 
     /// <summary>What the model is asked: where to look, and the line to end on.</summary>
     public static string Instructions(string model, string baseUrl) =>
@@ -28,57 +25,23 @@ public static class PriceLookup
         "End your reply with this one line, not in a code block, a number for each price found and null for one not found:\n" +
         $"{LinePrefix} {{\"input\": 3, \"cachedInput\": 0.3, \"cacheWrite\": 3.75, \"output\": 15, \"currency\": \"$\"}}";
 
+    /// <summary>The task's name, as its card shows it: "Look up the prices of qwen3 on localhost:1234".</summary>
+    public static string TaskName(string model, string baseUrl) =>
+        $"Look up the prices of {model} on {(Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) ? uri.Authority : baseUrl)}";
+
+    /// <summary>The subagent tool's arguments for a lookup: its task and its prompt.</summary>
+    public static JsonObject Arguments(string model, string baseUrl) => new() { ["task"] = TaskName(model, baseUrl), ["prompt"] = Instructions(model, baseUrl) };
+
     /// <summary>
-    /// Runs the lookup: the model searches and reads pages until it answers, <paramref name="progress"/>
-    /// hearing each step ("Search the web: …"). Returns the prices found (null when its answer had no
-    /// line that reads) and its answer without the line, for the card.
+    /// Runs the lookup through the subagent tool, with web_search and fetch_page only, on the server and
+    /// model of <paramref name="ctx"/>; <paramref name="ctx"/>'s Progress hears each step. Returns the
+    /// prices found (null when the answer had no line that reads) and the whole answer.
     /// </summary>
-    public static async Task<(ModelPrices? Prices, string Answer)> RunAsync(OpenAiChatClient client, string model, ToolContext ctx,
-        Action<string> progress, CancellationToken ct)
+    public static async Task<(ModelPrices? Prices, string Answer)> RunAsync(ToolContext ctx, string model, CancellationToken ct)
     {
-        Tool[] tools = [new WebSearchTool(), new FetchPageTool()];
-        var definitions = tools.Select(t => new ToolDefinition { Name = t.Name, Description = t.Description, Parameters = t.Parameters }).ToList();
-        var options = new ChatRequestOptions { Model = model, MaxTokens = 8192 };
-        List<ChatMessage> conversation =
-        [
-            ChatMessage.System("You find prices for Sloperator, a desktop agent, which keeps what each chat costs. Keep searches few and pages short (find=)."),
-            ChatMessage.User(Instructions(model, client.BaseUrl)),
-        ];
-        for (var step = 0; step < MaxSteps; step++)
-        {
-            // The last step gets no tools: it answers with what it found.
-            var reply = await client.CompleteAsync(conversation, step < MaxSteps - 1 ? definitions : [], options, null, ct).ConfigureAwait(false);
-            conversation.Add(reply);
-            if (reply.ToolCalls is not { Count: > 0 } calls)
-            {
-                var text = reply.Content ?? "";
-                if (text.LastIndexOf("</think>", StringComparison.Ordinal) is var end and >= 0)
-                    text = text[(end + "</think>".Length)..];
-                return (Read(text), string.Join("\n", text.Split('\n').Where(l => !l.Contains(LinePrefix + " {", StringComparison.Ordinal))).Trim());
-            }
-            foreach (var call in calls)
-            {
-                var tool = tools.FirstOrDefault(t => t.Name == call.Name);
-                string result;
-                try
-                {
-                    var args = JsonNode.Parse(string.IsNullOrWhiteSpace(call.Arguments) ? "{}" : call.Arguments) as JsonObject ?? [];
-                    if (tool is null)
-                        result = $"There is no tool {call.Name}: use web_search or fetch_page.";
-                    else
-                    {
-                        progress(tool.Describe(args));
-                        result = (await tool.ExecuteAsync(args, ctx, ct).ConfigureAwait(false)).Text;
-                    }
-                }
-                catch (Exception ex) when (ex is JsonException or ToolArgumentException)
-                {
-                    result = "Error: " + ex.Message;
-                }
-                conversation.Add(ChatMessage.ToolResult(call.Id, result));
-            }
-        }
-        return (null, "");
+        var answer = await SubagentTool.RunAsync(ctx.Client!, ctx.Options ?? new ChatRequestOptions { Model = model }, Instructions(model, ctx.Client!.BaseUrl),
+            [new WebSearchTool(), new FetchPageTool()], ctx, ctx.Progress, ct).ConfigureAwait(false);
+        return (Read(answer), answer);
     }
 
     /// <summary>The prices in the text's last "PRICES {…}" line; null without one that reads.</summary>

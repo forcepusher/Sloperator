@@ -332,6 +332,23 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>What the call was given (JSON), while the run goes on: the Video editor panel reads which piece the video tool is making.</summary>
     public string Arguments { get; init; } = "";
 
+    /// <summary>The Input saved with the chat, for a card read back from it (whose <see cref="Arguments"/> are gone).</summary>
+    public string? SavedInput { get; init; }
+
+    /// <summary>
+    /// What the call was given, as its Input foldout shows it: a subagent's prompt (its task is the card's
+    /// line, its final answer the Output, the user 2026-11-02). Empty for other tools, whose line says it.
+    /// </summary>
+    public string Input => SavedInput ?? (Name == "subagent" && Arguments.Length > 0 ? PromptOf(Arguments) : "");
+
+    public bool HasInput => Input.Length > 0;
+
+    private static string PromptOf(string arguments)
+    {
+        try { return System.Text.Json.Nodes.JsonNode.Parse(arguments)?["prompt"]?.GetValue<string>() ?? ""; }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) { return ""; }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
     private string _summary = summary;
