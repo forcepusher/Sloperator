@@ -87,6 +87,13 @@ public class PriceNudgeLiveTests
         say($"last reply: {last.ReplaceLineEndings(" / ")}");
         foreach (var notice in observer.Notices)
             say("notice: " + notice);
+        // Every call with what it was given and what came back, so a run that does something odd can be read back.
+        var results = session.History.Where(m => m.Role == ChatRole.Tool).ToDictionary(m => m.ToolCallId ?? "", m => m.Content ?? "");
+        foreach (var call in session.History.Where(m => m.ToolCalls is not null).SelectMany(m => m.ToolCalls!))
+        {
+            var result = results.GetValueOrDefault(call.Id, "?").ReplaceLineEndings(" / ");
+            say($"call {call.Name} {call.Arguments} -> {(result.Length > 300 ? result[..300] + "…" : result)}");
+        }
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Equal(1, nudged);
