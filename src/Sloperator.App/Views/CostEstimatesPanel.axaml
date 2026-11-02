@@ -78,7 +78,12 @@
 
         <!-- The prices of the model in use, for servers that don't report a reply's cost. -->
         <TextBlock Classes="h2" Text="Prices of the model in use" Margin="0,20,0,4" />
-        <TextBlock Classes="muted" Text="{Binding PricesFor}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PricesFor}" />
+        <!-- Look up prices: the agent searches the web for them in the chat, and its answer fills the fields. -->
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Classes="ghost" Content="Look up prices" Command="{Binding LookUpPricesCommand}" IsEnabled="{Binding CanLookUp}"
+                  Margin="12,0,0,0" ToolTip.Tip="Asks the agent in the chat to find this model's prices on the web; its answer fills the fields" />
+          <TextBlock Classes="muted" Text="{Binding PricesFor}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PricesFor}" VerticalAlignment="Center" />
+        </DockPanel>
         <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" Margin="0,8,0,0"
               IsEnabled="{Binding HasPricedModel}">
           <TextBlock Classes="label" Text="Input" />
@@ -92,6 +97,8 @@
           <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding OutputPrice}" AutomationProperties.Name="Output" />
           <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding PriceCurrency}" AutomationProperties.Name="Currency" />
         </Grid>
+        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding LookupNote}"
+                   IsVisible="{Binding LookupNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,4,0,0"
                    Text="Per million tokens. Used only where the server doesn't report what a reply cost: OpenRouter and Kilo do, and their cost always wins. An empty cache price counts as the input price." />
 

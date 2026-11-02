@@ -2529,6 +2529,16 @@ further in (from the first build of this, where it came last), aren't counted. S
 carries the prices: a Settings dialog saved, or one saved in another window, leaves a window's prices
 as they are, as it does the server and model.
 
+**Look up prices** (the user, 2026-11-02) sends the chat "Look up the prices of <model> on <host>." from
+the panel, with the panel's words for the model (`LookupContext`): search the web for that server's own
+prices (a reseller charges its own), 0 for a model on the user's own PC or network, and end the reply
+with one line `PRICES {"input": …, "cachedInput": …, "cacheWrite": …, "output": …, "currency": "…"}`,
+null for a price not found. The panel reads that line from each reply the chat gets (`ReplyFinished`)
+while it waits, fills the fields of the model it asked about (even if another was picked meanwhile),
+and says so; a run that ends with no such line gives the button back with a note. The line stays in
+the reply, so the fields can be checked against what the agent found. The search is the agent's own,
+in the chat, with the tools it has (no web_search without it: it then answers from what it knows).
+
 Every reply the client gets is counted (`OpenAiChatClient.Spending`): the agent's steps, handoff
 notes and second looks, by server and model, into the chat's `Spending`, which is saved with the chat
 (`spent` in its file) and kept apart from the conversation, which a context reset replaces. Servers
