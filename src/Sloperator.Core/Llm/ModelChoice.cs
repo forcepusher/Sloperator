@@ -95,9 +95,27 @@ public static partial class ModelChoice
     /// token (<see cref="Blended"/>), and within a tenth of the cheapest counts as as cheap; between
     /// those, the one that does best on the server's own test of calling tools
     /// (<see cref="ModelInfo.ToolScore"/>), then the stronger. Where nothing is scored or priced
-    /// (LM Studio, Ollama), simply the strongest.
+    /// (LM Studio, Ollama), simply the strongest. Where the server offers a Claude model fit to work
+    /// the screen, all this is among Claude models alone (<see cref="OffersClaude"/>).
     /// </summary>
     public static ModelInfo? Pick(IEnumerable<ModelInfo> offered)
+    {
+        var all = offered.ToList();
+        return PickAmong(OffersClaude(all) ? all.Where(IsClaude) : all);
+    }
+
+    /// <summary>
+    /// Whether the server offers a Claude model fit to work the screen: one that can chat, takes
+    /// images and calls tools, as far as anything says. The one exception to choosing every model
+    /// the same way, and only for the auto-pick: the user asked on 2026-11-04 to prefer Claude
+    /// models there, so where there are any, <see cref="Pick"/> chooses among them alone.
+    /// </summary>
+    public static bool OffersClaude(IEnumerable<ModelInfo> offered) =>
+        Ranked(offered.Where(IsClaude)) is [var best, ..] && best.Able == (false, false, false);
+
+    private static bool IsClaude(ModelInfo m) => m.Id.Contains("claude", StringComparison.OrdinalIgnoreCase);
+
+    private static ModelInfo? PickAmong(IEnumerable<ModelInfo> offered)
     {
         var ranked = Ranked(offered);
         if (ranked.Count == 0)

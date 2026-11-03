@@ -268,28 +268,45 @@ public class ModelChoiceTests
         Assert.Equal("54.2 on the Artificial Analysis Intelligence Index, $2 in and $10 out a million tokens", probe.ModelDetails);
         Assert.DoesNotContain("anthropic/claude-sonnet-5.5:batch", probe.Models);
 
-        // Without Sonnet, the equally priced and about as strong GPT-6.1 Sol; without either, Opus
-        // 5.5, as GPT-6.1 Terra is 13% weaker and Astra dearer.
-        Assert.Equal("openai/gpt-6.1-sol", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("sonnet")), "openrouter-no-sonnet")).Model);
-        Assert.Equal("anthropic/claude-opus-5.5", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("sonnet") && !id.Contains("sol")), "openrouter-no-sol")).Model);
+        // Without any Claude, the cheapest of the others about as strong as GPT-6 Astra: GPT-6.1 Sol,
+        // as GPT-6.1 Terra is over a tenth weaker.
+        Assert.Equal("openai/gpt-6.1-sol", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("claude")), "openrouter-no-claude")).Model);
         // Among the cheap ones alone, Haiku 5.5 scores best of those that see.
         Assert.Equal("anthropic/claude-haiku-5.5", (await ProbeOpenRouter(OpenRouter(id => id.Contains("haiku") || id.Contains("qwen") || id.Contains("glm")), "openrouter-cheap")).Model);
     }
 
     [Fact]
+    public async Task Claude_models_are_preferred_wherever_the_server_offers_one_that_can_work_the_screen()
+    {
+        // The user's choice (2026-11-04). Without Sonnet 5.5: Opus 5.5 rather than the equally strong
+        // and cheaper GPT-6.1 Sol, and Haiku 5.5 rather than GPT-6.1 Terra, which scores far better.
+        Assert.Equal("anthropic/claude-opus-5.5", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("sonnet")), "openrouter-no-sonnet")).Model);
+        Assert.Equal("anthropic/claude-haiku-5.5", (await ProbeOpenRouter(OpenRouter(id => id is "anthropic/claude-haiku-5.5" or "openai/gpt-6.1-terra"), "openrouter-haiku-terra")).Model);
+        // A Claude that can't see doesn't count.
+        Assert.Equal("qwen3.8-27b", ModelChoice.Pick([ModelChoice.FromName("claude-sonnet-5.5") with { Vision = false }, ModelChoice.FromName("qwen3.8-27b")])!.Id);
+
+        // Kilo with a key: Claude Opus 5.5 rather than the free model Sloperator was tested with.
+        var kilo = await ProbeKilo("", "sk-test");
+        Assert.Equal("anthropic/claude-opus-5.5", kilo.Model);
+        Assert.Equal(KiloGateway.Model, (await ProbeKilo("")).Model);
+    }
+
+    [Fact]
     public async Task A_server_that_reports_no_scores_is_judged_by_the_table_and_its_prices()
     {
-        var routes = OpenRouter(id => id is "anthropic/claude-opus-5.5" or "openai/gpt-6.1-terra" or "qwen/qwen3.8-27b");
+        var routes = OpenRouter(id => id is "openai/gpt-6-astra" or "openai/gpt-6.1-terra");
         routes.Remove("/api/v1/benchmarks");
-        // Opus 5.5 counts as Opus 5 (89.1% on Terminal-Bench 2.1), GPT-6.1 Terra as GPT-5.6 Terra
-        // (88.0%), within a tenth of it and a quarter of the price; Qwen3.8 27B (79.8%) is too weak.
+        // GPT-6 Astra solves 88.4% of Terminal-Bench 2.1, GPT-6.1 Terra counts as GPT-5.6 Terra
+        // (88.0%), within a tenth of it and a tenth of the price. (Qwen3.8 27B, 79.8%, is within a
+        // tenth of Astra too, and cheaper still: the table can't tell them apart the way the
+        // server's scores do.)
         var probe = await ProbeOpenRouter(routes, "openrouter-unscored");
         Assert.Equal("openai/gpt-6.1-terra", probe.Model);
         Assert.Equal("scored as GPT-5.6 Terra: 88.0% on Terminal-Bench 2.1, $1 in and $5 out a million tokens", probe.ModelDetails);
 
         // With no prices it is the strongest, as on LM Studio.
-        var unpriced = new[] { "anthropic/claude-opus-5.5", "openai/gpt-6.1-terra", "qwen/qwen3.8-27b" }.Select(ModelChoice.FromName).ToList();
-        Assert.Equal("anthropic/claude-opus-5.5", ModelChoice.Pick(unpriced)!.Id);
+        var unpriced = new[] { "openai/gpt-6-astra", "openai/gpt-6.1-terra", "qwen/qwen3.8-27b" }.Select(ModelChoice.FromName).ToList();
+        Assert.Equal("openai/gpt-6-astra", ModelChoice.Pick(unpriced)!.Id);
     }
 
     [Fact]
