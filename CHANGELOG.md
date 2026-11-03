@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your next message on, as the effort dropdown would.
 
 ### Changed
+- Asked to switch models, the agent understands plain names such as "opus 5.5" or just "haiku", and
+  picks the newest or strongest one when several fit.
 - The agent's model_server tool is now three: list_models, switch_model and set_effort, each with
   only the settings it needs.
 - The note telling the agent it's time to look things up comes far less often: file edits no longer

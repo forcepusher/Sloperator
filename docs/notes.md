@@ -2389,7 +2389,14 @@ it too), and the command-line runner prints it after the token counts.
 **The agent connects it too**: asked to connect, switch to or use another model (LM Studio on this PC,
 Claude, OpenRouter, a server the user names), the agent uses its `switch_model` tool. It takes
 the address, the key the user gave (an address already in use keeps its own, as does one in the
-top bar's Saved list, so "switch back to Claude" needs no key again; another server gets none) and a model as the server lists it or a unique part of its name (none: Sloperator's pick). The
+top bar's Saved list, so "switch back to Claude" needs no key again; another server gets none) and a model (none: Sloperator's pick). The
+model is its name as the server lists it, or in words: those whose name holds the words in a row,
+however written, so "opus 5.5" is `claude-opus-5-5` (and OpenRouter's `anthropic/claude-opus-5.5`),
+"haiku" any Haiku, but "opus 5" not Opus 5.5, a version being one word (5.5) and a date or size not
+part of it; failing that, a part of the name as written. Of several, the newest Claude (its alias
+rather than a dated name), or else the strongest by the agent-model ranking on what the names tell;
+the result names the others, to switch again by name (the user, 3 November 2026: "haiku 5.5", "opus
+5.5", or even "haiku" or "opus" should work; before, a name that fitted several changed nothing). The
 server is checked first, as the top bar checks it, and nothing changes if it doesn't answer, turns
 the key down or has no such model; the result says why (on LM Studio's port, that its server has to
 be switched on). Otherwise the top bar takes the server, key and model as if typed there, and is

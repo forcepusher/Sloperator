@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
 
@@ -75,7 +76,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
     public override JsonObject Parameters => Schema(
         ("address", Str("The server's address, such as http://localhost:1234/v1"), true),
         ("api_key", Str("The API key the user gave for that server; leave it out for a server without one (an address in use or used before keeps its key)"), false),
-        ("model", Str("The model to use, as the server lists it; leave it out for the strongest one the server offers"), false));
+        ("model", Str("The model to use, as the server lists it or in words (\"opus 5.5\", \"haiku\": the newest such); leave it out for the strongest one the server offers"), false));
 
     // Never the key itself: the tool card shows this.
     public override string Describe(JsonObject args) =>
@@ -103,20 +104,22 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
             return ToolResult.Error("Nothing changed: the server answers but offers no models to chat with. A model has to be downloaded or loaded on it first.");
 
         var model = "";
+        var others = "";
         if (wanted.Length > 0)
         {
-            var match = probe.Models.FirstOrDefault(m => m.Equals(wanted, StringComparison.OrdinalIgnoreCase));
-            var like = probe.Models.Where(m => m.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
-            if (match is null && like.Count != 1)
-                return ToolResult.Error($"Nothing changed: the server has no model \"{wanted}\"" + (like.Count > 1 ? " but several like it" : "") + ".\n" +
-                                        ModelTools.ModelList(like.Count > 1 ? like : probe.Models) + "\nSwitch again with one of them, or without model for the strongest.");
-            model = match ?? like[0];
+            var like = ModelTools.Like(wanted, probe.Models);
+            if (like.Count == 0)
+                return ToolResult.Error($"Nothing changed: the server has no model \"{wanted}\".\n" +
+                                        ModelTools.ModelList(probe.Models) + "\nSwitch again with one of them, or without model for the strongest.");
+            model = like.Count == 1 ? like[0] : ModelTools.Best(like);
+            if (like.Count > 1)
+                others = $" (the newest or strongest of {like.Count} like \"{wanted}\": {string.Join(", ", like.Where(m => m != model).Take(20))}; switch again with one of their names for another)";
         }
         var url = probe.BaseUrl ?? address;
         await sw.SwitchAsync(url, key, model).ConfigureAwait(false);
 
         var inUse = model.Length > 0 ? model : probe.Model ?? probe.Models[0];
-        var how = model.Length > 0 ? "" : " (the strongest it offers; pass model to pick another)";
+        var how = model.Length > 0 ? others : " (the strongest it offers; pass model to pick another)";
         var vision = probe.Vision == false && (model.Length == 0 || model == probe.Model)
             ? $" Note: the server says {inUse} doesn't take images, so on it Sloperator can't see or use the screen; tell the user, or connect a model that sees images." : "";
         return new ToolResult($"Sloperator is now connected to {url} and uses {inUse}{how}" + (key.Length > 0 ? ", with the API key." : ".") + vision +
@@ -182,8 +185,52 @@ public sealed class SetEffortTool : Tool
 }
 
 /// <summary>What the model tools share.</summary>
-internal static class ModelTools
+internal static partial class ModelTools
 {
+    /// <summary>
+    /// The models <paramref name="wanted"/> names: the one it names exactly; else those whose name
+    /// holds its words in a row, written any way ("opus 5.5" is claude-opus-5-5 and
+    /// anthropic/claude-opus-5.5, "haiku" every Haiku, but "opus 5" not Opus 5.5); else those
+    /// holding it as written. The user, 3 November 2026: "haiku 5.5", "opus 5.5", or even "haiku"
+    /// or "opus" should work.
+    /// </summary>
+    public static IReadOnlyList<string> Like(string wanted, IReadOnlyList<string> models)
+    {
+        if (models.FirstOrDefault(m => m.Equals(wanted, StringComparison.OrdinalIgnoreCase)) is { } exact)
+            return [exact];
+        var words = Words(wanted);
+        var like = words.Count == 0 ? [] : models.Where(m => HasRun(Words(m), words)).ToList();
+        return like.Count > 0 ? like : models.Where(m => m.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>
+    /// Of several models named alike, the newest Claude (its shortest name: the alias, not a dated
+    /// one), or else the strongest by <see cref="ModelChoice.Strongest"/> on what the names tell.
+    /// </summary>
+    public static string Best(IReadOnlyList<string> like)
+    {
+        var claude = like.Select(id => (Id: id, Name: ClaudeModel.Parse(id))).ToList();
+        if (claude.All(c => c.Name.Family is not null))
+            return claude.OrderByDescending(c => c.Name.Version).ThenBy(c => c.Id.Length).First().Id;
+        return ModelChoice.Strongest(like.Select(ModelChoice.FromName))?.Id ?? like[0];
+    }
+
+    /// <summary>Letters and numbers, a version as one word whichever way it is written: claude-opus-5-5-20261001 is claude, opus, 5.5, 20261001; qwen3.8-27b is qwen, 3.8, 27, b.</summary>
+    private static List<string> Words(string name) =>
+        Word().Matches(name.ToLowerInvariant()).Select(m => m.Value.Replace('-', '.').Replace('_', '.')).ToList();
+
+    private static bool HasRun(List<string> words, List<string> run)
+    {
+        for (var i = 0; i + run.Count <= words.Count; i++)
+            if (words.Skip(i).Take(run.Count).SequenceEqual(run))
+                return true;
+        return false;
+    }
+
+    // A version's parts are one or two digits, each ending the number: not a date (-20261001) or a size (-27b).
+    [GeneratedRegex(@"[a-z]+|\d+(?:[.\-_]\d{1,2}(?![\da-z]))*")]
+    private static partial Regex Word();
+
     public const string NoTopBar = "Sloperator's model server can't be changed from this run: the user sets it in the top bar of Sloperator's window.";
 
     public static async Task<ProbeResult> ProbeAsync(Func<HttpClient>? http, ServerSettings server, CancellationToken ct)
