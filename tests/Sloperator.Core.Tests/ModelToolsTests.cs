@@ -93,11 +93,42 @@ public sealed class ModelToolsTests
         Assert.False(picked.IsError, picked.Text);
         Assert.Equal("qwen3.8-27b", bar.Switched.Single().Model);
 
-        // "gemma" could be either: nothing changes, and the result names them.
+        // "gemma" could be either: the stronger, and the result names the other.
         var vague = await Switch(server, bar, new JsonObject { ["address"] = "http://localhost:1234/v1", ["model"] = "gemma" });
-        Assert.True(vague.IsError);
-        Assert.Single(bar.Switched);
-        Assert.Contains("gemma-4-12b-it, gemma-4-31b-it", vague.Text);
+        Assert.False(vague.IsError, vague.Text);
+        Assert.Equal("gemma-4-31b-it", bar.Switched[^1].Model);
+        Assert.Contains("of 2 like \"gemma\": gemma-4-12b-it;", vague.Text);
+
+        var none = await Switch(server, bar, new JsonObject { ["address"] = "http://localhost:1234/v1", ["model"] = "llama" });
+        Assert.True(none.IsError);
+        Assert.Equal(2, bar.Switched.Count);
+        Assert.Contains("qwen3.8-27b, gemma-4-12b-it, gemma-4-31b-it", none.Text);
+    }
+
+    [Theory]
+    [InlineData("haiku 5.5", "claude-haiku-5-5")]
+    [InlineData("Opus 5.5", "claude-opus-5-5")]
+    [InlineData("opus", "claude-opus-5-5")]
+    [InlineData("haiku", "claude-haiku-5-5")]
+    [InlineData("opus 5", "claude-opus-5")]
+    [InlineData("opus 4.5", "claude-opus-4-5-20251101")]
+    [InlineData("sonnet 4", "claude-sonnet-4-20250514")]
+    [InlineData("claude-opus-4-1", "claude-opus-4-1")]
+    public void Claude_models_are_named_in_plain_words_and_the_newest_wins(string wanted, string picked)
+    {
+        string[] anthropic = ["claude-opus-5-5", "claude-opus-5", "claude-opus-4-5-20251101", "claude-opus-4-1", "claude-sonnet-4-20250514",
+                              "claude-haiku-5-5", "claude-haiku-5-5-20261001", "claude-haiku-4-5-20251001", "claude-3-5-haiku-20241022"];
+        var like = ModelTools.Like(wanted, anthropic);
+        Assert.Equal(picked, like.Count == 1 ? like[0] : ModelTools.Best(like));
+    }
+
+    [Fact]
+    public void OpenRouter_names_with_dots_and_a_maker_match_too()
+    {
+        string[] openRouter = ["anthropic/claude-opus-5.5", "anthropic/claude-haiku-5.5", "anthropic/claude-haiku-4.5", "openai/gpt-5.2"];
+        Assert.Equal(["anthropic/claude-opus-5.5"], ModelTools.Like("opus 5.5", openRouter));
+        Assert.Equal("anthropic/claude-haiku-5.5", ModelTools.Best(ModelTools.Like("haiku", openRouter)));
+        Assert.Equal(["openai/gpt-5.2"], ModelTools.Like("GPT 5.2", openRouter));
     }
 
     [Fact]
