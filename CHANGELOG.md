@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With no model picked, Sloperator prefers Claude models: where the server offers one that sees the
   screen and calls tools, it picks the cheapest of the strongest Claude models (Sonnet 5.5 on
   OpenRouter), also on Kilo with a key, instead of Kilo's free model.
+- On a server that offers Claude but reports no scores, such as Anthropic's API, Kilo with a key or a
+  proxy, Sloperator now picks the newest Sonnet rather than Opus, at half the price.
 
 ### Fixed
 - A chat's cost no longer bills cache tokens at the input price when a model has no cache prices: it

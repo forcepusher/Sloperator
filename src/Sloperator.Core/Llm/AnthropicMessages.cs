@@ -621,23 +621,6 @@ public static partial class AnthropicMessages
         return entry;
     }
 
-    /// <summary>
-    /// The model to use on Anthropic's API while none is picked: Claude Opus 5.5, Anthropic's
-    /// recommended default; without it the newest Opus, then Sonnet, then Haiku the key may use
-    /// (the list comes newest first). Fable and Mythos only when picked: they cost more than twice as much.
-    /// </summary>
-    internal static string? Pick(IReadOnlyList<string> offered)
-    {
-        if (offered.Contains(DefaultModel))
-            return DefaultModel;
-        foreach (var family in new[] { "opus", "sonnet", "haiku" })
-            if (offered.FirstOrDefault(id => ClaudeModel.Parse(id).Family == family) is { } newest)
-                return newest;
-        return offered.FirstOrDefault();
-    }
-
-    public const string DefaultModel = "claude-opus-5-5";
-
     private static string? Str(JsonNode? node) => node is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
 
     private static int? Int(JsonNode? node)

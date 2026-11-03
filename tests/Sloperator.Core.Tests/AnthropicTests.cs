@@ -353,7 +353,7 @@ public class AnthropicTests
     }
 
     [Fact]
-    public async Task Probe_connects_picks_Opus_and_reads_its_context()
+    public async Task Probe_connects_picks_Sonnet_and_reads_its_context()
     {
         var api = new FakeAnthropic();
         var http = new HttpClient(api);
@@ -361,8 +361,9 @@ public class AnthropicTests
         var probe = await ServerProbe.CheckAsync(http, server, CancellationToken.None);
         Assert.True(probe.Reachable, probe.Message);
         Assert.Equal(Address, probe.BaseUrl);
-        Assert.Equal("claude-opus-5-5", probe.Model);
+        Assert.Equal("claude-sonnet-5-5", probe.Model);
         Assert.True(probe.AutoPicked);
+        Assert.Equal("the newest Claude Sonnet on the server", probe.PickedAs);
         Assert.Equal(1_000_000, probe.LoadedContext);
         server.SetDetectedContext(probe.LoadedContext);
         Assert.Equal(1_000_000, server.ContextSize);

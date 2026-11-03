@@ -96,12 +96,43 @@ public static partial class ModelChoice
     /// those, the one that does best on the server's own test of calling tools
     /// (<see cref="ModelInfo.ToolScore"/>), then the stronger. Where nothing is scored or priced
     /// (LM Studio, Ollama), simply the strongest. Where the server offers a Claude model fit to work
-    /// the screen, all this is among Claude models alone (<see cref="OffersClaude"/>).
+    /// the screen, all this is among Claude models alone (<see cref="OffersClaude"/>), and without
+    /// scores from the server it goes by Claude's own line (<see cref="ClaudeByFamily"/>).
     /// </summary>
     public static ModelInfo? Pick(IEnumerable<ModelInfo> offered)
     {
         var all = offered.ToList();
-        return PickAmong(OffersClaude(all) ? all.Where(IsClaude) : all);
+        return !OffersClaude(all) ? PickAmong(all) : ClaudeByFamily(all) ?? PickAmong(all.Where(IsClaude));
+    }
+
+    /// <summary>
+    /// How a model picked here came to be picked, to end "Sloperator uses …": it reads the same
+    /// on any server.
+    /// </summary>
+    public static string Why(ModelInfo picked, IReadOnlyList<ModelInfo> offered) =>
+        OffersClaude(offered) && ClaudeByFamily(offered)?.Id == picked.Id && ClaudeModel.Parse(picked.Id).Family is { } family
+            ? $"the newest Claude {char.ToUpperInvariant(family[0])}{family[1..]} on the server"
+            : BestValue;
+
+    /// <summary>The usual <see cref="Why"/>.</summary>
+    public const string BestValue = "the cheapest of the strongest models on the server";
+
+    /// <summary>
+    /// The newest fit Sonnet, else Opus, else Haiku, on a server that reports no scores: without
+    /// them nothing tells Sonnet from Opus (Anthropic's API lists neither scores nor prices, and
+    /// the table has no Claude 5.5 yet). Sonnet is half the price of Opus and about as strong
+    /// (54.2 to 58.4 on OpenRouter on 2026-11-03), which is where the scores land too. The user
+    /// chose this on 2026-11-04; Fable and Mythos cost more than twice as much, and are for
+    /// picking by hand. Null when the server reports scores or offers none of the three.
+    /// </summary>
+    private static ModelInfo? ClaudeByFamily(IReadOnlyList<ModelInfo> offered)
+    {
+        if (offered.Any(m => m.Score is not null))
+            return null;
+        var fit = Ranked(offered.Where(IsClaude)).Where(x => x.Able == (false, false, false)).Select(x => x.Model).ToList();
+        return new[] { "sonnet", "opus", "haiku" }
+            .Select(family => fit.Where(m => ClaudeModel.Parse(m.Id).Family == family).MaxBy(m => ClaudeModel.Parse(m.Id).Version))
+            .FirstOrDefault(m => m is not null);
     }
 
     /// <summary>

@@ -108,7 +108,7 @@ internal static partial class AgentBenchmark
         var name = id.Replace('_', '-').Replace(' ', '-');
         foreach (var (family, pattern) in Families)
             if (pattern.Match(name) is { Success: true } m)
-                return (family, m.Groups["v"].Success ? double.Parse(m.Groups["v"].Value, CultureInfo.InvariantCulture) : 0);
+                return (family, m.Groups["v"].Success ? double.Parse(m.Groups["v"].Value.Replace('-', '.'), CultureInfo.InvariantCulture) : 0);
         return null;
     }
 
@@ -123,7 +123,8 @@ internal static partial class AgentBenchmark
     private static double? Dense(Entry e) => ModelChoice.DenseEquivalent(new ModelInfo(e.Model) { Params = e.Params, ActiveParams = e.ActiveParams });
 
     // A one-digit version, so a date such as Mistral's "2506" isn't one: "qwen3.8", "gemma-4",
-    // "gemma3:27b", "mistral-small-3.2", "deepseek-v3.2", "kimi-k2.6", "minimax-m3". A distill
+    // "gemma3:27b", "mistral-small-3.2", "deepseek-v3.2", "kimi-k2.6", "minimax-m3", and for Claude
+    // as OpenRouter or Anthropic writes it, "claude-opus-4.8" or "claude-opus-4-8". A distill
     // named after its teacher ("deepseek-r1-distill-qwen-32b") names no Qwen version. A tier comes
     // before its family's plain name, which would take it too ("qwen3.8-max" isn't Qwen3.8 27B), and
     // a tier without scores ("gemini-3.5-flash-lite") before the one it would be taken for.
@@ -135,9 +136,9 @@ internal static partial class AgentBenchmark
         ("glm", Pattern(@"glm-(?<v>\d(?:\.\d)?)")),
         ("muse-spark-open", Pattern("muse-spark-open")),
         ("muse-spark", Pattern(@"muse-spark-(?<v>\d(?:\.\d)?)")),
-        ("claude-fable", Pattern(@"claude-fable-(?<v>\d(?:\.\d)?)")),
-        ("claude-opus", Pattern(@"claude-opus-(?<v>\d(?:\.\d)?)")),
-        ("claude-sonnet", Pattern(@"claude-sonnet-(?<v>\d(?:\.\d)?)")),
+        ("claude-fable", Pattern(@"claude-fable-(?<v>\d(?:[.-]\d(?!\d))?)")),
+        ("claude-opus", Pattern(@"claude-opus-(?<v>\d(?:[.-]\d(?!\d))?)")),
+        ("claude-sonnet", Pattern(@"claude-sonnet-(?<v>\d(?:[.-]\d(?!\d))?)")),
         ("gpt-astra", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-astra")),
         ("gpt-sol", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-sol")),
         ("gpt-terra", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-terra")),
