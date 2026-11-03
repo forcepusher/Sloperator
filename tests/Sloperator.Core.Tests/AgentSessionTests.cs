@@ -1207,8 +1207,9 @@ public class AgentSessionTests
     public void A_typed_message_loses_only_the_blank_lines_and_spaces_around_it(string typed, string sent)
     {
         Assert.Equal(sent, UserInput.Tidy(typed));
-        // What the model reads with the files after it is the same text.
-        var message = new UserInput(UserInput.Tidy(typed), [@"E:\Repos\HoC-Web-Server"]).ToMessage(seesImages: false);
+        // What the model reads with the files after it is the same text (a file that is nowhere: one that
+        // is there, a folder say, would be called what it is).
+        var message = new UserInput(UserInput.Tidy(typed), [Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "notes.txt")]).ToMessage(seesImages: false);
         Assert.StartsWith(sent.Length > 0 ? sent + "\n\n[The user attached this file:]" : "[The user attached this file:]", message.Content);
     }
 
