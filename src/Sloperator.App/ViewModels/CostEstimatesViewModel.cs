@@ -55,7 +55,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     // ---- this chat -------------------------------------------------------------------------
 
-    /// <summary>"$0.0369", "~$0.0635", or "Not known" while a model has neither a reported cost nor prices.</summary>
+    /// <summary>"$0.0369", "~$0.0635", "~12.50 ₽+" with some of it not counted, or "Not known" while no model has a reported cost or prices.</summary>
     [ObservableProperty]
     private string _total = "";
 
@@ -78,7 +78,10 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         if (e.PropertyName is nameof(MainWindowViewModel.SelectedModel) or nameof(MainWindowViewModel.ServerStatusText))
             ShowPrices();
         if (e.PropertyName == nameof(MainWindowViewModel.IsBusy) && _chat is { IsBusy: false })
+        {
             RunEnded();
+            RefreshAllChats();
+        }
     }
 
     /// <summary>Reads the chat's spending again: after each reply, when prices change, for another chat.</summary>
@@ -87,37 +90,38 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         var spent = _spent().Copy();
         var settings = _settings();
         Models.Clear();
-        foreach (var count in spent.Models)
+        var models = spent.Counted(settings);
+        foreach (var count in models)
         {
             var cost = Spending.CostOf(count, settings);
             Models.Add(new ModelCostRow(count.Model, Host(count.BaseUrl), count.Replies.ToString(CultureInfo.InvariantCulture),
                 Tokens(count.Input), Tokens(count.CacheRead), Tokens(count.CacheWrite), Tokens(count.Output),
-                cost is var (amount, currency, estimate) ? Spending.Format(amount, currency, estimate) : "–",
+                cost is { } each ? Spending.Format(each.Amount, each.Currency, each.Estimate, each.CacheMissing) : "–",
                 count.Costed > 0 ? count.Costed < count.Replies ? "Reported by the server for some replies" : "Reported by the server"
+                : cost is { CacheMissing: true } ? "From your prices, cache prices missing"
                 : cost is not null ? "From your prices" : "No reported cost or prices"));
         }
         HasModels = Models.Count > 0;
 
         var total = spent.Total(settings);
-        Total = total is var (sum, unit, guess) ? Spending.Format(sum, unit, guess) : HasModels ? "Not known" : Spending.Format(0, "$", false);
+        Total = total?.Shown ?? (HasModels ? "Not known" : Spending.Format(0, "$", false));
+        var priced = models.Where(m => Spending.CostOf(m, settings) is not null).ToList();
         TotalNote = !HasModels ? "Nothing sent yet in this chat."
-            : total is null ? Models.Any(m => m.Cost == "–")
-                ? "A model here has no reported cost and no prices: type its prices below while it is the model in use."
-                : "The models' prices are in different currencies."
-            : spent.Models.All(m => m.Costed > 0 && m.Costed == m.Replies) ? "As the server reported it, reply by reply."
-            : spent.Models.Any(m => m.Costed > 0) ? "Partly as the server reported it, partly estimated from your prices (~)."
-            : "Estimated from your prices (~).";
+            : total is null ? "A model here has no reported cost and no prices: type its prices below while it is the model in use."
+            : ((priced.All(m => m.Costed > 0 && m.Costed == m.Replies) ? "As the server reported it, reply by reply."
+                : priced.Any(m => m.Costed > 0) ? "Partly as the server reported it, partly estimated from your prices (~)."
+                : "Estimated from your prices (~).") + " " + total.Note).TrimEnd();
 
-        long prompt = spent.Models.Sum(m => m.Input + m.CacheRead + m.CacheWrite), read = spent.Models.Sum(m => m.CacheRead);
-        CacheNote = prompt == 0 ? "" : $"{(double)read / prompt:0%} of the prompt was read from the server's cache{Saved(spent, settings)}.";
+        long prompt = models.Sum(m => m.Input + m.CacheRead + m.CacheWrite), read = models.Sum(m => m.CacheRead);
+        CacheNote = prompt == 0 ? "" : $"{(double)read / prompt:0%} of the prompt was read from the server's cache{Saved(models, settings)}.";
         ShowPrices();
         SeeKept();
     }
 
     /// <summary>", saving ~$0.21" where the prices of a model say what its cache reads would have cost as plain input.</summary>
-    private static string Saved(Spending spent, CostSettings settings)
+    private static string Saved(List<TokenCount> models, CostSettings settings)
     {
-        var saved = spent.Models.Select(m => (m, p: settings.For(m.BaseUrl, m.Model)))
+        var saved = models.Select(m => (m, p: settings.For(m.BaseUrl, m.Model)))
             .Where(x => x.p is { Input: { } input, CachedInput: { } cached } && input > cached && x.m.CacheRead > 0)
             .GroupBy(x => x.p!.Currency).ToList();
         if (saved.Count != 1)
@@ -227,10 +231,10 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
     internal static string LookupContext(ModelPrices p) =>
         "[The Cost estimates panel is open beside the chat. " + SetApiPricingTool.LookupRequest(p.Model, p.BaseUrl) + " The panel shows them once kept.]";
 
-    /// <summary>set_api_pricing kept prices for the model asked about: the lookup is done.</summary>
+    /// <summary>set_api_pricing changed the prices of the model asked about: the lookup is done.</summary>
     private void SeeKept()
     {
-        if (_lookingUp is { } asked && _settings().For(asked.BaseUrl, asked.Model) is not null)
+        if (_lookingUp is { } asked && _settings().For(asked.BaseUrl, asked.Model) is { } kept && !Same(kept, asked))
             EndLookup("Kept by the agent with set_api_pricing: check them against what it found.");
     }
 
@@ -257,43 +261,42 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     // ---- every saved chat ------------------------------------------------------------------
 
-    /// <summary>"$1.24 in 12 chats", per currency.</summary>
+    /// <summary>What the chats cost in the last used currency: "$1.24".</summary>
     [ObservableProperty]
     private string _allChats = "";
 
     [ObservableProperty]
     private string _allChatsNote = "";
 
-    /// <summary>The dearest chats, five at most, in the currency most chats were priced in.</summary>
+    /// <summary>The dearest chats, five at most, in that currency.</summary>
     public ObservableCollection<ChatCostRow> TopChats { get; } = [];
 
     [ObservableProperty]
     private bool _hasTopChats;
 
-    /// <summary>Reads every chat file's start again: when the panel opens and when prices change.</summary>
+    /// <summary>Reads every chat file's start again: when the panel opens, when a run ends and when prices change.</summary>
     public void RefreshAllChats()
     {
         var settings = _settings();
-        var priced = new List<(ChatHeader Chat, decimal Amount, string Currency, bool Estimate)>();
+        var chats = _chats().Where(chat => chat.Spent is { IsEmpty: false }).OrderByDescending(chat => chat.Updated).ToList();
+        // The last used currency: that of the newest chat with a cost. Chats in any other are dropped.
+        var currency = chats.Select(chat => chat.Spent!.Total(settings)).FirstOrDefault(total => total is not null)?.Currency;
+        var priced = new List<(ChatHeader Chat, ChatTotal Total)>();
         var unpriced = 0;
-        foreach (var chat in _chats())
+        foreach (var chat in chats)
         {
-            if (chat.Spent is not { IsEmpty: false } spent)
-                continue;
-            if (spent.Total(settings) is var (amount, currency, estimate))
-                priced.Add((chat, amount, currency, estimate));
-            else
+            if (chat.Spent!.Total(settings, currency) is { } total)
+                priced.Add((chat, total));
+            else if (chat.Spent.Total(settings) is null)
                 unpriced++;
         }
-        var byCurrency = priced.GroupBy(p => p.Currency).OrderByDescending(g => g.Count()).ToList();
-        AllChats = byCurrency.Count == 0 ? "Nothing priced yet"
-            : string.Join(" · ", byCurrency.Select(g => Spending.Format(g.Sum(p => p.Amount), g.Key, g.Any(p => p.Estimate))));
+        AllChats = priced.Count == 0 ? "Nothing priced yet"
+            : Spending.Format(priced.Sum(p => p.Total.Amount), currency!, priced.Any(p => p.Total.Estimate), priced.Any(p => p.Total.Incomplete));
         AllChatsNote = $"{Count(priced.Count, "chat")} with a cost" + (unpriced > 0 ? $"; {Count(unpriced, "chat")} without one (no reported cost or prices)." : ".")
             + " Chats saved before costs were kept aren't counted.";
         TopChats.Clear();
-        if (byCurrency.Count > 0)
-            foreach (var p in byCurrency[0].OrderByDescending(p => p.Amount).Take(5))
-                TopChats.Add(new ChatCostRow(p.Chat.Title, p.Chat.Updated.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture), Spending.Format(p.Amount, p.Currency, p.Estimate)));
+        foreach (var p in priced.OrderByDescending(p => p.Total.Amount).Take(5))
+            TopChats.Add(new ChatCostRow(p.Chat.Title, p.Chat.Updated.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture), p.Total.Shown));
         HasTopChats = TopChats.Count > 0;
     }
 

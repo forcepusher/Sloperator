@@ -2624,15 +2624,30 @@ models are listed.
 ## Cost
 The top bar shows what the chat has cost so far after the context's use: "$0.08" when the server
 said (OpenRouter and Kilo put `usage.cost`, in dollars, in a reply's last chunk), "~$0.08" or
-"~12.50 ₽" from prices typed in the Cost estimates panel, and nothing when its model has neither
+"~12.50 ₽" from prices typed in the Cost estimates panel, and nothing when no model has either
 (LM Studio, proxyapi.ru, Anthropic's API: their replies carry tokens only). Its tooltip gives the
 tokens by model: read anew, from the cache, into it, and out.
+
+Only one currency counts, the last used one (the user, 2026-11-03): `Spending.Models` keeps the model
+used last at its end, `Counted` takes the last model with a cost, and spending in any other currency
+is dropped from the total, the panel's rows, the tooltip and the all-chats list, with no note. Nothing
+is deleted: it is read that way each time, so changing a price's currency changes what counts. Before
+this a chat in ₽ and $ showed "Not known" for good.
+
+A cache price left empty counts as nothing (`ModelPrices.Of`) and the total gets a "+" and "Cache
+prices missing" (`LacksCache`). It used to be billed at the input price: a run on proxyapi Sonnet 5.5
+read 9.6M tokens from the cache and showed about 5,100 ₽ for about 800 ₽. A model with no cost at
+all gets the same "+" on the others' total, in place of the total going blank. Auto pricing lookup also
+runs for a model whose prices lack the cache it uses, and `KeepPricesFromAgent` puts what
+`set_api_pricing` gives over the prices kept (`ModelPrices.Over`), so a lookup that finds only cache
+prices keeps input and output.
 
 The Cost estimates side panel (`CostEstimatesViewModel`, the user 2026-11-02, in place of the Cost
 fields first put in Settings > Advanced) shows the same total big, a row per model (replies, tokens,
 cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
 served (and, with typed input and cached prices, what that saved), the price fields of the model in
-use (saved as typed), and every saved chat's total per currency with the five dearest. That last part
+use (saved as typed), and every saved chat's total with the five dearest, in the currency of the newest
+chat with a cost. That last part
 reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History
 list reads titles: no chat is loaded whole. Chats saved before the spending was kept, or with it
 further in (from the first build of this, where it came last), aren't counted. Settings no longer

@@ -15,7 +15,7 @@ public sealed class SetApiPricingTool : Tool
     public override string Name => "set_api_pricing";
     public override string Description =>
         "Keep what a model costs on the server Sloperator runs on, per million tokens, for Sloperator's estimate of what chats cost. " +
-        "Use it when asked to look up or set those prices; give each price you found, and leave out one you didn't.";
+        "Use it when asked to look up or set those prices; give each price you found, the cache prices too where the model caches prompts, and leave out one you didn't.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("model", Str("The model's id as the server names it; the model in use when left out"), false),
@@ -32,9 +32,10 @@ public sealed class SetApiPricingTool : Tool
     /// <paramref name="model"/> on <paramref name="baseUrl"/> on the web, then keep them with this tool.
     /// </summary>
     public static string LookupRequest(string model, string baseUrl) =>
-        $"Sloperator has no prices for the model {model} on the server at {baseUrl}, which doesn't report what replies cost. " +
+        $"Sloperator lacks prices for the model {model} on the server at {baseUrl}, which doesn't report what replies cost. " +
         "Look them up on the web (web_search, then fetch_page): that server's own prices per million tokens for input, cached input (cache read), " +
-        "cache write and output, in the currency it bills in. Where they depend on the prompt's length (one rate up to some number of tokens, " +
+        "cache write and output, in the currency it bills in. All four count where the model caches prompts: where that server lists no cache prices, " +
+        "take them from the model's maker, at the same ratio to the input price. Where they depend on the prompt's length (one rate up to some number of tokens, " +
         "another above it), give the rates for long prompts, the higher ones: an agent's prompts grow past such limits. " +
         "A service that resells another maker's model charges its own prices; " +
         "a model the user runs on their own PC or network, or one the server gives for free (\"free\" in its id), costs nothing: " +
