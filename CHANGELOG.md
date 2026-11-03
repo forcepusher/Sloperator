@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your next message on, as the effort dropdown would.
 
 ### Changed
+- With no model picked, Sloperator now uses the cheapest of the strongest models the server offers,
+  by the scores and prices the server reports where it does (OpenRouter): Claude Sonnet 5.5 there
+  rather than Qwen3.8 27B. The model's tooltip shows its score and prices.
+- The built-in agent benchmark scores now include closed models such as Claude, GPT, Gemini and
+  Grok, for servers that report no scores of their own.
 - Asked to switch models, the agent understands plain names such as "opus 5.5" or just "haiku", and
   picks the newest or strongest one when several fit.
 - The agent's model_server tool is now three: list_models, switch_model and set_effort, each with
@@ -21,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has taken long, and when you say how the result can be tested (a test suite, a VM), it runs that test.
 - Auto pricing lookup and **Look up prices** keep a model's long-prompt prices where its maker charges
   more for long prompts (Claude Haiku 5.5 above 100k tokens), so the cost shown isn't too low.
+
+### Fixed
+- OpenRouter's half-price ":batch" models, which can't hold a chat, are no longer in the model list.
 
 ## [1.4.0] - 2026-11-03
 ### Added

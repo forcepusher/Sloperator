@@ -236,7 +236,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     public ObservableCollection<string> Models { get; } = [];
 
     /// <summary>
-    /// The model picked by hand; until there is one, the strongest the server offers, which Sloperator
+    /// The model picked by hand; until there is one, the cheapest of the strongest the server offers, which Sloperator
     /// picks anew at every check. A picked model stays shown while the server doesn't offer it, and
     /// the setup banner says which model stands in for it meanwhile.
     /// </summary>
@@ -270,7 +270,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
                 ? auto == AnthropicMessages.DefaultModel
                     ? "Picked automatically: Claude Opus 5.5, Anthropic's recommended model."
                     : "Picked automatically: the newest Claude model the key may use."
-            : $"Picked automatically: the strongest on this server{AutoModelDetails}.";
+            : $"Picked automatically: the cheapest of the strongest on this server{AutoModelDetails}.";
 
     /// <summary>
     /// The effort dropdown's levels: those the model in use takes, least to most; all of them,
@@ -378,7 +378,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
             OnPropertyChanged(nameof(ServerAddress));
         }
 
-        // With no model picked by hand, or one the server doesn't offer, the strongest one it offers
+        // With no model picked by hand, or one the server doesn't offer, the cheapest of the strongest
         // is used; it isn't saved, so the picked one is back as soon as the server lists it again.
         // A server that can't be asked keeps the model it last said to use.
         var before = server.ModelInUse;
@@ -429,7 +429,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         var status = "Connected" + (!server.SupportsVision ? " · no vision" : "");
         if (probe.AutoPicked && server.Model.Length > 0)
             SetStatus(ServerState.Connected, status,
-                $"The server doesn't offer \"{server.Model}\" right now, so Sloperator uses {probe.Model}{AutoModelDetails}, the strongest model it offers, " +
+                $"The server doesn't offer \"{server.Model}\" right now, so Sloperator uses {probe.Model}{AutoModelDetails}, the cheapest of the strongest models it offers, " +
                 "and goes back to yours as soon as the server lists it again. To stop waiting for it, pick another model at the top.",
                 "Your model isn't on the server");
         else

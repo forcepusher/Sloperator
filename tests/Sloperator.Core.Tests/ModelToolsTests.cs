@@ -80,8 +80,49 @@ public sealed class ModelToolsTests
         Assert.False(result.IsError, result.Text);
         // The address that answered, no key, and no model picked: the strongest one is Sloperator's pick.
         Assert.Equal([("http://localhost:1234/v1", "", "")], bar.Switched);
-        Assert.Contains("uses qwen3.8-27b (the strongest it offers", result.Text);
+        Assert.Contains("uses qwen3.8-27b (Sloperator's own pick, the cheapest of the strongest it offers", result.Text);
         Assert.Contains("the user's next message goes to the new one", result.Text);
+    }
+
+    /// <summary>An OpenRouter-like service: its priced list, and scores at /benchmarks, as on 2026-11-03.</summary>
+    private sealed class ScoredServer : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var body = request.RequestUri!.AbsolutePath switch
+            {
+                "/api/v1/models" => """
+                    {"data":[
+                    {"id":"anthropic/claude-opus-5.5","canonical_slug":"anthropic/claude-opus-5.5-20260921","pricing":{"prompt":"0.000004","completion":"0.00002"},"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"supported_parameters":["tools"]},
+                    {"id":"anthropic/claude-sonnet-5.5","canonical_slug":"anthropic/claude-sonnet-5.5-20260928","pricing":{"prompt":"0.000002","completion":"0.00001"},"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"supported_parameters":["tools"]},
+                    {"id":"anthropic/claude-haiku-5.5","canonical_slug":"anthropic/claude-haiku-5.5-20261007","pricing":{"prompt":"0.0000001","completion":"0.0000005"},"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"supported_parameters":["tools"]},
+                    {"id":"qwen/qwen3.8-27b","canonical_slug":"qwen/qwen3.8-27b-20260814","pricing":{"prompt":"0.00000015","completion":"0.000001875"},"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"supported_parameters":["tools"]}
+                    ]}
+                    """,
+                "/api/v1/benchmarks" => """
+                    {"data":[
+                    {"model_permaslug":"anthropic/claude-opus-5.5-20260921","intelligence_index":58.4},
+                    {"model_permaslug":"anthropic/claude-sonnet-5.5-20260928","intelligence_index":54.2},
+                    {"model_permaslug":"anthropic/claude-haiku-5.5-20261007","intelligence_index":36.2},
+                    {"model_permaslug":"qwen/qwen3.8-27b-20260814","intelligence_index":20.1}
+                    ]}
+                    """,
+                _ => null,
+            };
+            return Task.FromResult(body is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
+    [Fact]
+    public async Task Switched_to_another_server_without_a_model_the_agent_gets_Sloperators_own_pick_there()
+    {
+        // "Switch to OpenRouter" with no model named: the cheapest of the strongest, as the top bar picks.
+        var bar = new TopBar();
+        var result = await Switch(new ScoredServer(), bar, new JsonObject { ["address"] = "https://switch-scored.test/api/v1", ["api_key"] = "sk-test" });
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal([("https://switch-scored.test/api/v1", "sk-test", "")], bar.Switched);
+        Assert.Contains("uses anthropic/claude-sonnet-5.5 (Sloperator's own pick, the cheapest of the strongest it offers: " +
+                        "54.2 on the Artificial Analysis Intelligence Index, $2 in and $10 out a million tokens;", result.Text);
     }
 
     [Fact]

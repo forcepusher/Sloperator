@@ -9,7 +9,7 @@ using Sloperator.Core.Tools;
 //   --root        portable folder (default: SLOPERATOR_HOME, else .dev/ when run from the repository, else the exe folder);
 //                 its SloperatorData/mcp.json lists the MCP servers to start, as in the app
 //   --url/--model override the server address and model saved in SloperatorData/settings.json; with no model, or one the
-//                 server doesn't offer, the strongest model it offers is used
+//                 server doesn't offer, the cheapest of the strongest models it offers is used
 //   --effort      how hard the model thinks: low, medium, high, xhigh or max (saved: medium), for a model that takes it
 //   --yes         approve risky tools without asking
 //   --save-shots  write every screenshot the model sees to DIR
@@ -104,16 +104,16 @@ try
     }
     if (probe.AutoPicked)
     {
-        // As in the app: the strongest model the server offers, until the picked one is back.
+        // As in the app: the cheapest of the strongest models the server offers, until the picked one is back.
         settings.Server.AutoModel = probe.Model;
         var details = probe.ModelDetails is { } known ? $" ({known})" : "";
         Console.WriteLine(settings.Server.Model.Length > 0
-            ? $"[server] the server doesn't offer {settings.Server.Model}: using {probe.Model}{details}, the strongest it offers"
+            ? $"[server] the server doesn't offer {settings.Server.Model}: using {probe.Model}{details}, the cheapest of the strongest it offers"
             : probe.Model == KiloGateway.Model && KiloGateway.Is(probe.BaseUrl)
                 ? $"[server] no model picked: using {probe.Model}, the free model on Kilo that clicked best in Sloperator's tests"
                 : OpenAiChatClient.IsAnthropic(probe.BaseUrl)
                     ? $"[server] no model picked: using {probe.Model}" + (probe.Model == AnthropicMessages.DefaultModel ? ", Anthropic's recommended model" : ", the newest Opus, Sonnet or Haiku the key may use")
-                    : $"[server] no model picked: using {probe.Model}{details}, the strongest the server offers");
+                    : $"[server] no model picked: using {probe.Model}{details}, the cheapest of the strongest the server offers");
     }
     settings.Server.SupportsVision = probe.Vision ?? true;
     settings.Server.EffortLevels = probe.Efforts ?? [];
