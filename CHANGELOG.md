@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The effort dropdown no longer goes by the model's name: a model list that says nothing offers
   every level, and the server's refusal of one narrows them to what it takes (Effort was greyed
   out for proxyapi.ru's openai/gpt-6-sol).
+- A click on a file in File changes no longer freezes the window for seconds with Wrap on: the diff
+  goes straight to the file.
 
 ## [1.4.0] - 2026-11-03
 ### Added

@@ -212,18 +212,8 @@ public partial class FileChangesPanel : UserControl
                 return;
             if (Shown(row) is { } top && top >= 0 && top <= DiffList.Bounds.Height / 2)
                 return;
-            DiffList.ScrollIntoView(row);
-            // Once the rows it brought are laid out, and the list's height with them.
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Shown(row) is { } at && DiffList.FindDescendantOfType<ScrollViewer>() is { } scroll)
-                    scroll.Offset = scroll.Offset.WithY(Math.Clamp(scroll.Offset.Y + at - DiffList.Bounds.Height / 4, 0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height)));
-            }, DispatcherPriority.Background);
+            BringRow(row, DiffList.Bounds.Height / 4);
         }, DispatcherPriority.Background);
-
-        // Where the row's top is over the diff; null when it isn't laid out.
-        double? Shown(int index) =>
-            DiffList.ContainerFromIndex(index) is { IsVisible: true } container && container.TranslatePoint(default, DiffList) is { } point ? point.Y : null;
     }
 
     /// <summary>A file in the list was clicked: its header at the top of the diff, as far as the list scrolls.</summary>
@@ -231,10 +221,36 @@ public partial class FileChangesPanel : UserControl
     {
         if (_vm is null || row >= _vm.Rows.Count)
             return;
-        // To the end first, then back to the row: brought into view from above, it would stand at the bottom.
-        DiffList.ScrollIntoView(_vm.Rows.Count - 1);
-        Dispatcher.UIThread.Post(() => DiffList.ScrollIntoView(row), DispatcherPriority.Background);
+        BringRow(row, 0);
     }
+
+    /// <summary>
+    /// Scrolls the diff so row <paramref name="row"/>'s top is <paramref name="at"/> from the diff's top, as far as
+    /// it scrolls. Never by ScrollIntoView up to a row far above: with Wrap on, the list measured every row
+    /// between on the way, and a click on the first of 24 files (3,089 rows, the diff at its end from the
+    /// click before) held the window 6 s. Down to it is quick, so from the top when it isn't laid out.
+    /// </summary>
+    private void BringRow(int row, double at)
+    {
+        if (DiffList.FindDescendantOfType<ScrollViewer>() is not { } scroll)
+            return;
+        if (Shown(row) is null)
+        {
+            scroll.Offset = scroll.Offset.WithY(0);
+            DiffList.UpdateLayout();
+            DiffList.ScrollIntoView(row);
+        }
+        // Once the rows it brought are laid out, and the list's height with them.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Shown(row) is { } top)
+                scroll.Offset = scroll.Offset.WithY(Math.Clamp(scroll.Offset.Y + top - at, 0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height)));
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Where a row's top is over the diff; null when it isn't laid out.</summary>
+    private double? Shown(int index) =>
+        DiffList.ContainerFromIndex(index) is { IsVisible: true } container && container.TranslatePoint(default, DiffList) is { } point ? point.Y : null;
 
     /// <summary>A file's row in the list: ListBoxItem.lines (grey) while some of its lines are picked.</summary>
     private void OnFileContainer(object? sender, ContainerPreparedEventArgs e)
