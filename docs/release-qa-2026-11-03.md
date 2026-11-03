@@ -58,6 +58,29 @@ prompt tokens (1500 cached) and 100 out; side task requests get their own plan.
   chat moved 28 px, just enough to keep the selection's end in view, instead of following the end; after
   a click away it was back at its end. A selection two lines higher didn't move the chat at all.
 
+## Second pass: develop's changes after the first merge
+
+On the user's word that the day's fixes go in 1.4.0, release/1.4.0 was brought up to develop 83b04f0 (effort
+and model tools, model names in words, the efficient Auto pick, folders from the paperclip, the proxyapi
+credit refusal, the quieter look-up note, the whole request as the task) and their changelog lines moved
+into the [1.4.0] section (the same lines, none lost).
+
+| Check | Result |
+|---|---|
+| Unit suites | App 312 of 312, Core 1311 of 1311 (29 opt-in skipped) |
+| Published exe | 28,639,741 bytes, 3 min 29 s |
+| Unity 2048 on Haiku | pass in 16 min 30 s: 78 model calls, score 144, Game Over, built and played the exe |
+| Stand-in run (`run2.ps1`, four models, none picked) | own pick at the start; list_models listed the four; switch_model "haiku" took anthropic/claude-haiku-5.5; set_effort said the stand-in has no effort setting |
+| Real Haiku 5.5 on OpenRouter in the exe | asked to think harder, it called set_effort and the top bar's effort went from Medium to High; the cost "$0.0028" came from OpenRouter, without "~" |
+| No model picked on OpenRouter | the exe picked anthropic/claude-sonnet-5.5 |
+| Paperclip | its menu says Files… and Folders… |
+
+The proxyapi refusal can't be made to happen here; its unit tests pass. In this Unity run Haiku looked at
+the game after each key press with capture_result on the Unity window (38 calls, none in the first pass),
+which works but puts each one in the chat as a result; the prompt and capture_result didn't change since the
+first pass, so it reads as Haiku's own choice in this run. It also noted, and ignored, a screenshot of another
+window on the desktop showing a Sloperator note about indexing a repository.
+
 ## Left as they are
 
 - The workstation's checks (its GPU, second monitor and Qwen server) weren't run: laptop only this time.
