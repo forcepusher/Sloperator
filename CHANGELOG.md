@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Asked to think harder or less, the agent sets the effort in the top bar itself (low to max), for
   your next message on, as the effort dropdown would.
+- The paperclip next to the box attaches folders too: it opens a menu with Files… and Folders….
 
 ### Changed
 - With no model picked, Sloperator now uses the cheapest of the strongest models the server offers,

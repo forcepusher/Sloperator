@@ -32,6 +32,8 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
         InputBox.AddHandler(TextBox.PastingFromClipboardEvent, OnPasting);
+        // Or picked with the paperclip: files or folders.
+        AttachButton.Entries = AttachEntries;
 
         // The context size box takes what was typed when focus leaves it: Enter does that, Escape
         // puts the size back first. Afterwards it shows the size in use in the usual form ("65536"
@@ -566,13 +568,26 @@ public partial class MainWindow : Window
             await Vm.UndoFromAsync(message);
     }
 
-    private async void OnAttachClick(object? sender, RoutedEventArgs e)
+    /// <summary>The paperclip's menu: Windows' picker picks files or folders, never both at once.</summary>
+    private IEnumerable<Control> AttachEntries()
     {
-        var picked = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        var files = new MenuItem { Header = "Files…" };
+        files.Click += async (_, _) => AttachPicked(await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
         {
             Title = "Attach files to your message",
             AllowMultiple = true,
-        });
+        }));
+        var folders = new MenuItem { Header = "Folders…" };
+        folders.Click += async (_, _) => AttachPicked(await StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = "Attach folders to your message",
+            AllowMultiple = true,
+        }));
+        return [files, folders];
+    }
+
+    private void AttachPicked(IEnumerable<Avalonia.Platform.Storage.IStorageItem> picked)
+    {
         Vm.Attach(picked.Select(f => f.TryGetLocalPath()).OfType<string>());
         InputBox.Focus();
     }

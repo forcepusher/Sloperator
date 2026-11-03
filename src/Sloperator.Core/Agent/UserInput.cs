@@ -75,7 +75,7 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
         var list = new StringBuilder(Tidy(ModelText));
         if (list.Length > 0)
             list.Append("\n\n");
-        list.Append(Files.Count == 1 ? "[The user attached this file:]" : "[The user attached these files:]");
+        list.Append($"[The user attached {What(Files)}:]");
         var pictures = new List<ContentPart>();
         var shownCount = 0;
         foreach (var file in Files)
@@ -100,6 +100,14 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
         return pictures.Count == 0
             ? new ChatMessage { Role = ChatRole.User, Content = list.ToString(), FromUser = true, Sent = [.. Ids] }
             : new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText(list.ToString()), .. pictures], FromUser = true, Sent = [.. Ids] };
+    }
+
+    /// <summary>What the list holds, as the model is told it: "this file", "this folder", "these files and folders".</summary>
+    private static string What(IReadOnlyCollection<string> files)
+    {
+        var folders = files.Count(Directory.Exists);
+        return files.Count == 1 ? folders == 1 ? "this folder" : "this file"
+            : folders == files.Count ? "these folders" : folders > 0 ? "these files and folders" : "these files";
     }
 
     /// <summary>What a file is, for the list: "picture 1920x1080, 1.2 MB", "video, 14.0 MB", "a .pdf file, 220 KB".</summary>
