@@ -5,29 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Changed
-- With no model picked, Sloperator prefers Claude models: where the server offers one that sees the
-  screen and calls tools, it picks the cheapest of the strongest Claude models (Sonnet 5.5 on
-  OpenRouter), also on Kilo with a key, instead of Kilo's free model.
-- On a server that offers Claude but reports no scores, such as Anthropic's API, Kilo with a key or a
-  proxy, Sloperator now picks the newest Sonnet rather than Opus, at half the price.
 
-### Fixed
-- A chat's cost no longer bills cache tokens at the input price when a model has no cache prices: it
-  leaves them out, shows "+" after the amount and says "Cache prices missing". Auto pricing lookup now
-  fills in cache prices for a model that uses its cache.
-- A chat's cost no longer turns into "Not known" for good when models are priced in different
-  currencies or one has no prices: the cost shows only spending in the last used currency, also in
-  the all-chats list, with "+" while a model has no prices.
-- A model whose server says to use its Responses API (/v1/responses) now goes there, thinking and
-  tools both: proxyapi.ru's openai/gpt-6-sol failed every chat on its first message.
-- The effort dropdown no longer goes by the model's name: a model list that says nothing offers
-  every level, and the server's refusal of one narrows them to what it takes (Effort was greyed
-  out for proxyapi.ru's openai/gpt-6-sol).
-- A click on a file in File changes no longer freezes the window for seconds with Wrap on: the diff
-  goes straight to the file.
-
-## [1.4.0] - 2026-11-03
+## [1.4.0] - 2026-11-04
 ### Added
 - The chat's cost in the top bar, after the context's use: what OpenRouter and Kilo say each reply
   cost, always used where the server says it; otherwise an estimate marked "~" from prices you type
@@ -75,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has taken long, and when you say how the result can be tested (a test suite, a VM), it runs that test.
 - Auto pricing lookup and **Look up prices** keep a model's long-prompt prices where its maker charges
   more for long prompts (Claude Haiku 5.5 above 100k tokens), so the cost shown isn't too low.
+- With no model picked, Sloperator prefers Claude models: where the server offers one that sees the
+  screen and calls tools, it picks the cheapest of the strongest Claude models (Sonnet 5.5 on
+  OpenRouter), also on Kilo with a key, instead of Kilo's free model.
+- On a server that offers Claude but reports no scores, such as Anthropic's API, Kilo with a key or a
+  proxy, Sloperator now picks the newest Sonnet rather than Opus, at half the price.
 
 ### Fixed
 - Selecting text at the end of the chat no longer makes the chat jump up, and back down when you
@@ -83,6 +67,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Long runs with many screenshots on proxyapi.ru no longer stop with "Insufficient balance" while
   the account has money: its check before each request counts pictures far above their price, so
   on that refusal the screenshots before the latest are left out and the step is sent again.
+- A chat's cost no longer bills cache tokens at the input price when a model has no cache prices: it
+  leaves them out, shows "+" after the amount and says "Cache prices missing". Auto pricing lookup now
+  fills in cache prices for a model that uses its cache.
+- A chat's cost no longer turns into "Not known" for good when models are priced in different
+  currencies or one has no prices: the cost shows only spending in the last used currency, also in
+  the all-chats list, with "+" while a model has no prices.
+- A model whose server says to use its Responses API (/v1/responses) now goes there, thinking and
+  tools both: proxyapi.ru's openai/gpt-6-sol failed every chat on its first message.
+- The effort dropdown no longer goes by the model's name: a model list that says nothing offers
+  every level, and the server's refusal of one narrows them to what it takes (Effort was greyed
+  out for proxyapi.ru's openai/gpt-6-sol).
+- A click on a file in File changes no longer freezes the window for seconds with Wrap on: the diff
+  goes straight to the file.
 
 ## [1.3.0] - 2026-11-01
 ### Added

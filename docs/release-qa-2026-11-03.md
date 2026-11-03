@@ -81,6 +81,24 @@ which works but puts each one in the chat as a result; the prompt and capture_re
 first pass, so it reads as Haiku's own choice in this run. It also noted, and ignored, a screenshot of another
 window on the desktop showing a Sloperator note about indexing a repository.
 
+## Third pass: the merges after the second
+
+1.4.0 wasn't tagged yet, so release/1.4.0 took develop b287d39 too (Responses API, effort levels from the
+server, Auto prefers Claude and the newest Sonnet, cost in the last used currency, empty cache prices, the
+File changes click). Their changelog lines went into [1.4.0], now dated 2026-11-04.
+
+| Check | Result |
+|---|---|
+| Unit suites | App 314 of 314, Core 1342 of 1342 (31 opt-in skipped) |
+| Published exe | 28,647,933 bytes, 3 min 36 s |
+| Unity 2048 on Haiku | pass in 7 min 3 s: 39 model calls, 0 tool errors, score 144, Game Over, built and played the exe; no capture_result this time, so the 38 of the second pass were that run's choice |
+| proxyapi.ru openai/gpt-6-sol in the exe (real) | effort dropdown enabled (it was greyed); a chat with a tool call went through in 9 s |
+| Anthropic's API, no model picked (real) | the exe picked claude-sonnet-5-5 |
+| Stand-in, prices with no cache prices (`run4.ps1`) | "~$0.075+": 25 replies of 500 new tokens and 100 out, the 1500 cached of each left out, with "+" |
+| A click in File changes, Wrap on, 24 files of 300 long lines | longest stall 21 to 107 ms over four clicks, and the diff went to the file (6 s before the fix) |
+
+Not run: two currencies in one chat, and Auto pricing lookup filling cache prices; their unit tests pass.
+
 ## Left as they are
 
 - The workstation's checks (its GPU, second monitor and Qwen server) weren't run: laptop only this time.
