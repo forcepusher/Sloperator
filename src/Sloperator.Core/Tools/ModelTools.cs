@@ -119,7 +119,8 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
         await sw.SwitchAsync(url, key, model).ConfigureAwait(false);
 
         var inUse = model.Length > 0 ? model : probe.Model ?? probe.Models[0];
-        var how = model.Length > 0 ? others : " (Sloperator's own pick, the cheapest of the strongest it offers; pass model to pick another)";
+        var why = probe.ModelDetails is { } details ? $": {details}" : "";
+        var how = model.Length > 0 ? others : $" (Sloperator's own pick, the cheapest of the strongest it offers{why}; pass model to pick another)";
         var vision = probe.Vision == false && (model.Length == 0 || model == probe.Model)
             ? $" Note: the server says {inUse} doesn't take images, so on it Sloperator can't see or use the screen; tell the user, or connect a model that sees images." : "";
         return new ToolResult($"Sloperator is now connected to {url} and uses {inUse}{how}" + (key.Length > 0 ? ", with the API key." : ".") + vision +
