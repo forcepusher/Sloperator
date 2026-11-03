@@ -92,7 +92,7 @@ public static partial class ServerProbe
             return new ProbeResult(true, catalog.Where(m => m.Chat).Select(m => m.Id).ToList(), facts.Context, facts.Vision,
                 models.Count == 0 ? "Connected, but the server lists no models." : "Connected.", facts.Loaded, candidates[i],
                 found.Model.Length > 0 ? found.Model : null, auto, auto ? ModelChoice.Describe(catalog.First(m => m.Id == found.Model)) : null, facts.Hosted,
-                Efforts: catalog.FirstOrDefault(m => m.Id == found.Model)?.Efforts ?? []);
+                Efforts: OpenAiChatClient.EffortsTaken(candidates[i], found.Model) ?? catalog.FirstOrDefault(m => m.Id == found.Model)?.Efforts ?? Efforts.Levels);
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)
@@ -233,20 +233,19 @@ public static partial class ServerProbe
             Vision = inputs is null ? name.Vision : inputs.Contains("image"),
             Tools = parameters is null ? name.Tools : parameters.Contains("tools"),
             Free = pricing is null ? name.Free : Price(pricing["prompt"]) is { } inPrice && Price(pricing["completion"]) is { } outPrice ? inPrice == 0 && outPrice == 0 : null,
-            Efforts = ClaudeEfforts(entry) ?? ListedEfforts(parameters, name.Id) ?? EffortsByName(name.Id),
+            Efforts = ClaudeEfforts(entry) ?? ListedEfforts(parameters),
         };
 
         static List<string>? Strings(JsonNode? node) => node is JsonArray a ? a.Select(Str).OfType<string>().ToList() : null;
 
-        // A model listed as taking "reasoning" takes the levels its family and version do (Claude 5:
-        // low to max), else low to high. Asked for none, Claude 5 through OpenRouter thinks anyway
-        // and sends no word of it. Signed thinking goes back with the reply as it came
-        // (ChatMessage.ReasoningDetails).
-        static IReadOnlyList<string>? ListedEfforts(List<string>? parameters, string id) =>
+        // A model listed as taking "reasoning" is offered every level, and its server's refusal of
+        // one says which it takes (see OpenAiChatClient.LearnEfforts). Asked for none, Claude 5
+        // through OpenRouter thinks anyway and sends no word of it. Signed thinking goes back with
+        // the reply as it came (ChatMessage.ReasoningDetails).
+        static IReadOnlyList<string>? ListedEfforts(List<string>? parameters) =>
             parameters is null ? null
             : !parameters.Contains("reasoning") && !parameters.Contains("reasoning_effort") ? []
-            : EffortsByName(id) is { Count: > 0 } byName ? byName
-            : OpenAiEfforts;
+            : Efforts.Levels;
 
         // Prices come as text ("0", "0.0000003" per token) or as numbers.
         static decimal? Price(JsonNode? node) => node is JsonValue v
@@ -283,45 +282,23 @@ public static partial class ServerProbe
         };
     }
 
-    /// <summary>What OpenAI's reasoning models, and services routing to thinking models, take.</summary>
-    private static readonly IReadOnlyList<string> OpenAiEfforts = ["low", "medium", "high"];
-
     /// <summary>
     /// For a model of Anthropic's list (its entry kept under "anthropic", see
     /// <see cref="AnthropicMessages.ModelEntry"/>), the levels its capabilities say ("effort":
-    /// {"supported": true, "low": {"supported": true}, …}), or those of its version where they
-    /// don't; null for any other list's entry.
+    /// {"supported": true, "low": {"supported": true}, …}); null where they don't say, and for any
+    /// other list's entry.
     /// </summary>
     private static IReadOnlyList<string>? ClaudeEfforts(JsonObject entry)
     {
         if (entry["anthropic"] is not JsonObject claude)
             return null;
         if (claude["capabilities"]?["effort"] is not JsonObject effort)
-            return EffortsByName(Str(claude["id"]) ?? "");
+            return null;
         if (effort["supported"] is JsonValue s && s.TryGetValue<bool>(out var supported) && !supported)
             return [];
         return Efforts.Of(effort.Where(p => p.Value is JsonObject level && level["supported"] is JsonValue v && v.TryGetValue<bool>(out var yes) && yes).Select(p => p.Key));
     }
 
-    /// <summary>
-    /// For a list that doesn't say: Claude by its version (4.7 on: low to max, 4.6: no xhigh, Opus
-    /// 4.5: low to high; before that none, Haiku 4.5 among them) and OpenAI's reasoning models
-    /// (gpt-5 and the o series: low to high). Anything else takes none.
-    /// </summary>
-    internal static IReadOnlyList<string> EffortsByName(string id)
-    {
-        var (family, version) = ClaudeModel.Parse(id);
-        if (family is not null)
-            return family is "haiku" ? version >= 5 ? Efforts.Levels : []
-                : version >= 4.7 ? Efforts.Levels
-                : version >= 4.6 ? ["low", "medium", "high", "max"]
-                : family is "opus" && version >= 4.5 ? OpenAiEfforts : [];
-        var bare = id[(id.LastIndexOf('/') + 1)..];
-        return OpenAiReasoning().IsMatch(bare) ? OpenAiEfforts : [];
-    }
-
-    [GeneratedRegex(@"^(gpt-5|o[1-9])(\b|[-.])", RegexOptions.IgnoreCase)]
-    private static partial Regex OpenAiReasoning();
 
     /// <summary>A model in LM Studio's older /api/v0/models: "type" llm, vlm or embeddings, "quantization" such as Q6_K_XL, and "state". No size; the name may tell it.</summary>
     private static ModelInfo FromLmStudioV0(string id, JsonObject m)

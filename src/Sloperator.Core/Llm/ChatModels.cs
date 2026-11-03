@@ -138,6 +138,8 @@ public sealed class ChatRequestOptions
     /// model that takes it; null sends nothing and the model thinks as it does by default.
     /// </summary>
     public string? Effort { get; set; }
+
+    public ChatRequestOptions Clone() => (ChatRequestOptions)MemberwiseClone();
 }
 
 public enum StreamChannel { Content, Reasoning }

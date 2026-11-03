@@ -2357,12 +2357,12 @@ the server's own model configuration (in LM Studio, per model).
 
 **Effort**: the dropdown next to the model says how hard the model thinks (Low, Medium, High, and
 for Claude Extra high and Max), medium until another is picked; it is saved, and applies from the
-next message. It goes only to a model whose server says it takes one, and is greyed out
-otherwise, saying why in its tooltip:
-- Anthropic's model list says each model's levels (`capabilities.effort`); without it, the
-  version does (4.7 on: low to max; 4.6: no xhigh; Opus 4.5: low to high; Haiku 4.5: none).
-- OpenRouter and Kilo list `reasoning` among a model's `supported_parameters`; such a model takes
-  the levels its family and version do (Claude 5: low to max), else low to high. No branching by
+next message. No name decides which levels a model takes: its server's list does where it says,
+else every level is offered and the server's refusal of one narrows them. It is greyed out for a
+model whose server says it takes none, saying why in its tooltip:
+- Anthropic's model list says each model's levels (`capabilities.effort`).
+- OpenRouter and Kilo list `reasoning` among a model's `supported_parameters`; such a model is
+  offered every level. No branching by
   provider: the effort goes as `reasoning_effort` everywhere, which OpenRouter and Kilo take as
   their own `reasoning: {effort}` (tried 2026-10-29: Haiku 5.5 thought 283 tokens at low, 856 at
   max). Asked for none, Haiku 5.5 through OpenRouter thinks anyway but sends only an empty, signed
@@ -2381,8 +2381,19 @@ otherwise, saying why in its tooltip:
   that only turns thinking on and off takes none); it goes as `reasoning_effort`. The test server's
   LM Studio lists no reasoning options for qwen3.8 (its switches, `reasoning_effort` among them,
   changed nothing for a click's look, see Tools the agent has), so there the dropdown is greyed out.
-- Another server's list goes by the name: OpenAI's gpt-5 and o-series models take low to high as
-  `reasoning_effort`; anything else gets none.
+- A list that says nothing (ids alone: OpenAI, vLLM, proxyapi.ru) offers every level. Until
+  2026-11-03 such a list went by the name (Claude by version, gpt-5 and the o series low to high,
+  anything else none), so proxyapi.ru's openai/gpt-6-sol, which takes none to max, was greyed out.
+- A refusal of the effort sent (`OpenAiChatClient.LearnEfforts`, on chat/completions, the
+  Responses API and Anthropic's API alike) says which levels the model takes, kept for that server
+  and model until Sloperator is closed: the request goes again with the nearest of them, and the
+  next server check narrows the dropdown to them. The levels it quotes are taken ("Unsupported
+  value: 'reasoning_effort' does not support 'max' with this model. Supported values are: 'none',
+  'low', 'medium', 'high', and 'xhigh'.", gpt-6-sol on chat/completions; /v1/responses takes max
+  too and says the same of 'minimal'); with only the refused one quoted, all but it; an error
+  about the effort that quotes none ("reasoning_effort is not supported") means none, and the
+  dropdown greys out. A server that ignores the effort says nothing, so its dropdown stays and
+  does nothing (llama-server, Ollama).
 A level the model doesn't take becomes the nearest it does (Max on a model that goes to High is
 High); the picked one stays saved for the next model. The command-line runner takes `--effort`.
 
