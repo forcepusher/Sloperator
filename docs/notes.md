@@ -2270,6 +2270,15 @@ GPT-6.1 Sol, both $2 in and $10 out a million tokens; Sonnet calls tools better 
 τ²-bench airline). A fifth would have taken GPT-6.1 Terra at half the price. OpenRouter's
 `:batch` models, half price, are left out: its list gives them no chat endpoint.
 
+Claude models come first (the user, 2026-11-04: "Prefer Claude models when doing auto model
+selection"), the one place Sloperator tells models apart by name (`ModelChoice.OffersClaude`: an id
+with "claude" in it). Where the server offers a Claude model that can chat, sees and calls tools,
+the pick above is made among Claude models alone; elsewhere among all. On OpenRouter that changes
+nothing today (Sonnet 5.5), but without Sonnet it is Opus 5.5 rather than GPT-6.1 Sol. On Kilo with
+a key it is a Claude model instead of the free one Sloperator was tested with; Kilo answers
+`/benchmarks` with 405, so there it goes by the table, where Opus 5.5 (as Opus 5, 89.1%) is over a
+tenth above Sonnet 5.5 (as Sonnet 5, 80.5%). Without a key Kilo lists no Claude, so nothing changes.
+
 A server may report scores of its own: OpenRouter does at `GET /api/v1/benchmarks` for any key
 (401 without one). Sloperator asks every server there (`ServerProbe.ScoresAsync`; the others say
 "not found") for Artificial Analysis's Intelligence Index (`source=artificial-analysis&task_type=intelligence`,

@@ -80,9 +80,10 @@ public static partial class ServerProbe
             var found = new ServerSettings { BaseUrl = candidates[i], ApiKey = server.ApiKey };
             var catalog = Usable(await CatalogAsync(http, found, models, ct).ConfigureAwait(false), server.ApiKey);
             // Kilo's free models carry no benchmark score, and their sizes don't tell how they click,
-            // so with none picked the one Sloperator was tested with comes first there.
+            // so with none picked the one Sloperator was tested with comes first there, unless a key
+            // opens Claude models, which the auto-pick prefers (see ModelChoice.OffersClaude).
             // On Anthropic's API, Claude Opus 5.5 unless another is picked (see AnthropicMessages.Pick).
-            found.Model = (server.Model.Length == 0 && KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model)
+            found.Model = (server.Model.Length == 0 && KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model) && !ModelChoice.OffersClaude(catalog)
                 ? KiloGateway.Model
                 : OpenAiChatClient.IsAnthropic(candidates[i]) && catalog.All(m => m.Id != server.Model)
                     ? AnthropicMessages.Pick(catalog.Where(m => m.Chat).Select(m => m.Id).ToList())
