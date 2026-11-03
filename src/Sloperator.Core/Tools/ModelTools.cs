@@ -204,16 +204,22 @@ internal static partial class ModelTools
     }
 
     /// <summary>
-    /// Of several models named alike, the newest Claude (its shortest name: the alias, not a dated
-    /// one), or else the strongest by <see cref="ModelChoice.Strongest"/> on what the names tell.
+    /// Of several models named alike, the same way for every model and server: the highest version
+    /// its name gives ("haiku" is Haiku 5.5 rather than 4.5 or 3.5); between equal versions the
+    /// strongest by <see cref="ModelChoice.Strongest"/> on what the names tell ("gemma" is the 31b
+    /// rather than the 12b), and the shortest name (an alias rather than a dated one).
     /// </summary>
     public static string Best(IReadOnlyList<string> like)
     {
-        var claude = like.Select(id => (Id: id, Name: ClaudeModel.Parse(id))).ToList();
-        if (claude.All(c => c.Name.Family is not null))
-            return claude.OrderByDescending(c => c.Name.Version).ThenBy(c => c.Id.Length).First().Id;
-        return ModelChoice.Strongest(like.Select(ModelChoice.FromName))?.Id ?? like[0];
+        var newest = like.GroupBy(VersionOf).MaxBy(g => g.Key)!.OrderBy(id => id.Length).ToList();
+        return ModelChoice.Strongest(newest.Select(ModelChoice.FromName))?.Id ?? newest[0];
     }
+
+    /// <summary>The first number in the name that isn't a date (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0 for none.</summary>
+    private static Version VersionOf(string name) =>
+        Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
+            .Select(w => Version.TryParse(w.Contains('.') ? w : w + ".0", out var v) ? v : null)
+            .FirstOrDefault(v => v is not null) ?? new Version(0, 0);
 
     /// <summary>Letters and numbers, a version as one word whichever way it is written: claude-opus-5-5-20261001 is claude, opus, 5.5, 20261001; qwen3.8-27b is qwen, 3.8, 27, b.</summary>
     private static List<string> Words(string name) =>
