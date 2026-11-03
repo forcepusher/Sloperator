@@ -5,34 +5,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
-- Asked to think harder or less, the agent sets the effort in the top bar itself (low to max), for
-  your next message on, as the effort dropdown would.
-- The paperclip next to the box attaches folders too: it opens a menu with Files… and Folders….
-
-### Changed
-- With no model picked, Sloperator now uses the cheapest of the strongest models the server offers,
-  by the scores and prices the server reports where it does (OpenRouter): Claude Sonnet 5.5 there
-  rather than Qwen3.8 27B. The model's tooltip shows its score and prices.
-- The built-in agent benchmark scores now include closed models such as Claude, GPT, Gemini and
-  Grok, for servers that report no scores of their own.
-- Asked to switch models, the agent understands plain names such as "opus 5.5" or just "haiku", and
-  picks the newest or strongest one when several fit.
-- The agent's model_server tool is now three: list_models, switch_model and set_effort, each with
-  only the settings it needs.
-- The note telling the agent it's time to look things up comes far less often: file edits no longer
-  count as tries, only commands, scripts and jobs, and it comes once every four such runs without a
-  search rather than on every one after eight.
-- The agent is told that all of your request is the task: it no longer stops partway because the work
-  has taken long, and when you say how the result can be tested (a test suite, a VM), it runs that test.
-- Auto pricing lookup and **Look up prices** keep a model's long-prompt prices where its maker charges
-  more for long prompts (Claude Haiku 5.5 above 100k tokens), so the cost shown isn't too low.
-
-### Fixed
-- OpenRouter's half-price ":batch" models, which can't hold a chat, are no longer in the model list.
-- Long runs with many screenshots on proxyapi.ru no longer stop with "Insufficient balance" while
-  the account has money: its check before each request counts pictures far above their price, so
-  on that refusal the screenshots before the latest are left out and the step is sent again.
 
 ## [1.4.0] - 2026-11-03
 ### Added
@@ -54,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   itself in a conversation of its own, whose steps stay out of the chat's context. The chat waits for it.
   Nothing comes back unless the agent enables output. Its card shows the prompt under Input, and an
   Output only when output is on.
+- Asked to think harder or less, the agent sets the effort in the top bar itself (low to max), for
+  your next message on, as the effort dropdown would.
+- The paperclip next to the box attaches folders too: it opens a menu with Files… and Folders….
+
 ### Changed
 - The Side panel dropdown keeps one width whatever it shows, as wide as it is under Auto, so the
   chat's top bar no longer shifts when you pick another panel.
@@ -62,10 +38,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   then shows it.
 - Sloperator's folder next to the exe is called `SloperatorData` instead of `Data`, so it is clear
   whose it is. An existing `Data` folder is renamed on the first start, with your chats and settings.
+- With no model picked, Sloperator now uses the cheapest of the strongest models the server offers,
+  by the scores and prices the server reports where it does (OpenRouter): Claude Sonnet 5.5 there
+  rather than Qwen3.8 27B. The model's tooltip shows its score and prices.
+- The built-in agent benchmark scores now include closed models such as Claude, GPT, Gemini and
+  Grok, for servers that report no scores of their own.
+- Asked to switch models, the agent understands plain names such as "opus 5.5" or just "haiku", and
+  picks the newest or strongest one when several fit.
+- The agent's model_server tool is now three: list_models, switch_model and set_effort, each with
+  only the settings it needs.
+- The note telling the agent it's time to look things up comes far less often: file edits no longer
+  count as tries, only commands, scripts and jobs, and it comes once every four such runs without a
+  search rather than on every one after eight.
+- The agent is told that all of your request is the task: it no longer stops partway because the work
+  has taken long, and when you say how the result can be tested (a test suite, a VM), it runs that test.
+- Auto pricing lookup and **Look up prices** keep a model's long-prompt prices where its maker charges
+  more for long prompts (Claude Haiku 5.5 above 100k tokens), so the cost shown isn't too low.
 
 ### Fixed
 - Selecting text at the end of the chat no longer makes the chat jump up, and back down when you
   click away: the chat stays put while the "Selected in the chat" card is over the box.
+- OpenRouter's half-price ":batch" models, which can't hold a chat, are no longer in the model list.
+- Long runs with many screenshots on proxyapi.ru no longer stop with "Insufficient balance" while
+  the account has money: its check before each request counts pictures far above their price, so
+  on that refusal the screenshots before the latest are left out and the step is sent again.
 
 ## [1.3.0] - 2026-11-01
 ### Added
