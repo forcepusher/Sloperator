@@ -110,8 +110,15 @@ public sealed class RateLimitedException(string message, TimeSpan? retryAfter) :
 /// {"error":{"message":"User not found.","code":401}}", and OpenAI's "Can't reach the server",
 /// though both servers had answered.
 /// </summary>
-public sealed class KeyRefusedException(string message) : LlmException(message)
+public sealed class KeyRefusedException(string message, bool outOfCredit = false) : LlmException(message)
 {
+    /// <summary>
+    /// Refused for want of credit (402, or Anthropic's own words). Some servers say so before the
+    /// call, from what it might cost at most, and count pictures by their size: proxyapi.ru took 80
+    /// screenshots of 2.4k tokens each for more than 2000₽ could pay (2026-11-03).
+    /// </summary>
+    public bool OutOfCredit { get; } = outOfCredit;
+
     internal static KeyRefusedException? For(int status, string body, bool keySent)
     {
         var said = OpenAiChatClient.ErrorText(body).ReplaceLineEndings(" ").Clip(300);
@@ -120,7 +127,7 @@ public sealed class KeyRefusedException(string message) : LlmException(message)
         {
             401 when keySent => new($"The server turned down the API key{said}. Check the key next to the server address at the top."),
             401 => new($"The server wants an API key{said}. Enter yours next to the server address at the top."),
-            402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top."),
+            402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top.", outOfCredit: true),
             403 when keySent => new($"The server refused access{said}: the API key may be wrong, or not allowed to use this model."),
             403 => new($"The server refused access{said}: it may want an API key, next to the server address at the top."),
             _ => null,
@@ -203,9 +210,6 @@ public sealed partial class OpenAiChatClient
     /// <summary>The most a reply of <paramref name="model"/> may take, as the server's model list says (OpenRouter's top_provider.max_completion_tokens).</summary>
     internal static void NoteReplyLimit(string baseUrl, string model, int most) =>
         ReplyCaps.AddOrUpdate((NormalizeBaseUrl(baseUrl), model), most, (_, known) => Math.Min(known, most));
-
-    /// <summary>The smallest reply room a 402 without a number is answered with; below it the account counts as empty.</summary>
-    private const int MinReplyRoomOn402 = 4096;
 
     [GeneratedRegex(@"(?<!\w)max_tokens(?!\w)", RegexOptions.IgnoreCase)]
     private static partial Regex MaxTokensNamed();
@@ -355,16 +359,6 @@ public sealed partial class OpenAiChatClient
                             (_, before) => before.Add("max_tokens"));
                         return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                     }
-                }
-                // A reseller (proxyapi.ru: 402 "Insufficient balance to run this request.") that
-                // prices a request before it runs, with room for the longest reply it allows, and
-                // turns it down when the balance falls short of that, balance left or not, without
-                // naming a number. Ask for half the reply room, down to a floor, before calling it
-                // an empty account (KeyRefusedException, below).
-                if (status == 402 && request["max_tokens"]?.GetValue<int>() is { } room && room > MinReplyRoomOn402 && !MaxTokensNamed().IsMatch(err))
-                {
-                    ReplyCaps[(_baseUrl, options.Model)] = Math.Max(room / 2, MinReplyRoomOn402);
-                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 }
                 // Strict providers reject fields they do not know. Drop ours and try once more.
                 // Claude's thinking sent back through a gateway and refused (its signature no longer

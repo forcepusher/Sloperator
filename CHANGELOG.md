@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - OpenRouter's half-price ":batch" models, which can't hold a chat, are no longer in the model list.
+- Long runs with many screenshots on proxyapi.ru no longer stop with "Insufficient balance" while
+  the account has money: its check before each request counts pictures far above their price, so
+  on that refusal the screenshots before the latest are left out and the step is sent again.
 
 ## [1.4.0] - 2026-11-03
 ### Added

@@ -144,7 +144,7 @@ public sealed partial class OpenAiChatClient
                     if (status is 400 or 415 or 422 && HasImages(messages) && LooksLikeImagesRefused(said))
                         throw new ImagesRefusedException(said.Clip(300));
                     if (CreditWords().IsMatch(said))
-                        throw new KeyRefusedException($"The Anthropic account behind the API key has run out of credits (it says \"{said.Clip(300)}\"). Add credits in Anthropic's Console, or pick another server at the top.");
+                        throw new KeyRefusedException($"The Anthropic account behind the API key has run out of credits (it says \"{said.Clip(300)}\"). Add credits in Anthropic's Console, or pick another server at the top.", outOfCredit: true);
                     // A spend limit reached comes as a 400 (one set for the account) or a 429 without
                     // retry-after (its tier's monthly cap): asking again fails until it is raised or
                     // the month is over, so it isn't waited out like a rate limit.

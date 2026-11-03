@@ -981,6 +981,21 @@ public sealed partial class AgentSession(
                 request.AddRange(History);
                 attempt--;
             }
+            catch (KeyRefusedException ex) when (ex.OutOfCredit && History.Count(IsScreenshot) > 1)
+            {
+                // A server that checks credit before the call, from the most it might cost, can
+                // count screenshots far above what they are billed: proxyapi.ru refused 80 of them
+                // with 2000₽ on the account, ~27 with a long conversation (chat 20261103-161905-5a0987).
+                // The ones before the latest go, all at once as for too many pictures, and the step
+                // is sent again; with only the latest left, a second refusal is a real empty account.
+                observer.OnNotice("The server said the account's credit doesn't cover the request; the screenshots before the latest are left out and it is sent again.", ex);
+                foreach (var m in History.Where(IsScreenshot).SkipLast(1))
+                    m.Parts = [m.Parts![0], ContentPart.FromText(OldScreenshotText)];
+                request.Clear();
+                request.Add(ChatMessage.System(systemPrompt));
+                request.AddRange(History);
+                attempt--;
+            }
             catch (ImagesRefusedException ex) when (HasImages())
             {
                 // The model was taken to see, or the chat holds pictures from one that could, and
