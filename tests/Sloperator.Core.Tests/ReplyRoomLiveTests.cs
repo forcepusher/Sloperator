@@ -54,32 +54,6 @@ public class ReplyRoomLiveTests
     }
 
     /// <summary>
-    /// Opt-in, for a reseller that prices the longest reply before running a request (proxyapi.ru:
-    /// 402 "Insufficient balance" with balance left): asking for far more reply room than the
-    /// balance pays for ends in a reply, with the room halved until it fits. BB_LIVE_BIG is the
-    /// room asked for (default 1,000,000). A tiny prompt: the refused requests cost nothing.
-    /// </summary>
-    [Fact]
-    public async Task Reply_room_beyond_the_balance_is_halved_until_the_server_takes_it()
-    {
-        Assert.SkipWhen(Url is null, "Set BB_LIVE_URL to run.");
-        var ct = TestContext.Current.CancellationToken;
-        var recorder = new Recorder { InnerHandler = new HttpClientHandler() };
-        using var http = new HttpClient(recorder) { Timeout = TimeSpan.FromMinutes(5) };
-        var big = int.TryParse(Environment.GetEnvironmentVariable("BB_LIVE_BIG"), out var b) ? b : 1_000_000;
-        var client = new OpenAiChatClient(http, Url!, Key);
-
-        var reply = await client.CompleteAsync([ChatMessage.User("Reply with one word: ok")], [],
-            new ChatRequestOptions { Model = Model, MaxTokens = big }, null, ct);
-
-        foreach (var (body, status) in recorder.Sent)
-            TestContext.Current.SendDiagnosticMessage($"max_tokens {body["max_tokens"]}: {status}");
-        Assert.Contains(402, recorder.Sent.Select(s => s.Status));
-        Assert.Equal(200, recorder.Sent[^1].Status);
-        Assert.False(string.IsNullOrWhiteSpace(reply.Content));
-    }
-
-    /// <summary>
     /// Opt-in, for a server whose credit check before the call counts pictures far above their price
     /// (proxyapi.ru refused 80 screenshots with 2000₽ on the account): a run holding that many goes
     /// on with only the latest. BB_LIVE_SHOTS is a folder of screenshots (a chat's .jpg files), of

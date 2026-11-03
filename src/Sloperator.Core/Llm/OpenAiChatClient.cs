@@ -211,9 +211,6 @@ public sealed partial class OpenAiChatClient
     internal static void NoteReplyLimit(string baseUrl, string model, int most) =>
         ReplyCaps.AddOrUpdate((NormalizeBaseUrl(baseUrl), model), most, (_, known) => Math.Min(known, most));
 
-    /// <summary>The smallest reply room a 402 without a number is answered with; below it the account counts as empty.</summary>
-    private const int MinReplyRoomOn402 = 4096;
-
     [GeneratedRegex(@"(?<!\w)max_tokens(?!\w)", RegexOptions.IgnoreCase)]
     private static partial Regex MaxTokensNamed();
 
@@ -362,16 +359,6 @@ public sealed partial class OpenAiChatClient
                             (_, before) => before.Add("max_tokens"));
                         return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                     }
-                }
-                // A reseller (proxyapi.ru: 402 "Insufficient balance to run this request.") that
-                // prices a request before it runs, with room for the longest reply it allows, and
-                // turns it down when the balance falls short of that, balance left or not, without
-                // naming a number. Ask for half the reply room, down to a floor, before calling it
-                // an empty account (KeyRefusedException, below).
-                if (status == 402 && request["max_tokens"]?.GetValue<int>() is { } room && room > MinReplyRoomOn402 && !MaxTokensNamed().IsMatch(err))
-                {
-                    ReplyCaps[(_baseUrl, options.Model)] = Math.Max(room / 2, MinReplyRoomOn402);
-                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 }
                 // Strict providers reject fields they do not know. Drop ours and try once more.
                 // Claude's thinking sent back through a gateway and refused (its signature no longer

@@ -172,35 +172,6 @@ public class ChatClientTests
     }
 
     [Fact]
-    public async Task Insufficient_balance_without_a_number_halves_the_reply_room_until_it_fits()
-    {
-        // proxyapi.ru prices the longest reply a request allows and says only this, balance left or not.
-        var server = new ScriptedServer(Sse.Text("ok"));
-        var said = """{"detail":"Insufficient balance to run this request."}""";
-        server.Failures.Enqueue((System.Net.HttpStatusCode.PaymentRequired, said));
-        server.Failures.Enqueue((System.Net.HttpStatusCode.PaymentRequired, said));
-        var client = new OpenAiChatClient(new HttpClient(server), $"http://proxy-{Guid.NewGuid():N}", "key");
-
-        var reply = await client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 64_000 }, null, CancellationToken.None);
-
-        Assert.Equal("ok", reply.Content);
-        Assert.Equal([64_000, 32_000, 16_000], server.Requests.Select(r => (int)r["max_tokens"]!));
-    }
-
-    [Fact]
-    public async Task Insufficient_balance_at_the_smallest_reply_room_says_the_account_is_empty()
-    {
-        var server = new ScriptedServer(Sse.Text("ok"));
-        for (var i = 0; i < 6; i++)
-            server.Failures.Enqueue((System.Net.HttpStatusCode.PaymentRequired, """{"detail":"Insufficient balance to run this request."}"""));
-        var client = new OpenAiChatClient(new HttpClient(server), $"http://proxy-{Guid.NewGuid():N}", "key");
-
-        await Assert.ThrowsAsync<KeyRefusedException>(() =>
-            client.CompleteAsync([ChatMessage.User("hi")], [], new ChatRequestOptions { Model = "m", MaxTokens = 16_000 }, null, CancellationToken.None));
-        Assert.Equal([16_000, 8_000, 4_096], server.Requests.Select(r => (int)r["max_tokens"]!));
-    }
-
-    [Fact]
     public async Task Stream_cut_off_without_done_is_reported_as_a_drop()
     {
         var sse = """data: {"choices":[{"delta":{"content":"Half a sent"}}]}""";

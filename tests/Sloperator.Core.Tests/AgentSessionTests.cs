@@ -349,18 +349,17 @@ public class AgentSessionTests
     [Fact]
     public async Task Refused_for_credit_with_screenshots_leaves_out_all_but_the_latest_and_sends_again()
     {
-        // Refused at every reply room the client tries (64k halved down to 4k), as 80 screenshots were.
         var server = new ScriptedServer(Sse.Text("Short answer."));
-        for (var i = 0; i < 5; i++)
-            server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
-        // Its own address: the client keeps a halved reply room for the server and model.
-        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000, baseUrl: "http://credit-refused.test");
+        server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000);
         AddScreenshotSteps(session, 5);
 
         await session.RunAsync("new question", observer, CancellationToken.None);
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
-        Assert.Equal([5, 5, 5, 5, 5, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.Equal([5, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        // The reply room stays what it was: the refusal was the pictures.
+        Assert.Equal((int)server.Requests[0]["max_tokens"]!, (int)server.Requests[1]["max_tokens"]!);
         Assert.Contains(observer.Notices, n => n.Contains("credit doesn't cover the request"));
         Assert.Equal("Short answer.", session.History[^1].Content);
     }
@@ -369,14 +368,14 @@ public class AgentSessionTests
     public async Task Refused_for_credit_again_with_one_screenshot_left_stops_with_the_credit_notice()
     {
         var server = new ScriptedServer(Sse.Text("Never sent."));
-        for (var i = 0; i < 6; i++)
-            server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
-        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000, baseUrl: "http://credit-refused-again.test");
+        server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
+        server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000);
         AddScreenshotSteps(session, 5);
 
         await session.RunAsync("new question", observer, CancellationToken.None);
 
-        Assert.Equal([5, 5, 5, 5, 5, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.Equal([5, 1], server.Requests.Select(r => ImagesSent(r).Count));
         Assert.NotEqual(AgentStopReason.Completed, observer.StopReason);
         Assert.Contains("run out of credits", observer.Detail);
     }
