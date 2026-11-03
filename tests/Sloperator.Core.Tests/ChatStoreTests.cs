@@ -30,20 +30,22 @@ public class ChatStoreTests : IDisposable
         Assert.Equal(blocks.ToJsonString(), loaded.ToJsonString());
     }
 
-    /// <summary>Claude's signed thinking as gateways send it (see <see cref="ChatMessage.ReasoningDetails"/> and <see cref="ChatMessage.ThinkingBlocks"/>) is kept too.</summary>
+    /// <summary>Claude's signed thinking as gateways send it (see <see cref="ChatMessage.ReasoningDetails"/> and <see cref="ChatMessage.ThinkingBlocks"/>), and a Responses API's encrypted reasoning (<see cref="ChatMessage.ReasoningItems"/>), are kept too.</summary>
     [Fact]
     public void Signed_thinking_from_a_gateway_is_saved_with_the_chat()
     {
         var store = new ChatStore(_dir);
         var details = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = "reasoning.text", ["text"] = "Press win+r.", ["signature"] = "c2lnbmVk", ["format"] = "anthropic-claude-v1" });
         var blocks = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = "thinking", ["thinking"] = "Press win+r.", ["signature"] = "c2lnbmVk" });
-        var reply = new ChatMessage { Role = ChatRole.Assistant, Reasoning = "Press win+r.", ToolCalls = [new ToolCall { Id = "c1", Name = "press_keys", Arguments = "{\"keys\":\"win+r\"}" }], ReasoningDetails = details, ThinkingBlocks = blocks };
+        var items = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = "reasoning", ["id"] = "rs_1", ["encrypted_content"] = "ZW5j" });
+        var reply = new ChatMessage { Role = ChatRole.Assistant, Reasoning = "Press win+r.", ToolCalls = [new ToolCall { Id = "c1", Name = "press_keys", Arguments = "{\"keys\":\"win+r\"}" }], ReasoningDetails = details, ThinkingBlocks = blocks, ReasoningItems = items };
         var chat = new SavedChat { Id = ChatStore.NewId(), Title = "Open Notepad", Updated = DateTime.UtcNow, History = ChatStore.ForSaving([ChatMessage.User("Open Notepad"), reply, ChatMessage.ToolResult("c1", "ok")]) };
         store.Save(chat);
 
         var loaded = store.Load(chat.Id)!.History[1];
         Assert.Equal(details.ToJsonString(), loaded.ReasoningDetails!.ToJsonString());
         Assert.Equal(blocks.ToJsonString(), loaded.ThinkingBlocks!.ToJsonString());
+        Assert.Equal(items.ToJsonString(), loaded.ReasoningItems!.ToJsonString());
     }
 
     [Fact]
