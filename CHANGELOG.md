@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- A model whose server says to use its Responses API (/v1/responses) now goes there, thinking and
+  tools both: proxyapi.ru's openai/gpt-6-sol failed every chat on its first message.
 
 ## [1.4.0] - 2026-11-03
 ### Added

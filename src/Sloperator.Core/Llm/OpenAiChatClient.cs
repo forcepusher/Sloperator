@@ -308,6 +308,8 @@ public sealed partial class OpenAiChatClient
     {
         if (_anthropic)
             return await CompleteClaudeAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+        if (ResponsesRoutes.ContainsKey((_baseUrl, options.Model)))
+            return await CompleteResponsesAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
         var sendReasoning = options.SendReasoning && !_reasoningRejected;
         var sendExtras = !_extrasRejected;
         var request = BuildRequest(messages, tools, options, sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl),
@@ -327,15 +329,15 @@ public sealed partial class OpenAiChatClient
             {
                 var status = (int)resp.StatusCode;
                 var err = await ErrorBodyAsync(resp, ct).ConfigureAwait(false);
-                if (status is 400 or 413 or 422 && HasImages(messages) && LooksLikeTooManyImages(err))
-                    throw new TooManyImagesException(ErrorText(err).Clip(300), ImageCount(messages));
-                if (LooksLikeContextOverflow(err))
-                    throw new ContextOverflowException(err.Clip(500));
-                if (status == 413)
-                    throw new RequestTooLargeException(err.Trim().ReplaceLineEndings(" ").Clip(300), payload.Length);
-                // Before the 5xx below are sent again: llama-server says it with a 500.
-                if ((status is 400 or 404 or 415 or 422 || status >= 500) && HasImages(messages) && LooksLikeImagesRefused(err))
-                    throw new ImagesRefusedException(ErrorText(err).Clip(300));
+                if (SizeRefusal(status, err, messages, payload.Length) is { } sized)
+                    throw sized;
+                // The server says this request goes to its Responses API: from then on it does,
+                // for this model (see CompleteResponsesAsync).
+                if (status is 400 or 404 or 422 && AsksForResponses(ErrorText(err)))
+                {
+                    ResponsesRoutes[(_baseUrl, options.Model)] = true;
+                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
+                }
                 // The reply limit asked for is more than the model takes: "max_tokens: 64000 > 32000,
                 // which is the maximum allowed number of output tokens", "This model supports at most
                 // 16384 completion tokens, whereas you provided 64000", or than the credit left pays
@@ -388,16 +390,7 @@ public sealed partial class OpenAiChatClient
                     }
                     return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 }
-                if (status == 429)
-                    throw new RateLimitedException($"{_baseUrl} answered 429: {ErrorText(err).Clip(300)}", RetryAfter(resp.Headers, err, DateTimeOffset.UtcNow));
-                // A proxy whose link hiccuped, a server that is restarting or busy, or one that gave
-                // up waiting for the rest of the request (408): worth sending again, like a
-                // dropped connection, rather than ending a long run.
-                if (status is 408 or >= 500)
-                    throw new ConnectionLostException($"{_baseUrl} answered {status}: {err.Clip(300)}", false);
-                if (KeyRefusedException.For(status, err, _apiKey is not null) is { } refused)
-                    throw refused;
-                throw new LlmException($"Chat request failed ({status}): {err.Clip(1000)}");
+                throw Failure(status, err, resp.Headers);
             }
 
             var received = false;
@@ -464,6 +457,66 @@ public sealed partial class OpenAiChatClient
         }
     }
 
+    /// <summary>
+    /// A refusal of the request for its size or its pictures (too many, too large for the context
+    /// or the server, a model that takes none), told before anything is left out and sent again;
+    /// null for any other.
+    /// </summary>
+    private static LlmException? SizeRefusal(int status, string err, IReadOnlyList<ChatMessage> messages, int payloadLength)
+    {
+        if (status is 400 or 413 or 422 && HasImages(messages) && LooksLikeTooManyImages(err))
+            return new TooManyImagesException(ErrorText(err).Clip(300), ImageCount(messages));
+        if (LooksLikeContextOverflow(err))
+            return new ContextOverflowException(err.Clip(500));
+        if (status == 413)
+            return new RequestTooLargeException(err.Trim().ReplaceLineEndings(" ").Clip(300), payloadLength);
+        // Before the 5xx below are sent again: llama-server says it with a 500.
+        if ((status is 400 or 404 or 415 or 422 || status >= 500) && HasImages(messages) && LooksLikeImagesRefused(err))
+            return new ImagesRefusedException(ErrorText(err).Clip(300));
+        return null;
+    }
+
+    /// <summary>What an error status that nothing left out answers is: a rate limit, a server to ask again, a refused key, or the request failed.</summary>
+    private LlmException Failure(int status, string err, HttpResponseHeaders headers)
+    {
+        if (status == 429)
+            return new RateLimitedException($"{_baseUrl} answered 429: {ErrorText(err).Clip(300)}", RetryAfter(headers, err, DateTimeOffset.UtcNow));
+        // A proxy whose link hiccuped, a server that is restarting or busy, or one that gave
+        // up waiting for the rest of the request (408): worth sending again, like a
+        // dropped connection, rather than ending a long run.
+        if (status is 408 or >= 500)
+            return new ConnectionLostException($"{_baseUrl} answered {status}: {err.Clip(300)}", false);
+        if (KeyRefusedException.For(status, err, _apiKey is not null) is { } refused)
+            return refused;
+        return new LlmException($"Chat request failed ({status}): {err.Clip(1000)}");
+    }
+
+    /// <summary>
+    /// An error the server sent in its stream: a rate limit, too many pictures, a full context, the
+    /// model server behind it failing (sent again), or the request failed. <paramref name="gotSome"/>:
+    /// part of the reply had come; <paramref name="calling"/>: the tool call it was writing.
+    /// </summary>
+    private static LlmException StreamError(string errorText, string? code, string errorJson, bool gotSome, string? calling)
+    {
+        // OpenRouter and Kilo pass on an upstream 429 in the stream, under HTTP 200.
+        if (code == "429")
+            return new RateLimitedException("Server error: " + errorText.Clip(300), RetryAfter(null, errorJson, DateTimeOffset.UtcNow));
+        if (LooksLikeTooManyImages(errorText))
+            return new TooManyImagesException(errorText.Clip(300), 0);
+        if (LooksLikeContextOverflow(errorText))
+            return new ContextOverflowException(errorText);
+        // The model server behind a gateway failed or stalled mid-way: sent again like a
+        // server error answered with a status. It ended the run, every time for over half
+        // an hour while Kilo's free Nemotron was stuck on Sloperator's prompt (see ShiftPrompt).
+        if (Transient(code, errorText) || ServerFailedWords().IsMatch(errorText))
+            return new ConnectionLostException("The server broke off its answer: " + errorText.Clip(300), gotSome, toolCallInProgress: calling)
+            {
+                Upstream = errorText.Contains("upstream", StringComparison.OrdinalIgnoreCase),
+                ServerFailed = ServerFailedWords().IsMatch(errorText),
+            };
+        return new LlmException("Server error: " + errorText);
+    }
+
     internal static async Task<ChatMessage> ReadStreamAsync(TextReader reader, Action<StreamDelta>? onDelta, CancellationToken ct, Action<string>? onToolCall = null)
     {
         var content = new StringBuilder();
@@ -498,24 +551,8 @@ public sealed partial class OpenAiChatClient
                 var errorText = (error as JsonObject)?["message"]?.ToString()
                                 ?? (error is JsonValue said && said.TryGetValue<string>(out var words) ? words : error.ToJsonString());
                 var code = (error as JsonObject)?["code"]?.ToString();
-                // OpenRouter and Kilo pass on an upstream 429 in the stream, under HTTP 200.
-                if (code == "429")
-                    throw new RateLimitedException("Server error: " + errorText.Clip(300), RetryAfter(null, error.ToJsonString(), DateTimeOffset.UtcNow));
-                if (LooksLikeTooManyImages(errorText))
-                    throw new TooManyImagesException(errorText.Clip(300), 0);
-                if (LooksLikeContextOverflow(errorText))
-                    throw new ContextOverflowException(errorText);
-                // The model server behind a gateway failed or stalled mid-way: sent again like a
-                // server error answered with a status. It ended the run, every time for over half
-                // an hour while Kilo's free Nemotron was stuck on Sloperator's prompt (see ShiftPrompt).
-                if (Transient(code, errorText) || ServerFailedWords().IsMatch(errorText))
-                    throw new ConnectionLostException("The server broke off its answer: " + errorText.Clip(300),
-                        content.Length > 0 || reasoning.Length > 0 || calls.Count > 0, toolCallInProgress: calls.Values.LastOrDefault().Name is { Length: > 0 } inProgress ? inProgress : null)
-                    {
-                        Upstream = errorText.Contains("upstream", StringComparison.OrdinalIgnoreCase),
-                        ServerFailed = ServerFailedWords().IsMatch(errorText),
-                    };
-                throw new LlmException("Server error: " + errorText);
+                throw StreamError(errorText, code, error.ToJsonString(), content.Length > 0 || reasoning.Length > 0 || calls.Count > 0,
+                    calls.Values.LastOrDefault().Name is { Length: > 0 } inProgress ? inProgress : null);
             }
 
             if (chunk?["usage"] is JsonObject usage)
@@ -880,10 +917,11 @@ public sealed partial class OpenAiChatClient
 
     /// <summary>
     /// An error in the stream that is the server's own and may not happen again: a 408 or 5xx code,
-    /// or, without one, words that say so ("Upstream idle timeout exceeded", "overloaded").
+    /// OpenAI's code for it ("server_error", as a Responses API's failed reply says), or, without
+    /// one, words that say so ("Upstream idle timeout exceeded", "overloaded").
     /// </summary>
     internal static bool Transient(string? code, string text) =>
-        code == "408" || int.TryParse(code, out var status) && status >= 500 || TransientWords().IsMatch(text);
+        code is "408" or "server_error" || int.TryParse(code, out var status) && status >= 500 || TransientWords().IsMatch(text);
 
     [GeneratedRegex(@"time(d)?[ -]?out|overloaded|unavailable|internal server error|upstream|try again|temporar", RegexOptions.IgnoreCase)]
     private static partial Regex TransientWords();

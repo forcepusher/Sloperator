@@ -2403,6 +2403,27 @@ OpenRouter with no effort, so no thinking showed. The same server's own Anthropi
 Claude through Anthropic's API): Haiku 5.5 there ran two turns with a tool call each, thinking
 signed, no refusals (2026-11-01).
 
+**A model that wants the Responses API**: a 400/404/422 from chat/completions that names
+`/responses` (or `/v1/responses`) sends that model's requests to the server's Responses API from
+then on, for that server and model until Sloperator is closed, the refused request first. No name
+decides it, only the refusal. proxyapi.ru's openai/gpt-6-sol (2026-11-03) answered every request
+with tools "Function tools with reasoning_effort are not supported for gpt-6-sol in
+/v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'",
+with an effort and without one (it thinks by default: 109 thinking tokens with none asked, 170 at
+high, 0 at "none", on a question without tools). Before, that 400 read as an unknown field: the
+effort, then all extras went and the same 400 ended the run on its first message. On
+/v1/responses it thinks with tools and shows a summary of its thinking. The request
+(`OpenAiChatClient.Responses.cs`): the messages as input items (pictures as `input_image`, calls as
+`function_call`, results as `function_call_output`), tools not `strict` (strict wants every argument
+required), `store: false`, `reasoning: {summary: "auto", effort}` and `include:
+["reasoning.encrypted_content"]`, so each reply's reasoning items come back encrypted
+(`ChatMessage.ReasoningItems`, saved with the chat) and go back ahead of it on the next step: the
+live test's prompt after a tool call was 246 tokens with them, 120 without. A refusal naming one of
+those parts (`summary`, `include`, `store`, `reasoning`, `max_output_tokens`) leaves it out from
+then on, the way chat/completions fields go; a refusal of the encrypted thinking sent back drops it
+for the run. No `cache_control` there (OpenAI caches by itself). Opt-in live test
+`ResponsesLiveTests` (BB_RESPONSES_KEY, BB_RESPONSES_URL, BB_RESPONSES_MODEL).
+
 **Prompt caching on every server**: each request asks the server to cache the prompt up to its end
 (`"cache_control": {"type": "ephemeral"}` at the top of the request, OpenRouter's automatic caching),
 sent and left out with the other extras: a server that names it in a refusal goes without it from

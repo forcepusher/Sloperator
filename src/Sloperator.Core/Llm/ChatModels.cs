@@ -97,6 +97,14 @@ public sealed class ChatMessage
     /// </summary>
     public JsonArray? ThinkingBlocks { get; set; }
 
+    /// <summary>
+    /// For replies from a Responses API (<c>/v1/responses</c>, see <see cref="OpenAiChatClient"/>):
+    /// the reply's reasoning items, their thinking encrypted, sent back ahead of it when
+    /// <see cref="ChatRequestOptions.SendReasoning"/> is on. Nothing is stored on the server, so
+    /// without them the model starts each step without its earlier thinking.
+    /// </summary>
+    public JsonArray? ReasoningItems { get; set; }
+
     public bool HasToolCalls => ToolCalls is { Count: > 0 };
 
     public static ChatMessage System(string text) => new() { Role = ChatRole.System, Content = text };

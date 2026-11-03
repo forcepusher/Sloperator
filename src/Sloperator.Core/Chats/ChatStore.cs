@@ -349,6 +349,7 @@ public sealed class ChatStore(string dir)
             AnthropicContent = (JsonArray?)m.AnthropicContent?.DeepClone(),
             ReasoningDetails = (JsonArray?)m.ReasoningDetails?.DeepClone(),
             ThinkingBlocks = (JsonArray?)m.ThinkingBlocks?.DeepClone(),
+            ReasoningItems = (JsonArray?)m.ReasoningItems?.DeepClone(),
             ToolCalls = m.ToolCalls?.Select(c => new ToolCall { Id = c.Id, Name = c.Name, Arguments = c.Arguments }).ToList(),
             ToolCallId = m.ToolCallId,
             FromUser = m.FromUser,
