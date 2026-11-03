@@ -2175,11 +2175,13 @@ Sloperator banner queued behind another app's waits until those are moved to the
 
 ## Files in a message
 Drop files or folders anywhere on the window, paste them with Ctrl+V (a screenshot, a picture
-copied in a browser, files copied in Explorer), or pick them with the paperclip next to the box.
+copied in a browser, files copied in Explorer), or pick them with the paperclip next to the box:
+its menu, which hangs over it, has Files… and Folders…, as Windows' picker takes one or the other.
 They wait under the box, × takes one off, and they go with the next message; a message can be
 files alone. The agent gets each one's full path, to work on it with its tools (a picture to start
 a ComfyUI job from, a document to read, a folder to go through), and sees the pictures among them
-as `read_file` shows a picture; a model that can't see images gets the paths. A pasted picture is
+as `read_file` shows a picture; a model that can't see images gets the paths. The list says what it
+holds ("this folder", "these files and folders"), as a folder sent alone was called a file. A pasted picture is
 saved as a PNG in `SloperatorData/pasted` first and deleted with its chat; dropped files stay where they
 are. Text on the clipboard is pasted as text, also when a picture comes with it (cells copied from
 Excel bring one). The message's bubble shows its pictures and the names of its other files, and a

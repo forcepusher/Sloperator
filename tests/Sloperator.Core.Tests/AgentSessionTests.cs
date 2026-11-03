@@ -1121,7 +1121,7 @@ public class AgentSessionTests
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         var parts = Parts(server.Requests[0]);
         var list = parts[0]["text"]!.GetValue<string>();
-        Assert.StartsWith("What is in these?\n\n[The user attached these files:]", list);
+        Assert.StartsWith("What is in these?\n\n[The user attached these files and folders:]", list);
         Assert.Contains($"- {picture} (a 96x64 picture, shown below)", list);
         Assert.Contains($"- {text} (a .txt file, 5 bytes)", list);
         Assert.Contains($"- {dir} (a folder)", list);
@@ -1130,6 +1130,18 @@ public class AgentSessionTests
         Assert.Equal("image_url", parts[2]["type"]!.GetValue<string>());
         Assert.Equal(3, parts.Count);
         Assert.True(session.History[0].FromUser);
+    }
+
+    [Fact]
+    public async Task A_folder_sent_alone_is_called_a_folder()
+    {
+        var (dir, _, _) = Dropped();
+        var server = new ScriptedServer(Sse.Text("ok"));
+        var (session, observer) = CreateSession(server, dir, new FakePlatform());
+
+        await session.RunAsync(new UserInput("What is in it?", [dir]), observer, CancellationToken.None);
+
+        Assert.Equal($"What is in it?\n\n[The user attached this folder:]\n- {dir} (a folder)", LastText(server.Requests[0]));
     }
 
     [Fact]
