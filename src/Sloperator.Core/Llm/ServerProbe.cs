@@ -9,14 +9,15 @@ namespace Sloperator.Core.Llm;
 /// <param name="LoadedContext">Context size the server runs <paramref name="Model"/> with, if it says; also <paramref name="Vision"/> and <paramref name="Loaded"/> are about that model.</param>
 /// <param name="Loaded">False when the server says the model is not loaded yet (LM Studio loads on first use), so it has no context size yet.</param>
 /// <param name="BaseUrl">The complete address that answered ("host:1234" typed, "http://host:1234/v1" found).</param>
-/// <param name="Model">The model to use: the configured one while the server offers it, else the cheapest of the strongest it offers (see <see cref="ModelChoice"/>); null when there is none.</param>
+/// <param name="Model">The model to use: the configured one while the server offers it, else the one <see cref="ModelChoice.Pick"/> chooses; null when there is none.</param>
 /// <param name="AutoPicked">True when <paramref name="Model"/> was chosen here, because none was configured or the server doesn't offer it.</param>
 /// <param name="ModelDetails">For a model chosen here, its size, quantization and benchmark score ("27B, 6-bit, 79.8% on Terminal-Bench 2.1") as far as known.</param>
 /// <param name="ContextHosted"><paramref name="LoadedContext"/> is the most a hosted service takes for the model, not a size a server runs it with (see <see cref="ModelFacts.Hosted"/>).</param>
 /// <param name="KeyRefused">The server answered, but turned the API key down (see <see cref="KeyRefusedException"/>); <paramref name="Message"/> says what to change.</param>
 /// <param name="Efforts">The effort levels <paramref name="Model"/> takes (see <see cref="ModelInfo.Efforts"/>); empty when it takes none or nothing says.</param>
+/// <param name="PickedAs">For a model chosen here, how it was chosen (<see cref="ModelChoice.Why"/>).</param>
 public sealed record ProbeResult(bool Reachable, IReadOnlyList<string> Models, int? LoadedContext, bool? Vision, string Message, bool? Loaded = null, string? BaseUrl = null,
-    string? Model = null, bool AutoPicked = false, string? ModelDetails = null, bool ContextHosted = false, bool KeyRefused = false, IReadOnlyList<string>? Efforts = null)
+    string? Model = null, bool AutoPicked = false, string? ModelDetails = null, bool ContextHosted = false, bool KeyRefused = false, IReadOnlyList<string>? Efforts = null, string? PickedAs = null)
 {
     /// <summary>What the server said of <see cref="Model"/>, as <see cref="ServerProbe.TryContextAsync"/> gives it; null when it wasn't reached.</summary>
     public ModelFacts? Facts => Reachable && Model is not null ? new ModelFacts(LoadedContext, Loaded, Vision, ContextHosted) : null;
@@ -82,18 +83,16 @@ public static partial class ServerProbe
             // Kilo's free models carry no benchmark score, and their sizes don't tell how they click,
             // so with none picked the one Sloperator was tested with comes first there, unless a key
             // opens Claude models, which the auto-pick prefers (see ModelChoice.OffersClaude).
-            // On Anthropic's API, Claude Opus 5.5 unless another is picked (see AnthropicMessages.Pick).
             found.Model = (server.Model.Length == 0 && KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model) && !ModelChoice.OffersClaude(catalog)
                 ? KiloGateway.Model
-                : OpenAiChatClient.IsAnthropic(candidates[i]) && catalog.All(m => m.Id != server.Model)
-                    ? AnthropicMessages.Pick(catalog.Where(m => m.Chat).Select(m => m.Id).ToList())
-                    : ModelChoice.Choose(server.Model, catalog)) ?? "";
+                : ModelChoice.Choose(server.Model, catalog)) ?? "";
             var auto = found.Model.Length > 0 && found.Model != server.Model;
             var facts = await TryContextAsync(http, found, ct, models).ConfigureAwait(false);
             return new ProbeResult(true, catalog.Where(m => m.Chat).Select(m => m.Id).ToList(), facts.Context, facts.Vision,
                 models.Count == 0 ? "Connected, but the server lists no models." : "Connected.", facts.Loaded, candidates[i],
                 found.Model.Length > 0 ? found.Model : null, auto, auto ? ModelChoice.Describe(catalog.First(m => m.Id == found.Model)) : null, facts.Hosted,
-                Efforts: OpenAiChatClient.EffortsTaken(candidates[i], found.Model) ?? catalog.FirstOrDefault(m => m.Id == found.Model)?.Efforts ?? Efforts.Levels);
+                Efforts: OpenAiChatClient.EffortsTaken(candidates[i], found.Model) ?? catalog.FirstOrDefault(m => m.Id == found.Model)?.Efforts ?? Efforts.Levels,
+                PickedAs: auto ? ModelChoice.Why(catalog.First(m => m.Id == found.Model), catalog) : null);
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)

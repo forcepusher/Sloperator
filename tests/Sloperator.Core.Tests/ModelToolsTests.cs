@@ -80,7 +80,7 @@ public sealed class ModelToolsTests
         Assert.False(result.IsError, result.Text);
         // The address that answered, no key, and no model picked: the strongest one is Sloperator's pick.
         Assert.Equal([("http://localhost:1234/v1", "", "")], bar.Switched);
-        Assert.Contains("uses qwen3.8-27b (Sloperator's own pick, the cheapest of the strongest it offers", result.Text);
+        Assert.Contains("uses qwen3.8-27b (Sloperator's own pick, the cheapest of the strongest models on the server", result.Text);
         Assert.Contains("the user's next message goes to the new one", result.Text);
     }
 
@@ -121,7 +121,7 @@ public sealed class ModelToolsTests
         var result = await Switch(new ScoredServer(), bar, new JsonObject { ["address"] = "https://switch-scored.test/api/v1", ["api_key"] = "sk-test" });
         Assert.False(result.IsError, result.Text);
         Assert.Equal([("https://switch-scored.test/api/v1", "sk-test", "")], bar.Switched);
-        Assert.Contains("uses anthropic/claude-sonnet-5.5 (Sloperator's own pick, the cheapest of the strongest it offers: " +
+        Assert.Contains("uses anthropic/claude-sonnet-5.5 (Sloperator's own pick, the cheapest of the strongest models on the server: " +
                         "54.2 on the Artificial Analysis Intelligence Index, $2 in and $10 out a million tokens;", result.Text);
     }
 

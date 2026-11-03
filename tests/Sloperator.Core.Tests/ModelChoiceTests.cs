@@ -292,6 +292,38 @@ public class ModelChoiceTests
     }
 
     [Fact]
+    public void Without_scores_from_the_server_Claude_goes_by_newest_Sonnet_then_Opus_then_Haiku()
+    {
+        static IReadOnlyList<ModelInfo> Offered(params string[] ids) => ids.Select(ModelChoice.FromName).ToList();
+        static string? Picked(params string[] ids) => ModelChoice.Pick(Offered(ids))?.Id;
+
+        // Whichever way the server writes them or lists them, and Fable only when nothing else is there.
+        Assert.Equal("claude-sonnet-5-5", Picked("claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-4-6", "claude-sonnet-5-5", "claude-haiku-5-5"));
+        Assert.Equal("anthropic/claude-sonnet-5.5", Picked("anthropic/claude-sonnet-5", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5"));
+        Assert.Equal("claude-opus-5-5", Picked("claude-haiku-5-5", "claude-opus-5-5", "claude-opus-4-8"));
+        Assert.Equal("claude-haiku-5-5", Picked("claude-haiku-4-5-20251001", "claude-haiku-5-5", "gpt-5.5"));
+        Assert.Equal("claude-fable-5-1", Picked("claude-fable-5-1", "gpt-5.5"));
+
+        // A Sonnet that can't see the screen doesn't count.
+        Assert.Equal("claude-opus-5-5", ModelChoice.Pick([ModelChoice.FromName("claude-sonnet-5-5") with { Vision = false }, ModelChoice.FromName("claude-opus-5-5")])!.Id);
+
+        var offered = Offered("claude-opus-5-5", "claude-sonnet-5-5");
+        Assert.Equal("the newest Claude Sonnet on the server", ModelChoice.Why(offered[1], offered));
+        Assert.Equal("the cheapest of the strongest models on the server", ModelChoice.Why(ModelChoice.FromName("qwen3.8-27b"), Offered("qwen3.8-27b")));
+    }
+
+    [Theory]
+    [InlineData("claude-opus-4-8", "Claude Opus 4.8", true)]
+    [InlineData("claude-sonnet-5-20260630", "Claude Sonnet 5", true)]
+    [InlineData("claude-sonnet-5-5", "Claude Sonnet 5", false)] // as OpenRouter's "claude-sonnet-5.5": a later version
+    public void Claude_versions_are_read_as_Anthropic_writes_them(string id, string listed, bool exact)
+    {
+        var rating = AgentBenchmark.Rate(ModelChoice.FromName(id));
+        Assert.Equal(listed, rating?.Basis.Model);
+        Assert.Equal(exact, rating?.Exact);
+    }
+
+    [Fact]
     public async Task A_server_that_reports_no_scores_is_judged_by_the_table_and_its_prices()
     {
         var routes = OpenRouter(id => id is "openai/gpt-6-astra" or "openai/gpt-6.1-terra");

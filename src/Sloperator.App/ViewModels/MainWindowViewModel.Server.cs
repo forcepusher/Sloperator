@@ -236,7 +236,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     public ObservableCollection<string> Models { get; } = [];
 
     /// <summary>
-    /// The model picked by hand; until there is one, the cheapest of the strongest the server offers, which Sloperator
+    /// The model picked by hand; until there is one, the one <see cref="ModelChoice.Pick"/> chooses, which Sloperator
     /// picks anew at every check. A picked model stays shown while the server doesn't offer it, and
     /// the setup banner says which model stands in for it meanwhile.
     /// </summary>
@@ -260,17 +260,16 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     /// <summary>Size, quantization and benchmark score of the model Sloperator picked ("27B, 6-bit, 79.8% on Terminal-Bench 2.1"), as far as known.</summary>
     private string? _autoModelDetails;
 
+    /// <summary>How the check found the model picked here (<see cref="ProbeResult.PickedAs"/>).</summary>
+    private string _autoModelWhy = ModelChoice.BestValue;
+
     private string AutoModelDetails => _autoModelDetails is { } details ? $" ({details})" : "";
 
     /// <summary>Why the model shown is the one, when Sloperator picked it.</summary>
     public string? ModelToolTip => !string.IsNullOrEmpty(_settings.Server.Model) || _settings.Server.AutoModel is not { } auto ? null
         : auto == KiloGateway.Model && KiloGateway.Is(_settings.Server.BaseUrl)
             ? "Picked automatically: the free Kilo model that clicked best in tests."
-            : OpenAiChatClient.IsAnthropic(_settings.Server.BaseUrl)
-                ? auto == AnthropicMessages.DefaultModel
-                    ? "Picked automatically: Claude Opus 5.5, Anthropic's recommended model."
-                    : "Picked automatically: the newest Claude model the key may use."
-            : $"Picked automatically: the cheapest of the strongest on this server{AutoModelDetails}.";
+            : $"Picked automatically: {_autoModelWhy}{AutoModelDetails}.";
 
     /// <summary>
     /// The effort dropdown's levels: those the model in use takes, least to most; all of them,
@@ -386,6 +385,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         {
             server.AutoModel = probe.AutoPicked ? probe.Model : null;
             _autoModelDetails = probe.ModelDetails;
+            _autoModelWhy = probe.PickedAs ?? ModelChoice.BestValue;
         }
         SetModels(probe.Models);
         OnPropertyChanged(nameof(ModelToolTip));
@@ -429,7 +429,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         var status = "Connected" + (!server.SupportsVision ? " · no vision" : "");
         if (probe.AutoPicked && server.Model.Length > 0)
             SetStatus(ServerState.Connected, status,
-                $"The server doesn't offer \"{server.Model}\" right now, so Sloperator uses {probe.Model}{AutoModelDetails}, the cheapest of the strongest models it offers, " +
+                $"The server doesn't offer \"{server.Model}\" right now, so Sloperator uses {probe.Model}{AutoModelDetails}, {_autoModelWhy}, " +
                 "and goes back to yours as soon as the server lists it again. To stop waiting for it, pick another model at the top.",
                 "Your model isn't on the server");
         else

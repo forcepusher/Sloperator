@@ -2275,9 +2275,15 @@ selection"), the one place Sloperator tells models apart by name (`ModelChoice.O
 with "claude" in it). Where the server offers a Claude model that can chat, sees and calls tools,
 the pick above is made among Claude models alone; elsewhere among all. On OpenRouter that changes
 nothing today (Sonnet 5.5), but without Sonnet it is Opus 5.5 rather than GPT-6.1 Sol. On Kilo with
-a key it is a Claude model instead of the free one Sloperator was tested with; Kilo answers
-`/benchmarks` with 405, so there it goes by the table, where Opus 5.5 (as Opus 5, 89.1%) is over a
-tenth above Sonnet 5.5 (as Sonnet 5, 80.5%). Without a key Kilo lists no Claude, so nothing changes.
+a key it is a Claude model instead of the free one Sloperator was tested with. Without a key Kilo
+lists no Claude, so nothing changes.
+
+A server that offers Claude but reports no scores (Anthropic's API, whose list has neither scores
+nor prices; Kilo, which answers `/benchmarks` with 405; proxies) goes by Claude's own line
+(`ModelChoice.ClaudeByFamily`): the newest Sonnet, else Opus, else Haiku, and the tooltip says so.
+The user chose this on 2026-11-04, when Anthropic's API still had a fixed pick of Opus 5.5 and Kilo
+with a key landed on Opus by the table (Opus 5 89.1%, Sonnet 5 80.5%, over a tenth apart, and no 5.5
+run yet). Sonnet 5.5 is half the price of Opus 5.5 and where OpenRouter's scores land too.
 
 A server may report scores of its own: OpenRouter does at `GET /api/v1/benchmarks` for any key
 (401 without one). Sloperator asks every server there (`ServerProbe.ScoresAsync`; the others say
@@ -2506,8 +2512,8 @@ Claude unchanged. A gateway in front of Anthropic whose address has an `anthropi
 
 - Models: the list comes from `/v1/models`, every page, with each model's context
   (`max_input_tokens`, 1M for the current ones), reply limit, image support and effort levels. With none picked
-  Sloperator uses Claude Opus 5.5, Anthropic's recommended default (without it the newest Opus, then
-  Sonnet, then Haiku); Fable and Mythos only when picked, at more than twice the price. On Auto it
+  Sloperator uses the newest Sonnet (without one the newest Opus, then Haiku), as on any server that
+  offers Claude and reports no scores; Fable and Mythos only when picked, at more than twice the price. On Auto it
   uses the whole 1M (the user's call, 22 October 2026: what a long context costs is the user's to
   weigh; on 26 October it went to 100k for a day and back to 1M at the user's word), as any server's
   1M is since 27 October. Checked then against Anthropic's documents:

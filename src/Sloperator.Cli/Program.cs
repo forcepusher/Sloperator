@@ -104,16 +104,15 @@ try
     }
     if (probe.AutoPicked)
     {
-        // As in the app: the cheapest of the strongest models the server offers, until the picked one is back.
+        // As in the app: the model ModelChoice.Pick chooses, until the picked one is back.
         settings.Server.AutoModel = probe.Model;
         var details = probe.ModelDetails is { } known ? $" ({known})" : "";
+        var why = probe.PickedAs ?? ModelChoice.BestValue;
         Console.WriteLine(settings.Server.Model.Length > 0
-            ? $"[server] the server doesn't offer {settings.Server.Model}: using {probe.Model}{details}, the cheapest of the strongest it offers"
+            ? $"[server] the server doesn't offer {settings.Server.Model}: using {probe.Model}{details}, {why}"
             : probe.Model == KiloGateway.Model && KiloGateway.Is(probe.BaseUrl)
                 ? $"[server] no model picked: using {probe.Model}, the free model on Kilo that clicked best in Sloperator's tests"
-                : OpenAiChatClient.IsAnthropic(probe.BaseUrl)
-                    ? $"[server] no model picked: using {probe.Model}" + (probe.Model == AnthropicMessages.DefaultModel ? ", Anthropic's recommended model" : ", the newest Opus, Sonnet or Haiku the key may use")
-                    : $"[server] no model picked: using {probe.Model}{details}, the cheapest of the strongest the server offers");
+                : $"[server] no model picked: using {probe.Model}{details}, {why}");
     }
     settings.Server.SupportsVision = probe.Vision ?? true;
     settings.Server.EffortLevels = probe.Efforts ?? [];

@@ -14,7 +14,7 @@ public interface IModelServerSwitch
     /// <summary>
     /// Puts them in the top bar, as typing them there would, and checks the server. The run going
     /// on keeps its model; the user's next message goes to the new one. An empty model is
-    /// Sloperator's own pick, the cheapest of the strongest the server offers.
+    /// Sloperator's own pick (see <see cref="ModelChoice.Pick"/>).
     /// </summary>
     Task SwitchAsync(string baseUrl, string apiKey, string model);
 
@@ -76,7 +76,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
     public override JsonObject Parameters => Schema(
         ("address", Str("The server's address, such as http://localhost:1234/v1"), true),
         ("api_key", Str("The API key the user gave for that server; leave it out for a server without one (an address in use or used before keeps its key)"), false),
-        ("model", Str("The model to use, as the server lists it or in words (\"opus 5.5\", \"haiku\": the newest such); leave it out for Sloperator's own pick, the cheapest of the strongest the server offers"), false));
+        ("model", Str("The model to use, as the server lists it or in words (\"opus 5.5\", \"haiku\": the newest such); leave it out for Sloperator's own pick"), false));
 
     // Never the key itself: the tool card shows this.
     public override string Describe(JsonObject args) =>
@@ -120,7 +120,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
 
         var inUse = model.Length > 0 ? model : probe.Model ?? probe.Models[0];
         var why = probe.ModelDetails is { } details ? $": {details}" : "";
-        var how = model.Length > 0 ? others : $" (Sloperator's own pick, the cheapest of the strongest it offers{why}; pass model to pick another)";
+        var how = model.Length > 0 ? others : $" (Sloperator's own pick, {probe.PickedAs ?? ModelChoice.BestValue}{why}; pass model to pick another)";
         var vision = probe.Vision == false && (model.Length == 0 || model == probe.Model)
             ? $" Note: the server says {inUse} doesn't take images, so on it Sloperator can't see or use the screen; tell the user, or connect a model that sees images." : "";
         return new ToolResult($"Sloperator is now connected to {url} and uses {inUse}{how}" + (key.Length > 0 ? ", with the API key." : ".") + vision +
