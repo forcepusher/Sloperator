@@ -42,7 +42,7 @@ public class SideTaskTests
         Assert.Equal(2, server.Requests.Count);
         var side = server.Requests[1].ToJsonString();
         Assert.Contains("side task for Sloperator", side);
-        Assert.Contains("Sloperator has no prices for the model anthropic/claude-haiku-5-5", side);
+        Assert.Contains("Sloperator lacks prices for the model anthropic/claude-haiku-5-5", side);
         Assert.DoesNotContain("Tidy the folder", side);
         Assert.Equal(["fetch_page", "set_api_pricing", "web_search"],
             server.Requests[1]["tools"]!.AsArray().Select(t => (string)t!["function"]!["name"]!).Order());

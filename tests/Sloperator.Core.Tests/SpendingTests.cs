@@ -39,11 +39,56 @@ public class SpendingTests
         var settings = new CostSettings();
         settings.Set(new ModelPrices { BaseUrl = Server + "/", Model = "m", Input = 3, CachedInput = 0.3m, CacheWrite = 3.75m, Output = 15 });
         // 0.3M × 3 + 0.6M × 0.3 + 0.1M × 3.75 + 0.01M × 15
-        Assert.Equal((0.9m + 0.18m + 0.375m + 0.15m, "$", true), spent.Total(settings));
+        var total = spent.Total(settings)!;
+        Assert.Equal((0.9m + 0.18m + 0.375m + 0.15m, "$", true), (total.Amount, total.Currency, total.Estimate));
+        Assert.False(total.Incomplete);
+        Assert.Equal("", total.Note);
+    }
 
-        // A cache price left empty is the input price.
-        settings.Set(new ModelPrices { BaseUrl = Server, Model = "m", Input = 1, Output = 2 });
-        Assert.Equal(1.02m, spent.Total(settings)!.Value.Amount);
+    [Fact]
+    public void Tokens_of_an_empty_cache_price_are_left_out_and_marked()
+    {
+        // What a proxyapi chat came to: 9.6M read from the cache with input and output prices only.
+        var spent = new Spending();
+        spent.Add(Server, "m", new ChatMessage { PromptTokens = 9_700_000, CachedTokens = 9_600_000, CompletionTokens = 100_000 });
+        var settings = new CostSettings();
+        settings.Set(new ModelPrices { BaseUrl = Server, Model = "m", Input = 500, Output = 2500, Currency = "₽" });
+
+        var total = spent.Total(settings)!;
+        Assert.Equal(300m, total.Amount); // 0.1M × 500 + 0.1M × 2500, not 9.6M × 500 on top
+        Assert.True(total.CacheMissing);
+        Assert.Equal("~300.00 ₽+", total.Shown);
+        Assert.Contains("Cache prices missing", total.Note);
+
+        // Only the price the tokens need counts: this model wrote nothing to the cache.
+        settings.Set(new ModelPrices { BaseUrl = Server, Model = "m", Input = 500, CachedInput = 50, Output = 2500, Currency = "₽" });
+        total = spent.Total(settings)!;
+        Assert.Equal(780m, total.Amount);
+        Assert.Equal("~780.00 ₽", total.Shown);
+    }
+
+    [Fact]
+    public void Spending_in_other_currencies_than_the_last_used_is_dropped()
+    {
+        const string Proxy = "https://api.proxyapi.ru/v1", Anthropic = "https://api.anthropic.com/v1";
+        var spent = new Spending();
+        spent.Add(Proxy, "sonnet", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        spent.Add(Anthropic, "sonnet", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        var settings = new CostSettings();
+        settings.Set(new ModelPrices { BaseUrl = Proxy, Model = "sonnet", Input = 500, Currency = "₽" });
+        settings.Set(new ModelPrices { BaseUrl = Anthropic, Model = "sonnet", Input = 2 });
+
+        var total = spent.Total(settings)!;
+        Assert.Equal("~$2.00", total.Shown);
+        Assert.Equal("", total.Note);
+        Assert.Equal(Anthropic, Assert.Single(spent.Counted(settings)).BaseUrl);
+        Assert.DoesNotContain("\n", spent.Describe(settings));
+
+        // The proxy again: its reply makes it the last, whatever the order the models came in.
+        spent.Add(Proxy, "sonnet", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        Assert.Equal("~1000.00 ₽", spent.Total(settings)!.Shown);
+        Assert.Equal("~$2.00", spent.Total(settings, "$")!.Shown);
+        Assert.Null(spent.Total(settings, "€"));
     }
 
     [Fact]
@@ -52,18 +97,21 @@ public class SpendingTests
         var spent = new Spending();
         spent.Add(Server, "a", new ChatMessage { PromptTokens = 100, CompletionTokens = 5, Cost = 0.01m });
         spent.Add(Server, "a", new ChatMessage { PromptTokens = 200, CompletionTokens = 5, Cost = 0.02m });
-        Assert.Equal((0.03m, "$", false), spent.Total(new CostSettings()));
+        Assert.Equal("$0.03", spent.Total(new CostSettings())!.Shown);
 
-        // A reply without a cost makes it an estimate; a model with neither cost nor prices, unknown.
+        // A reply without a cost makes it an estimate.
         spent.Add(Server, "a", new ChatMessage { PromptTokens = 300, CompletionTokens = 5 });
-        Assert.True(spent.Total(new CostSettings())!.Value.Estimate);
-        spent.Add("http://localhost:1234/v1", "qwen", new ChatMessage { PromptTokens = 300, CompletionTokens = 5 });
-        Assert.Null(spent.Total(new CostSettings()));
+        Assert.True(spent.Total(new CostSettings())!.Estimate);
 
-        // Prices in two currencies don't add up.
-        var settings = new CostSettings();
-        settings.Set(new ModelPrices { BaseUrl = "http://localhost:1234/v1", Model = "qwen", Input = 30, Currency = "₽" });
-        Assert.Null(spent.Total(settings));
+        // A model with neither cost nor prices can't be counted, and the total says it isn't whole.
+        spent.Add("http://localhost:1234/v1", "qwen", new ChatMessage { PromptTokens = 300, CompletionTokens = 5 });
+        var total = spent.Total(new CostSettings())!;
+        Assert.Equal("~$0.03+", total.Shown);
+        Assert.Contains("1 model has no prices", total.Note);
+
+        var none = new Spending();
+        none.Add("http://localhost:1234/v1", "qwen", new ChatMessage { PromptTokens = 300, CompletionTokens = 5 });
+        Assert.Null(none.Total(new CostSettings()));
     }
 
     [Fact]
@@ -73,7 +121,7 @@ public class SpendingTests
         spent.Add(Server, "a", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0, Cost = 0.5m });
         var settings = new CostSettings();
         settings.Set(new ModelPrices { BaseUrl = Server, Model = "a", Input = 3, Currency = "₽" });
-        Assert.Equal((0.5m, "$", false), spent.Total(settings));
+        Assert.Equal("$0.50", spent.Total(settings)!.Shown);
     }
 
     [Fact]
@@ -86,6 +134,18 @@ public class SpendingTests
         prices.Input = null;
         settings.Set(prices);
         Assert.Empty(settings.Prices);
+    }
+
+    [Fact]
+    public void Prices_kept_over_others_fill_in_what_they_leave_out()
+    {
+        var kept = new ModelPrices { BaseUrl = Server, Model = "m", Input = 500, Output = 2500, Currency = "₽" };
+
+        var filled = new ModelPrices { BaseUrl = Server, Model = "m", CachedInput = 50, CacheWrite = 625, Currency = "₽" }.Over(kept);
+        Assert.Equal((500m, 50m, 625m, 2500m), (filled.Input, filled.CachedInput, filled.CacheWrite, filled.Output));
+
+        var dollars = new ModelPrices { BaseUrl = Server, Model = "m", CachedInput = 0.2m }.Over(kept);
+        Assert.Null(dollars.Input);
     }
 
     [Theory]

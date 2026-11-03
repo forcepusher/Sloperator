@@ -100,7 +100,7 @@
         <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding LookupNote}"
                    IsVisible="{Binding LookupNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,4,0,0"
-                   Text="Per million tokens. Used only where the server doesn't report what a reply cost: OpenRouter and Kilo do, and their cost always wins. An empty cache price counts as the input price." />
+                   Text="Per million tokens. Used only where the server doesn't report what a reply cost: OpenRouter and Kilo do, and their cost always wins. An empty cache price leaves those tokens out of the cost." />
 
         <!-- Every saved chat together, and the dearest ones. -->
         <TextBlock Classes="h2" Text="All chats" Margin="0,20,0,4" />

@@ -151,8 +151,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private void ShowCost()
     {
         var total = _spent.Total(_settings.Cost);
-        ChatCost = total is var (amount, currency, estimate) ? Spending.Format(amount, currency, estimate) : "";
-        ChatCostTip = _spent.Describe();
+        ChatCost = total?.Shown ?? "";
+        ChatCostTip = _spent.Describe(_settings.Cost) + (total is { Note.Length: > 0 } ? "\n" + total.Note : "");
         SpendingChanged?.Invoke();
     }
 

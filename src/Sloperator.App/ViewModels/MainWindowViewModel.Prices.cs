@@ -16,7 +16,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>
     /// The run's <see cref="Core.Agent.AgentSession.PriceLookup"/>, for <paramref name="baseUrl"/> and
     /// <paramref name="model"/>: with Auto pricing lookup on (Settings > Advanced, the user 2026-11-02),
-    /// a model that replied with no cost from its server and has no prices has them looked up and kept with
+    /// a model that replied with no cost from its server and has no prices, or none for the cache it uses, has them looked up and kept with
     /// set_api_pricing in a side task, once while Sloperator runs. Called on the agent's thread.
     /// </summary>
     private Func<string?> PriceLookupFor(string baseUrl, string model) => () =>
@@ -25,12 +25,12 @@ public sealed partial class MainWindowViewModel
             return null;
         var url = OpenAiChatClient.NormalizeBaseUrl(baseUrl);
         var count = _spent.Copy().Models.Find(m => m.Model == model && OpenAiChatClient.NormalizeBaseUrl(m.BaseUrl) == url);
-        if (count is null || count.Costed > 0 || _settings.Cost.For(baseUrl, model) is not null || !PricesAsked.TryAdd(url + " " + model, true))
+        if (count is null || count.Costed > 0 || _settings.Cost.For(baseUrl, model) is { } kept && !kept.LacksCache(count) || !PricesAsked.TryAdd(url + " " + model, true))
             return null;
         return SetApiPricingTool.LookupRequest(model, baseUrl);
     };
 
-    /// <summary>set_api_pricing's prices, from the agent's thread: kept in the settings on the window's, and the costs shown again.</summary>
+    /// <summary>set_api_pricing's prices, from the agent's thread: kept in the settings on the window's, over the prices there, and the costs shown again.</summary>
     private void KeepPricesFromAgent(ModelPrices prices) =>
-        Dispatcher.UIThread.Post(() => { if (!_closed) SetPrices(prices); });
+        Dispatcher.UIThread.Post(() => { if (!_closed) SetPrices(prices.Over(_settings.Cost.For(prices.BaseUrl, prices.Model))); });
 }

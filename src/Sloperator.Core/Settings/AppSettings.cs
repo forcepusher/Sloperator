@@ -419,7 +419,7 @@ public sealed class CostSettings
 
     /// <summary>
     /// Auto pricing lookup (Settings > Advanced, on by default): a model whose server reports no cost and
-    /// that has no prices has them looked up and kept in a side task, as soon as a reply shows it (see <see cref="Agent.AgentSession.PriceLookup"/>).
+    /// that has no prices, or none for the cache it uses, has them looked up and kept in a side task, as soon as a reply shows it (see <see cref="Agent.AgentSession.PriceLookup"/>).
     /// </summary>
     public bool AutoLookup { get; set; } = true;
 
@@ -440,7 +440,7 @@ public sealed class CostSettings
     }
 }
 
-/// <summary>What a model costs, per million tokens, in <see cref="Currency"/>; a price left empty is taken as the input price (cache) or nothing (input, output).</summary>
+/// <summary>What a model costs, per million tokens, in <see cref="Currency"/>; a price left empty counts as nothing, and tokens it should price show as <see cref="LacksCache"/> (cache).</summary>
 public sealed class ModelPrices
 {
     public string BaseUrl { get; set; } = "";
@@ -465,8 +465,23 @@ public sealed class ModelPrices
         Input = Input, CachedInput = CachedInput, CacheWrite = CacheWrite, Output = Output, Currency = Currency,
     };
 
+    /// <summary>These prices over <paramref name="kept"/>: a price given stays, one left out is the one kept. Prices in another currency don't mix.</summary>
+    public ModelPrices Over(ModelPrices? kept)
+    {
+        var same = kept?.Currency == Currency;
+        return new()
+        {
+            BaseUrl = BaseUrl, Model = Model, Currency = Currency,
+            Input = Input ?? (same ? kept!.Input : null), CachedInput = CachedInput ?? (same ? kept!.CachedInput : null),
+            CacheWrite = CacheWrite ?? (same ? kept!.CacheWrite : null), Output = Output ?? (same ? kept!.Output : null),
+        };
+    }
+
     public decimal Of(Llm.TokenCount count) =>
-        (count.Input * (Input ?? 0) + count.CacheRead * (CachedInput ?? Input ?? 0) + count.CacheWrite * (CacheWrite ?? Input ?? 0) + count.Output * (Output ?? 0)) / 1_000_000m;
+        (count.Input * (Input ?? 0) + count.CacheRead * (CachedInput ?? 0) + count.CacheWrite * (CacheWrite ?? 0) + count.Output * (Output ?? 0)) / 1_000_000m;
+
+    /// <summary>The model read from or wrote to its cache, with no price for that here: a cache read costs a fraction of the input price, so the input price is no stand-in for it.</summary>
+    public bool LacksCache(Llm.TokenCount count) => count.CacheRead > 0 && CachedInput is null || count.CacheWrite > 0 && CacheWrite is null;
 }
 
 public sealed class AppSettings

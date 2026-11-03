@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenRouter), also on Kilo with a key, instead of Kilo's free model.
 
 ### Fixed
+- A chat's cost no longer bills cache tokens at the input price when a model has no cache prices: it
+  leaves them out, shows "+" after the amount and says "Cache prices missing". Auto pricing lookup now
+  fills in cache prices for a model that uses its cache.
+- A chat's cost no longer turns into "Not known" for good when models are priced in different
+  currencies or one has no prices: the cost shows only spending in the last used currency, also in
+  the all-chats list, with "+" while a model has no prices.
 - A model whose server says to use its Responses API (/v1/responses) now goes there, thinking and
   tools both: proxyapi.ru's openai/gpt-6-sol failed every chat on its first message.
 - The effort dropdown no longer goes by the model's name: a model list that says nothing offers

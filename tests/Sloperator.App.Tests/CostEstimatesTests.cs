@@ -27,7 +27,9 @@ public sealed class CostEstimatesTests
         };
         var vm = new CostEstimatesViewModel(null, () => spent, () => settings, () => (Lm, "qwen"), () => chats, settings.Set);
 
-        Assert.Equal("Not known", vm.Total);
+        // qwen has no prices yet: haiku's cost shows, marked as less than was spent.
+        Assert.Equal("$0.50+", vm.Total);
+        Assert.Contains("1 model has no prices", vm.TotalNote);
         Assert.Equal("–", vm.Models.Single(m => m.Model == "qwen").Cost);
         Assert.Equal("$0.50", vm.Models.Single(m => m.Model == "haiku").Cost);
         Assert.Equal("qwen on localhost:1234", vm.PricesFor);
@@ -44,6 +46,49 @@ public sealed class CostEstimatesTests
         Assert.Equal("$2.10", vm.AllChats);
         Assert.Equal(["Dear", "Cheap"], vm.TopChats.Select(c => c.Title));
         Assert.Contains("1 chat without one", vm.AllChatsNote);
+    }
+
+    [Fact]
+    public void Only_the_last_used_currency_shows_here_and_across_chats()
+    {
+        const string Proxy = "https://api.proxyapi.ru/v1";
+        var settings = new CostSettings();
+        settings.Set(new ModelPrices { BaseUrl = Proxy, Model = "sonnet", Input = 500, Output = 2500, Currency = "₽" });
+        settings.Set(new ModelPrices { BaseUrl = Lm, Model = "qwen", Input = 2, Output = 10 });
+
+        var mixed = new Spending();
+        mixed.Add(Proxy, "sonnet", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        mixed.Add(Lm, "qwen", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        var roubles = new Spending();
+        roubles.Add(Proxy, "sonnet", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        var chats = new List<ChatHeader>
+        {
+            new() { Id = "old", Title = "Old", Updated = DateTime.UtcNow.AddDays(-1), Spent = roubles },
+            new() { Id = "new", Title = "New", Updated = DateTime.UtcNow, Spent = mixed },
+        };
+        var vm = new CostEstimatesViewModel(null, () => mixed, () => settings, () => (Lm, "qwen"), () => chats, settings.Set);
+
+        Assert.Equal("~$2.00", vm.Total);
+        Assert.Equal("Estimated from your prices (~).", vm.TotalNote);
+        Assert.Equal("qwen", Assert.Single(vm.Models).Model);
+
+        Assert.Equal("~$2.00", vm.AllChats);
+        Assert.Equal(["New"], vm.TopChats.Select(c => c.Title));
+        Assert.Contains("1 chat with a cost.", vm.AllChatsNote);
+    }
+
+    [Fact]
+    public void A_missing_cache_price_shows_on_the_model_and_the_total()
+    {
+        var spent = new Spending();
+        spent.Add(Lm, "qwen", new ChatMessage { PromptTokens = 1_000_000, CachedTokens = 900_000, CompletionTokens = 0 });
+        var settings = new CostSettings();
+        settings.Set(new ModelPrices { BaseUrl = Lm, Model = "qwen", Input = 500, Currency = "₽" });
+        var vm = new CostEstimatesViewModel(null, () => spent, () => settings, () => (Lm, "qwen"), () => [], settings.Set);
+
+        Assert.Equal("~50.00 ₽+", vm.Total);
+        Assert.Contains("Cache prices missing", vm.TotalNote);
+        Assert.Contains("cache prices missing", Assert.Single(vm.Models).Source);
     }
 
     [Fact]
@@ -74,6 +119,15 @@ public sealed class CostEstimatesTests
         Assert.Equal("150", vm.OutputPrice);
         Assert.Equal("₽", vm.PriceCurrency);
         Assert.Equal(150m, settings.For("https://api.proxyapi.ru/v1", "anthropic/claude-haiku-5-5")!.Output);
+
+        // Looking up again with prices kept waits for different ones.
+        vm.LookUpPricesCommand.Execute(null);
+        vm.Refresh();
+        Assert.True(vm.IsLookingUp);
+        settings.Set(new ModelPrices { BaseUrl = "https://api.proxyapi.ru/v1", Model = "anthropic/claude-haiku-5-5", Input = 30, CachedInput = 3, Output = 150, Currency = "₽" });
+        vm.Refresh();
+        Assert.False(vm.IsLookingUp);
+        Assert.Equal("3", vm.CachedInputPrice);
 
         // A run that ends without the line gives the button back and says so.
         vm.LookUpPricesCommand.Execute(null);
