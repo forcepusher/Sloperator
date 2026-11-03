@@ -425,22 +425,21 @@ public class ModelChoiceTests
         Assert.Empty(catalog[1].Efforts!);
         Assert.Empty(catalog[2].Efforts!);
 
-        // OpenRouter-style lists name "reasoning" among a model's parameters.
+        // OpenRouter-style lists name "reasoning" among a model's parameters: such a model is
+        // offered every level, whatever its name, and its server's refusals narrow them.
         var thinks = ServerProbe.FromListEntry(new ModelInfo("openai/gpt-5.6"), JsonNode.Parse("""{"id":"openai/gpt-5.6","supported_parameters":["tools","reasoning","include_reasoning"]}""")!.AsObject());
-        Assert.Equal(["low", "medium", "high"], thinks.Efforts);
+        Assert.Equal(Efforts.Levels, thinks.Efforts);
         var plain = ServerProbe.FromListEntry(new ModelInfo("nvidia/nemotron-3.5-super-vl:free"), JsonNode.Parse("""{"id":"nvidia/nemotron-3.5-super-vl:free","supported_parameters":["tools","max_tokens"]}""")!.AsObject());
         Assert.Empty(plain.Efforts!);
-        // Any model listed so takes the levels of its family and version (dotted, as OpenRouter
-        // writes it), low to high where they say none (a thinking budget there).
         IReadOnlyList<string>? Routed(string id) => ServerProbe.FromListEntry(new ModelInfo(id), JsonNode.Parse($$"""{"id":"{{id}}","supported_parameters":["tools","reasoning"]}""")!.AsObject()).Efforts;
         Assert.Equal(Efforts.Levels, Routed("anthropic/claude-haiku-5.5"));
-        Assert.Equal(["low", "medium", "high", "max"], Routed("anthropic/claude-sonnet-4.6"));
-        Assert.Equal(["low", "medium", "high"], Routed("anthropic/claude-sonnet-4.5"));
+        Assert.Equal(Efforts.Levels, Routed("anthropic/claude-sonnet-4.5"));
+        Assert.Equal(Efforts.Levels, Routed("google/gemini-3.1-pro"));
         Assert.Empty(ServerProbe.FromListEntry(new ModelInfo("anthropic/claude-3-haiku"), JsonNode.Parse("""{"id":"anthropic/claude-3-haiku","supported_parameters":["tools"]}""")!.AsObject()).Efforts!);
-        Assert.Equal(["low", "medium", "high"], Routed("google/gemini-3.1-pro"));
-        // A bare list (vLLM, OpenAI) goes by the name.
-        Assert.Equal(["low", "medium", "high"], ServerProbe.FromListEntry(new ModelInfo("gpt-5.6"), JsonNode.Parse("""{"id":"gpt-5.6"}""")!.AsObject()).Efforts);
-        Assert.Empty(ServerProbe.FromListEntry(new ModelInfo("Qwen/Qwen3.8-27B"), JsonNode.Parse("""{"id":"Qwen/Qwen3.8-27B","max_model_len":131072}""")!.AsObject()).Efforts!);
+        // A bare list (vLLM, OpenAI, proxyapi.ru) says nothing, whatever the name.
+        Assert.Null(ServerProbe.FromListEntry(new ModelInfo("gpt-5.6"), JsonNode.Parse("""{"id":"gpt-5.6"}""")!.AsObject()).Efforts);
+        Assert.Null(ServerProbe.FromListEntry(new ModelInfo("openai/gpt-6-sol"), JsonNode.Parse("""{"id":"openai/gpt-6-sol","owned_by":"openai"}""")!.AsObject()).Efforts);
+        Assert.Null(ServerProbe.FromListEntry(new ModelInfo("Qwen/Qwen3.8-27B"), JsonNode.Parse("""{"id":"Qwen/Qwen3.8-27B","max_model_len":131072}""")!.AsObject()).Efforts);
     }
 
     /// <summary>Kilo's model list on 2026-10-16, a few of its 398 models, trimmed to the fields Sloperator reads.</summary>

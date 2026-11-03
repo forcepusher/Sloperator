@@ -114,7 +114,7 @@ public sealed partial class OpenAiChatClient
         {
             var wire = Wires.GetOrAdd(_baseUrl + "|" + model.Id, _ => new AnthropicMessages.Wire()) with { StripThinking = _stripThinking };
             var betas = new List<string>();
-            var payload = Encoding.UTF8.GetBytes(AnthropicMessages.BuildRequest(messages, tools, options, model, wire, betas).ToJsonString());
+            var payload = Encoding.UTF8.GetBytes(AnthropicMessages.BuildRequest(messages, tools, WithTakenEffort(options), model, wire, betas).ToJsonString());
             using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var upload = new UploadContent(payload, stall, UploadStallLimit, onSending);
             using var req = new HttpRequestMessage(HttpMethod.Post, _baseUrl + "/messages") { Content = upload };
@@ -128,6 +128,8 @@ public sealed partial class OpenAiChatClient
                     var status = (int)resp.StatusCode;
                     var err = await ErrorBodyAsync(resp, ct).ConfigureAwait(false);
                     var said = ErrorText(err);
+                    if (status == 400 && LearnEfforts(options.Model, WithTakenEffort(options).Effort, err))
+                        return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                     // A part of the request this account, model or API version doesn't take: left
                     // out, and the request sent again.
                     if (status == 400 && attempt < 6 && Adjust(said, wire, ref model) is { } adjusted)

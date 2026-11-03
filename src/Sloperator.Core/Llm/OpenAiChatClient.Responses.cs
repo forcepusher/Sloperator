@@ -34,7 +34,7 @@ public sealed partial class OpenAiChatClient
         for (var attempt = 0; ; attempt++)
         {
             var sendReasoning = options.SendReasoning && !_reasoningRejected;
-            var request = BuildResponsesRequest(messages, tools, options, sendReasoning, PromptShifts.GetValueOrDefault(_baseUrl),
+            var request = BuildResponsesRequest(messages, tools, WithTakenEffort(options), sendReasoning, PromptShifts.GetValueOrDefault(_baseUrl),
                 RefusedByServer.GetValueOrDefault((_baseUrl, options.Model)), ReplyCaps.TryGetValue((_baseUrl, options.Model), out var cap) ? cap : null);
             var payload = Encoding.UTF8.GetBytes(request.ToJsonString());
             using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -52,6 +52,8 @@ public sealed partial class OpenAiChatClient
                     if (SizeRefusal(status, err, messages, payload.Length) is { } sized)
                         throw sized;
                     var said = ErrorText(err);
+                    if (status is 400 or 422 && LearnEfforts(options.Model, request["reasoning"]?["effort"]?.GetValue<string>(), err))
+                        return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                     if (status is 400 or 422 && attempt < 6)
                     {
                         // Earlier thinking the server can't read back (written for another model, or

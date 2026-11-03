@@ -312,7 +312,7 @@ public sealed partial class OpenAiChatClient
             return await CompleteResponsesAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
         var sendReasoning = options.SendReasoning && !_reasoningRejected;
         var sendExtras = !_extrasRejected;
-        var request = BuildRequest(messages, tools, options, sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl),
+        var request = BuildRequest(messages, tools, WithTakenEffort(options), sendReasoning, sendExtras, PromptShifts.GetValueOrDefault(_baseUrl),
             RefusedByServer.GetValueOrDefault((_baseUrl, options.Model)), ReplyCaps.TryGetValue((_baseUrl, options.Model), out var cap) ? cap : null);
         var payload = Encoding.UTF8.GetBytes(request.ToJsonString());
         // Cancelled when sending stalls. Once the request is out, only Stop ends the wait: a
@@ -338,6 +338,9 @@ public sealed partial class OpenAiChatClient
                     ResponsesRoutes[(_baseUrl, options.Model)] = true;
                     return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 }
+                // An effort the model doesn't take: the nearest it does from then on (see LearnEfforts).
+                if (status is 400 or 422 && LearnEfforts(options.Model, request["reasoning_effort"]?.GetValue<string>(), err))
+                    return await CompleteAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
                 // The reply limit asked for is more than the model takes: "max_tokens: 64000 > 32000,
                 // which is the maximum allowed number of output tokens", "This model supports at most
                 // 16384 completion tokens, whereas you provided 64000", or than the credit left pays

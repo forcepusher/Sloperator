@@ -196,21 +196,6 @@ public class AnthropicTests
     }
 
     [Fact]
-    public void Effort_levels_by_name_where_the_list_says_nothing()
-    {
-        Assert.Equal(Efforts.Levels, ServerProbe.EffortsByName("claude-opus-5-5"));
-        Assert.Equal(["low", "medium", "high", "max"], ServerProbe.EffortsByName("claude-sonnet-4-6"));
-        Assert.Equal(["low", "medium", "high"], ServerProbe.EffortsByName("claude-opus-4-5-20251101"));
-        Assert.Empty(ServerProbe.EffortsByName("claude-haiku-4-5-20251001"));
-        Assert.Equal(Efforts.Levels, ServerProbe.EffortsByName("claude-haiku-5-5"));
-        Assert.Equal(["low", "medium", "high"], ServerProbe.EffortsByName("gpt-5.6"));
-        Assert.Equal(["low", "medium", "high"], ServerProbe.EffortsByName("openai/o4-mini"));
-        Assert.Empty(ServerProbe.EffortsByName("qwen3.8-27b@q6_k_xl"));
-        Assert.Empty(ServerProbe.EffortsByName("gpt-oss-120b"));
-        Assert.Empty(ServerProbe.EffortsByName("gpt-4.1"));
-    }
-
-    [Fact]
     public void The_effort_asked_for_is_the_nearest_the_model_takes()
     {
         Assert.Equal("medium", Efforts.Nearest("medium", Efforts.Levels));
