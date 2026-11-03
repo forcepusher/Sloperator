@@ -343,6 +343,44 @@ public class AgentSessionTests
         Assert.Contains(observer.Notices, n => n.Contains("more than the server takes"));
     }
 
+    /// <summary>proxyapi.ru, 3 November 2026, with 2000₽ on the account: its check before the call counts pictures by their size.</summary>
+    private const string InsufficientBalance = """{"detail": "Insufficient balance to run this request."}""";
+
+    [Fact]
+    public async Task Refused_for_credit_with_screenshots_leaves_out_all_but_the_latest_and_sends_again()
+    {
+        // Refused at every reply room the client tries (64k halved down to 4k), as 80 screenshots were.
+        var server = new ScriptedServer(Sse.Text("Short answer."));
+        for (var i = 0; i < 5; i++)
+            server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
+        // Its own address: the client keeps a halved reply room for the server and model.
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000, baseUrl: "http://credit-refused.test");
+        AddScreenshotSteps(session, 5);
+
+        await session.RunAsync("new question", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal([5, 5, 5, 5, 5, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.Contains(observer.Notices, n => n.Contains("credit doesn't cover the request"));
+        Assert.Equal("Short answer.", session.History[^1].Content);
+    }
+
+    [Fact]
+    public async Task Refused_for_credit_again_with_one_screenshot_left_stops_with_the_credit_notice()
+    {
+        var server = new ScriptedServer(Sse.Text("Never sent."));
+        for (var i = 0; i < 6; i++)
+            server.Failures.Enqueue((HttpStatusCode.PaymentRequired, InsufficientBalance));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000, baseUrl: "http://credit-refused-again.test");
+        AddScreenshotSteps(session, 5);
+
+        await session.RunAsync("new question", observer, CancellationToken.None);
+
+        Assert.Equal([5, 5, 5, 5, 5, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.NotEqual(AgentStopReason.Completed, observer.StopReason);
+        Assert.Contains("run out of credits", observer.Detail);
+    }
+
     [Fact]
     public async Task A_request_too_large_for_the_server_resets_the_context_and_lowers_it()
     {

@@ -110,8 +110,15 @@ public sealed class RateLimitedException(string message, TimeSpan? retryAfter) :
 /// {"error":{"message":"User not found.","code":401}}", and OpenAI's "Can't reach the server",
 /// though both servers had answered.
 /// </summary>
-public sealed class KeyRefusedException(string message) : LlmException(message)
+public sealed class KeyRefusedException(string message, bool outOfCredit = false) : LlmException(message)
 {
+    /// <summary>
+    /// Refused for want of credit (402, or Anthropic's own words). Some servers say so before the
+    /// call, from what it might cost at most, and count pictures by their size: proxyapi.ru took 80
+    /// screenshots of 2.4k tokens each for more than 2000₽ could pay (2026-11-03).
+    /// </summary>
+    public bool OutOfCredit { get; } = outOfCredit;
+
     internal static KeyRefusedException? For(int status, string body, bool keySent)
     {
         var said = OpenAiChatClient.ErrorText(body).ReplaceLineEndings(" ").Clip(300);
@@ -120,7 +127,7 @@ public sealed class KeyRefusedException(string message) : LlmException(message)
         {
             401 when keySent => new($"The server turned down the API key{said}. Check the key next to the server address at the top."),
             401 => new($"The server wants an API key{said}. Enter yours next to the server address at the top."),
-            402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top."),
+            402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top.", outOfCredit: true),
             403 when keySent => new($"The server refused access{said}: the API key may be wrong, or not allowed to use this model."),
             403 => new($"The server refused access{said}: it may want an API key, next to the server address at the top."),
             _ => null,
