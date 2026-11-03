@@ -3838,6 +3838,13 @@ default and kept in settings.json under `panels` (`wrapDiff`, `watchChanges`; `P
 wraps under its code with the number and marker on its first row.
 Rows stay logical lines: picks, drags (checked with a real drag across two wrapped lines) and the box's
 card are as before.
+**Going to a row** (a file clicked in the list, Watch following the agent) is `BringRow`: a row already laid
+out is scrolled to by its place; one that isn't, from the top of the diff down with `ScrollIntoView`, then
+put where it goes (a file's header at the top, the agent's change a quarter down). Never `ScrollIntoView`
+up to a row far above: with Wrap on the list measured every wrapped row on the way. A click went to the
+diff's end first and back up to the file, and in a chat of 24 files (3,089 rows) the first file held the
+window 6 s and a middle one 4 s; down from the top it is 0 (timed in the app by whether the window
+answered, the user's run of 2026-11-04). With Wrap off neither was slow.
 **The number gutter** (the user, 2026-10-28, from a screenshot where it took about 110 px: two 46 px
 columns, old and new, and a 16 px one for the marker) is one number, the new line's, or a removed line's
 old one at half opacity (`DiffRow.Number`), with the + or - right after it and no gap. Its column is as
