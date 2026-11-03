@@ -36,7 +36,7 @@ public sealed class ServerSettings
     public string Model { get; set; } = "";
 
     /// <summary>
-    /// The strongest model the server offers (see <see cref="Llm.ModelChoice"/>), used while
+    /// The cheapest of the strongest models the server offers (see <see cref="Llm.ModelChoice"/>), used while
     /// <see cref="Model"/> is empty or not on the server. Found again at every check and not
     /// saved, so the picked model is back in use as soon as the server lists it again.
     /// </summary>

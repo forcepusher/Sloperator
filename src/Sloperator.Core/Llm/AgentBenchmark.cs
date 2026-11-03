@@ -10,21 +10,24 @@ namespace Sloperator.Core.Llm;
 internal sealed record BenchmarkRating(double Score, AgentBenchmark.Entry Basis, bool Exact);
 
 /// <summary>
-/// How well open models do as agents, so the auto-pick goes by that rather than by size alone,
-/// which took the user's Gemma 4 31B over Qwen3.8 27B: on this benchmark Qwen3.8 27B solves 79.8%
-/// of the tasks, Gemma 4 31B 43.4%.
+/// How well models do as agents, for servers that report no scores of their own (see
+/// <see cref="ModelInfo.Score"/>), so the auto-pick goes by that rather than by size alone, which
+/// took the user's Gemma 4 31B over Qwen3.8 27B: on this benchmark Qwen3.8 27B solves 79.8% of the
+/// tasks, Gemma 4 31B 43.4%.
 /// </summary>
 /// <remarks>
 /// The scores are Terminal-Bench 2.1 (89 tasks done in a terminal: building, fixing, setting up,
 /// finding out) as Artificial Analysis ran it, every model the same way: the Terminus 2 agent,
-/// three runs each, reasoning on as the model ships. Read on 2026-10-16 from
-/// https://artificialanalysis.ai/evaluations/terminalbench-2-1; only its own runs, no estimates.
+/// three runs each, reasoning on as the model ships. Read from
+/// https://artificialanalysis.ai/evaluations/terminalbench-2-1; only its own runs, no estimates:
+/// the open models on 2026-10-16, and on 2026-11-03 every model its chart had then, closed ones
+/// too (it had run no Claude 5.5 or GPT-6.1 yet; those count as the version they follow).
 /// The vendors' numbers can't rank one family against another: Google publishes no Terminal-Bench
 /// score for Gemma, Qwen's cards use different versions of it, and the harness alone moved Qwen3.6
 /// 27B from 44.9 (vals.ai) to 59.3 (its card) on the same version.
-/// Listed are the open models that solve at least a fifth of the tasks; most others solve under a
-/// tenth (Llama 3.3 70B 4.9%, Gemma 3 27B 4.5%), so a model not listed is ranked by its size, after
-/// the listed ones. Quantized and QAT builds count as the model they are built from.
+/// Listed are the models that solve at least a fifth of the tasks; most others solve under a tenth
+/// (Llama 3.3 70B 4.9%, Gemma 3 27B 4.5%), so a model not listed is ranked by its size, after the
+/// listed ones. Quantized and QAT builds count as the model they are built from.
 /// </remarks>
 internal static partial class AgentBenchmark
 {
@@ -58,6 +61,27 @@ internal static partial class AgentBenchmark
         new("MiniMax-M3",               "minimax",        3,       null,   null,   65.2,  true),
         new("Kimi K2.5",                "kimi",           2.5,     null,   null,   45.7,  true),
         new("Kimi K2.6",                "kimi",           2.6,     null,   null,   65.9,  true),
+        new("Kimi K3",                  "kimi",           3,       null,   null,   85.0,  true),
+        new("Qwen3.8 Max",              "qwen-max",       3.8,     null,   null,   88.8,  true),
+        new("GLM-5.3",                  "glm",            5.3,     null,   null,   83.9,  false),
+        new("GLM-5.3-Flash",            "glm-flash",      5.3,     null,   null,   84.3,  true),
+        new("Muse Spark 1.3",           "muse-spark",     1.3,     null,   null,   85.4,  true),
+        new("Muse Spark Open",          "muse-spark-open", 0,      null,   null,   76.4,  true),
+        new("Claude Fable 5.1",         "claude-fable",   5.1,     null,   null,   91.4,  true),
+        new("Claude Fable 5",           "claude-fable",   5,       null,   null,   84.6,  true),
+        new("Claude Opus 5",            "claude-opus",    5,       null,   null,   89.1,  true),
+        new("Claude Opus 4.8",          "claude-opus",    4.8,     null,   null,   84.6,  true),
+        new("Claude Opus 4.7",          "claude-opus",    4.7,     null,   null,   83.1,  true),
+        new("Claude Sonnet 5",          "claude-sonnet",  5,       null,   null,   80.5,  true),
+        new("GPT-6 Astra",              "gpt-astra",      6,       null,   null,   88.4,  true),
+        new("GPT-5.6 Sol",              "gpt-sol",        5.6,     null,   null,   89.5,  true),
+        new("GPT-5.6 Terra",            "gpt-terra",      5.6,     null,   null,   88.0,  true),
+        new("GPT-5.6 Luna",             "gpt-luna",       5.6,     null,   null,   80.9,  true),
+        new("GPT-5.5",                  "gpt",            5.5,     null,   null,   84.3,  true),
+        new("Gemini 3.8 Flash",         "gemini-flash",   3.8,     null,   null,   87.6,  true),
+        new("Gemini 3.7 Flash",         "gemini-flash",   3.7,     null,   null,   85.8,  true),
+        new("Grok 4.6",                 "grok",           4.6,     null,   null,   88.4,  true),
+        new("Grok 4.5",                 "grok",           4.5,     null,   null,   81.6,  true),
     ];
 
     /// <summary>
@@ -100,10 +124,28 @@ internal static partial class AgentBenchmark
 
     // A one-digit version, so a date such as Mistral's "2506" isn't one: "qwen3.8", "gemma-4",
     // "gemma3:27b", "mistral-small-3.2", "deepseek-v3.2", "kimi-k2.6", "minimax-m3". A distill
-    // named after its teacher ("deepseek-r1-distill-qwen-32b") names no Qwen version.
+    // named after its teacher ("deepseek-r1-distill-qwen-32b") names no Qwen version. A tier comes
+    // before its family's plain name, which would take it too ("qwen3.8-max" isn't Qwen3.8 27B), and
+    // a tier without scores ("gemini-3.5-flash-lite") before the one it would be taken for.
     private static readonly (string Family, Regex Pattern)[] Families =
     [
+        ("qwen-max", Pattern(@"qwen(?<v>\d(?:\.\d)?)-max")),
         ("qwen", Pattern(@"qwen(?<v>\d(?:\.\d)?)")),
+        ("glm-flash", Pattern(@"glm-(?<v>\d(?:\.\d)?)-flash")),
+        ("glm", Pattern(@"glm-(?<v>\d(?:\.\d)?)")),
+        ("muse-spark-open", Pattern("muse-spark-open")),
+        ("muse-spark", Pattern(@"muse-spark-(?<v>\d(?:\.\d)?)")),
+        ("claude-fable", Pattern(@"claude-fable-(?<v>\d(?:\.\d)?)")),
+        ("claude-opus", Pattern(@"claude-opus-(?<v>\d(?:\.\d)?)")),
+        ("claude-sonnet", Pattern(@"claude-sonnet-(?<v>\d(?:\.\d)?)")),
+        ("gpt-astra", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-astra")),
+        ("gpt-sol", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-sol")),
+        ("gpt-terra", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-terra")),
+        ("gpt-luna", Pattern(@"gpt-(?<v>\d(?:\.\d)?)-luna")),
+        ("gpt", Pattern(@"gpt-(?<v>\d(?:\.\d)?)")),
+        ("gemini-flash-lite", Pattern(@"gemini-(?<v>\d(?:\.\d)?)-flash-lite")),
+        ("gemini-flash", Pattern(@"gemini-(?<v>\d(?:\.\d)?)-flash")),
+        ("grok", Pattern(@"grok-(?<v>\d(?:\.\d)?)")),
         ("gemma", Pattern(@"gemma-?(?<v>\d(?:\.\d)?)")),
         ("gpt-oss", Pattern("gpt-oss")),
         ("mistral-small", Pattern(@"mistral-small-(?<v>\d(?:\.\d)?)")),

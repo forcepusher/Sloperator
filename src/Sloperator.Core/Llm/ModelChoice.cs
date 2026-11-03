@@ -33,6 +33,22 @@ public sealed record ModelInfo(string Id)
     /// <summary>Whether it costs nothing, on a service that prices its models (Kilo, OpenRouter); null where nothing is priced.</summary>
     public bool? Free { get; init; }
 
+    /// <summary>Dollars for a million input tokens, where the server prices its models; null where it doesn't.</summary>
+    public decimal? InputPrice { get; init; }
+
+    /// <summary>Dollars for a million output tokens, where the server prices its models; null where it doesn't.</summary>
+    public decimal? OutputPrice { get; init; }
+
+    /// <summary>
+    /// The server's own score for it on <see cref="ModelChoice.ScoreName"/> (OpenRouter's
+    /// /benchmarks); null where the server reports none. A server that reports scores is judged by
+    /// them alone, not by <see cref="AgentBenchmark"/>.
+    /// </summary>
+    public double? Score { get; init; }
+
+    /// <summary>Percent it solves of the server's own test of an agent calling tools (OpenRouter's τ²-bench airline); null where it reports none.</summary>
+    public double? ToolScore { get; init; }
+
     /// <summary>
     /// The effort levels it can be asked to think with (see <see cref="Settings.Efforts"/>): empty when
     /// it takes none, null when nothing says, which is taken as none.
@@ -42,27 +58,67 @@ public sealed record ModelInfo(string Id)
 
 /// <summary>
 /// The model to use when none was picked by hand, or the picked one isn't on the server: the
-/// strongest one the server offers, by its score on an agent benchmark (<see cref="AgentBenchmark"/>)
-/// where known, else by size. Sizes and quantizations come from the server where it says (LM Studio
-/// does, see <see cref="ServerProbe"/>), else from the names, which usually carry them
-/// ("qwen3.8-27b@q6_k_xl").
+/// cheapest of the strongest ones the server offers (<see cref="Pick"/>). Strength is the server's
+/// own score where it reports scores (<see cref="ModelInfo.Score"/>), else the score on an agent
+/// benchmark (<see cref="AgentBenchmark"/>) where known, else size. Sizes and quantizations come
+/// from the server where it says (LM Studio does, see <see cref="ServerProbe"/>), else from the
+/// names, which usually carry them ("qwen3.8-27b@q6_k_xl").
 /// </summary>
 public static partial class ModelChoice
 {
+    /// <summary>What the server's own scores are (<see cref="ModelInfo.Score"/>).</summary>
+    public const string ScoreName = "the Artificial Analysis Intelligence Index";
+
+    /// <summary>
+    /// How much weaker than the strongest a model may score and still be picked for being cheaper,
+    /// and how much dearer than the cheapest one counts as as cheap: a tenth. On OpenRouter on
+    /// 2026-11-03 that kept Claude Opus 5.5 (58.4), GPT-6 Astra, GPT-6.1 Sol and Claude Sonnet 5.5
+    /// (54.2, 7% below) and left out GPT-6.1 Terra (51.0, 13% below) and Claude Haiku 5.5 (36.2):
+    /// the user wanted Sonnet 5.5 rather than Haiku, which would spoil a first impression.
+    /// </summary>
+    internal const double Tolerance = 0.1;
+
     /// <summary>
     /// <paramref name="picked"/> while the server offers it (a server that lists nothing is taken at
-    /// its word), otherwise the strongest model it offers. Null when it offers none that can chat.
+    /// its word), otherwise the cheapest of the strongest models it offers (<see cref="Pick"/>).
+    /// Null when it offers none that can chat.
     /// </summary>
     public static string? Choose(string picked, IReadOnlyList<ModelInfo> offered) =>
         !string.IsNullOrEmpty(picked) && (offered.Count == 0 || offered.Any(m => m.Id == picked))
             ? picked
-            : Strongest(offered)?.Id;
+            : Pick(offered)?.Id;
+
+    /// <summary>
+    /// The best value: of the models about as strong as the strongest (<see cref="Strongest"/>), the
+    /// cheapest. About as strong is as able (takes images, calls tools, a whole file) and scoring at
+    /// most a tenth below it (<see cref="Tolerance"/>). Cheapest by three input tokens to one output
+    /// token (<see cref="Blended"/>), and within a tenth of the cheapest counts as as cheap; between
+    /// those, the one that does best on the server's own test of calling tools
+    /// (<see cref="ModelInfo.ToolScore"/>), then the stronger. Where nothing is scored or priced
+    /// (LM Studio, Ollama), simply the strongest.
+    /// </summary>
+    public static ModelInfo? Pick(IEnumerable<ModelInfo> offered)
+    {
+        var ranked = Ranked(offered);
+        if (ranked.Count == 0)
+            return null;
+        var top = ranked[0];
+        if (top.Score is not > 0)
+            return top.Model;
+        var near = ranked.Where(x => x.Able == top.Able && x.Score >= top.Score * (1 - Tolerance)).ToList();
+        if (near.Select(x => Blended(x.Model)).Where(p => p is not null).Min() is not { } cheapest)
+            return top.Model;
+        return near.Where(x => Blended(x.Model) <= cheapest * (1 + (decimal)Tolerance))
+            .OrderByDescending(x => x.Model.ToolScore ?? -1) // stable: then the stronger
+            .First().Model;
+    }
 
     /// <summary>
     /// The strongest model that can chat. One that takes images comes first (without them the agent
     /// can't see the screen; where the server doesn't say, the benchmark table may), then one not
-    /// listed as unable to call tools (a music model, a safety classifier). Then the best
-    /// score on <see cref="AgentBenchmark"/>, and a model without one after every model with one;
+    /// listed as unable to call tools (a music model, a safety classifier). Then the best score: the
+    /// server's own where it reports any (<see cref="ModelInfo.Score"/>), else the one on
+    /// <see cref="AgentBenchmark"/>, and a model without one after every model with one;
     /// then the most parameters, a mixture of experts counted as the dense model it is about as
     /// strong as (<see cref="DenseEquivalent"/>); then, between equal scores and sizes, a later
     /// version scored as the one it follows; then the most bits per weight; then one already
@@ -70,19 +126,32 @@ public static partial class ModelChoice
     /// nothing tells counts below every known one, and a file far too small for its size and
     /// quantization (<see cref="LooksIncomplete"/>) comes last.
     /// </summary>
-    public static ModelInfo? Strongest(IEnumerable<ModelInfo> offered) =>
-        offered.Where(m => m.Chat)
+    public static ModelInfo? Strongest(IEnumerable<ModelInfo> offered) => Ranked(offered).FirstOrDefault().Model;
+
+    /// <summary>The models that can chat, strongest first (see <see cref="Strongest"/>), with what makes them able and their score.</summary>
+    private static List<(ModelInfo Model, (bool, bool, bool) Able, double? Score)> Ranked(IEnumerable<ModelInfo> offered)
+    {
+        var chat = offered.Where(m => m.Chat).ToList();
+        var byServer = chat.Any(m => m.Score is not null);
+        return chat
             .Select(m => (Model: m, Rating: AgentBenchmark.Rate(m)))
-            .OrderBy(x => LooksIncomplete(x.Model))
-            .ThenBy(x => SeesImages(x.Model, x.Rating) == false)
-            .ThenBy(x => x.Model.Tools == false)
-            .ThenByDescending(x => x.Rating?.Score ?? -1)
+            .Select(x => (x.Model, x.Rating, Able: (LooksIncomplete(x.Model), SeesImages(x.Model, x.Rating) == false, x.Model.Tools == false),
+                Score: byServer ? x.Model.Score : x.Rating?.Score))
+            .OrderBy(x => x.Able)
+            .ThenByDescending(x => x.Score ?? -1)
             .ThenByDescending(x => DenseEquivalent(x.Model) ?? -1)
             .ThenByDescending(x => x.Rating is { Exact: false })
             .ThenByDescending(x => x.Model.Bits ?? -1)
             .ThenByDescending(x => x.Model.Loaded)
-            .Select(x => x.Model)
-            .FirstOrDefault();
+            .Select(x => (x.Model, x.Able, x.Score))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Dollars for a million tokens, three of input to one of output, the blend Artificial Analysis
+    /// prices models by: an agent sends far more than it gets back. Null where either price is unknown.
+    /// </summary>
+    internal static decimal? Blended(ModelInfo m) => m.InputPrice is { } input && m.OutputPrice is { } output ? (3 * input + output) / 4 : null;
 
     /// <summary>Whether the model takes images: what the server says, else what the benchmark table says of it; null when neither says.</summary>
     private static bool? SeesImages(ModelInfo m, BenchmarkRating? rating) =>
@@ -105,7 +174,9 @@ public static partial class ModelChoice
 
     /// <summary>
     /// "27B, 6-bit, 79.8% on Terminal-Bench 2.1", "27B, 5-bit, scored as Qwen3.5 9B: 29.2% on
-    /// Terminal-Bench 2.1", "30B-A3B, 4-bit", "27B"; null when nothing is known.
+    /// Terminal-Bench 2.1", "30B-A3B, 4-bit", "27B", "54.2 on the Artificial Analysis Intelligence
+    /// Index, $2 in and $10 out a million tokens"; null when nothing is known. The server's own score
+    /// where it gave one, as that is what the model was judged by.
     /// </summary>
     public static string? Describe(ModelInfo m)
     {
@@ -114,16 +185,22 @@ public static partial class ModelChoice
             parts.Add(m.ActiveParams is { } active ? $"{Count(total)}-A{Count(active)}" : Count(total));
         if (m.Bits is { } bits)
             parts.Add(bits.ToString("0.#", CultureInfo.InvariantCulture) + "-bit");
-        if (AgentBenchmark.Rate(m) is { } rating)
+        if (m.Score is { } own)
+            parts.Add(own.ToString("0.0", CultureInfo.InvariantCulture) + " on " + ScoreName);
+        else if (AgentBenchmark.Rate(m) is { } rating)
         {
             var score = rating.Score.ToString("0.0", CultureInfo.InvariantCulture) + "% on " + AgentBenchmark.Name;
             parts.Add(rating.Exact ? score : $"scored as {rating.Basis.Model}: {score}");
         }
+        if (m.InputPrice is { } input && m.OutputPrice is { } output)
+            parts.Add(input == 0 && output == 0 ? "free" : $"{Dollars(input)} in and {Dollars(output)} out a million tokens");
         return parts.Count > 0 ? string.Join(", ", parts) : null;
 
         static string Count(double billions) => billions >= 1
             ? billions.ToString("0.#", CultureInfo.InvariantCulture) + "B"
             : (billions * 1000).ToString("0", CultureInfo.InvariantCulture) + "M";
+
+        static string Dollars(decimal price) => "$" + price.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     /// <summary>

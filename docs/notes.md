@@ -2253,11 +2253,40 @@ listens on, so each new connection waited 2 s. On 24 October 2026, with LM Studi
 request that loads it went out 5.5 s after the message was sent, and 1.0 s after the fix; with the
 server's own address over the VPN, 1.6 s and 1.0 s.
 
-Until you pick a model, Sloperator uses the strongest one the server offers. One that takes images
-comes first. Then it goes by Terminal-Bench 2.1, a benchmark of agent tasks done in a terminal,
+Until you pick a model, Sloperator uses the cheapest of the strongest ones the server offers
+(`ModelChoice.Pick`). It finds the strongest, then keeps every model as able (takes images, calls
+tools) that scores at most a tenth below it, and of those takes the cheapest, by three input tokens
+to one output token (the blend Artificial Analysis prices by; an agent sends far more than it gets
+back). Prices within a tenth of each other count as equal; between those, the one that does best
+on the server's own test of an agent calling tools, then the stronger. Where nothing is priced
+(LM Studio, Ollama) that is simply the strongest. The user asked for this on 2026-11-03: OpenRouter
+had given them Qwen3.8 27B while Claude Sonnet 5.5 was there, and the default had to be strong
+enough not to spoil a first impression. On OpenRouter that day, by its scores below, Claude Opus
+5.5 scored 58.4, GPT-6 Astra 56.9, GPT-6.1 Sol 54.5, Claude Sonnet 5.5 54.2 (7% below), GPT-6.1
+Terra 51.0 (13% below) and Claude Haiku 5.5 36.2 (38% below), so the tenth lands on Sonnet 5.5 or
+GPT-6.1 Sol, both $2 in and $10 out a million tokens; Sonnet calls tools better (78.8% to 70% on
+τ²-bench airline). A fifth would have taken GPT-6.1 Terra at half the price. OpenRouter's
+`:batch` models, half price, are left out: its list gives them no chat endpoint.
+
+A server may report scores of its own: OpenRouter does at `GET /api/v1/benchmarks` for any key
+(401 without one). Sloperator asks every server there (`ServerProbe.ScoresAsync`; the others say
+"not found") for Artificial Analysis's Intelligence Index (`source=artificial-analysis&task_type=intelligence`,
+41 models on 2026-11-03, the newest ones among them; its agentic and coding indices covered 100
+older models and none of the Claude 5.5s) and OpenRouter's own τ²-bench runs
+(`source=openrouter&task_type=agentic`), matched to the list by its `canonical_slug`, the model's
+dated version. A server that reports scores is judged by those alone. They change daily and a key
+may ask 500 times a day, so they are kept six hours per address and key. Also looked at:
+OpenRouter's public `datasets/exports/benchmark-leaderboard` (GPQA and τ²-bench only; τ²-bench
+alone can't tell DeepSeek V4 Flash, 81%, from Claude Fable 5, 82%), its `openrouter/auto` and
+`pareto-code` routers (a model per request breaks prompt caching and makes costs hard to foresee)
+and Artificial Analysis's own API (its free key is for internal use only).
+
+Where the server reports no scores, Sloperator goes by Terminal-Bench 2.1, a benchmark of agent tasks done in a terminal,
 with the scores Artificial Analysis measured running every model the same way: Sloperator has those
-of the open models that solve at least a fifth of it (Qwen3.8 27B 79.8%, Qwen3.6 27B 60.7%, Gemma 4
-31B 43.4%, Gemma 4 12B 27.3%, gpt-oss-120b, Mistral Small 4, Kimi K2.6 and others; the table is in
+of the models that solve at least a fifth of it (Qwen3.8 27B 79.8%, Qwen3.6 27B 60.7%, Gemma 4
+31B 43.4%, Gemma 4 12B 27.3%, gpt-oss-120b, Mistral Small 4, Kimi K2.6 and others; on 2026-11-03
+also the closed ones its chart had, Claude Fable 5.1 91.4% to Claude Sonnet 5 80.5%, but no Claude
+5.5 or GPT-6.1 yet; the table is in
 `src/Sloperator.Core/Llm/AgentBenchmark.cs`). Size alone had picked Gemma 4 31B over Qwen3.8 27B. A
 later version or a larger size of a listed model counts as at least as strong as it (a Qwen3.9 27B
 as Qwen3.8 27B, a Qwen3.5 27B as Qwen3.5 9B), and quantized builds as the model they are built from.
@@ -2269,8 +2298,8 @@ quantization and image support; for other servers they are read from the names
 images, and a mixture of experts such as `30b-a3b` counts as the dense model it is about as strong
 as (the geometric mean of 30B and 3B, about 9.5B). Embedding models are left out, and so is a file
 far too small for its size and quantization, such as a broken download. The model's tooltip says
-why it was picked. A model you pick yourself is kept, also while the
-server doesn't offer it: the strongest one stands in, a banner says so, and Sloperator goes back to
+why it was picked: its score and, where priced, its prices. A model you pick yourself is kept, also while the
+server doesn't offer it: the auto-pick stands in, a banner says so, and Sloperator goes back to
 yours as soon as the server lists it again. It checks when it connects, each time the model dropdown
 opens (for a model loaded or downloaded on the server since; quiet, so the dot doesn't blink
 "Checking…"), and before each task. A ↻ button beside the effort did that check by hand until the

@@ -9,7 +9,7 @@ namespace Sloperator.Core.Llm;
 /// <param name="LoadedContext">Context size the server runs <paramref name="Model"/> with, if it says; also <paramref name="Vision"/> and <paramref name="Loaded"/> are about that model.</param>
 /// <param name="Loaded">False when the server says the model is not loaded yet (LM Studio loads on first use), so it has no context size yet.</param>
 /// <param name="BaseUrl">The complete address that answered ("host:1234" typed, "http://host:1234/v1" found).</param>
-/// <param name="Model">The model to use: the configured one while the server offers it, else the strongest it offers (see <see cref="ModelChoice"/>); null when there is none.</param>
+/// <param name="Model">The model to use: the configured one while the server offers it, else the cheapest of the strongest it offers (see <see cref="ModelChoice"/>); null when there is none.</param>
 /// <param name="AutoPicked">True when <paramref name="Model"/> was chosen here, because none was configured or the server doesn't offer it.</param>
 /// <param name="ModelDetails">For a model chosen here, its size, quantization and benchmark score ("27B, 6-bit, 79.8% on Terminal-Bench 2.1") as far as known.</param>
 /// <param name="ContextHosted"><paramref name="LoadedContext"/> is the most a hosted service takes for the model, not a size a server runs it with (see <see cref="ModelFacts.Hosted"/>).</param>
@@ -149,28 +149,70 @@ public static partial class ServerProbe
         var root = OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl)[..^"/v1".Length];
         var described = new Dictionary<string, ModelInfo>();
         // Anthropic's list says it all, and LM Studio's addresses there only answer "not found".
-        var lmStudio = !OpenAiChatClient.IsAnthropic(server.BaseUrl);
-        if (lmStudio && await GetJsonAsync(http, server, $"{root}/api/v1/models", ct).ConfigureAwait(false) is { } v1 && v1["models"] is JsonArray models)
+        var openAiStyle = !OpenAiChatClient.IsAnthropic(server.BaseUrl);
+        if (openAiStyle && await GetJsonAsync(http, server, $"{root}/api/v1/models", ct).ConfigureAwait(false) is { } v1 && v1["models"] is JsonArray models)
         {
             foreach (var m in models.OfType<JsonObject>())
                 if (Str(m["key"]) is { } key)
                     described[key] = FromLmStudio(key, m);
         }
-        else if (lmStudio && await GetJsonAsync(http, server, $"{root}/api/v0/models", ct).ConfigureAwait(false) is { } v0 && v0["data"] is JsonArray data)
+        else if (openAiStyle && await GetJsonAsync(http, server, $"{root}/api/v0/models", ct).ConfigureAwait(false) is { } v0 && v0["data"] is JsonArray data)
         {
             foreach (var m in data.OfType<JsonObject>())
                 if (Str(m["id"]) is { } id)
                     described[id] = FromLmStudioV0(id, m);
         }
-        return listed.Select((m, i) => described.GetValueOrDefault(ids[i]) ?? FromListEntry(ModelChoice.FromName(ids[i]), m)).ToList();
+        var catalog = listed.Select((m, i) => described.GetValueOrDefault(ids[i]) ?? FromListEntry(ModelChoice.FromName(ids[i]), m)).ToList();
+        // Nor are its scores asked for at /benchmarks, where OpenAI-style services (OpenRouter) keep them.
+        if (!openAiStyle || await ScoresAsync(http, server, ct).ConfigureAwait(false) is not { } scores)
+            return catalog;
+        // A score is for a model's version: the list's canonical_slug ("anthropic/claude-sonnet-5.5-20260928").
+        return catalog.Select((m, i) => scores.GetValueOrDefault(Str(listed[i]["canonical_slug"]) ?? m.Id) is { } s
+            ? m with { Score = s.Score, ToolScore = s.ToolScore } : m).ToList();
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime At, Dictionary<string, (double? Score, double? ToolScore)> Scores)> KnownScores = new();
+
+    /// <summary>
+    /// The scores the server reports for its models, by the model's version, or null when it reports
+    /// none. OpenRouter does at /benchmarks for any key: Artificial Analysis's Intelligence Index
+    /// (<see cref="ModelInfo.Score"/>, which covers the newest models; its agentic and coding indices
+    /// had none of the Claude 5.5 models on 2026-11-03) and its own τ²-bench airline runs, an agent
+    /// calling tools for a customer (<see cref="ModelInfo.ToolScore"/>). Every server is asked; the
+    /// others answer "not found". They change daily and the key may ask 500 times a day, so an answer
+    /// is kept for six hours, though the server is checked before each task.
+    /// </summary>
+    private static async Task<Dictionary<string, (double? Score, double? ToolScore)>?> ScoresAsync(HttpClient http, ServerSettings server, CancellationToken ct)
+    {
+        var url = OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl) + "/benchmarks";
+        var cacheKey = url + "\n" + server.ApiKey.Trim();
+        if (KnownScores.TryGetValue(cacheKey, out var known) && DateTime.UtcNow - known.At < TimeSpan.FromHours(6))
+            return known.Scores;
+        var intelligence = GetJsonAsync(http, server, url + "?source=artificial-analysis&task_type=intelligence&max_results=100", ct);
+        var tools = GetJsonAsync(http, server, url + "?source=openrouter&task_type=agentic&max_results=100", ct);
+        var scores = new Dictionary<string, (double? Score, double? ToolScore)>();
+        foreach (var row in Rows(await intelligence.ConfigureAwait(false)))
+            if (Str(row["model_permaslug"]) is { } slug && Number(row["intelligence_index"]) is { } score)
+                scores[slug] = (Math.Max(score, scores.GetValueOrDefault(slug).Score ?? 0), null);
+        if (scores.Count == 0)
+            return null;
+        foreach (var row in Rows(await tools.ConfigureAwait(false)))
+            if (Str(row["model_permaslug"]) is { } slug && Number(row["accuracy"]) is { } accuracy)
+                scores[slug] = scores.GetValueOrDefault(slug) with { ToolScore = Math.Max(accuracy * 100, scores.GetValueOrDefault(slug).ToolScore ?? 0) };
+        KnownScores[cacheKey] = (DateTime.UtcNow, scores);
+        return scores;
+
+        static IEnumerable<JsonObject> Rows(JsonNode? answer) => answer?["data"] is JsonArray rows ? rows.OfType<JsonObject>() : [];
     }
 
     /// <summary>
     /// What an OpenRouter-style list (OpenRouter, Kilo) says of a model, over what its name tells:
     /// what it takes (architecture.input_modalities), whether it writes text at all
     /// (output_modalities: a music model writes audio), whether it calls tools and can be asked for
-    /// an effort (supported_parameters) and whether it is free (pricing). A list of ids alone says
-    /// none of it. Anthropic's list says the effort levels in its capabilities.
+    /// an effort (supported_parameters) and what it costs (pricing, dollars a token; OpenRouter's own
+    /// routers say -1). One whose endpoints leave out chat completions can't be talked to here:
+    /// OpenRouter's ":batch" models, half price but answered later. A list of ids alone says none of
+    /// it. Anthropic's list says the effort levels in its capabilities.
     /// </summary>
     internal static ModelInfo FromListEntry(ModelInfo name, JsonObject entry)
     {
@@ -179,12 +221,18 @@ public static partial class ServerProbe
         var outputs = Strings(architecture?["output_modalities"]);
         var parameters = Strings(entry["supported_parameters"]);
         var pricing = entry["pricing"] as JsonObject;
+        var endpoints = Strings(entry["endpoints"]);
+        var (input, output) = (PerMillion(pricing?["prompt"]), PerMillion(pricing?["completion"]));
+        var priced = input is not null && output is not null;
         return name with
         {
-            Chat = name.Chat && (outputs is null || outputs.Contains("text")),
+            Chat = name.Chat && (outputs is null || outputs.Contains("text"))
+                   && (endpoints is null || endpoints.Any(e => e.EndsWith("/chat/completions", StringComparison.Ordinal))),
+            InputPrice = priced ? input : name.InputPrice,
+            OutputPrice = priced ? output : name.OutputPrice,
             Vision = inputs is null ? name.Vision : inputs.Contains("image"),
             Tools = parameters is null ? name.Tools : parameters.Contains("tools"),
-            Free = pricing is null ? name.Free : Price(pricing["prompt"]) is { } input && Price(pricing["completion"]) is { } output ? input == 0 && output == 0 : null,
+            Free = pricing is null ? name.Free : Price(pricing["prompt"]) is { } inPrice && Price(pricing["completion"]) is { } outPrice ? inPrice == 0 && outPrice == 0 : null,
             Efforts = ClaudeEfforts(entry) ?? ListedEfforts(parameters, name.Id) ?? EffortsByName(name.Id),
         };
 
@@ -204,6 +252,8 @@ public static partial class ServerProbe
         static decimal? Price(JsonNode? node) => node is JsonValue v
             && (v.TryGetValue<decimal>(out var n) || v.TryGetValue<string>(out var s) && decimal.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out n))
             ? n : null;
+
+        static decimal? PerMillion(JsonNode? node) => Price(node) is >= 0m and var price ? price * 1_000_000 : null;
     }
 
     /// <summary>

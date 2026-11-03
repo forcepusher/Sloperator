@@ -158,6 +158,14 @@ public class ModelChoiceTests
     [InlineData("openai/gpt-oss-120b", 26.2, "gpt-oss-120b")]
     [InlineData("mistral-small-4", 21.0, "Mistral Small 4")]
     [InlineData("kimi-k2.6", 65.9, "Kimi K2.6")]
+    [InlineData("anthropic/claude-opus-4.8", 84.6, "Claude Opus 4.8")]
+    [InlineData("openai/gpt-5.6-sol", 89.5, "GPT-5.6 Sol")]
+    [InlineData("openai/gpt-5.5", 84.3, "GPT-5.5")]
+    [InlineData("qwen/qwen3.8-max-0902", 88.8, "Qwen3.8 Max")]
+    [InlineData("z-ai/glm-5.3-flash", 84.3, "GLM-5.3-Flash")]
+    [InlineData("z-ai/glm-5.3", 83.9, "GLM-5.3")]
+    [InlineData("google/gemini-3.8-flash", 87.6, "Gemini 3.8 Flash")]
+    [InlineData("meta/muse-spark-open", 76.4, "Muse Spark Open")]
     public void Listed_models_are_found_by_their_names(string id, double score, string listed)
     {
         var rating = AgentBenchmark.Rate(ModelChoice.FromName(id));
@@ -179,6 +187,14 @@ public class ModelChoiceTests
     [InlineData("deepseek-r1-distill-qwen-32b", null)]
     [InlineData("medgemma-27b-it", null)]
     [InlineData("xortron.criminalcomputing.2026.27b.next@q6_k", null)]
+    [InlineData("anthropic/claude-sonnet-5.5", "Claude Sonnet 5")]
+    [InlineData("anthropic/claude-opus-5.5", "Claude Opus 5")]
+    [InlineData("openai/gpt-6.1-sol", "GPT-5.6 Sol")]
+    [InlineData("moonshotai/kimi-k3.1-pro", "Kimi K3")]
+    [InlineData("anthropic/claude-haiku-5.5", null)]   // no Haiku run yet
+    [InlineData("google/gemini-3.5-flash-lite", null)] // not a Gemini Flash
+    [InlineData("qwen/qwen3.8-flash", null)]           // neither Qwen3.8 Max nor a 27B
+    [InlineData("openai/gpt-oss-20b", null)]
     public void Other_models_are_scored_as_the_listed_one_they_follow_or_not_at_all(string id, string? listed)
     {
         var rating = AgentBenchmark.Rate(ModelChoice.FromName(id));
@@ -194,6 +210,100 @@ public class ModelChoiceTests
         Assert.Equal("qwen3.9-27b", ModelChoice.Strongest([ModelChoice.FromName("qwen3.8-27b"), ModelChoice.FromName("qwen3.9-27b")])!.Id);
         Assert.Equal("qwen3.5-27b", ModelChoice.Strongest([ModelChoice.FromName("qwen3.5-9b"), ModelChoice.FromName("qwen3.5-27b")])!.Id);
         Assert.Equal("27B, 5-bit, scored as Qwen3.5 9B: 29.2% on Terminal-Bench 2.1", ModelChoice.Describe(ModelChoice.FromName("qwen3.5-27b@q5_k_m")));
+    }
+
+    /// <summary>
+    /// OpenRouter on 2026-11-03, trimmed: its /models list (prices a token, the version's
+    /// canonical_slug, endpoints) and what its /benchmarks said of those versions, both the
+    /// Artificial Analysis Intelligence Index and its own τ²-bench airline runs.
+    /// </summary>
+    private static Dictionary<string, string> OpenRouter(Func<string, bool>? keep = null)
+    {
+        (string Id, string Slug, string In, string Out, bool Image, double? Index, double? Tools)[] models =
+        [
+            ("anthropic/claude-opus-5.5", "anthropic/claude-opus-5.5-20260921", "0.000004", "0.00002", true, 58.4, 0.7533),
+            ("openai/gpt-6-astra", "openai/gpt-6-astra-20260815", "0.00001", "0.00005", true, 56.9, 0.68),
+            ("openai/gpt-6.1-sol", "openai/gpt-6.1-sol-20260929", "0.000002", "0.00001", true, 54.5, 0.70),
+            ("anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-5.5-20260928", "0.000002", "0.00001", true, 54.2, 0.788),
+            ("anthropic/claude-sonnet-5.5:batch", "anthropic/claude-sonnet-5.5-20260928", "0.000001", "0.000005", true, null, null),
+            ("openai/gpt-6.1-terra", "openai/gpt-6.1-terra-20261026", "0.000001", "0.000005", true, 51.0, 0.6867),
+            ("anthropic/claude-haiku-5.5", "anthropic/claude-haiku-5.5-20261007", "0.0000001", "0.0000005", true, 36.2, 0.7283),
+            ("qwen/qwen3.8-27b", "qwen/qwen3.8-27b-20260814", "0.00000015", "0.000001875", true, 20.1, null),
+            ("z-ai/glm-5.3", "z-ai/glm-5.3-20260720", "0.00000008", "0.0000036", false, 31.7, null),
+            ("openrouter/auto", "openrouter/auto", "-1", "-1", true, null, null),
+        ];
+        var kept = models.Where(m => keep?.Invoke(m.Id) ?? true).ToList();
+        var list = new JsonArray(kept.Select(m => (JsonNode?)JsonNode.Parse($$"""
+            {"id":"{{m.Id}}","canonical_slug":"{{m.Slug}}","pricing":{"prompt":"{{m.In}}","completion":"{{m.Out}}"},
+             "architecture":{"input_modalities":{{(m.Image ? """["text","image"]""" : """["text"]""")}},"output_modalities":["text"]},
+             "supported_parameters":["tools","reasoning"],"endpoints":{{(m.Id.EndsWith(":batch") ? "[]" : """["/api/v1/chat/completions","/api/v1/responses"]""")}}}
+            """)).ToArray());
+        // Both questions to /benchmarks get this one answer: each reads the rows it asked for.
+        var rows = new JsonArray(kept.Where(m => !m.Id.Contains(':')).SelectMany(m => new[]
+        {
+            m.Index is { } index ? (JsonNode?)new JsonObject { ["source"] = "artificial-analysis", ["model_permaslug"] = m.Slug, ["intelligence_index"] = index } : null,
+            m.Tools is { } tools ? new JsonObject { ["source"] = "openrouter", ["model_permaslug"] = m.Slug, ["benchmark_type"] = "tau_bench_verified_airline", ["accuracy"] = tools } : null,
+        }).Where(r => r is not null).ToArray());
+        return new()
+        {
+            ["/api/v1/models"] = new JsonObject { ["data"] = list }.ToJsonString(),
+            ["/api/v1/benchmarks"] = new JsonObject { ["data"] = rows }.ToJsonString(),
+        };
+    }
+
+    /// <summary>A probe of a stand-in OpenRouter at an address of its own, as the scores it reports are kept for a while by address.</summary>
+    private static Task<ProbeResult> ProbeOpenRouter(Dictionary<string, string> routes, string host) =>
+        ServerProbe.CheckAsync(new HttpClient(new Routes(routes)), new ServerSettings { BaseUrl = $"https://{host}/api/v1", ApiKey = "test" }, CancellationToken.None);
+
+    [Fact]
+    public async Task On_OpenRouter_the_cheapest_of_the_strongest_is_picked_by_the_scores_it_reports()
+    {
+        var probe = await ProbeOpenRouter(OpenRouter(), "openrouter-all");
+        // Opus 5.5 scores best (58.4). Within a tenth of it are GPT-6 Astra, GPT-6.1 Sol and Sonnet
+        // 5.5 (54.2); of those Sol and Sonnet are the cheapest, at the same price, and Sonnet calls
+        // tools better (78.8% to 70% on τ²-bench). Not Haiku 5.5, far cheaper but 38% weaker, nor
+        // Sonnet's half-price batch version, which can't chat.
+        Assert.Equal("anthropic/claude-sonnet-5.5", probe.Model);
+        Assert.True(probe.AutoPicked);
+        Assert.Equal("54.2 on the Artificial Analysis Intelligence Index, $2 in and $10 out a million tokens", probe.ModelDetails);
+        Assert.DoesNotContain("anthropic/claude-sonnet-5.5:batch", probe.Models);
+
+        // Without Sonnet, the equally priced and about as strong GPT-6.1 Sol; without either, Opus
+        // 5.5, as GPT-6.1 Terra is 13% weaker and Astra dearer.
+        Assert.Equal("openai/gpt-6.1-sol", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("sonnet")), "openrouter-no-sonnet")).Model);
+        Assert.Equal("anthropic/claude-opus-5.5", (await ProbeOpenRouter(OpenRouter(id => !id.Contains("sonnet") && !id.Contains("sol")), "openrouter-no-sol")).Model);
+        // Among the cheap ones alone, Haiku 5.5 scores best of those that see.
+        Assert.Equal("anthropic/claude-haiku-5.5", (await ProbeOpenRouter(OpenRouter(id => id.Contains("haiku") || id.Contains("qwen") || id.Contains("glm")), "openrouter-cheap")).Model);
+    }
+
+    [Fact]
+    public async Task A_server_that_reports_no_scores_is_judged_by_the_table_and_its_prices()
+    {
+        var routes = OpenRouter(id => id is "anthropic/claude-opus-5.5" or "openai/gpt-6.1-terra" or "qwen/qwen3.8-27b");
+        routes.Remove("/api/v1/benchmarks");
+        // Opus 5.5 counts as Opus 5 (89.1% on Terminal-Bench 2.1), GPT-6.1 Terra as GPT-5.6 Terra
+        // (88.0%), within a tenth of it and a quarter of the price; Qwen3.8 27B (79.8%) is too weak.
+        var probe = await ProbeOpenRouter(routes, "openrouter-unscored");
+        Assert.Equal("openai/gpt-6.1-terra", probe.Model);
+        Assert.Equal("scored as GPT-5.6 Terra: 88.0% on Terminal-Bench 2.1, $1 in and $5 out a million tokens", probe.ModelDetails);
+
+        // With no prices it is the strongest, as on LM Studio.
+        var unpriced = new[] { "anthropic/claude-opus-5.5", "openai/gpt-6.1-terra", "qwen/qwen3.8-27b" }.Select(ModelChoice.FromName).ToList();
+        Assert.Equal("anthropic/claude-opus-5.5", ModelChoice.Pick(unpriced)!.Id);
+    }
+
+    [Fact]
+    public void Prices_a_server_lists_are_read_a_million_tokens_at_a_time()
+    {
+        var sonnet = ServerProbe.FromListEntry(new ModelInfo("anthropic/claude-sonnet-5.5"),
+            JsonNode.Parse("""{"id":"anthropic/claude-sonnet-5.5","pricing":{"prompt":"0.000002","completion":"0.00001"}}""")!.AsObject());
+        Assert.Equal(2m, sonnet.InputPrice);
+        Assert.Equal(10m, sonnet.OutputPrice);
+        Assert.Equal(4m, ModelChoice.Blended(sonnet));
+        // OpenRouter's own routers say -1: no price to go by.
+        var router = ServerProbe.FromListEntry(new ModelInfo("openrouter/auto"), JsonNode.Parse("""{"id":"openrouter/auto","pricing":{"prompt":"-1","completion":"-1"}}""")!.AsObject());
+        Assert.Null(ModelChoice.Blended(router));
+        Assert.Equal(false, router.Free);
     }
 
     [Fact]
