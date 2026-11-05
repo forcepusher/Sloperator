@@ -5009,6 +5009,13 @@ own, so your keys landed between them, and a Shift you held changed its letters.
 - A click holds the button down 50 ms; let go of in the same instant, as before, a press can come and
   go between two looks of a game that reads the mouse once a frame.
 
+Checked on the laptop with the real mouse and a stand-in model (2026-11-05, input sent untagged, so the
+hooks take it for the user's), before and after. During a 25 s `press_keys` wait: before, the pointer
+stayed where it was and the click only ended the action; after, it reached Stop and the run ended
+0.16 s after the click. Hovers one after another, the pointer resting on Stop for 3 s: before, the
+agent took it away and Stop stayed unclicked; after, it stayed on Stop and the run ended 0.13 s after
+the click. A press on another window during the wait still goes nowhere and ends the action.
+
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
 reads the message before its next step, and a wait it is in ends for it. While you type there,
 its clicks and key presses hold off (for up to a minute), so they don't land in your typing. That
