@@ -5008,7 +5008,8 @@ own, so your keys landed between them, and a Shift you held changed its letters.
   click-through and left out of the screenshots like the click log, placed only when it shows or moves.
   A tag hangs from the middle of its top edge, "Pause/Break stops me", in a fifth such window: nobody
   read the start screen's card, which is gone by the time it is wanted (the user's pick of the ideas
-  offered, 5 November 2026). 15 px scaled by the screen's DPI, Segoe UI Bold as the log.
+  offered, 5 November 2026). 15 px scaled by the screen's DPI, Segoe UI Bold as the log. On the laptop
+  at 125% it came out 235 x 38 px, on the screen and not in the screenshot sent to the model.
 - A click holds the button down 50 ms; let go of in the same instant, as before, a press can come and
   go between two looks of a game that reads the mouse once a frame.
 
