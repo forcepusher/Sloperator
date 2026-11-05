@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Plan bar** above the message box: for work of several steps the agent keeps a plan with the new
   `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
   from point to point. It shows when the agent waits for you and which step a failure stopped on.
+- While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
