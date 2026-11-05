@@ -356,6 +356,15 @@ public sealed partial class AgentSession(
     [GeneratedRegex(@"^(?:Screenshot of|The screen right now:) screen (\d+) of (\d+)[.,]", RegexOptions.Multiline)]
     private static partial Regex ScreenOf();
 
+    /// <summary>
+    /// The rule on a program's official tool, again at each message: in the system prompt, Haiku 5.5
+    /// kept to it and Qwen often didn't. Every model gets it, a few dozen tokens a message.
+    /// </summary>
+    internal const string OfficialToolsNote =
+        "[Sloperator] If this message asks for work in a program or a project made with one, and this chat hasn't settled how yet: " +
+        "make web_search for its official MCP server or CLI your first tool call. Use what its makers offer, not a batch-mode script or the mouse, however small the task. " +
+        "If anything it needs is missing, even one package for the project, ask the user whether to install it and end your turn: install nothing first.";
+
     public Task RunAsync(string userText, IAgentObserver observer, CancellationToken ct) => RunAsync(new UserInput(userText), observer, ct);
 
     /// <summary>Runs the task the user sent: the model works on it, with its tools, until it is done or stopped.</summary>
@@ -367,7 +376,7 @@ public sealed partial class AgentSession(
         // screen 2 in its last screenshot, the model clicked and typed into Notepad on screen 1.
         if (ScreenShown(History) is { } lastSeen)
             toolContext.CurrentScreen = lastSeen.Screen;
-        History.Add(input.ToMessage(toolContext.SeesImages));
+        History.Add((tools.Find("web_search") is null ? input : input with { Context = OfficialToolsNote + (input.Context is null ? "" : "\n" + input.Context) }).ToMessage(toolContext.SeesImages));
         // A picture given earlier in the chat (a reference sheet) is still the one to follow.
         toolContext.UserPictures = UserInput.PicturesIn(History);
         toolContext.UserMessage = _arrived.Token;
