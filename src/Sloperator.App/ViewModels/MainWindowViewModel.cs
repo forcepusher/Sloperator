@@ -6,6 +6,7 @@ using Sloperator.Core.Llm;
 using Sloperator.Core.Mcp;
 using Sloperator.Core.Platform;
 using Sloperator.Core.Settings;
+using Sloperator.Core.Tools;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -103,7 +104,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand), nameof(StopCommand), nameof(InterruptCommand))]
-    [NotifyPropertyChangedFor(nameof(InputHint), nameof(TypingPause), nameof(TypingPauseText))]
+    [NotifyPropertyChangedFor(nameof(InputHint), nameof(TypingPause), nameof(TypingPauseText), nameof(PlanDancing), nameof(PlanWaiting))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -192,6 +193,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// chat opened. Notices don't count (an MCP server that failed to start): they show above it.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSendBlob))]
     private bool _showIntro = true;
 
     /// <summary>
@@ -598,6 +600,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private void OnTypingPauseChanged()
     {
         OnPropertyChanged(nameof(TypingPause));
+        OnPropertyChanged(nameof(PlanDancing));
         OnPropertyChanged(nameof(TypingPauseHere));
         OnPropertyChanged(nameof(TypingPauseText));
     }
@@ -607,6 +610,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
     /// <summary>The agent's clicks and key presses are on hold because the user is typing to an agent (see <see cref="ChatWindows.UserComposing"/>).</summary>
     public bool TypingPause => IsBusy && _windows.UserComposing();
+
+    /// <summary>The plan on the bar above the message box; null while there is none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPlan), nameof(ShowsSendBlob), nameof(PlanWaiting))]
+    private AgentPlan? _plan;
+
+    /// <summary>The run ended on an error: the step it was on shows that.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanWaiting))]
+    private bool _planFailed;
+
+    public bool HasPlan => Plan is not null;
+
+    /// <summary>The blob beside Send; with a plan it walks the bar instead.</summary>
+    public bool ShowsSendBlob => !ShowIntro && !HasPlan;
+
+    public bool PlanDancing => IsBusy && !TypingPause;
+
+    /// <summary>The run ended with the plan unfinished: it is the user's turn.</summary>
+    public bool PlanWaiting => !IsBusy && !PlanFailed && Plan is { Finished: false };
 
     /// <summary>The pause is for typing in this window's box, which Resume can end; typing in another window it can't.</summary>
     public bool TypingPauseHere => TypingHere();
@@ -708,6 +731,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         _runDetached = false;
         IsBusy = true;
         HideContinue();
+        // A finished plan stays on the bar until the next message.
+        if (input is not null && Plan is { Finished: true })
+            Plan = null;
+        PlanFailed = false;
         // A Pause/Break that came as the last run was ending stopped nothing, and its mark called
         // this run's next stop with the Stop button "Stopped with Pause/Break".
         _stoppedByKey = false;
@@ -767,7 +794,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             backend.Client.Spending = _spent;
             var session = _session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
-                setPrices: KeepPricesFromAgent);
+                setPrices: KeepPricesFromAgent, plan: Plan);
             session.PriceLookup = PriceLookupFor(backend.Client.BaseUrl, backend.Options.Model);
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);

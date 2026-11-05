@@ -49,6 +49,9 @@ public interface IAgentObserver
     /// </summary>
     void OfferTextRecognition() { }
 
+    /// <summary>The plan tool set, moved or took away the plan shown to the user.</summary>
+    void OnPlanChanged(AgentPlan? plan) { }
+
     void OnToolFinished(ToolCall call, ToolResult result);
 
     /// <summary>
@@ -377,6 +380,7 @@ public sealed partial class AgentSession(
         // A side_task call's: its steps are lines on its card, set as its progress when it starts.
         toolContext.SideTask = (task, output, c) => RunSideTaskAsync(task, output, null, null, toolContext.Progress, observer, c);
         toolContext.OfferTextRecognition = observer.OfferTextRecognition;
+        toolContext.PlanChanged = observer.OnPlanChanged;
         toolContext.InConversation ??= text => History.Any(m => m.Content?.Contains(text, StringComparison.Ordinal) == true ||
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
         var cutOffs = 0;
@@ -454,9 +458,9 @@ public sealed partial class AgentSession(
                 // re-verifying forever. A completion claim with only look-only calls ends the turn.
                 // Not a reset it asked for ("Handoff written, all done." with reset_context), nor the
                 // picture of its work it takes for the user then, which is what it is for, nor the effort
-                // it was asked to set ("Done, effort set to high.").
+                // it was asked to set ("Done, effort set to high."), nor the last step of its plan marked done.
                 if (reply.HasToolCalls && LooksFinished(reply.Content) &&
-                    reply.ToolCalls!.All(c => ToolCallRepair.ResolveTool(c.Name, tools) is { Risk: ToolRisk.ReadOnly } t && t is not (ResetContextTool or CaptureResultTool or SetEffortTool)))
+                    reply.ToolCalls!.All(c => ToolCallRepair.ResolveTool(c.Name, tools) is { Risk: ToolRisk.ReadOnly } t && t is not (ResetContextTool or CaptureResultTool or SetEffortTool or PlanTool)))
                     reply.ToolCalls = null;
                 History.Add(reply);
                 observer.OnAssistantMessage(reply);

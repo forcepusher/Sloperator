@@ -1005,6 +1005,9 @@
                   VerticalAlignment="Center" />
           <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BbAccent}" VerticalAlignment="Center" Text="{Binding TypingPauseText}" />
         </DockPanel>
+        <!-- The agent's plan, a point per step; 36 either side for the words at its ends. -->
+        <views:PlanBar Plan="{Binding Plan}" Dancing="{Binding PlanDancing}" Waiting="{Binding PlanWaiting}" Failed="{Binding PlanFailed}"
+                       IsVisible="{Binding HasPlan}" Margin="36,0" />
         <!-- One line of text is exactly as tall as the Send button, and both sit on the same
              bottom edge, so they line up; longer text grows the box upwards with Send staying put. -->
         <Border Classes="card composer" Padding="8">
@@ -1075,8 +1078,8 @@
                      PlaceholderText="{Binding InputHint}" />
             <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="8,0,0,0">
               <!-- The logo blob, as tall as Send and 8 from it; it dances while a prompt runs.
-                   Not with the intro, which has the logo already. -->
-              <views:PartyBlob Dancing="{Binding IsBusy}" IsVisible="{Binding !ShowIntro}" Width="32" Height="32" VerticalAlignment="Bottom" />
+                   Not with the intro, which has the logo already, nor with a plan, whose bar it walks. -->
+              <views:PartyBlob Dancing="{Binding IsBusy}" IsVisible="{Binding ShowsSendBlob}" Width="32" Height="32" VerticalAlignment="Bottom" />
               <Button Classes="primary" Content="Send" Command="{Binding SendCommand}" />
               <Button Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" />
             </StackPanel>

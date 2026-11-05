@@ -1,3 +1,4 @@
+| `plan` | The plan on the bar above the message box: `steps` sets or replaces it, `now` moves it on, `steps=[]` takes it away (see Plan bar) |
 # Sloperator notes
 > **These notes are meant to be read by LLMs (AI agents working on Sloperator), not by people.**
 > People should read the [README](../README.md).
@@ -1635,6 +1636,31 @@ prompt and goes again with New chat. The GIF is "apartyblob" from github.com/Ray
 License 2.0, the set the logo was traced from (docs/logo/LICENSE-blobs.txt). Its frames are decoded once
 with SkiaSharp's `SKCodec`, as chat previews of animations are (no GIF package), and its timer runs only
 while it dances and is in a window.
+
+## Plan bar
+The user asked (2026-11-05) for a checklist like Claude Code's, as a left-to-right bar above the
+message box with the party blob walking it; of five concepts they picked a point per step with one
+word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
+
+The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
+tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
+`MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through
+`IAgentObserver.OnPlanChanged`, and `SavedChat.Plan` keeps it with the chat. A finished plan stays
+until the next message. Side tasks don't get the tool: their steps are not the chat's.
+
+Its calls have no cards, as the bar shows them, and a reply that only made one leaves no line in the
+chat. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
+last `now` lost that call, and the bar stopped a step short.
+
+`PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
+property with a transition, so the blob walks when the plan moves on and not when the window is
+resized. Words that don't all fit show for the current step and its neighbours, then for the current
+step alone; 12 short words fit at the window's least width. With a plan the blob by Send goes
+(`ShowsSendBlob`). The blob stands still (the logo) while the user types and when the run has ended;
+the current word is accent when the plan is unfinished and the run ended, red when it ended on an error.
+A tooltip opens 20 px lower than its target by default, over the line and the blob: offset by -12.
+
+The rig is `.dev/plan-bar-test` (run.ps1 for the walk, hover.ps1 for the tooltip and the least width).
 
 ## App icon
 `Assets/sloperator.ico` (the exe, the taskbar, Alt+Tab; the title bar has no icon, see Title bar) is drawn by

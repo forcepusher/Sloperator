@@ -65,6 +65,7 @@ public sealed class ToolRegistry
         }
         yield return new SideTaskTool();
         yield return new ResetContextTool();
+        yield return new PlanTool();
     }
 
     public IReadOnlyCollection<Tool> All => _tools.Values;

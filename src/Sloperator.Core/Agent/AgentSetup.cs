@@ -22,10 +22,11 @@ public static class AgentSetup
     /// <param name="chatDirectory">The chat's own folder (see <see cref="ToolContext.ChatDirectory"/>); null where there is no saved chat.</param>
     /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
     /// <param name="setPrices">Keeps a model's prices (the app's Cost estimates), for set_api_pricing; null for no such tool.</param>
+    /// <param name="plan">The chat's plan so far (see <see cref="ToolContext.Plan"/>).</param>
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
         object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
-        CommandLog? commands = null, Action<ModelPrices>? setPrices = null)
+        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);
@@ -51,6 +52,7 @@ public static class AgentSetup
             IndexDirectory = paths.IndexDir,
             Changes = changes,
             Commands = commands,
+            Plan = plan,
             ModelServer = modelServer,
             // The run's server, and its model where the call names none.
             SetPrices = setPrices is null ? null : p => setPrices(p.With(backend.Client.BaseUrl, backend.Options.Model)),
