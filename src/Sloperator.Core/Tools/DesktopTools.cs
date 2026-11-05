@@ -18,6 +18,12 @@ public abstract class DesktopActionTool : Tool
     private static readonly TimeSpan HandsOffTime = TimeSpan.FromSeconds(1);
 
     /// <summary>
+    /// The same with the pointer on Sloperator's own window: resting on Stop for a second, before the
+    /// click, is not leaving it alone, and the action took the pointer away from under the click.
+    /// </summary>
+    private static readonly TimeSpan HandsOffSloperatorTime = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Half the side of the square around a click (screen pixels) that is looked at again when the
     /// user pressed something since the model's screenshot: changed, the click waits for a new look.
     /// </summary>
@@ -79,7 +85,7 @@ public abstract class DesktopActionTool : Tool
         string text;
         ClickCheck? check;
         // Nothing the user does gets in the way of the action, nor between its looking again and acting.
-        using (var locked = ctx.Platform.UserInput.Lock())
+        using (var locked = ctx.Platform.UserInput.Lock(UsesMouse))
         {
             if (UserChangedScreen(args, ctx) is { } why)
             {
@@ -122,6 +128,9 @@ public abstract class DesktopActionTool : Tool
 
     private protected abstract Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct);
 
+    /// <summary>Whether the action moves the mouse: one that doesn't leaves the user's free, however long it takes.</summary>
+    private protected virtual bool UsesMouse => true;
+
     /// <summary>
     /// Where on the screen the action lands, to look at again when the user pressed something since
     /// the model's screenshot; null for keys, which go wherever the focus is now.
@@ -158,11 +167,16 @@ public abstract class DesktopActionTool : Tool
     {
         var user = ctx.Platform.UserInput;
         var waited = System.Diagnostics.Stopwatch.StartNew();
-        while (user.Holding || user.SinceLastInput < HandsOffTime)
+        var said = false;
+        while (user.Holding || user.SinceLastInput < (user.OnSloperator ? HandsOffSloperatorTime : HandsOffTime))
         {
             ctx.Progress?.Invoke($"Waiting for you to leave the mouse and keyboard · {Chats.ChatTimes.Stopwatch(waited.Elapsed)}");
+            said = true;
             await Task.Delay(100, ct).ConfigureAwait(false);
         }
+        // The action goes ahead now: the line stayed up all through it.
+        if (said)
+            ctx.Progress?.Invoke("");
     }
 
     /// <summary>
@@ -458,6 +472,8 @@ public sealed partial class TypeTextTool : DesktopActionTool
     /// <summary>How much is typed at a time (about 0.2 s) before checking that the user hasn't started typing to the agent.</summary>
     internal const int Chunk = 200;
 
+    private protected override bool UsesMouse => false;
+
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var text = EnterForEscapedBreaks(RequireString(args, "text"));
@@ -500,6 +516,8 @@ public sealed class PressKeysTool : DesktopActionTool
 
     /// <summary>Longest a press may be held.</summary>
     private const int MaxHoldSeconds = 60;
+
+    private protected override bool UsesMouse => false;
 
     public override string Name => "press_keys";
     public override string Description =>

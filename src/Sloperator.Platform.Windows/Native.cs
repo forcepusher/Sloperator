@@ -70,6 +70,9 @@ internal static partial class Native
     public static partial bool GetCursorPos(out POINT lpPoint);
 
     [LibraryImport("user32.dll")]
+    public static partial nint WindowFromPoint(POINT point);
+
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetCursorPos(int x, int y);
 

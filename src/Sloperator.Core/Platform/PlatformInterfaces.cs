@@ -162,14 +162,19 @@ public interface IUserInput
     /// <summary>Whether the user holds a key or a mouse button down.</summary>
     bool Holding { get; }
 
+    /// <summary>Whether the mouse pointer is on one of Sloperator's own windows, where Stop is.</summary>
+    bool OnSloperator { get; }
+
     /// <summary>How many times the user pressed a key or a mouse button or turned the wheel, locked out or not; moves don't count.</summary>
     long Presses { get; }
 
     /// <summary>
     /// Locks the user's mouse and keyboard until disposed: what they do goes nowhere, but for
-    /// Pause/Break, which ends the lock too, and Ctrl+Alt+Del, which Windows keeps for itself.
+    /// Pause/Break, which ends the lock too, Ctrl+Alt+Del, which Windows keeps for itself, and
+    /// presses on Sloperator's own windows, so that Stop always takes a click.
     /// </summary>
-    IDisposable Lock();
+    /// <param name="mouse">Whether the user's mouse stops moving too; an action that only presses keys leaves it free, to get to Stop.</param>
+    IDisposable Lock(bool mouse = true);
 }
 
 public sealed class NoUserInput : IUserInput
@@ -178,8 +183,9 @@ public sealed class NoUserInput : IUserInput
     public IDisposable Watch() => Nothing.Instance;
     public TimeSpan SinceLastInput => TimeSpan.MaxValue;
     public bool Holding => false;
+    public bool OnSloperator => false;
     public long Presses => 0;
-    public IDisposable Lock() => Nothing.Instance;
+    public IDisposable Lock(bool mouse = true) => Nothing.Instance;
 
     private sealed class Nothing : IDisposable
     {

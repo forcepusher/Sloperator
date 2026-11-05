@@ -72,6 +72,53 @@ public class HandsOffTests
     }
 
     [Fact]
+    public async Task Resting_on_Sloperators_window_is_not_leaving_the_mouse_alone()
+    {
+        var (platform, user, ctx) = Setup();
+        var progress = new List<string>();
+        ctx.Progress = progress.Add;
+        user.Since = TimeSpan.FromSeconds(2); // past the second that does elsewhere
+        user.Pointer = true; // on Stop, about to click it
+
+        var acting = new MouseClickTool().ExecuteAsync(new JsonObject { ["x"] = 20, ["y"] = 20 }, ctx, CancellationToken.None);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.Empty(platform.Actions);
+        Assert.False(user.Locked);
+
+        user.Pointer = false;
+        await acting.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Contains("click Left x1", platform.Actions);
+        // The line doesn't stay up all through the action it waited for.
+        Assert.Equal("", progress[^1]);
+    }
+
+    [Fact]
+    public async Task A_pointer_left_on_Sloperators_window_holds_nothing_up_for_long()
+    {
+        var (platform, user, ctx) = Setup();
+        user.Since = TimeSpan.FromSeconds(6);
+        user.Pointer = true;
+
+        await new MouseClickTool().ExecuteAsync(new JsonObject { ["x"] = 20, ["y"] = 20 }, ctx, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Contains("click Left x1", platform.Actions);
+    }
+
+    [Fact]
+    public async Task Actions_that_only_press_keys_leave_the_mouse_free()
+    {
+        var (_, user, ctx) = Setup();
+
+        await new PressKeysTool().ExecuteAsync(new JsonObject { ["keys"] = "enter" }, ctx, CancellationToken.None);
+        Assert.False(user.LockedMouse);
+        await new TypeTextTool().ExecuteAsync(new JsonObject { ["text"] = "John" }, ctx, CancellationToken.None);
+        Assert.False(user.LockedMouse);
+        await new MouseClickTool().ExecuteAsync(new JsonObject { ["x"] = 20, ["y"] = 20 }, ctx, CancellationToken.None);
+        Assert.True(user.LockedMouse);
+    }
+
+    [Fact]
     public async Task Keys_wait_for_a_new_look_after_the_user_pressed_anything()
     {
         var (platform, user, ctx) = Setup();

@@ -373,8 +373,13 @@ internal sealed class FakeUserInput : IUserInput
     /// <summary>The user is using the mouse or keyboard right now.</summary>
     public volatile bool Busy;
     public volatile bool HoldingDown;
+    /// <summary>The time since the user last did something, when <see cref="Busy"/> doesn't say; by default long ago.</summary>
+    public TimeSpan Since = TimeSpan.MaxValue;
+    public volatile bool Pointer;
     public long PressCount;
     public int Watching, Locks;
+    /// <summary>What the last lock did to the mouse.</summary>
+    public bool? LockedMouse;
 
     public bool Locked => Volatile.Read(ref Locks) > 0;
     public IDisposable Watch()
@@ -382,12 +387,14 @@ internal sealed class FakeUserInput : IUserInput
         Interlocked.Increment(ref Watching);
         return new Undo(() => Interlocked.Decrement(ref Watching));
     }
-    public TimeSpan SinceLastInput => Busy ? TimeSpan.Zero : TimeSpan.MaxValue;
+    public TimeSpan SinceLastInput => Busy ? TimeSpan.Zero : Since;
     public bool Holding => HoldingDown;
+    public bool OnSloperator => Pointer;
     public long Presses => Interlocked.Read(ref PressCount);
     public void Press() => Interlocked.Increment(ref PressCount);
-    public IDisposable Lock()
+    public IDisposable Lock(bool mouse = true)
     {
+        LockedMouse = mouse;
         Interlocked.Increment(ref Locks);
         return new Undo(() => Interlocked.Decrement(ref Locks));
     }
