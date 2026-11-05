@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Before it works in a program, the agent first looks for the makers' official MCP server or command line
+  and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
+  agent asks you in the chat first.
 
 ## [1.4.0] - 2026-11-04
 ### Added

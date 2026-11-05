@@ -4873,7 +4873,7 @@ picture at all is left out, with a line saying so). Comments and trailing commas
 server is doing, and a server that fails to start is reported in the chat; the others keep working.
 
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
-use has an MCP server (Blender, a database, a browser), it installs what the server needs, adds it
+use has an MCP server, it installs what the server needs (asking first, see below), adds it
 (`add` with a name and a command or url, as in the file), and its tools join the run at once and
 stay for later tasks; the entry lands in `SloperatorData/mcp.json`, where Settings shows it. Its prompt says
 to always go through `mcp_servers` rather than run a server or call its tools from a script, so
@@ -4884,6 +4884,23 @@ that doesn't start isn't kept, and the agent is told why. `remove` and `list` do
 Adding tools mid-run changes the tool list, so the server works through the whole prompt once more;
 the system prompt, which lists the servers, changes in that same request, so the next message
 doesn't cost a second time.
+
+A rule stands first in "How to work": the first tool call of a task in a program, or in a project
+made with one, is a `web_search` for its name and "official MCP server CLI"; what the makers offer is
+used rather than the mouse and keyboard or a batch-mode script, because it costs far fewer tokens;
+anything missing, even one package to add to the project, is asked about in plain chat, and the turn
+ends there. No program is named in the prompt or in `mcp_servers`' description (the user's rule): the
+model has to find the tool, which also keeps up with what makers ship.
+
+Real runs through the CLI on 2026-11-05, with a task naming only the program. Without the rule, Haiku
+5.5 scripted Unity and Blender in batch mode from memory. Each wording was measured: "use its official
+tool" or "first find out what its makers offer" (no search at all); naming the first call (search, then
+the batch mode anyway); saying to end the turn; first in the list; naming a project package as something
+missing. With the final text Haiku went first to the search and asked in every run: `com.unity.pipeline`
+(once, and 3 of 3 on the wording before), Blender Lab's MCP server, Unreal 5.8's MCP; Paint went on with the mouse. Told yes on the
+wording before it, it finished Unity through the Unity CLI and `com.unity.pipeline`, and Blender through
+`mcp_servers`. Qwen follows it much less: in 5 runs of the final text it found the right tool in 3 but
+asked once (Unity); once it scripted Unity in batch mode, and it set up Blender's add-on unasked.
 
 Actions run without asking by default (approvals can be switched on in Settings).
 Pressing Stop, or Pause/Break anywhere, halts the agent: Pause, or Ctrl+Pause, which Windows

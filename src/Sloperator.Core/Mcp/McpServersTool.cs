@@ -25,8 +25,8 @@ public sealed class McpSetup(McpHost host, string configFile)
 
 /// <summary>
 /// The agent adds, removes and lists its own MCP servers: the ones the user sees and edits in Settings.
-/// A program with an MCP server (Blender, a database, a browser) is far better driven through it
-/// than through its window; before, the agent could only write SloperatorData/mcp.json and the servers in it
+/// A program with an official MCP server costs far fewer tokens than its window; before, the agent
+/// could only write SloperatorData/mcp.json and the servers in it
 /// started with the app, so a server it set up was there in the next run at the earliest. Now a
 /// server it adds starts at once, its tools join the run, and it is kept for later tasks.
 /// </summary>
@@ -38,8 +38,8 @@ public sealed class McpServersTool : Tool
     public override string Name => "mcp_servers";
 
     public override string Description =>
-        "Add, remove or list your MCP servers, the ones in the user's Settings. A program that has an MCP server (Blender, a database, a browser…) " +
-        "is far better driven through it than through its window, and this is the way to use one: action=add starts the server, saves it in " +
+        "Add, remove or list your MCP servers, the ones in the user's Settings. A program with an official MCP server " +
+        "costs far fewer tokens than its window, and this is the way to use one: action=add starts the server, saves it in " +
         "the user's Settings for later tasks and gives you its tools at once (named name__tool). Give name and either command with args " +
         "(a program to start; best its full path, e.g. C:\\...\\uvx.exe with args [\"some-mcp-server\"]; env and cwd if it needs them) or " +
         "url (a server to connect to). A server that fails to start isn't kept: the result says why. action=remove stops one and takes " +
@@ -49,7 +49,7 @@ public sealed class McpServersTool : Tool
 
     public override JsonObject Parameters => Schema(
         ("action", Str("What to do", "add", "remove", "list"), true),
-        ("name", Str("The server's name; its tools are called name__tool. Short, such as \"blender\""), false),
+        ("name", Str("The server's name; its tools are called name__tool. Short, such as \"notes\""), false),
         ("command", Str("For a server you start: the program, best with its full path"), false),
         ("args", StrArray("The program's arguments"), false),
         ("env", new JsonObject { ["type"] = "object", ["description"] = "Environment variables it needs, name to value", ["additionalProperties"] = new JsonObject { ["type"] = "string" } }, false),

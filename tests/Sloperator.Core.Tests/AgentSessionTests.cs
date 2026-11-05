@@ -1542,6 +1542,14 @@ public class AgentSessionTests
         Assert.Contains("check that it is running before you say it's set up", prompt);
         Assert.Contains("Make Word, Excel, PowerPoint and PDF files with write_file", prompt);
         Assert.Contains("add the server with mcp_servers and use its tools", prompt);
+        // The user's rule: a program's official MCP server or command line before its window, named nowhere.
+        var official = SystemPrompt.Build("Test OS", null, "C:\\", "", webSearch: true);
+        Assert.Contains("your first tool call, before you check anything else, is web_search", official);
+        Assert.Contains("ask the user in plain chat whether they want it installed, and end your turn there", official);
+        Assert.DoesNotContain("web_search", SystemPrompt.Build("Test OS", null, "C:\\", "").Split('\n').First(l => l.Contains("your first tool call")));
+        Assert.DoesNotContain("Unity", official);
+        Assert.DoesNotContain("Unreal", official);
+        Assert.DoesNotContain("Blender", official);
         // A server it uses goes into Settings, not run once from a script and forgotten.
         Assert.Contains("Always go through mcp_servers, which saves the server in the user's Settings", prompt);
         // Helper files go to Sloperator's own folder, not the user's (a reminder script landed in the home folder).
