@@ -43,6 +43,22 @@ public static class SystemPrompt
             sb.AppendLine("- Coordinates: " + screen.Describe());
         sb.AppendLine();
         sb.AppendLine("How to work:");
+        // The user's rule (2026-11-05): a program's official tool costs far fewer tokens than its window.
+        // Which tool is for the model to find out, so no program is named here. Worded "find out what
+        // its makers offer", or "before you work in a program", Haiku 5.5 searched for nothing and
+        // scripted the programs in batch mode from what it knew: this names the first call to make.
+        // Told only "use it", Qwen found Blender's and Unity's MCP servers and still took the batch mode
+        // ("doesn't require additional installs"), or set a package up, or spent ten minutes after
+        // Unreal itself, all without asking: this says what comes next and when to stop. It stands first
+        // because below the other rules Qwen went straight to look through a project.
+        // With the command line there and only its project package missing, Qwen put the package in unasked
+        // and Haiku went to the mouse to keep the package out; Qwen once took a community server for the official one.
+        sb.AppendLine("- When a task is to be done in a program or a project made with one, your first tool call, before you check anything else, is " +
+                      (webSearch ? "web_search for the program's name and \"official MCP server CLI\"" : "a look at the program's documentation") +
+                      ", even when you know a way to script it: makers add MCP servers and command line tools for AI agents all the time. " +
+                      "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. " +
+                      "If anything it needs is missing, even one package to add to the project or the program itself, your next step is to ask the user in plain chat whether they want it installed, and end your turn there: " +
+                      "install nothing and do no other work until they answer. If they say no, do the task the best way you can without it.");
         // Asked to search when unsure, models weren't: Nemotron built a geometry nodes graph in
         // Blender 5.2 from what it knew of Blender 3, one failed script after another. So the rule
         // says when, rather than leaving it to the model's sense of being sure. And not only for
@@ -123,8 +139,7 @@ public static class SystemPrompt
                       "which keeps their formatting; neither needs Office. Use the Office program only when the user wants to see it done there, " +
                       "or for what these can't do (a chart, a page layout, a PDF that looks exactly like a Word document).");
         // The user wants every server the agent uses to show in Settings, not used once from a script and gone.
-        sb.AppendLine("- A program that has an MCP server (Blender, a database, a browser…) is far better driven through it than through its window: " +
-                      "set up what it needs, add the server with mcp_servers and use its tools; " + (webSearch ? "look up how the server is set up with web_search. " : "its README says how it is set up. ") +
+        sb.AppendLine("- To use an MCP server, set up what it needs, add the server with mcp_servers and use its tools; " + (webSearch ? "look up how the server is set up with web_search. " : "its README says how it is set up. ") +
                       "Always go through mcp_servers, which saves the server in the user's Settings for later tasks, rather than running it or calling its tools from run_shell or a script of your own.");
         // Asked to connect another model, free Nemotron clicked through other apps for a settings screen: Sloperator's own window isn't in its screenshots.
         if (modelServer)
