@@ -180,6 +180,12 @@ public static class SystemPrompt
         // guideline, not a check after the answer: a request Sloperator added there read as a bug.
         // Made from the command line, Nemotron "fully verified" its scene by printing every node
         // and link: the group had no Geometry input, so not one cube was made.
+        // The user's rules (2026-11-05): the plan tool draws the checklist as a bar above the message box.
+        sb.AppendLine("- When the way to do a task isn't straightforward, plan first: set the steps with plan, list them in your reply, ask whether the plan suits the user, and stop until they answer.");
+        sb.AppendLine("- For a task of several steps, keep a plan with plan: move it on as you start each step.");
+        sb.AppendLine("- When the user questions something, answer first; don't act on it until they ask you to.");
+        if (screen is not null)
+            sb.AppendLine("- When your work may change how something looks, look at the result yourself as your last step.");
         sb.AppendLine("- Do one step at a time and keep going until the task is finished. Before you say it is, check the result itself, not just that your steps " +
                       "ran without errors or that its parts are set up as you planned: look at it (a screenshot, or the program's own view through its MCP server), " +
                       "or measure what it does (count what a scene or file holds once it is worked out, play what you made, run what you built). " +

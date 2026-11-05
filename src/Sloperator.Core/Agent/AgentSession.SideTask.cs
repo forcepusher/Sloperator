@@ -10,7 +10,7 @@ public sealed partial class AgentSession
     internal const int MaxSideTaskSteps = 50;
 
     /// <summary>Tools a side task doesn't get: another side task, and those that act on the main conversation.</summary>
-    private static readonly string[] NotInSideTasks = [SideTaskTool.ToolName, "reset_context", "capture_result"];
+    private static readonly string[] NotInSideTasks = [SideTaskTool.ToolName, "reset_context", "capture_result", PlanTool.ToolName];
 
     /// <summary>What the side task is told, by whether its answer is returned (<paramref name="output"/>).</summary>
     internal static string SideTaskPrompt(bool output) =>

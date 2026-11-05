@@ -870,6 +870,42 @@
     <!-- The message box: the card around it is the visible field, so the TextBox itself stays
          flat in every state and the card's border shows focus instead. Bordered as a control, 16
          round; its hint muted, not an empty field's faint. -->
+    <!-- The plan bar over the message box (Views/PlanBar.cs): its line, points and words. -->
+    <Style Selector="Rectangle.planLine">
+      <Setter Property="Fill" Value="{StaticResource BbControlBorder}" />
+    </Style>
+    <Style Selector="Rectangle.planLine.walked">
+      <Setter Property="Fill" Value="{StaticResource BbAccent}" />
+    </Style>
+    <Style Selector="Border.planDot">
+      <Setter Property="Background" Value="{StaticResource BbBackground}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BbHint}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Border.planDot.done">
+      <Setter Property="Background" Value="{StaticResource BbAccent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BbAccent}" />
+    </Style>
+    <Style Selector="TextBlock.planWord">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{StaticResource BbFaint}" />
+    </Style>
+    <Style Selector="TextBlock.planWord.done">
+      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
+    </Style>
+    <Style Selector="TextBlock.planWord.now">
+      <Setter Property="Foreground" Value="{StaticResource BbText}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.planWord.wait">
+      <Setter Property="Foreground" Value="{StaticResource BbAccent}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.planWord.fail">
+      <Setter Property="Foreground" Value="{StaticResource BbError}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
     <Style Selector="Border.composer">
       <Setter Property="BorderBrush" Value="{StaticResource BbControlBorder}" />
       <Setter Property="CornerRadius" Value="16" />
