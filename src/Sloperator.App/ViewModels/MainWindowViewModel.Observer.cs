@@ -105,11 +105,12 @@ public sealed partial class MainWindowViewModel
     /// Ends the streaming bubble, whose step ended <paramref name="at"/>. An empty one (a discarded
     /// reply) leaves no trace; one that only called tools keeps its line with the step's time.
     /// </summary>
+    /// <summary>Ends the reply on its way in; one with nothing to show goes (a plan call has no card, so its line of time would stand alone).</summary>
     private void FinishCurrent(DateTime at, ChatMessage? message = null)
     {
         if (_current is null) return;
         _current.Finish(at, message);
-        if (!_current.HasText && !_current.HasReasoning && message is not { HasToolCalls: true })
+        if (!_current.HasText && !_current.HasReasoning && message?.ToolCalls?.Any(c => c.Name != PlanTool.ToolName) != true)
             Items.Remove(_current);
         else if (message is not null && _current.HasText)
         {
@@ -216,9 +217,14 @@ public sealed partial class MainWindowViewModel
     private string ChatPlace() =>
         _chatId is null ? "a new chat" : $"chat \"{_chatTitle}\", SloperatorData\\chats\\{_chatId}.json";
 
+    void IAgentObserver.OnPlanChanged(AgentPlan? plan) => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_runDetached) Plan = plan;
+    });
+
     void IAgentObserver.OnToolStarted(ToolCall call, string summary) => PostTimed(at =>
     {
-        if (_runDetached) return;
+        if (_runDetached || call.Name == PlanTool.ToolName) return;
         var item = FindOrAddTool(call, summary);
         item.Summary = summary;
         // Its time counts from here: a wait for the user's OK before it is not the call's.
@@ -236,7 +242,7 @@ public sealed partial class MainWindowViewModel
 
     void IAgentObserver.OnToolFinished(ToolCall call, ToolResult result) => PostTimed(at =>
     {
-        if (_runDetached) return;
+        if (_runDetached || call.Name == PlanTool.ToolName) return;
         var item = FindOrAddTool(call, call.Name);
         // A side task without output returns nothing to show (the user, 2026-11-02): its card has no Output, but for a failure's reason.
         item.ResultText = call.Name == SideTaskTool.ToolName && !result.IsError && !SideTaskTool.OutputIn(call.Arguments) ? ""
@@ -312,6 +318,7 @@ public sealed partial class MainWindowViewModel
                     AddStopNotice(stopped, isError: false, compacting: compacting);
                     break;
                 case AgentStopReason.Error:
+                    PlanFailed = true;
                     AddStopNotice((detail ?? "Something went wrong.") + (logged ? @" Details are in SloperatorData\crash.log." : ""), isError: true, error: error, compacting: compacting);
                     break;
             }

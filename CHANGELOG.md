@@ -5,10 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Plan bar** above the message box: for work of several steps the agent keeps a plan with the new
+  `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
+  from point to point. It shows when the agent waits for you and which step a failure stopped on.
+- While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
+
 ### Changed
+- When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
+  starts. When you question something it answers first, and it looks at the result itself as its last
+  step when its work may change how something looks.
 - Before it works in a program, the agent first looks for the makers' official MCP server or command line
   and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
   agent asks you in the chat first.
+
+### Fixed
+- **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
+  own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
+  5 seconds instead of one before it takes the pointer from Sloperator's window.
 
 ## [1.4.0] - 2026-11-04
 ### Added

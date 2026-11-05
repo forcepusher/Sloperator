@@ -13,8 +13,9 @@ namespace Sloperator.Platform.Windows;
 /// (<see cref="WindowsInputController.InputTag"/>), so anything else is the user's, or another
 /// program's that sends input, which counts the same. Locked (<see cref="Lock"/>), the user's moves,
 /// clicks, wheel and keys go nowhere, but Pause/Break, which ends the lock and goes on to the stop key
-/// (<see cref="WindowsStopKey"/>). SetCursorPos, which moves the agent's mouse, isn't input and
-/// passes no hook, so it moves the mouse while the user's can't.
+/// (<see cref="WindowsStopKey"/>), and presses on Sloperator's own windows, for Stop. SetCursorPos,
+/// which moves the agent's mouse, isn't input and passes no hook, so it moves the mouse while the
+/// user's can't.
 /// </summary>
 /// <remarks>
 /// Not BlockInput, which takes administrator rights. A press swallowed is swallowed until let go
@@ -24,7 +25,7 @@ namespace Sloperator.Platform.Windows;
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsUserInput : IUserInput
 {
-    private static readonly IDisposable NotLocked = new Locked(null);
+    private static readonly IDisposable NotLocked = new Locked(null, false);
 
     private readonly System.Threading.Lock _gate = new();
     private Hooks? _hooks;
@@ -74,11 +75,29 @@ internal sealed class WindowsUserInput : IUserInput
         }
     }
 
+    public bool OnSloperator
+    {
+        get
+        {
+            EnsurePhysicalPixels();
+            return GetCursorPos(out var at) && IsSloperatorAt(at);
+        }
+    }
+
+    /// <summary>
+    /// Whether what is under a point is Sloperator's: a window that lets clicks through (the click
+    /// log, the frame) isn't, nor one that stepped aside for the action; the page in a Live preview
+    /// is another process's child window, so it goes by the top-level window.
+    /// </summary>
+    private static bool IsSloperatorAt(POINT at) =>
+        WindowFromPoint(at) is var hwnd and not 0
+        && GetWindowThreadProcessId(GetAncestor(hwnd, GA_ROOT), out var owner) != 0 && owner == Environment.ProcessId;
+
     public long Presses => Interlocked.Read(ref _presses);
 
-    public IDisposable Lock()
+    public IDisposable Lock(bool mouse = true)
     {
-        var locked = new Locked(this);
+        var locked = new Locked(this, mouse);
         // Locked already: the outer lock holds it.
         return Interlocked.CompareExchange(ref _lock, locked, null) is null ? locked : NotLocked;
     }
@@ -114,13 +133,15 @@ internal sealed class WindowsUserInput : IUserInput
     }
 
     /// <summary>A mouse event of the user's, on the hooks' thread: whether it goes no further.</summary>
-    private bool OnMouse(uint message, uint mouseData, HashSet<uint> swallowed)
+    private bool OnMouse(uint message, POINT at, uint mouseData, HashSet<uint> swallowed)
     {
         var now = Environment.TickCount64;
         Volatile.Write(ref _lastInput, now);
-        var locked = Volatile.Read(ref _lock) is not null;
+        var held = Volatile.Read(ref _lock);
         if (message is WM_MOUSEMOVE)
-            return locked;
+            return held is { Mouse: true };
+        // Whatever the agent does, Stop takes a click.
+        var locked = held is not null && !IsSloperatorAt(at);
         if (message is WM_MOUSEWHEEL or WM_MOUSEHWHEEL)
         {
             Interlocked.Increment(ref _presses);
@@ -161,8 +182,10 @@ internal sealed class WindowsUserInput : IUserInput
     // GetAsyncKeyState reads the buttons as they are, not as Windows swaps them for the left-handed.
     private static bool IsHeldDown(uint vk) => vk is VK_LBUTTON or VK_RBUTTON ? IsDown(VK_LBUTTON) || IsDown(VK_RBUTTON) : IsDown(vk);
 
-    private sealed class Locked(WindowsUserInput? owner) : IDisposable
+    private sealed class Locked(WindowsUserInput? owner, bool mouse) : IDisposable
     {
+        public bool Mouse => mouse;
+
         public void Dispose()
         {
             if (owner is not null)
@@ -210,6 +233,7 @@ internal sealed class WindowsUserInput : IUserInput
         private void Run(ManualResetEventSlim ready)
         {
             _threadId = GetCurrentThreadId();
+            EnsurePhysicalPixels();
             var module = GetModuleHandle(null);
             var keyboard = SetWindowsHookEx(WH_KEYBOARD_LL, _keyProc, module, 0);
             var mouse = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, module, 0);
@@ -245,7 +269,7 @@ internal sealed class WindowsUserInput : IUserInput
                 var mouse = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 try
                 {
-                    if (mouse.dwExtraInfo != WindowsInputController.InputTag && _owner.OnMouse((uint)wParam, mouse.mouseData, _buttons))
+                    if (mouse.dwExtraInfo != WindowsInputController.InputTag && _owner.OnMouse((uint)wParam, mouse.pt, mouse.mouseData, _buttons))
                         return 1;
                 }
                 catch { }

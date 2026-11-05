@@ -125,6 +125,12 @@ public sealed class ToolContext
     /// <summary>Shows the user the app's offer to install text recognition (see <see cref="Agent.IAgentObserver.OfferTextRecognition"/>); null where there is no app (the CLI).</summary>
     public Action? OfferTextRecognition { get; set; }
 
+    /// <summary>The plan shown to the user, kept by the chat across its runs; null while there is none.</summary>
+    public AgentPlan? Plan { get; set; }
+
+    /// <summary>Tells the app the plan changed.</summary>
+    public Action<AgentPlan?>? PlanChanged { get; set; }
+
     /// <summary>The latest screenshot taken for the model.</summary>
     public ScreenLook? LastShot { get; set; }
 

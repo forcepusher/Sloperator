@@ -70,6 +70,19 @@ internal static partial class Native
     public static partial bool GetCursorPos(out POINT lpPoint);
 
     [LibraryImport("user32.dll")]
+    public static partial nint WindowFromPoint(POINT point);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint MonitorFromPoint(POINT point, uint flags);
+
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [LibraryImport("shcore.dll")]
+    public static partial int GetDpiForMonitor(nint monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    public const int MDT_EFFECTIVE_DPI = 0;
+
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetCursorPos(int x, int y);
 

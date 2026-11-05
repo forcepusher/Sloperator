@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Sloperator.Core.Agent;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
+using Sloperator.Core.Tools;
 
 namespace Sloperator.Core.Chats;
 
@@ -109,6 +110,9 @@ public sealed class SavedChat
 
     /// <summary>The folder opened in the Code editor panel in this chat; null when none was opened there.</summary>
     public string? Folder { get; set; }
+
+    /// <summary>The plan on the bar above the message box; null when there is none.</summary>
+    public AgentPlan? Plan { get; set; }
 
     /// <summary>Pictures to write into the chat's folder with this version, by file name; not part of the JSON.</summary>
     [JsonIgnore]

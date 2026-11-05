@@ -1,3 +1,4 @@
+| `plan` | The plan on the bar above the message box: `steps` sets or replaces it, `now` moves it on, `steps=[]` takes it away (see Plan bar) |
 # Sloperator notes
 > **These notes are meant to be read by LLMs (AI agents working on Sloperator), not by people.**
 > People should read the [README](../README.md).
@@ -1635,6 +1636,31 @@ prompt and goes again with New chat. The GIF is "apartyblob" from github.com/Ray
 License 2.0, the set the logo was traced from (docs/logo/LICENSE-blobs.txt). Its frames are decoded once
 with SkiaSharp's `SKCodec`, as chat previews of animations are (no GIF package), and its timer runs only
 while it dances and is in a window.
+
+## Plan bar
+The user asked (2026-11-05) for a checklist like Claude Code's, as a left-to-right bar above the
+message box with the party blob walking it; of five concepts they picked a point per step with one
+word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
+
+The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
+tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
+`MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through
+`IAgentObserver.OnPlanChanged`, and `SavedChat.Plan` keeps it with the chat. A finished plan stays
+until the next message. Side tasks don't get the tool: their steps are not the chat's.
+
+Its calls have no cards, as the bar shows them, and a reply that only made one leaves no line in the
+chat. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
+last `now` lost that call, and the bar stopped a step short.
+
+`PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
+property with a transition, so the blob walks when the plan moves on and not when the window is
+resized. Words that don't all fit show for the current step and its neighbours, then for the current
+step alone; 12 short words fit at the window's least width. With a plan the blob by Send goes
+(`ShowsSendBlob`). The blob stands still (the logo) while the user types and when the run has ended;
+the current word is accent when the plan is unfinished and the run ended, red when it ended on an error.
+A tooltip opens 20 px lower than its target by default, over the line and the blob: offset by -12.
+
+The rig is `.dev/plan-bar-test` (run.ps1 for the walk, hover.ps1 for the tooltip and the least width).
 
 ## App icon
 `Assets/sloperator.ico` (the exe, the taskbar, Alt+Tab; the title bar has no icon, see Title bar) is drawn by
@@ -4966,7 +4992,16 @@ own, so your keys landed between them, and a Shift you held changed its letters.
 - Before each action the agent waits until you have left the mouse and keyboard alone for a second,
   holding nothing down, for as long as that takes ("Waiting for you to leave the mouse and keyboard ·
   0:03"): an action in the middle of what you do takes the focus from under your typing.
+- With the pointer on one of Sloperator's own windows that second is 5 s (`OnSloperator`), counted from
+  your last input: resting on Stop for a second before the click isn't leaving the mouse alone, and the
+  action took the pointer away from under the click. A pointer left there costs one action 4 s at most.
 - It then locks them for as long as the action takes: your moves, clicks, wheel and keys go nowhere.
+  An action that only presses keys (`type_text`, `press_keys`, `UsesMouse`) leaves the mouse free to
+  move, as a hold can last 60 s and moves don't end it: the frozen pointer couldn't get to Stop. Clicks
+  and the wheel on Sloperator's own windows are never locked, whatever the action, so Stop always takes
+  a click (`IsSloperatorAt`, by the top-level window under the press: not the click log or the frame,
+  which let clicks through, nor a window stepped aside for the action; asked only for presses, as a
+  hook runs on every mouse move on the PC). They count as presses all the same, so long typing stops.
   Pause/Break still goes through and ends the lock at once (the stop key's hook is installed when
   Sloperator starts, so this one, installed later, sees Pause first and passes it on); Ctrl+Alt+Del is
   Windows' own. Not BlockInput, which takes administrator rights. A press swallowed stays swallowed
@@ -4974,8 +5009,7 @@ own, so your keys landed between them, and a Shift you held changed its letters.
   stuck down in Windows.
 - If you press anything meanwhile, long typing stops after the piece it is on (200 characters), a series
   of presses before the next one and a held press at once, and the model is told how far it got. Your
-  presses went nowhere, but they mean you want the mouse and keyboard back: on a laptop without
-  Pause/Break, a click is the way to Stop.
+  presses went nowhere, but they mean you want the mouse and keyboard back.
 - If you clicked, typed or scrolled since the screenshot the model's reply was decided on
   (`ToolContext.UserPressesSeen`, from that screenshot's `ScreenLook.UserPresses`), keys do nothing and
   the model gets the screen as it is now: a click in the same window moves the focus too. A click, drag,
@@ -4989,8 +5023,19 @@ own, so your keys landed between them, and a Shift you held changed its letters.
 - A 4 px frame in the accent colour round the screen the agent works on tells you it has the mouse and
   keyboard, from its first action until the task ends: four strips of `WindowsInputOverlay`,
   click-through and left out of the screenshots like the click log, placed only when it shows or moves.
+  A tag hangs from the middle of its top edge, "Pause/Break stops me", in a fifth such window: nobody
+  read the start screen's card, which is gone by the time it is wanted (the user's pick of the ideas
+  offered, 5 November 2026). 15 px scaled by the screen's DPI, Segoe UI Bold as the log. On the laptop
+  at 125% it came out 235 x 38 px, on the screen and not in the screenshot sent to the model.
 - A click holds the button down 50 ms; let go of in the same instant, as before, a press can come and
   go between two looks of a game that reads the mouse once a frame.
+
+Checked on the laptop with the real mouse and a stand-in model (2026-11-05, input sent untagged, so the
+hooks take it for the user's), before and after. During a 25 s `press_keys` wait: before, the pointer
+stayed where it was and the click only ended the action; after, it reached Stop and the run ended
+0.16 s after the click. Hovers one after another, the pointer resting on Stop for 3 s: before, the
+agent took it away and Stop stayed unclicked; after, it stayed on Stop and the run ended 0.13 s after
+the click. A press on another window during the wait still goes nowhere and ends the action.
 
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
 reads the message before its next step, and a wait it is in ends for it. While you type there,
