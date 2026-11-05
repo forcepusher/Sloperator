@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   starts. When you question something it answers first, and it looks at the result itself as its last
   step when its work may change how something looks.
 
+### Fixed
+- **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
+  own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
+  5 seconds instead of one before it takes the pointer from Sloperator's window.
+
 ## [1.4.0] - 2026-11-04
 ### Added
 - The chat's cost in the top bar, after the context's use: what OpenRouter and Kilo say each reply

@@ -72,6 +72,19 @@ public class UserInputTests
                 Thread.Sleep(50);
                 Assert.NotEqual((x, y), input.GetCursorPosition());
             }
+
+            // An action that only presses keys keeps the user's keys out, but their mouse stays free.
+            using (user.Lock(mouse: false))
+            {
+                input.MoveMouse(x, y);
+                UserMove(30);
+                Thread.Sleep(50);
+                Assert.NotEqual((x, y), input.GetCursorPosition());
+                UserKey(VK_SHIFT, up: false);
+                Thread.Sleep(50);
+                Assert.False((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0, "the user's key got through the lock");
+                UserKey(VK_SHIFT, up: true);
+            }
         }
         finally
         {
