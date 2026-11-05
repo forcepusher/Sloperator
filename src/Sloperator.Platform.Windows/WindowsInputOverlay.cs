@@ -9,7 +9,8 @@ namespace Sloperator.Platform.Windows;
 /// <summary>
 /// The on-screen input log: small layered windows on their own UI thread, one listing the latest
 /// inputs in the bottom-right corner, one drawing an accent-coloured ring where the agent clicked,
-/// and four drawing a thin accent frame round the screen an agent is at work on.
+/// four drawing a thin accent frame round the screen an agent is at work on, and one the tag that
+/// hangs from its top edge and says how to stop it.
 /// </summary>
 /// <remarks>
 /// Both windows are click-through (WS_EX_TRANSPARENT), never activated (WS_EX_NOACTIVATE) and
@@ -27,6 +28,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
     private const int MaxLines = 8, PanelWidth = 460, LineHeight = 34, MarkerSize = 200, FrameWidth = 4;
     private const uint WM_APP_REFRESH = WM_APP + 1;
     private const uint ColorKey = 0x00FF00FF; // magenta, as COLORREF (0x00BBGGRR)
+    private const string StopTag = "Pause/Break stops me";
 
     private readonly object _lock = new();
     private readonly List<Entry> _entries = [];
@@ -40,6 +42,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
     private uint _threadId;
     private nint _logWindow, _markerWindow;
     private nint[] _frameWindows = []; // top, bottom, left, right
+    private nint _stopTagWindow;
     private bool _timerOn;
     private WndProc? _wndProc; // kept alive for the window class
 
@@ -141,6 +144,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         _logWindow = CreateOverlayWindow(wc.hInstance);
         _markerWindow = CreateOverlayWindow(wc.hInstance);
         _frameWindows = [.. Enumerable.Range(0, 4).Select(_ => CreateOverlayWindow(wc.hInstance))];
+        _stopTagWindow = CreateOverlayWindow(wc.hInstance);
         ready.Set();
 
         while (GetMessage(out var msg, 0, 0, 0) > 0)
@@ -248,7 +252,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         });
     }
 
-    /// <summary>The frame round <paramref name="screen"/>, in four strips over its edges; none for null. It doesn't move, so it is drawn only when it changes.</summary>
+    /// <summary>The frame round <paramref name="screen"/>, in four strips over its edges, and its tag; none for null. It doesn't move, so it is drawn only when it changes.</summary>
     private void DrawFrame(ScreenRect? screen)
     {
         _frameShown = screen;
@@ -256,6 +260,7 @@ internal sealed class WindowsInputOverlay : IInputOverlay
         {
             foreach (var hwnd in _frameWindows)
                 ShowWindow(hwnd, SW_HIDE);
+            ShowWindow(_stopTagWindow, SW_HIDE);
             return;
         }
         const int w = FrameWidth;
@@ -271,6 +276,34 @@ internal sealed class WindowsInputOverlay : IInputOverlay
             var (x, y, width, height) = strips[i];
             Paint(_frameWindows[i], x, y, width, height, 255, canvas => canvas.Clear(_markerColor));
         }
+        DrawStopTag(r);
+    }
+
+    /// <summary>
+    /// The tag in the middle of the frame's top edge, out of the way of the screen's corners, as big
+    /// as the screen's scale makes text: the start screen's Pause/Break card is gone by the time the
+    /// user wants it, and the frame is what they see then. It goes through to the windows under it
+    /// like the frame, and the screenshots leave it out.
+    /// </summary>
+    private void DrawStopTag(ScreenRect screen)
+    {
+        var monitor = MonitorFromPoint(new POINT { X = screen.X, Y = screen.Y }, MONITOR_DEFAULTTONEAREST);
+        var scale = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out var dpi, out _) == 0 ? dpi / 96f : 1f;
+        using var typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold);
+        using var font = new SKFont(typeface, 15 * scale);
+        var width = (int)Math.Ceiling(font.MeasureText(StopTag) + 32 * scale);
+        var height = (int)Math.Round(30 * scale);
+        Paint(_stopTagWindow, screen.X + (screen.Width - width) / 2, screen.Y, width, height, 255, canvas =>
+        {
+            // No antialiasing on the shape, as on the log's boxes; the words lie on the accent, not on the colour key.
+            using var back = new SKPaint { IsAntialias = false, Color = _markerColor };
+            using var text = new SKPaint { IsAntialias = true, Color = MarkerOutline };
+            var radius = 8 * scale;
+            // Round at the bottom only: the top runs off the window, into the frame.
+            canvas.DrawRoundRect(new SKRect(0, -radius, width, height), radius, radius, back);
+            var baseline = (height + font.Metrics.CapHeight) / 2;
+            canvas.DrawText(StopTag, width / 2f, baseline, SKTextAlign.Center, font, text);
+        });
     }
 
     private static SKColor Blend(SKColor from, SKColor to, double t) => new(
