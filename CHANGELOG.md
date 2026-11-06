@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Before it works in a program, the agent first looks for the makers' official MCP server or command line
   and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
   agent asks you in the chat first.
+- **Auto pricing lookup** runs only after the agent's answer, once the chat has reached 50k tokens, so
+  short chats don't pay for a lookup and a task isn't held up by one.
 
 ### Fixed
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
