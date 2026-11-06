@@ -4910,8 +4910,17 @@ because OpenAI wants `items`, which is also why an array without `items` gets an
 `exclusiveMinimum: true` becomes the number. A keyword holding what it can't hold (`required: true` on
 a property, `type: "any"`, `description: null`, an empty `anyOf`) is left out, and the walk goes by
 keyword so that a property called `items` and what `enum` or `default` hold stay as they are. The
-walk works the same for every provider. The spine server itself wasn't run for this: its schema comes
-from reading its source and zod-to-json-schema's.
+walk works the same for every provider.
+
+Checked on the real API on 2026-11-07 with `McpSchemaLiveTests` (Haiku 5.5, opt-in by `BB_LIVE_*`):
+Anthropic runs the whole of the draft's meta-schema, its patterns too (`$id` with a fragment, `$anchor`
+with a space and a `$vocabulary` that isn't an object are refused), but not `format`: a broken regex
+under `pattern` and a `$ref` to nowhere pass, so they stay. A schema naming draft-07 in its top
+`$schema` is read as draft-07 and passes with its tuple; it failed here because `NormalizeSchema` takes
+that field out. Spine's bones tool, written out by hand from its source and zod-to-json-schema's as the
+server itself wasn't run: 200 with its `$schema`, 400 without (the user's error), 200 fixed, and Haiku
+called it with the curve as an array of four numbers. Of 17 slips, 13 were refused as written and all
+17 passed fixed.
 
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
 use has an MCP server, it installs what the server needs (asking first, see below), adds it

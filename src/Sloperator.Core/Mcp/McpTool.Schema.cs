@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace Sloperator.Core.Mcp;
 
@@ -12,7 +13,8 @@ public sealed partial class McpTool
     private static readonly string[] SchemaMaps = ["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"];
     private static readonly string[] Numbers = ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"];
     private static readonly string[] Counts = ["minLength", "maxLength", "minItems", "maxItems", "minProperties", "maxProperties", "minContains", "maxContains"];
-    private static readonly string[] Texts = ["title", "description", "$comment", "format", "pattern", "$id", "$ref", "$anchor", "$dynamicRef", "$dynamicAnchor", "contentEncoding", "contentMediaType"];
+    private static readonly string[] Texts = ["title", "description", "$comment", "format", "pattern", "$schema", "$ref", "$dynamicRef", "$recursiveRef", "contentEncoding", "contentMediaType"];
+    private static readonly string[] Anchors = ["$anchor", "$dynamicAnchor", "$recursiveAnchor"];
     private static readonly string[] Flags = ["uniqueItems", "readOnly", "writeOnly", "deprecated"];
     private static readonly string[] Lists = ["enum", "examples"];
     private static readonly HashSet<string> TypeNames = ["array", "boolean", "integer", "null", "number", "object", "string"];
@@ -36,6 +38,9 @@ public sealed partial class McpTool
         Keep(Counts, IsCount);
         Keep(["multipleOf"], n => IsNumber(n) && n!.GetValue<double>() > 0);
         Keep(Texts, IsString);
+        Keep(Anchors, n => IsString(n) && Anchor().IsMatch(n!.GetValue<string>()));
+        Keep(["$id"], n => IsString(n) && !n!.GetValue<string>().TrimEnd('#').Contains('#'));
+        schema.Remove("$vocabulary");
         Keep(Flags, IsFlag);
         Keep(Lists, n => n is JsonArray);
         ToNames(schema, "required");
@@ -174,4 +179,7 @@ public sealed partial class McpTool
 
     private static IEnumerable<string> Strings(IEnumerable<JsonNode?> nodes) =>
         nodes.Where(IsString).Select(n => n!.GetValue<string>());
+
+    [GeneratedRegex(@"\A[A-Za-z_][-A-Za-z0-9._]*\z")]
+    private static partial Regex Anchor();
 }

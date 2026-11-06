@@ -194,7 +194,7 @@ public class McpTests
             {"required": ["a", "a", 1], "properties": {
               "a": {"type": "number", "minimum": 0, "exclusiveMinimum": true, "maximum": 5, "exclusiveMaximum": false, "required": true},
               "b": {"type": "any", "description": null, "enum": "x", "minLength": -1, "maxItems": 1.5, "multipleOf": 0, "uniqueItems": "yes"},
-              "c": {"type": ["string", "string", "file"], "additionalProperties": "no", "anyOf": [], "not": null},
+              "c": {"type": ["string", "string", "file"], "additionalProperties": "no", "anyOf": [], "not": null, "$id": "a#b", "$anchor": "a b", "$vocabulary": 1},
               "d": {"type": "array"},
               "e": null,
               "f": {"type": "object", "properties": {"g": {"type": ["array", "null"], "items": [{"type": "string"}]}}}}}
