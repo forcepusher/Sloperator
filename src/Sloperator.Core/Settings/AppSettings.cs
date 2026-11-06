@@ -35,6 +35,9 @@ public sealed class ServerSettings
     /// <summary>The model picked by hand in the dropdown (or with --model); empty until one is. Kept while the server doesn't offer it.</summary>
     public string Model { get; set; } = "";
 
+    /// <summary>The models pinned in the dropdown, which go first in its list. By name, whichever server offers them.</summary>
+    public List<string> PinnedModels { get; set; } = [];
+
     /// <summary>
     /// The cheapest of the strongest models the server offers (see <see cref="Llm.ModelChoice"/>), used while
     /// <see cref="Model"/> is empty or not on the server. Found again at every check and not

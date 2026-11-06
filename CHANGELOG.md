@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
   from point to point. It shows when the agent waits for you and which step a failure stopped on.
 - While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
+- The model dropdown has a search box when its models don't fit in the list, and a pin on each row that
+  keeps your favourite models at the top.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it

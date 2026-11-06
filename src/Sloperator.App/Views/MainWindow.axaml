@@ -491,8 +491,30 @@
           <ComboBox x:Name="EffortBox" DockPanel.Dock="Right" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
                     Width="112" Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
                     AutomationProperties.Name="Effort" />
-          <ComboBox x:Name="ModelBox" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                    PlaceholderText="No models: check the server address" ToolTip.Tip="{Binding ModelToolTip}" AutomationProperties.Name="Model" />
+          <views:ModelDropdown x:Name="ModelBox" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                               PlaceholderText="No models: check the server address" ToolTip.Tip="{Binding ModelToolTip}" AutomationProperties.Name="Model">
+            <ComboBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel />
+              </ItemsPanelTemplate>
+            </ComboBox.ItemsPanel>
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Classes="icon small pin" Margin="12,-4,-4,-4" Focusable="False" Click="OnPinClick"
+                          ToolTip.Tip="Pin to the top or unpin" AutomationProperties.Name="Pin">
+                    <PathIcon Data="M14 4v5c0 1.12.37 2.16 1 3H9c.65-.86 1-1.9 1-3V4h4m3-2H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3V4h1c.55 0 1-.45 1-1s-.45-1-1-1z" />
+                  </Button>
+                  <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                </DockPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+            <ComboBox.SelectionBoxItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Text="{Binding}" />
+              </DataTemplate>
+            </ComboBox.SelectionBoxItemTemplate>
+          </views:ModelDropdown>
         </DockPanel>
         <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" Text="Context" Margin="16,0,8,0" />
         <DockPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" ToolTip.Tip="{Binding ContextToolTip}">
