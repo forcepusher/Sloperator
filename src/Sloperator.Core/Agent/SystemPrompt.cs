@@ -252,6 +252,8 @@ public static class SystemPrompt
             foreach (var s in mcp)
             {
                 sb.Append("- ").Append(McpTool.Prefix(s.Name)).Append("*: ").Append(s.ToolNames.Count).Append(s.ToolNames.Count == 1 ? " tool" : " tools");
+                if (s.Needs is { } needs)
+                    sb.Append(". It needs this running: ").Append(needs.ReplaceLineEndings(" ").Clip(500));
                 if (s.Instructions is { } instructions)
                     sb.Append(". ").Append(instructions.ReplaceLineEndings(" ").Clip(1_000));
                 sb.AppendLine();

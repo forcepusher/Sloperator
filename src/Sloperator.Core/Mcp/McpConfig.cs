@@ -30,6 +30,9 @@ public sealed class McpServerConfig
     public string? Url { get; init; }
     public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>What must be running for the server to work and how to start it (a program it talks to); told to the model in every task.</summary>
+    public string? Needs { get; init; }
+
     public bool IsStdio => Transport == McpTransport.Stdio;
 }
 
@@ -219,6 +222,7 @@ public sealed class McpConfig
             Cwd = Str(s, "cwd", name)?.Trim(),
             Url = url?.Trim(),
             Headers = StrMap(s, "headers", name),
+            Needs = Str(s, "needs", name)?.Trim() is { Length: > 0 } needs ? needs : null,
         };
     }
 

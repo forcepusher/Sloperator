@@ -4943,6 +4943,15 @@ of 6 (without those words); at the end, 4 of 6, as good as without them. Then Ha
 got its bridge up (the add-on needs Allow Online Access, and starting it took a dozen clicks; the runs share
 Blender's preferences, so one may have changed them for the next).
 
+That was a test artefact only in part. Blender's server talks to an add-on inside a running Blender, which
+starts by itself with the add-on on, Allow Online Access on (or `--online-mode`) and its Auto Start set:
+3 s from a good setup. But nothing told a later task that: from a good setup 2 of 6 runs gave up at the first
+"Cannot connect" without opening Blender, and after an install one Qwen run spent its time finding the flag
+again. So a server's entry in `mcp.json` can have `needs`, free text saying what must be running and how to
+start it; the agent gives it to `mcp_servers` when it adds such a server, and the prompt's server list says
+it in every task. The test folder's Blender is portable: its preferences are in `portable\config`, not
+%APPDATA%, and a killed Blender doesn't save them.
+
 Actions run without asking by default (approvals can be switched on in Settings).
 Pressing Stop, or Pause/Break anywhere, halts the agent: Pause, or Ctrl+Pause, which Windows
 calls Break (laptops without the key often have one of them on an Fn combination). It works

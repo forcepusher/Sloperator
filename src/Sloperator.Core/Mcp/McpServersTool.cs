@@ -42,7 +42,7 @@ public sealed class McpServersTool : Tool
         "costs far fewer tokens than its window, and this is the way to use one: action=add starts the server, saves it in " +
         "the user's Settings for later tasks and gives you its tools at once (named name__tool). Give name and either command with args " +
         "(a program to start; best its full path, e.g. C:\\...\\uvx.exe with args [\"some-mcp-server\"]; env and cwd if it needs them) or " +
-        "url (a server to connect to). A server that fails to start isn't kept: the result says why. action=remove stops one and takes " +
+        "url (a server to connect to). When it only works with a program open, give needs: that is how you start the program later, here and in later tasks. A server that fails to start isn't kept: the result says why. action=remove stops one and takes " +
         "it out of Settings; action=list shows them all.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
@@ -56,6 +56,7 @@ public sealed class McpServersTool : Tool
         ("cwd", Str("The folder to start it in"), false),
         ("url", Str("For a server to connect to: its http(s) address"), false),
         ("headers", new JsonObject { ["type"] = "object", ["description"] = "HTTP headers for url, such as Authorization", ["additionalProperties"] = new JsonObject { ["type"] = "string" } }, false),
+        ("needs", Str("What must be running for it to work and how to start that, as the full command with its flags. Shown in every later task"), false),
         ("timeout_seconds", Int("How long it may take to start (default 300: a first start may download it)"), false));
 
     public override string Describe(JsonObject args) => (GetString(args, "action") ?? "") switch
@@ -114,6 +115,7 @@ public sealed class McpServersTool : Tool
         if (GetString(args, "cwd") is { Length: > 0 } cwd) entry["cwd"] = cwd.Trim();
         if (GetString(args, "url") is { Length: > 0 } url) entry["url"] = url.Trim();
         if (args["headers"] is JsonObject headers && headers.Count > 0) entry["headers"] = headers.DeepClone();
+        if (GetString(args, "needs") is { Length: > 0 } needs) entry["needs"] = needs.Trim();
         McpServerConfig config;
         try
         {
