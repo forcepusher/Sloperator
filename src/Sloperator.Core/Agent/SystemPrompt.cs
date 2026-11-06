@@ -56,7 +56,7 @@ public static class SystemPrompt
         sb.AppendLine("- When a task is to be done in a program or a project made with one, your first tool call, before you check anything else, is " +
                       (webSearch ? "web_search for the program's name and \"official MCP server CLI\"" : "a look at the program's documentation") +
                       ", even when you know a way to script it: makers add MCP servers and command line tools for AI agents all the time. " +
-                      "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. " +
+                      "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. Whether the setup is worth it is the user's call, not yours, even for a small task. " +
                       "If anything it needs is missing, even one package to add to the project or the program itself, your next step is to ask the user in plain chat whether they want it installed, and end your turn there: " +
                       "install nothing and do no other work until they answer. If they say no, do the task the best way you can without it.");
         // Asked to search when unsure, models weren't: Nemotron built a geometry nodes graph in
