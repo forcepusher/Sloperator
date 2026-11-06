@@ -4898,6 +4898,21 @@ SVG or WebP the model's server can't read doesn't fail every request after it (o
 picture at all is left out, with a line saying so). Comments and trailing commas in the file are fine. The settings dialog shows how each
 server is doing, and a server that fails to start is reported in the chat; the others keep working.
 
+Every tool schema a server gives is made valid JSON Schema draft 2020-12, at every depth, before any
+provider sees it (`McpTool.ToDraft2020`). Anthropic checks each schema against that draft and refuses
+the whole request, so one bad tool failed every message of the chat, Continue included: spine-MCP's
+`spine_control_bones` has a `z.tuple`, zod-to-json-schema writes that as a list under `items` (the
+draft-07 way), and the answer was 400 "tools.37.custom.input_schema: JSON schema is invalid. It must
+match JSON Schema draft 2020-12". A tuple becomes one `items` with the lengths kept: the same schema
+when all places match, `anyOf` of them when not, so a mixed tuple no longer says which place holds
+what and the server's own check tells the model. `prefixItems`, 2020-12's own way, wasn't used
+because OpenAI wants `items`, which is also why an array without `items` gets an empty one. Draft 4's
+`exclusiveMinimum: true` becomes the number. A keyword holding what it can't hold (`required: true` on
+a property, `type: "any"`, `description: null`, an empty `anyOf`) is left out, and the walk goes by
+keyword so that a property called `items` and what `enum` or `default` hold stay as they are. The
+walk works the same for every provider. The spine server itself wasn't run for this: its schema comes
+from reading its source and zod-to-json-schema's.
+
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
 use has an MCP server, it installs what the server needs (asking first, see below), adds it
 (`add` with a name and a command or url, as in the file), and its tools join the run at once and

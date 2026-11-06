@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
   own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
   5 seconds instead of one before it takes the pointer from Sloperator's window.
+- An MCP server with a tool schema from an older JSON Schema draft, or with a slip in it, no longer
+  breaks the chat: every request used to fail with "JSON schema is invalid", on Continue too.
 
 ## [1.4.0] - 2026-11-04
 ### Added

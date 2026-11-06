@@ -167,6 +167,60 @@ public class McpTests
     }
 
     [Fact]
+    public void A_tuple_from_zod_gets_the_items_draft_2020_12_takes()
+    {
+        // spine-MCP's spine_control_bones: the list under items was refused by Anthropic ("must match
+        // JSON Schema draft 2020-12"), and with it every request of the chat.
+        var schema = McpTool.NormalizeSchema(JsonSerializer.Deserialize<JsonElement>("""
+            {"type": "object", "properties": {"curve": {"anyOf": [
+              {"type": "string", "const": "stepped"},
+              {"type": "array", "minItems": 4, "maxItems": 4, "items": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}]}]}}}
+            """));
+        var tuple = schema["properties"]!["curve"]!["anyOf"]![1]!;
+        Assert.Equal("""{"type":"number"}""", tuple["items"]!.ToJsonString());
+        Assert.Equal(4, tuple["minItems"]!.GetValue<int>());
+        Assert.Equal(4, tuple["maxItems"]!.GetValue<int>());
+
+        var mixed = McpTool.NormalizeSchema(JsonSerializer.Deserialize<JsonElement>("""
+            {"properties": {"pair": {"type": "array", "items": [{"type": "string"}, {"type": "number"}], "additionalItems": {"type": "boolean"}}}}
+            """));
+        Assert.Equal("""{"type":"array","items":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"}]}}""", mixed["properties"]!["pair"]!.ToJsonString());
+    }
+
+    [Fact]
+    public void Older_drafts_and_slips_in_a_schema_are_put_right_at_every_depth()
+    {
+        var schema = McpTool.NormalizeSchema(JsonSerializer.Deserialize<JsonElement>("""
+            {"required": ["a", "a", 1], "properties": {
+              "a": {"type": "number", "minimum": 0, "exclusiveMinimum": true, "maximum": 5, "exclusiveMaximum": false, "required": true},
+              "b": {"type": "any", "description": null, "enum": "x", "minLength": -1, "maxItems": 1.5, "multipleOf": 0, "uniqueItems": "yes"},
+              "c": {"type": ["string", "string", "file"], "additionalProperties": "no", "anyOf": [], "not": null},
+              "d": {"type": "array"},
+              "e": null,
+              "f": {"type": "object", "properties": {"g": {"type": ["array", "null"], "items": [{"type": "string"}]}}}}}
+            """));
+        var properties = schema["properties"]!;
+        Assert.Equal(["a"], schema["required"]!.AsArray().Select(n => n!.GetValue<string>()));
+        Assert.Equal("""{"type":"number","maximum":5,"exclusiveMinimum":0}""", properties["a"]!.ToJsonString());
+        Assert.Equal("{}", properties["b"]!.ToJsonString());
+        Assert.Equal("""{"type":["string"]}""", properties["c"]!.ToJsonString());
+        Assert.Equal("""{"type":"array","items":{}}""", properties["d"]!.ToJsonString());
+        Assert.False(properties.AsObject().ContainsKey("e"));
+        Assert.Equal("""{"type":"string"}""", properties["f"]!["properties"]!["g"]!["items"]!.ToJsonString());
+    }
+
+    [Fact]
+    public void A_schema_that_is_fine_stays_as_it_is()
+    {
+        var text = """
+            {"type":"object","properties":{"items":{"type":"string"},"required":{"type":"boolean","default":false},
+            "enum":{"enum":[1,"a",null],"default":{"items":[1]}},"x":{"$ref":"#/$defs/y"},"t":{"type":"array","prefixItems":[{"type":"string"}],"items":false}},
+            "required":["items"],"additionalProperties":false,"$defs":{"y":{"type":["string","null"],"pattern":"^a$","minLength":1,"exclusiveMinimum":3}}}
+            """;
+        Assert.Equal(JsonNode.Parse(text)!.ToJsonString(), McpTool.NormalizeSchema(JsonSerializer.Deserialize<JsonElement>(text)).ToJsonString());
+    }
+
+    [Fact]
     public void Results_become_text_and_the_first_image_rides_along()
     {
         var result = new CallToolResult
