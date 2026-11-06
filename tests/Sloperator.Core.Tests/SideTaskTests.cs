@@ -16,13 +16,46 @@ public class SideTaskTests
         SetPrices = p => kept.Add(p.With("https://api.proxyapi.ru/v1", "anthropic/claude-haiku-5-5")),
     };
 
+    /// <summary>A reply that says the chat's size, in tokens with the reply's own 50.</summary>
+    private static string Sized(string sse, int tokens = 50_000) => sse.Replace("data: [DONE]",
+        "data: " + new JsonObject { ["choices"] = new JsonArray(), ["usage"] = new JsonObject { ["prompt_tokens"] = tokens - 50, ["completion_tokens"] = 50 } }.ToJsonString() + "\n\ndata: [DONE]");
+
+    [Fact]
+    public async Task A_short_chat_keeps_its_lookup_until_it_reaches_the_size_for_it()
+    {
+        var kept = new List<ModelPrices>();
+        var server = new ScriptedServer(
+            Sized(Sse.Text("Hello."), 49_999),
+            Sized(Sse.Text("Done: the folder is tidy.")),
+            Sse.ToolCall("c1", "set_api_pricing", new JsonObject { ["input"] = 1, ["output"] = 2 }.ToJsonString()));
+        var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
+        var asked = 0;
+        var session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false, [new SetApiPricingTool()]), Context(kept), "sys")
+        {
+            PriceLookup = () => asked++ == 0 ? SetApiPricingTool.LookupRequest("anthropic/claude-haiku-5-5", "https://api.proxyapi.ru/v1") : null,
+        };
+
+        await session.RunAsync("Hi", new RecordingObserver(), CancellationToken.None);
+
+        // Not even asked: asking is what spends a model's one lookup.
+        Assert.Equal(0, asked);
+        Assert.Single(server.Requests);
+        Assert.Empty(kept);
+
+        await session.RunAsync("Tidy the folder", new RecordingObserver(), CancellationToken.None);
+
+        Assert.Equal(1, asked);
+        Assert.Single(kept);
+        Assert.Contains("side task for Sloperator", server.Requests[2].ToJsonString());
+    }
+
     [Fact]
     public async Task After_the_answer_a_side_task_keeps_the_prices_and_the_chat_keeps_none_of_it()
     {
         var kept = new List<ModelPrices>();
         var args = new JsonObject { ["input"] = 30, ["output"] = 150, ["currency"] = "₽" }.ToJsonString();
         var server = new ScriptedServer(
-            Sse.Text("Done: the folder is tidy."),
+            Sized(Sse.Text("Done: the folder is tidy.")),
             Sse.ToolCall("c1", "set_api_pricing", args));
         var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
         var asked = 0;
@@ -57,15 +90,15 @@ public class SideTaskTests
     }
 
     [Fact]
-    public async Task The_prices_are_looked_up_as_soon_as_a_reply_came_without_a_cost_while_the_chat_waits()
+    public async Task In_a_long_chat_the_prices_wait_for_the_end_of_the_run()
     {
         var kept = new List<ModelPrices>();
         var file = Path.Combine(Directory.CreateTempSubdirectory("bb-side-").FullName, "notes.txt");
         File.WriteAllText(file, "PELICAN");
         var server = new ScriptedServer(
-            Sse.ToolCall("r1", "read_file", new JsonObject { ["path"] = file }.ToJsonString()),
-            Sse.ToolCall("c1", "set_api_pricing", new JsonObject { ["input"] = 1, ["output"] = 2 }.ToJsonString()),
-            Sse.Text("The word is PELICAN."));
+            Sized(Sse.ToolCall("r1", "read_file", new JsonObject { ["path"] = file }.ToJsonString())),
+            Sse.Text("The word is PELICAN."),
+            Sse.ToolCall("c1", "set_api_pricing", new JsonObject { ["input"] = 1, ["output"] = 2 }.ToJsonString()));
         var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);
         var asked = 0;
         var session = new AgentSession(client, new ChatRequestOptions(), ToolRegistry.CreateDefault(false, [new SetApiPricingTool()]), Context(kept), "sys")
@@ -78,10 +111,10 @@ public class SideTaskTests
 
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Single(kept);
-        // After the first step's call, before the next step: the side task's request comes second.
+        // Already long at the first step, yet the steps go on undisturbed: the side task's request comes last.
         Assert.Equal(3, server.Requests.Count);
-        Assert.Contains("side task for Sloperator", server.Requests[1].ToJsonString());
-        Assert.Contains("PELICAN", server.Requests[2].ToJsonString());
+        Assert.Contains("PELICAN", server.Requests[1].ToJsonString());
+        Assert.Contains("side task for Sloperator", server.Requests[2].ToJsonString());
         Assert.Equal(["read_file", "side_task"], observer.ToolsRun);
         Assert.Equal("The word is PELICAN.", session.History[^1].Content);
         Assert.Equal(1, asked);
@@ -93,7 +126,7 @@ public class SideTaskTests
         var args = new JsonObject { ["input"] = 30, ["output"] = 150 }.ToJsonString();
         AgentSession? session = null;
         var server = new ScriptedServer(
-            Sse.Text("Done: the folder is tidy."),
+            Sized(Sse.Text("Done: the folder is tidy.")),
             Sse.ToolCall("c1", "set_api_pricing", args),
             Sse.Text("It holds 3 files."));
         var client = new OpenAiChatClient(new HttpClient(server), "https://api.proxyapi.ru/v1", null);

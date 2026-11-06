@@ -90,13 +90,24 @@ public sealed partial class AgentSession(
     public int MaxImages { get; private set; }
 
     /// <summary>
-    /// Auto pricing lookup (the user, 2026-11-02): asked after each of a run's steps until it gives the task,
-    /// when the prices of the run's model are to be looked up (a reply came with no cost from its server and
-    /// it has none; see <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. Then, once a run,
-    /// the model looks them up and keeps them in a side task (see <see cref="LookUpPricesAsync"/>): right
-    /// after that step's calls, or after the answer when that was the first reply.
+    /// Auto pricing lookup (the user, 2026-11-02): asked at a run's end, after its answer, in a chat of
+    /// <see cref="PriceLookupFrom"/> or more, gives the task when the prices of the run's model are to be
+    /// looked up (a reply came with no cost from its server and it has none; see
+    /// <see cref="SetApiPricingTool.LookupRequest"/>), and null when not. Then, once a run, the model looks
+    /// them up and keeps them in a side task (see <see cref="LookUpPricesAsync"/>).
     /// </summary>
     public Func<string?>? PriceLookup { get; set; }
+
+    /// <summary>
+    /// How long a chat is before <see cref="PriceLookup"/> is asked, in tokens as the top bar shows them
+    /// (<see cref="TokensInUse"/>; a new chat starts around 15k): a short chat isn't worth the lookup's
+    /// requests (the user, 2026-11-07).
+    /// </summary>
+    internal int PriceLookupFrom { get; set; } = 50_000;
+
+    /// <summary>The lookup to run now, if any: the size comes first, as a model's one lookup is spent by asking.</summary>
+    private string? PriceLookupDue() =>
+        tools.Find("set_api_pricing") is not null && TokensInUse() >= PriceLookupFrom ? PriceLookup?.Invoke() : null;
 
     /// <summary>Conversation so far (without the system prompt). Can be shared across sessions so settings changes keep the chat.</summary>
     public List<ChatMessage> History { get; } = history ?? [];
@@ -498,9 +509,10 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
-                    // Prices still to look up (the run's first reply was its answer): the side task
-                    // comes after it, and the run ends after the side task.
-                    if (!pricesLooked && tools.Find("set_api_pricing") is not null && PriceLookup?.Invoke() is { } lookup)
+                    // Prices to look up, once the chat is long and a reply came with no cost from the
+                    // server (whose own cost would win): the side task comes after the answer, and the
+                    // run ends after the side task.
+                    if (!pricesLooked && PriceLookupDue() is { } lookup)
                     {
                         pricesLooked = true;
                         try
@@ -600,13 +612,6 @@ public sealed partial class AgentSession(
                 // Haiku took one for an injection and went on without it.
                 if (notes.Count > 0)
                     History.Add(ChatMessage.User(string.Join("\n", notes)));
-                // Prices to look up, as soon as a reply came with no cost from the server (whose own
-                // cost would win): a side task now, between steps, while the chat waits.
-                if (!pricesLooked && tools.Find("set_api_pricing") is not null && PriceLookup?.Invoke() is { } prices)
-                {
-                    pricesLooked = true;
-                    await LookUpPricesAsync(prices, observer, ct).ConfigureAwait(false);
-                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

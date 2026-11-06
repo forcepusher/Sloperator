@@ -2717,10 +2717,16 @@ saved as the entry's `input`), and an Output only with output on, or for a failu
 (`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
 
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default) asks the same without the
-button, as a side task with no output. `AgentSession.PriceLookup` is asked after each step until it gives
-the request: as soon as a reply came with no cost from the server (the server's own cost wins) and the model
-has no prices. Then `LookUpPricesAsync` runs it right after that step's calls, before the next step, or,
-when the run's first reply was its answer, after that answer, and the run then ends. It gets only
+button, as a side task with no output. Only at the end of a run in a long chat: after the answer, at
+`AgentSession.PriceLookupFrom`, 50k tokens of `TokensInUse`, the figure in the top bar, which starts around
+15k in a new chat, so about 35k of actual chat (the user, 2026-11-07; before that it ran between steps right
+after the first reply, in chats too short to care what they cost). The figure is the conversation's size, not
+the tokens spent, so re-sent prompts don't count, a chat moved to another model counts at once, and a context
+under 50k never gets there (Look up prices still works; a small context is mostly a free model on the user's
+own PC). `AgentSession.PriceLookup` gives the request when a reply came with no cost from the server (the
+server's own cost wins) and the model has no prices. It isn't asked below the size, as asking spends the
+model's one lookup. A run that was stopped or failed has no end for it: the next answer has it. Then
+`LookUpPricesAsync` runs it and the run ends. It gets only
 web_search, fetch_page and set_api_pricing and ends once set_api_pricing has kept prices. Nothing of it
 joins the chat's context, so the answer is the model's last word. A message the user sends meanwhile is
 answered after it; Stop after the answer ends the run with no "stopped" note for the model. Its card reads
@@ -2735,8 +2741,8 @@ wrote its answer anew, opening on a made-up "The server didn't run into any prob
 prices, and that was the run's reply. Hiding what it wrote after the nudge, and ending the run once the
 prices were kept, were tried and turned down for the side task (whose first version, run only after the
 answer and with a system prompt about prices alone, the user also sent back). Its cost: a request of its own, a few
-thousand tokens with no cached prefix, and on a server that caches one prompt the chat's prompt is read
-anew on the next message.
+thousand tokens with no cached prefix, and on a server that caches one prompt the chat's prompt, by then
+50k or more, is read anew on the next message.
 
 Measured with `PriceLookupLiveTests` (was PriceNudgeLiveTests; unit tests in `SideTaskTests`) (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
 a file and give its secret word, the nudge comes before the end, and the test checks the prices kept against
