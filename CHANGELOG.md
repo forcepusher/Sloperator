@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Before it works in a program, the agent first looks for the makers' official MCP server or command line
   and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
   agent asks you in the chat first.
+- The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
+  for programs and scripts being run, no longer for commands that only look around or read files.
 
 ### Fixed
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
