@@ -193,10 +193,11 @@ public class McpTests
         var schema = McpTool.NormalizeSchema(JsonSerializer.Deserialize<JsonElement>("""
             {"required": ["a", "a", 1], "properties": {
               "a": {"type": "number", "minimum": 0, "exclusiveMinimum": true, "maximum": 5, "exclusiveMaximum": false, "required": true},
-              "b": {"type": "any", "description": null, "enum": "x", "minLength": -1, "maxItems": 1.5, "multipleOf": 0, "uniqueItems": "yes"},
+              "b": {"type": "any", "description": null, "enum": "x", "minLength": -1, "maxItems": 1.5, "multipleOf": 0, "uniqueItems": "yes", "pattern": "(["},
               "c": {"type": ["string", "string", "file"], "additionalProperties": "no", "anyOf": [], "not": null, "$id": "a#b", "$anchor": "a b", "$vocabulary": 1},
               "d": {"type": "array"},
               "e": null,
+              "h": {"patternProperties": {"([": {"type": "string"}, "^a": true}},
               "f": {"type": "object", "properties": {"g": {"type": ["array", "null"], "items": [{"type": "string"}]}}}}}
             """));
         var properties = schema["properties"]!;
@@ -204,8 +205,9 @@ public class McpTests
         Assert.Equal("""{"type":"number","maximum":5,"exclusiveMinimum":0}""", properties["a"]!.ToJsonString());
         Assert.Equal("{}", properties["b"]!.ToJsonString());
         Assert.Equal("""{"type":["string"]}""", properties["c"]!.ToJsonString());
-        Assert.Equal("""{"type":"array","items":{}}""", properties["d"]!.ToJsonString());
+        Assert.Equal("""{"type":"array"}""", properties["d"]!.ToJsonString());
         Assert.False(properties.AsObject().ContainsKey("e"));
+        Assert.Equal("""{"patternProperties":{"^a":true}}""", properties["h"]!.ToJsonString());
         Assert.Equal("""{"type":"string"}""", properties["f"]!["properties"]!["g"]!["items"]!.ToJsonString());
     }
 

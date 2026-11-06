@@ -13,15 +13,15 @@ public sealed partial class McpTool
     private static readonly string[] SchemaMaps = ["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"];
     private static readonly string[] Numbers = ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"];
     private static readonly string[] Counts = ["minLength", "maxLength", "minItems", "maxItems", "minProperties", "maxProperties", "minContains", "maxContains"];
-    private static readonly string[] Texts = ["title", "description", "$comment", "format", "pattern", "$schema", "$ref", "$dynamicRef", "$recursiveRef", "contentEncoding", "contentMediaType"];
+    private static readonly string[] Texts = ["title", "description", "$comment", "format", "$schema", "$ref", "$dynamicRef", "$recursiveRef", "contentEncoding", "contentMediaType"];
     private static readonly string[] Anchors = ["$anchor", "$dynamicAnchor", "$recursiveAnchor"];
     private static readonly string[] Flags = ["uniqueItems", "readOnly", "writeOnly", "deprecated"];
     private static readonly string[] Lists = ["enum", "examples"];
     private static readonly HashSet<string> TypeNames = ["array", "boolean", "integer", "null", "number", "object", "string"];
 
     /// <summary>
-    /// Makes a schema, at every depth, one that draft 2020-12 accepts. Anthropic checks a tool's
-    /// schema against it and refuses the whole request, so one tool with a schema from an older
+    /// Makes a schema, at every depth, one that draft 2020-12 accepts. Servers check a tool's schema
+    /// (Anthropic against all of the draft) and refuse the whole request, so one tool from an older
     /// draft (zod's tuples) or with a slip in it failed every message of the chat. What older drafts
     /// said differently is said the new way; a keyword holding what it can't hold is left out, as
     /// the server still checks the arguments it gets.
@@ -38,6 +38,7 @@ public sealed partial class McpTool
         Keep(Counts, IsCount);
         Keep(["multipleOf"], n => IsNumber(n) && n!.GetValue<double>() > 0);
         Keep(Texts, IsString);
+        Keep(["pattern"], n => IsString(n) && IsRegex(n!.GetValue<string>()));
         Keep(Anchors, n => IsString(n) && Anchor().IsMatch(n!.GetValue<string>()));
         Keep(["$id"], n => IsString(n) && !n!.GetValue<string>().TrimEnd('#').Contains('#'));
         schema.Remove("$vocabulary");
@@ -64,7 +65,7 @@ public sealed partial class McpTool
             {
                 if (value is JsonObject map)
                     foreach (var (name, item) in map.ToList())
-                        if (!IsSchema(item))
+                        if (!IsSchema(item) || key == "patternProperties" && !IsRegex(name))
                             map.Remove(name);
                 if (value is not JsonObject)
                     schema.Remove(key);
@@ -89,10 +90,6 @@ public sealed partial class McpTool
                 schema.Remove("dependencies");
         }
 
-        // Left out and empty mean the same, and OpenAI refuses an array without items.
-        if (Declares(schema, "array") && !schema.ContainsKey("items"))
-            schema["items"] = new JsonObject();
-
         void Keep(IEnumerable<string> keys, Func<JsonNode?, bool> fits)
         {
             foreach (var key in keys)
@@ -115,6 +112,20 @@ public sealed partial class McpTool
 
     private static bool IsString(JsonNode? node) => node?.GetValueKind() == JsonValueKind.String;
 
+    /// <summary>The draft leaves this to the checker's taste, and DeepSeek refuses a pattern that doesn't compile.</summary>
+    private static bool IsRegex(string pattern)
+    {
+        try
+        {
+            _ = new Regex(pattern);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
     private static bool IsCount(JsonNode? node)
     {
         if (!IsNumber(node))
@@ -123,13 +134,11 @@ public sealed partial class McpTool
         return count >= 0 && count == Math.Floor(count);
     }
 
-    private static bool Declares(JsonObject schema, string type) =>
-        Strings(schema["type"] as JsonArray ?? [schema["type"]?.DeepClone()]).Contains(type);
 
     /// <summary>
     /// Before 2020-12 a list under items gave each place of a tuple its schema, and zod still writes
-    /// that. 2020-12's own prefixItems isn't taken everywhere (OpenAI asks for items), so items now
-    /// says what any place may hold; the lengths stay as they are.
+    /// that. One items, which every server knows, now says what any place may hold; the lengths stay
+    /// as they are.
     /// </summary>
     private static void TupleToItems(JsonObject schema, JsonArray tuple)
     {

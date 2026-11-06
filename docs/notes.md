@@ -4899,28 +4899,40 @@ picture at all is left out, with a line saying so). Comments and trailing commas
 server is doing, and a server that fails to start is reported in the chat; the others keep working.
 
 Every tool schema a server gives is made valid JSON Schema draft 2020-12, at every depth, before any
-provider sees it (`McpTool.ToDraft2020`). Anthropic checks each schema against that draft and refuses
-the whole request, so one bad tool failed every message of the chat, Continue included: spine-MCP's
+provider sees it (`McpTool.ToDraft2020`). Most servers check each schema and refuse the whole request,
+so one bad tool failed every message of the chat, Continue included: spine-MCP's
 `spine_control_bones` has a `z.tuple`, zod-to-json-schema writes that as a list under `items` (the
 draft-07 way), and the answer was 400 "tools.37.custom.input_schema: JSON schema is invalid. It must
 match JSON Schema draft 2020-12". A tuple becomes one `items` with the lengths kept: the same schema
 when all places match, `anyOf` of them when not, so a mixed tuple no longer says which place holds
-what and the server's own check tells the model. `prefixItems`, 2020-12's own way, wasn't used
-because OpenAI wants `items`, which is also why an array without `items` gets an empty one. Draft 4's
-`exclusiveMinimum: true` becomes the number. A keyword holding what it can't hold (`required: true` on
-a property, `type: "any"`, `description: null`, an empty `anyOf`) is left out, and the walk goes by
-keyword so that a property called `items` and what `enum` or `default` hold stay as they are. The
-walk works the same for every provider.
+what and the server's own check tells the model. 2020-12's own `prefixItems` would keep the places
+apart and passed everywhere it was tried, but `items` is the form all readers of a schema know, and
+the one the runs below were made on. Draft 4's `exclusiveMinimum: true` becomes the number. A keyword
+holding what it can't hold (`required: true` on a property, `type: "any"`, `description: null`, an
+empty `anyOf`, a `pattern` that doesn't compile) is left out, and the walk goes by keyword so that a
+property called `items` and what `enum` or `default` hold stay as they are. The walk works the same
+for every provider.
 
-Checked on the real API on 2026-11-07 with `McpSchemaLiveTests` (Haiku 5.5, opt-in by `BB_LIVE_*`):
+Checked on real servers on 2026-11-07 with `McpSchemaLiveTests` (opt-in by `BB_LIVE_*`), 17 or 18 slips
+each, all of which passed fixed; spine's bones tool, written out by hand from its source and
+zod-to-json-schema's as the server itself wasn't run, passed fixed too, and every model called it with
+the curve as an array of four numbers.
+
+| Server | Refused as written |
+|---|---|
+| Anthropic, Haiku 5.5, direct and through proxyapi.ru's `/anthropic` and `/v1` | 13 |
+| proxyapi.ru: GPT 6 Luna (through `/v1/responses`), GPT-4o mini | 11 |
+| proxyapi.ru: DeepSeek V4.1 Flash | 7 |
+| proxyapi.ru: Gemini 3.6 Flash | 6 |
+| proxyapi.ru: Grok 4.7, Qwen 3.8 Flash; Kilo: Nemotron 3.5 Super VL | 0 |
+
 Anthropic runs the whole of the draft's meta-schema, its patterns too (`$id` with a fragment, `$anchor`
 with a space and a `$vocabulary` that isn't an object are refused), but not `format`: a broken regex
-under `pattern` and a `$ref` to nowhere pass, so they stay. A schema naming draft-07 in its top
-`$schema` is read as draft-07 and passes with its tuple; it failed here because `NormalizeSchema` takes
-that field out. Spine's bones tool, written out by hand from its source and zod-to-json-schema's as the
-server itself wasn't run: 200 with its `$schema`, 400 without (the user's error), 200 fixed, and Haiku
-called it with the curve as an array of four numbers. Of 17 slips, 13 were refused as written and all
-17 passed fixed.
+and a `$ref` to nowhere pass. A broken regex is refused by DeepSeek and GPT 6 Luna, hence the check.
+An array without `items` and `prefixItems` alone passed everywhere they were tried, so an array is left
+as it is. Anthropic reads a schema naming draft-07 in its top `$schema` as draft-07, so spine's passes
+with that field; it failed here because `NormalizeSchema` takes the field out. Not run: LM Studio (the
+server didn't answer), OpenRouter, and the spine server itself.
 
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
 use has an MCP server, it installs what the server needs (asking first, see below), adds it

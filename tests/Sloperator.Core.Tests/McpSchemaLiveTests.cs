@@ -58,6 +58,7 @@ public class McpSchemaLiveTests
         ("minLength -1", """{"type": "string", "minLength": -1}"""),
         ("additionalProperties text", """{"type": "object", "additionalProperties": "no"}"""),
         ("array without items", """{"type": "array"}"""),
+        ("prefixItems alone", """{"type": "array", "prefixItems": [{"type": "number"}, {"type": "string"}]}"""),
         ("$ref to nowhere", """{"$ref": "#/nowhere"}"""),
         ("broken pattern", """{"type": "string", "pattern": "(["}"""),
         ("$id with a fragment", """{"type": "string", "$id": "a#b"}"""),
@@ -67,7 +68,7 @@ public class McpSchemaLiveTests
     ];
 
     [Fact]
-    public async Task Spines_bones_tool_is_refused_as_written_and_works_once_made_valid()
+    public async Task Spines_bones_tool_works_once_made_valid()
     {
         Assert.SkipWhen(Url is null, "Set BB_LIVE_URL to run.");
         var ct = TestContext.Current.CancellationToken;
@@ -81,9 +82,8 @@ public class McpSchemaLiveTests
         TestContext.Current.SendDiagnosticMessage($"with its $schema: {accepted.Status} {accepted.Error}");
         written.Remove("$schema");
         var (refused, _) = await SendAsync(http, recorder, server, new RawTool("spine__spine_control_bones", written), "Reply with the single word done.", ct);
+        // Anthropic answered 400 with "must match JSON Schema draft 2020-12"; others may take it.
         TestContext.Current.SendDiagnosticMessage($"as written: {refused.Status} {refused.Error}");
-        Assert.Equal(400, refused.Status);
-        Assert.Contains("2020-12", refused.Error);
 
         JsonElement? curve = null;
         var tool = new McpTool("spine", "spine__spine_control_bones", ToolOf(SpineBones), (arguments, _) =>
@@ -171,7 +171,7 @@ public class McpSchemaLiveTests
         {
             var body = request.Content is null ? null : JsonNode.Parse(await request.Content.ReadAsStringAsync(ct)) as JsonObject;
             var response = await base.SendAsync(request, ct);
-            if (body?["messages"] is null)
+            if (body?["messages"] is null && body?["input"] is null)
                 return response;
             var error = "";
             if (!response.IsSuccessStatusCode)
