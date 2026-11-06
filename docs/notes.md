@@ -2260,6 +2260,19 @@ it, or where it is certain: "LM Studio loaded … with a 4k context" comes after
 loaded the model again (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the
 reply-length note: "weird", then "if we're absolutely sure it's this or that program, keep that").
 The reply-length notes, a context too small and a server offering no models say "the server".
+
+**The model dropdown** (`ModelDropdown`, a `ComboBox` with its closed box and rows as every other) has a
+search box over its list once the rows don't fit its 504 height, about 17 models, and a pin on each row (the
+user, 2026-11-06; OpenRouter lists hundreds). The search box and its "No models match" go into Fluent's popup when the
+template is applied, around the ScrollViewer, rather than a copy of the template. A row that doesn't match is hidden, never
+taken out of `Models`: the ComboBox would lose the picked model. So the rows sit in a plain `StackPanel`, whose
+containers are all there to hide. Words match in any order and case; the first match takes Enter, the arrow goes to
+the rows and back, typing on a row goes on with the search. A space typed must not be marked handled: Windows then
+drops the character (Avalonia ignores `WM_CHAR` after a handled key). A press the search box or a pin took must not reach
+the `ComboBox` either: it closes on any press it didn't take itself (`OnPointerPressed`). Pins are by name in `ServerSettings.PinnedModels`,
+whichever server offers the model; `InsertModel` puts pinned models first, sorted among themselves. Pinning is the one
+time a row moves, and the ComboBox can lose the picked row then: `OnPinClick` sets it back. The first opening builds every
+row (about a second for 400 in a Debug build, later ones 0.1 s).
 A service's website typed for its API (`openrouter.ai`, `groq.com`, `openai.com`, `mistral.ai`,
 `deepseek.com`, `x.ai`, `together.ai`, `fireworks.ai`, `anthropic.com`, `claude.com`, any page of them) has its API
 address tried first, so it just works; another website says it is one, rather than filling the

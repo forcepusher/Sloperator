@@ -682,6 +682,29 @@
       <Setter Property="Placement" Value="{x:Static views:Dropdown.Placement}" />
     </Style>
 
+    <!-- The pin on a row of the model dropdown (ModelDropdown): shown under the pointer, and always
+         once its model is pinned, then filled. -->
+    <Style Selector="Button.pin /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.pin PathIcon">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="Button.pin:pointerover PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ComboBoxForeground}" />
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover Button.pin PathIcon, ComboBoxItem.pinned Button.pin PathIcon">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="ComboBoxItem.pinned Button.pin PathIcon">
+      <Setter Property="Data" Value="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+      <Setter Property="Foreground" Value="{StaticResource BbAccent}" />
+    </Style>
+
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{StaticResource BbSurface}" />
       <Setter Property="BorderBrush" Value="{StaticResource BbBorder}" />
