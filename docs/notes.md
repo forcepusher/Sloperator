@@ -4925,8 +4925,13 @@ the batch mode anyway); saying to end the turn; first in the list; naming a proj
 missing. With the final text Haiku went first to the search and asked in every run: `com.unity.pipeline`
 (once, and 3 of 3 on the wording before), Blender Lab's MCP server, Unreal 5.8's MCP; Paint went on with the mouse. Told yes on the
 wording before it, it finished Unity through the Unity CLI and `com.unity.pipeline`, and Blender through
-`mcp_servers`. Qwen follows it much less: in 5 runs of the final text it found the right tool in 3 but
-asked once (Unity); once it scripted Unity in batch mode, and it set up Blender's add-on unasked.
+`mcp_servers`. Qwen did less well at first, on Unity above all: it found the tool, or at least an official
+package, and in most runs judged the setup too big for a small task, then scripted the batch mode (asked 2
+of 8, Blender 4 of 4, Unreal 3 of 3; 16 runs in folders with nothing of the test in sight, as it had read
+earlier runs' logs). The rule moved into a numbered list at the prompt's very end: it searched first every
+time and still didn't ask (Unity 0 of 4). A reminder with each message: 2 of 4, and it would be a new
+nudge. One sentence naming that very reasoning, that the setup is the user's call, even for a small task:
+Unity 7 of 8, Blender and Unreal asked, no run ran out of time; Haiku asked in all 4, and Paint went on.
 
 Actions run without asking by default (approvals can be switched on in Settings).
 Pressing Stop, or Pause/Break anywhere, halts the agent: Pause, or Ctrl+Pause, which Windows
