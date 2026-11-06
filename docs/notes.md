@@ -4931,7 +4931,17 @@ of 8, Blender 4 of 4, Unreal 3 of 3; 16 runs in folders with nothing of the test
 earlier runs' logs). The rule moved into a numbered list at the prompt's very end: it searched first every
 time and still didn't ask (Unity 0 of 4). A reminder with each message: 2 of 4, and it would be a new
 nudge. One sentence naming that very reasoning, that the setup is the user's call, even for a small task:
-Unity 7 of 8, Blender and Unreal asked, no run ran out of time; Haiku asked in all 4, and Paint went on.
+Unity 7 of 8 and 2 of 4 in a second round, so 9 of 12; Blender and Unreal asked; Haiku asked in all 4, and
+Paint went on.
+
+With everything already in place the first text wasn't enough: Haiku called the Unity CLI missing without a
+look, and all three runs with Blender's server in Settings fell back on scripts when it couldn't connect,
+as Blender wasn't open. Hence the last two sentences. They stand at the rule's end: put before the question
+about installing, they took Qwen on Unity down to 0 of 4 ("use what is already there without asking") and 2
+of 6 (without those words); at the end, 4 of 6, as good as without them. Then Haiku used the Unity CLI in
+2 of 2. Blender stays uneven: in one round all 5 runs opened it and used the server, in the next none of 3
+got its bridge up (the add-on needs Allow Online Access, and starting it took a dozen clicks; the runs share
+Blender's preferences, so one may have changed them for the next).
 
 Actions run without asking by default (approvals can be switched on in Settings).
 Pressing Stop, or Pause/Break anywhere, halts the agent: Pause, or Ctrl+Pause, which Windows
