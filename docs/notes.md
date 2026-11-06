@@ -4550,7 +4550,7 @@ panel mode where relevant panels activate live for you to see everything happeni
 no rule in mind for which panel is the relevant one). It shows the panel of the agent's latest tool call that has
 one, and keeps it through the calls that have none (screenshots, clicks, reads, searches): one rule from the call
 alone, its tool, its arguments and what it made, the same for every model and server (`AutoRule`):
-- run_shell, ssh: **Terminal**, as the call starts, so the command's lines come in as it prints them.
+- ssh, and a run_shell command that is work (`TerminalWork`, below): **Terminal**, as the call starts, so the command's lines come in as it prints them.
 - write_file, edit_file, once the change is in File changes' list, the file by the path the call was given
   (`Written`; until the 1.3.0 release check the list's newest change since the last call was taken, and a
   command then a file in one go, the window's thread still opening the Terminal as both ended, gave the file to
@@ -4569,6 +4569,20 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
+
+**Which commands open the Terminal** (the user, 2026-11-06: every command opened it, also a `cd` or a `Get-Content`).
+The ssh tool always does. A run_shell line does when one of its commands is on a list of programs (`TerminalWork.Tools`:
+another machine, keeping a server, installing, building and testing), an interpreter running a program, or a script (.ps1,
+.sh, .bat, .cmd). A list of the work, not of the reading: looking around has no end of commands (and aliases), this work
+has few, and a program not on the list keeps the panel as it is, which costs less than a panel popping up for nothing.
+The line is cut at `;`, `&`, `|`, line breaks and brackets outside quotes, so `cd src; dotnet build`, a block and `$(...)` count
+by what they run; `$x = dotnet build` and `CC=clang make` by what comes after the variable; a path and `.exe` come off the
+program's name; a word that runs what follows (powershell, cmd, bash, sudo, Start-Process) counts by the words after it. Not
+work: a program asked only what it is or has (`node --version`, `pip list`, `npm view x`: the agent checks what is there all the
+time), `python -c`/`node -e` one-liners (how the agent reads a spreadsheet), and git but for clone, pull, push and fetch. curl and
+Invoke-WebRequest stay out: mostly reading a page. No fork by model or system: the list holds both Windows' and Unix' programs. A
+command that isn't work still goes to the Terminal's log, and shows there if the panel is open or opened later; a chat
+opened from History follows the same rule (`FromChat`). Tests: `AutoRuleTests`.
 
 **Code editor or File changes** (the user, 2026-11-01, on the first version, which sent every edit to File changes:
 "This choice can't be trivialized"; the Code editor lights what the agent writes too). Each shows a change well in

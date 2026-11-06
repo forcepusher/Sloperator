@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent asks you in the chat first.
 - **Auto pricing lookup** runs only after the agent's answer, once the chat has reached 50k tokens, so
   short chats don't pay for a lookup and a task isn't held up by one.
+- The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
+  for programs and scripts being run, no longer for commands that only look around or read files.
 
 ### Fixed
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
