@@ -53,12 +53,16 @@ public static class SystemPrompt
         // because below the other rules Qwen went straight to look through a project.
         // With the command line there and only its project package missing, Qwen put the package in unasked
         // and Haiku went to the mouse to keep the package out; Qwen once took a community server for the official one.
+        // With everything in place Haiku called the Unity CLI missing without a look, and all three runs with
+        // Blender's server in Settings fell back on scripts when it couldn't connect: Blender wasn't open.
         sb.AppendLine("- When a task is to be done in a program or a project made with one, your first tool call, before you check anything else, is " +
                       (webSearch ? "web_search for the program's name and \"official MCP server CLI\"" : "a look at the program's documentation") +
                       ", even when you know a way to script it: makers add MCP servers and command line tools for AI agents all the time. " +
                       "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. Whether the setup is worth it is the user's call, not yours, even for a small task. " +
                       "If anything it needs is missing, even one package to add to the project or the program itself, your next step is to ask the user in plain chat whether they want it installed, and end your turn there: " +
-                      "install nothing and do no other work until they answer. If they say no, do the task the best way you can without it.");
+                      "install nothing and do no other work until they answer. If they say no, do the task the best way you can without it. " +
+                      "Before you call anything missing, check this PC and the project. " +
+                      "An MCP server that can't connect usually needs its program open: start the program and try again before you do without it.");
         // Asked to search when unsure, models weren't: Nemotron built a geometry nodes graph in
         // Blender 5.2 from what it knew of Blender 3, one failed script after another. So the rule
         // says when, rather than leaving it to the model's sense of being sure. And not only for

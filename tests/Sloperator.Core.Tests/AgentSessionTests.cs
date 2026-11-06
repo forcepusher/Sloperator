@@ -1547,6 +1547,8 @@ public class AgentSessionTests
         Assert.Contains("your first tool call, before you check anything else, is web_search", official);
         Assert.Contains("ask the user in plain chat whether they want it installed, and end your turn there", official);
         Assert.Contains("Whether the setup is worth it is the user's call, not yours, even for a small task.", official);
+        Assert.Contains("Before you call anything missing, check this PC and the project.", official);
+        Assert.Contains("start the program and try again before you do without it", official);
         Assert.DoesNotContain("web_search", SystemPrompt.Build("Test OS", null, "C:\\", "").Split('\n').First(l => l.Contains("your first tool call")));
         Assert.DoesNotContain("Unity", official);
         Assert.DoesNotContain("Unreal", official);
