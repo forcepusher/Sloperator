@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -150,6 +151,26 @@ public sealed class ToolCardLayoutTests
             return 0;
         }));
         Assert.False(item.CanEndWait);
+    }
+
+    [Fact]
+    public void Skip_wait_sits_in_the_cards_line_and_leaves_its_height_alone()
+    {
+        var height = (ToolCallItem item) => HeadlessApp.Run(() => Shown(item, card => card.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card")).Bounds.Height));
+        var (going, status, button) = HeadlessApp.Run(() =>
+        {
+            var item = new ToolCallItem("1", "wait", "Wait 60s") { EndsWait = () => { } };
+            return Shown(item, card =>
+            {
+                var skip = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
+                var running = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == item.StatusText);
+                return (card.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card")).Bounds.Height,
+                        running.TranslatePoint(new Point(0, running.Bounds.Height / 2), card)!.Value.Y,
+                        skip.TranslatePoint(new Point(0, skip.Bounds.Height / 2), card)!.Value.Y);
+            });
+        });
+        Assert.Equal(height(new ToolCallItem("1", "wait", "Wait 60s") { State = ToolItemState.Done }), going);
+        Assert.InRange(button - status, -1, 1);
     }
 
     [Fact]

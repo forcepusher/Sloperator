@@ -707,6 +707,13 @@
                        same day); when it began to run is its tooltip. -->
                   <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <!-- A wait going on: skipped with a click, or with the key from any window (WindowsStopKey),
+                         in this line (a line of its own was one too many, the user, 2026-11-07). The button is
+                         taller than the line; its margin keeps the card as high as any other. -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" IsVisible="{Binding CanEndWait}">
+                      <Button Classes="ghost small" Content="Skip wait" Command="{Binding EndWaitCommand}" Margin="0,-4" VerticalAlignment="Center" />
+                      <TextBlock Classes="muted" Text="or Shift+Pause/Break" VerticalAlignment="Top" />
+                    </StackPanel>
                     <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
                     <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
                       <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
@@ -723,12 +730,6 @@
                   <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsAwaitingApproval}">
                     <Button Classes="primary" Content="Allow" Command="{Binding ApproveCommand}" />
                     <Button Classes="ghost" Content="Deny" Command="{Binding DenyCommand}" />
-                  </StackPanel>
-
-                  <!-- A wait going on: skipped with a click, or with the key from any window (WindowsStopKey). -->
-                  <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanEndWait}">
-                    <Button Classes="ghost small" Content="Skip wait" Command="{Binding EndWaitCommand}" />
-                    <TextBlock Classes="muted" Text="or Shift+Pause/Break" VerticalAlignment="Center" />
                   </StackPanel>
 
                   <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolShot}" IsVisible="{Binding HasOpenScreenshot}" />
