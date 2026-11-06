@@ -386,6 +386,37 @@ public class ToolTests
     }
 
     [Fact]
+    public async Task The_user_can_end_a_wait_and_the_model_is_told()
+    {
+        var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, 320, 160), Desktop = new RawImage(320, 160, new byte[320 * 160 * 4]) };
+        var ctx = Ctx(platform);
+        var ct = TestContext.Current.CancellationToken;
+        Assert.False(ctx.EndWait()); // none going
+
+        var plain = new WaitTool().ExecuteAsync(new JsonObject { ["seconds"] = 60 }, ctx, CancellationToken.None);
+        await Until(EndsTheWait(ctx), ct);
+        var ended = await plain;
+        Assert.Matches(@"^The wait ended after [\d.]+s: the user ended it early\.$", ended.Text);
+        Assert.Null(ended.Image);
+        Assert.False(ctx.EndWait()); // over
+
+        // wait_until_change, with no limit, ends with its screenshot; it is not an error.
+        var change = new WaitUntilChangeTool().ExecuteAsync([], ctx, CancellationToken.None);
+        await Until(EndsTheWait(ctx), ct);
+        var looked = await change;
+        Assert.StartsWith("The wait ended after", looked.Text);
+        Assert.False(looked.IsError);
+        Assert.NotNull(looked.Image);
+
+        // Stop while a wait goes on is still a stop.
+        using var stop = new CancellationTokenSource();
+        var stopped = new WaitTool().ExecuteAsync(new JsonObject { ["seconds"] = 60 }, ctx, stop.Token);
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => stopped);
+        Assert.False(ctx.EndWait());
+    }
+
+    [Fact]
     public async Task Wait_until_change_stops_as_soon_as_the_screen_changes()
     {
         var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, 320, 160), Desktop = new RawImage(320, 160, new byte[320 * 160 * 4]) };
@@ -807,6 +838,51 @@ public class ToolTests
     }
 
     [Fact]
+    public async Task Shift_with_Pause_or_Break_ends_a_wait_and_nothing_else()
+    {
+#if !WINDOWS
+        Assert.Skip("Windows only");
+        await Task.CompletedTask;
+#else
+        var ct = TestContext.Current.CancellationToken;
+        using var past = new KeysPastTheStopKey();
+        var (stops, ends, waiting) = (0, 0, 1);
+        var platform = new Sloperator.Platform.Windows.WindowsPlatform();
+        using var watch = platform.StopKey.Watch(
+            () => { Interlocked.Increment(ref stops); return true; },
+            () => { Interlocked.Increment(ref ends); return Volatile.Read(ref waiting) == 1; });
+
+        // With the user's Shift: the wait ends, the run goes on, and the press goes no further.
+        UserKeys((LShift, false));
+        UserKeys((Pause, false), (Pause, true));
+        await Until(() => Volatile.Read(ref ends) == 1, ct);
+        UserKeys((Break, false), (Break, true));
+        await Until(() => Volatile.Read(ref ends) == 2, ct);
+        await Task.Delay(100, ct);
+        Assert.Equal("", past.Take());
+        Assert.Equal(0, Volatile.Read(ref stops));
+
+        // No wait going: it stops nothing, and goes on to the window as usual.
+        Volatile.Write(ref waiting, 0);
+        UserKeys((Pause, false), (Pause, true));
+        await Until(() => Volatile.Read(ref ends) == 3, ct);
+        await Task.Delay(100, ct);
+        UserKeys((LShift, true));
+        Assert.Equal("pause↓ pause↑", past.Take());
+        Assert.Equal(0, Volatile.Read(ref stops));
+
+        // A Shift the agent holds is no Shift of the user's: Pause stops the run as ever.
+        Volatile.Write(ref waiting, 1);
+        using (platform.Input.HoldKeys(["shift"]))
+        {
+            UserKeys((Pause, false), (Pause, true));
+            await Until(() => Volatile.Read(ref stops) == 1, ct);
+        }
+        Assert.Equal(3, Volatile.Read(ref ends));
+#endif
+    }
+
+    [Fact]
     public async Task A_pause_press_that_stops_a_run_goes_no_further()
     {
 #if !WINDOWS
@@ -870,7 +946,14 @@ public class ToolTests
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vk);
 
-    private const int Break = 0x03, Esc = 0x1B, Pause = 0x13, LWin = 0x5B, F23 = 0x86, F24 = 0x87;
+    private const int Break = 0x03, Esc = 0x1B, Pause = 0x13, LShift = 0xA0, LWin = 0x5B, F23 = 0x86, F24 = 0x87;
+
+    /// <summary>For <see cref="Until"/>, which asks twice: once the wait is ended it stays done.</summary>
+    private static Func<bool> EndsTheWait(ToolContext ctx)
+    {
+        var ended = false;
+        return () => ended |= ctx.EndWait();
+    }
 
     /// <summary>Waits up to 3 s for <paramref name="done"/>, and fails if it never is.</summary>
     private static async Task Until(Func<bool> done, CancellationToken ct)

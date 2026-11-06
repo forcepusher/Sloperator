@@ -917,6 +917,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private void Stop() => _runCts?.Cancel();
 
     /// <summary>Pause/Break, from the hook's thread: stops the run in progress, if any; false when there is none.</summary>
+    internal bool EndWait() => _session?.EndWait() == true;
+
     internal bool StopByKey()
     {
         var cts = _runCts;

@@ -55,6 +55,28 @@ public sealed class ToolContext
     /// <summary>Cancelled when the user sends a message during the run: a wait ends early so the model reads it soon.</summary>
     public CancellationToken UserMessage { get; set; }
 
+    private volatile CancellationTokenSource? _waiting;
+
+    /// <summary>What ends the wait tool's call in progress; null when none is going.</summary>
+    internal CancellationTokenSource? Waiting
+    {
+        get => _waiting;
+        set => _waiting = value;
+    }
+
+    /// <summary>
+    /// The user ends the wait in progress; false when none is going. Any thread: on the stop key's
+    /// hook, what this sets off runs on the thread pool, as the hook holds up every key press on the PC.
+    /// </summary>
+    public bool EndWait()
+    {
+        if (Waiting is not { IsCancellationRequested: false } waiting)
+            return false;
+        try { _ = waiting.CancelAsync(); }
+        catch (ObjectDisposedException) { return false; } // the wait ended at that very moment
+        return true;
+    }
+
     /// <summary>
     /// True while the user is typing a message to the agent in Sloperator's own window: clicks and
     /// key presses wait, or they would take the focus from under the user's typing.

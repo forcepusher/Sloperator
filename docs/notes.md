@@ -4952,6 +4952,14 @@ usual Pause/Break, and the agent's own presses can't trigger it. Esc is left alo
 usual job in the windows you work in while the agent runs. After a stop, or an error that ended a
 run, the line saying so in the chat has a Continue button: the task carries on where it stopped,
 as if "Continue." had been sent (a stop before the model had the message runs that message again).
+Shift+Pause/Break, and Skip wait on the card, end a `wait` or `wait_until_change` in progress and the
+run goes on (the user, 2026-11-06). The model gets "The wait ended after 12s: the user ended it early." and a screenshot where
+the call would have had one. The key has this one job: with no wait going it goes through as usual and
+stops nothing, so a second press, or one just after the wait ran out, can't stop the run. Plain
+Pause/Break still stops it. Shift counts only as the user's own: the hook tracks untagged Shift presses
+and also asks Windows it is down, so a Shift the agent holds can't turn a stop into this, and a Shift
+let go where the hook can't see doesn't either. Like a stop it goes to every window: their waits all end.
+The CLI gives no second handler, so Shift+Pause stops there as it always did.
 A chat that ended stopped shows it again when opened from History. Sloperator
 stays on screen while it works but is left out of the agent's screenshots, and steps behind other
 windows for the moment a click lands on it: all of its windows (every chat window, the viewer,
