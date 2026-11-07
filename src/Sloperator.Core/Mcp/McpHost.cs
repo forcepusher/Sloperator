@@ -6,7 +6,7 @@ namespace Sloperator.Core.Mcp;
 
 public enum McpServerState { Disabled, Connecting, Connected, Failed }
 
-public sealed record McpServerStatus(string Name, McpServerState State, IReadOnlyList<string> ToolNames, string? Error, string? Instructions)
+public sealed record McpServerStatus(string Name, McpServerState State, IReadOnlyList<string> ToolNames, string? Error, string? Instructions, string? Needs = null)
 {
     /// <summary>One line for the settings dialog and the CLI.</summary>
     public string Summary => State switch
@@ -235,7 +235,7 @@ public sealed class McpHost : IAsyncDisposable
 
         public McpServerStatus Status => new(Config.Name, _state,
             _state == McpServerState.Connected ? _clientTools.Select(t => t.Name).OrderBy(n => n, StringComparer.Ordinal).ToList() : [], _error,
-            _client?.ServerInstructions is { Length: > 0 } i ? i.Trim() : null);
+            _client?.ServerInstructions is { Length: > 0 } i ? i.Trim() : null, Config.Needs);
 
         private readonly object _lock = new();
         private bool _stopped;

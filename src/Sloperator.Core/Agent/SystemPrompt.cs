@@ -61,8 +61,7 @@ public static class SystemPrompt
                       "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. Whether the setup is worth it is the user's call, not yours, even for a small task. " +
                       "If anything it needs is missing, even one package to add to the project or the program itself, your next step is to ask the user in plain chat whether they want it installed, and end your turn there: " +
                       "install nothing and do no other work until they answer. If they say no, do the task the best way you can without it. " +
-                      "Before you call anything missing, check this PC and the project. " +
-                      "An MCP server that can't connect usually needs its program open: start the program and try again before you do without it.");
+                      "Before you call anything missing, check this PC and the project.");
         // Asked to search when unsure, models weren't: Nemotron built a geometry nodes graph in
         // Blender 5.2 from what it knew of Blender 3, one failed script after another. So the rule
         // says when, rather than leaving it to the model's sense of being sure. And not only for
@@ -248,10 +247,13 @@ public static class SystemPrompt
         if (mcp is { Count: > 0 })
         {
             sb.AppendLine();
-            sb.AppendLine("Tools from the user's MCP servers are named <server>__<tool>; use them like any other tool when they fit the task:");
+            sb.AppendLine("Tools from the user's MCP servers are named <server>__<tool>; use them like any other tool when they fit the task. " +
+                          "One that can't connect usually needs its program open: start the program and try again before you do without it.");
             foreach (var s in mcp)
             {
                 sb.Append("- ").Append(McpTool.Prefix(s.Name)).Append("*: ").Append(s.ToolNames.Count).Append(s.ToolNames.Count == 1 ? " tool" : " tools");
+                if (s.Needs is { } needs)
+                    sb.Append(". Start this if it isn't running: ").Append(needs.ReplaceLineEndings(" ").Clip(500));
                 if (s.Instructions is { } instructions)
                     sb.Append(". ").Append(instructions.ReplaceLineEndings(" ").Clip(1_000));
                 sb.AppendLine();

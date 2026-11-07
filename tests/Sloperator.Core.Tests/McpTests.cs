@@ -537,6 +537,27 @@ public class McpTests
     }
 
     [Fact]
+    public async Task What_a_server_needs_running_is_saved_and_told_in_later_tasks()
+    {
+        // Blender's server connects only with Blender open: told nothing, a run gave up at the first
+        // "can't connect", and another spent minutes finding the start flag again.
+        var servers = new InProcessServer();
+        await using var _ = servers;
+        await using var host = new McpHost { TransportFactory = c => servers.Start(c.Name) };
+        var file = Path.Combine(Directory.CreateTempSubdirectory("bb-mcp-").FullName, "mcp.json");
+        var setup = new McpSetup(host, file);
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(), Mcp = setup };
+        setup.Registry = ToolRegistry.CreateDefault(includeScreenTools: false, extra: [new McpServersTool()]);
+
+        await new McpServersTool().ExecuteAsync(new JsonObject { ["action"] = "add", ["name"] = "test", ["command"] = "uvx", ["needs"] = "thing.exe --online" }, ctx, TestContext.Current.CancellationToken);
+
+        Assert.Equal("thing.exe --online", McpConfig.Parse(File.ReadAllText(file)).Servers.Single().Needs);
+        var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "", host.Statuses);
+        Assert.Contains("Start this if it isn't running: thing.exe --online", prompt);
+        Assert.Contains("start the program and try again before you do without it", prompt);
+    }
+
+    [Fact]
     public async Task A_server_the_agent_removes_leaves_the_run_even_when_settings_cant_be_saved()
     {
         // The save threw before its tools left: the result was about the other entry, and the
