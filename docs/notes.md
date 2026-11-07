@@ -2544,10 +2544,29 @@ action became a tool of its own with only its own parameters.
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
 `console.anthropic.com`, `claude.ai`, or just `claude`) and an Anthropic API key, Sloperator speaks Anthropic's own
 Messages API (`POST /v1/messages`, the key as `x-api-key`) rather than its OpenAI-compatible layer,
-which caches nothing and gives no thinking back. `src/Sloperator.Core/Llm/AnthropicMessages.cs` turns
-each request and reply into the other format, so the agent, fresh looks and model questions use
-Claude unchanged. A gateway in front of Anthropic whose address has an `anthropic` part
-(Cloudflare's AI Gateway, `…/{account}/{gateway}/anthropic`) is spoken to the same way.
+which caches nothing, gives no thinking back and ignores `reasoning_effort`.
+`src/Sloperator.Core/Llm/AnthropicMessages.cs` turns each request and reply into the other format, so
+the agent, fresh looks and model questions use Claude unchanged.
+
+**The server's answers pick that route, not its address or a model's name** (the user's rule, 7
+November 2026; until then the host `api.anthropic.com` or an `anthropic` part in the path did). What is
+looked at is the answer to `GET /models`, which every server check asks for anyway
+(`OpenAiChatClient.SpeaksMessages`, kept by address until Sloperator is closed; a run asks only if no
+check has): Anthropic's list has `has_more` and entries of `"type": "model"`, and its refusals name its
+headers. Live, 8 November 2026: no key is 401 "x-api-key header is required", a wrong one 401 "invalid
+x-api-key", a right one as a bearer token without `anthropic-version` 400 "anthropic-version: header is
+required", and with it the list, so that header goes with this request to every server, which keeps a
+check on Anthropic at one request. proxyapi.ru's `/anthropic/v1` lists its models for a bearer token,
+so a gateway at any address goes the same way, and one that passes on Anthropic's answers (Cloudflare's
+AI Gateway, `…/{account}/{gateway}/anthropic`, untried) does too. A
+408, 429 or 5xx says nothing, and it is asked again. A refusal of a chat request couldn't pick the route as
+with `/responses`: the OpenAI-compatible layer takes the request and does without what it doesn't do.
+`/messages` alone says nothing either: OpenRouter lists it on all its 382 chat models, not only
+Claude, Kilo's gateway answers on it for free Nemotron (its docs don't say so, its error for a bad
+path names it), and LM Studio and Ollama have it. Those servers' chat/completions path has worked and been
+measured, so they stay on it: all models moving would be a new path for Qwen for little gain, and
+Claude alone would need a model check (`architecture.tokenizer: "Claude"` in their lists).
+`ClaudeModel` still reads limits a list leaves out from the model's name on this route.
 
 - Models: the list comes from `/v1/models`, every page, with each model's context
   (`max_input_tokens`, 1M for the current ones), reply limit, image support and effort levels. With none picked
@@ -2601,7 +2620,7 @@ of the limit from then on, after a handoff note; the cost grows
   which see at most 1568 px), whatever the screenshot setting: Claude makes larger ones smaller itself and
   points on what it saw (in the pixels of the picture it saw, Anthropic's vision guide says), so
   clicks would miss, and a request with more than 20 pictures refuses any
-  over 2000 px. Other pictures in such a request are made to fit, and any over 8000 px a side or
+  over a set size (2000 px when this was written; 3000 px measured on 8 November 2026, on Haiku 5.5, as the vision guide says, so 2700 went through 21 at once and 4000 didn't). Other pictures in such a request are made to fit, and any over 8000 px a side or
   5 MB (the Claude API takes 10 MB, Bedrock and Google Cloud 5), or not JPEG, PNG, GIF or WebP,
   are converted; the same picture always comes out the same,
   so the cache holds.
@@ -2867,8 +2886,21 @@ The wording isn't uniform: munito's "too many image inputs", vLLM's "At most 1 i
 provided in one request." (its `--limit-mm-per-prompt`, 1 a request unless set; Azure says the
 same), Anthropic's "too many images and documents: 104 + 1 > 100" (Sloperator's own Claude
 requests leave the oldest out past 100, fifty at a time). OpenRouter and Kilo pass on the model
-server's; OpenAI, llama-server and LM Studio name no cap. A picture too big for many-image requests
-(Anthropic's 2000 pixels past 20) is not one of these.
+server's; OpenAI, llama-server and LM Studio name no cap.
+
+A picture too large is another refusal (`PictureTooLargeException`): Anthropic's "At least one of the
+image dimensions exceed max allowed size for many-image requests: 3000 pixels", past 20 pictures,
+which gateways pass on at HTTP 400 (proxyapi.ru's `/v1`, 8 November 2026). Claude's own route makes such
+pictures fit, but through a gateway a run on a screen that gives pictures over 3000 px wide (5120x1440
+gives 3840x1080) ended at its 21st screenshot. No name decides it: the size the refusal names is taken from it, kept for that
+server and model until Sloperator is closed, and screenshots fit it from then on, in the next runs from
+the start, with the prompt saying the new size (`ToolContext.MaxScreenshotSide`, rounded down to
+whole patches: 3000 would come out as 3008). All the screenshots in the conversation go in words at
+once, the latest too, and the screen is taken anew at the new size, as a click is worked out for the
+new size and the model points on the last picture it got. Pictures tools and the user gave stay; if
+one of those is the large one, the same refusal comes at the next 21st picture, with screenshots to
+leave out again; with none left, it ends the run. Live test: `PictureSizeTests` (BB_LIVE_URL,
+BB_LIVE_KEY, BB_LIVE_MODEL).
 
 All at once rather than one a step, for the prompt cache, and for Claude: a picture left out changes
 the request from there on, everything after it is read again, and Claude's thinking, sent back

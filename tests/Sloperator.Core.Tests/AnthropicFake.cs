@@ -91,7 +91,9 @@ internal sealed partial class FakeAnthropic : HttpMessageHandler
         var path = request.RequestUri!.AbsolutePath;
         Requests.Add(new Request(request.Method, request.RequestUri.PathAndQuery, headers, body));
 
-        if (!headers.TryGetValue("x-api-key", out var key) || key.Length == 0)
+        // A key goes as a bearer token too; only the words of the errors stay those of x-api-key.
+        var key = headers.GetValueOrDefault("x-api-key") ?? headers.GetValueOrDefault("authorization")?.Replace("Bearer ", "");
+        if (string.IsNullOrEmpty(key))
             return Json(HttpStatusCode.Unauthorized, Error("authentication_error", "x-api-key header is required"));
         if (key != "sk-ant-test")
             return Json(HttpStatusCode.Unauthorized, Error("authentication_error", "invalid x-api-key"));

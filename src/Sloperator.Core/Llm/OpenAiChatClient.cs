@@ -94,6 +94,26 @@ public sealed class TooManyImagesException(string serverMessage, int sent)
 }
 
 /// <summary>
+/// The server takes pictures, but none this large in a request like this one: Claude takes 3000 px
+/// a side in a request with more than 20 pictures (measured 8 November 2026, through proxyapi.ru
+/// too) and 8000 px in any. Gateways pass the refusal on. A run on a wider screen keeps a screenshot
+/// of every step, so the step after the 20th failed, and every one after it.
+/// </summary>
+public sealed class PictureTooLargeException(string serverMessage, int side)
+    : LlmException($"The server takes no pictures over {side} px a side in this request: {serverMessage}")
+{
+    /// <summary>The longest side the error says it takes.</summary>
+    public int Side { get; } = side;
+
+    // "At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels"
+    internal static int? ParseSide(string message)
+    {
+        var m = Regex.Match(message, @"(?:many-image|image dimensions exceed)[^""]*?(\d{3,5}) ?(?:pixels|px)", RegexOptions.IgnoreCase);
+        return m.Success && int.TryParse(m.Groups[1].Value, out var side) ? side : null;
+    }
+}
+
+/// <summary>
 /// The server is holding requests back (HTTP 429): too many in a while, or a free allowance used up
 /// (Kilo's free models take 200 requests an hour). Sending again after a wait gets through.
 /// </summary>
@@ -187,7 +207,6 @@ public sealed partial class OpenAiChatClient
         _http = http;
         _baseUrl = NormalizeBaseUrl(baseUrl);
         _apiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
-        _anthropic = IsAnthropic(_baseUrl);
     }
 
     public string BaseUrl => _baseUrl;
@@ -210,6 +229,14 @@ public sealed partial class OpenAiChatClient
     /// <summary>The most a reply of <paramref name="model"/> may take, as the server's model list says (OpenRouter's top_provider.max_completion_tokens).</summary>
     internal static void NoteReplyLimit(string baseUrl, string model, int most) =>
         ReplyCaps.AddOrUpdate((NormalizeBaseUrl(baseUrl), model), most, (_, known) => Math.Min(known, most));
+
+    /// <summary>The longest side a server takes pictures at, by server and model, as a refusal said (see <see cref="PictureTooLargeException"/>): the next runs' screenshots fit it from the start.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Server, string Model), int> PictureSides = new();
+
+    internal void NotePictureSide(string model, int side) =>
+        PictureSides.AddOrUpdate((_baseUrl, model), side, (_, known) => Math.Min(known, side));
+
+    internal int? PictureSide(string model) => PictureSides.TryGetValue((_baseUrl, model), out var side) ? side : null;
 
     [GeneratedRegex(@"(?<!\w)max_tokens(?!\w)", RegexOptions.IgnoreCase)]
     private static partial Regex MaxTokensNamed();
@@ -257,12 +284,18 @@ public sealed partial class OpenAiChatClient
     /// </summary>
     public async Task<IReadOnlyList<JsonObject>> ListModelEntriesAsync(CancellationToken ct)
     {
-        if (_anthropic)
-            return await ListClaudeModelsAsync(ct).ConfigureAwait(false);
         using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + "/models");
         Authorize(req);
+        // Anthropic takes a key as a bearer token, but no list without this; other servers don't mind.
+        req.Headers.Add("anthropic-version", AnthropicMessages.Version);
         using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
         var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        // A server having a bad moment says nothing of what it speaks.
+        var answered = (int)resp.StatusCode is not (408 or 429 or >= 500);
+        if (answered)
+            Speakers[_baseUrl] = IsClaudeAnswer(body);
+        if (answered && SpeaksMessages)
+            return await ListClaudeModelsAsync(resp.IsSuccessStatusCode ? body : null, ct).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode)
             throw KeyRefusedException.For((int)resp.StatusCode, body, _apiKey is not null)
                   // A website's 404 page: its HTML filled the banner.
@@ -306,7 +339,7 @@ public sealed partial class OpenAiChatClient
         CancellationToken ct,
         Action<long, long>? onSending)
     {
-        if (_anthropic)
+        if (await SpeaksMessagesAsync(ct).ConfigureAwait(false))
             return await CompleteClaudeAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
         if (ResponsesRoutes.ContainsKey((_baseUrl, options.Model)))
             return await CompleteResponsesAsync(messages, tools, options, onDelta, ct, onSending).ConfigureAwait(false);
@@ -467,6 +500,8 @@ public sealed partial class OpenAiChatClient
     /// </summary>
     private static LlmException? SizeRefusal(int status, string err, IReadOnlyList<ChatMessage> messages, int payloadLength)
     {
+        if (status is 400 or 413 or 422 && HasImages(messages) && PictureTooLargeException.ParseSide(err) is { } side)
+            return new PictureTooLargeException(ErrorText(err).Clip(300), side);
         if (status is 400 or 413 or 422 && HasImages(messages) && LooksLikeTooManyImages(err))
             return new TooManyImagesException(ErrorText(err).Clip(300), ImageCount(messages));
         if (LooksLikeContextOverflow(err))
@@ -504,6 +539,8 @@ public sealed partial class OpenAiChatClient
         // OpenRouter and Kilo pass on an upstream 429 in the stream, under HTTP 200.
         if (code == "429")
             return new RateLimitedException("Server error: " + errorText.Clip(300), RetryAfter(null, errorJson, DateTimeOffset.UtcNow));
+        if (PictureTooLargeException.ParseSide(errorText) is { } side)
+            return new PictureTooLargeException(errorText.Clip(300), side);
         if (LooksLikeTooManyImages(errorText))
             return new TooManyImagesException(errorText.Clip(300), 0);
         if (LooksLikeContextOverflow(errorText))
@@ -1012,11 +1049,7 @@ public sealed partial class OpenAiChatClient
 
     private void Authorize(HttpRequestMessage req)
     {
-        if (_apiKey is null)
-            return;
-        if (_anthropic)
-            req.Headers.Add("x-api-key", _apiKey);
-        else
+        if (_apiKey is not null)
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
     }
 

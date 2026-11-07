@@ -35,7 +35,7 @@ public static class AgentSetup
             Platform = platform,
             Settings = agent,
             WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            MaxScreenshotSide = OpenAiChatClient.IsAnthropic(backend.Client.BaseUrl) ? ClaudeModel.FromName(backend.Options.Model).ScreenshotSide : null,
+            MaxScreenshotSide = LongestScreenshot(backend),
             SeesImages = backend.Vision,
             UserComposing = userComposing,
             DesktopTurn = desktopTurn,
@@ -82,7 +82,22 @@ public static class AgentSetup
         // A server the agent adds or removes: the prompt then lists the servers as the next
         // message's will, in the same request whose tools change anyway.
         mcpSetup.ToolsChanged = () => session.UsePrompt(Prompt());
+        // A size the server turned down: the prompt says the screenshots' new one.
+        session.ScreenshotsResized = () =>
+        {
+            if (screens is null)
+                return;
+            screens = ctx.ScreenSpaces();
+            session.UsePrompt(Prompt());
+        };
         return session;
+    }
+
+    /// <summary>The longest side screenshots go at: what a Claude model sees where its server speaks Messages, and what the server said it takes, if it refused larger ones.</summary>
+    private static int? LongestScreenshot(BackendConnection backend)
+    {
+        int? seen = backend.Client.SpeaksMessages ? ClaudeModel.FromName(backend.Options.Model).ScreenshotSide : null;
+        return backend.Client.PictureSide(backend.Options.Model) is { } taken ? Math.Min(taken, seen ?? taken) : seen;
     }
 
     /// <summary>

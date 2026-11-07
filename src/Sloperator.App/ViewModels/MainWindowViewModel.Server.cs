@@ -303,7 +303,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
             if (CanSetEffort)
                 return "How hard the model thinks. More is slower and costs more.";
             var server = _settings.Server;
-            var lmStudio = !OpenAiChatClient.IsAnthropic(server.BaseUrl) && Uri.TryCreate(OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl), UriKind.Absolute, out var uri) && uri.Port == 1234;
+            var lmStudio = Uri.TryCreate(OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl), UriKind.Absolute, out var uri) && uri.Port == 1234;
             return lmStudio ? "Effort is set in LM Studio for this model" : "This model has no effort setting";
         }
     }

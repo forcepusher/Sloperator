@@ -875,6 +875,9 @@ public sealed partial class AgentSession(
     /// <summary>The system prompt from the next request on (an MCP server added mid-run, which the prompt lists).</summary>
     internal void UsePrompt(string prompt) => systemPrompt = prompt;
 
+    /// <summary>Called once <see cref="ToolContext.MaxScreenshotSide"/> changed mid-run, for the prompt to say the screenshots' new size.</summary>
+    internal Action? ScreenshotsResized { get; set; }
+
     /// <summary>Whether the model takes pictures as far as this run found: false once its server refused them, so the next runs are set up without.</summary>
     public bool SeesImages => toolContext.SeesImages;
 
@@ -975,6 +978,25 @@ public sealed partial class AgentSession(
                 toolContext.SeesImages = false;
                 observer.OnNotice(ex.Message.TrimEnd().TrimEnd('.') + ". Going on without pictures.", ex);
                 DropImages();
+                request.Clear();
+                request.Add(ChatMessage.System(systemPrompt));
+                request.AddRange(History);
+                attempt--;
+            }
+            catch (PictureTooLargeException ex) when (History.Count(IsScreenshot) > 1 || History.Any(IsScreenshot) && ex.Side < (toolContext.MaxScreenshotSide ?? int.MaxValue))
+            {
+                // Pictures too large, not too many: screenshots fit the size the server names from
+                // now on, here and in the next runs. Those in the conversation go in words at once, as
+                // for too many pictures, the latest too: a click is worked out for the new size, and
+                // the model points on the last picture it got, so it gets the screen anew at that size.
+                client.NotePictureSide(requestOptions.Model, ex.Side);
+                toolContext.MaxScreenshotSide = Math.Min(ex.Side, toolContext.MaxScreenshotSide ?? ex.Side);
+                ScreenshotsResized?.Invoke();
+                observer.OnNotice($"The server takes no pictures over {ex.Side} px a side in a request this big; screenshots fit that from now on, and the earlier ones are left out.", ex);
+                foreach (var m in History.Where(IsScreenshot))
+                    m.Parts = [m.Parts![0], ContentPart.FromText(OldScreenshotText)];
+                var screen = ScreenshotTool.Take(toolContext);
+                History.Add(new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText($"{CurrentScreenText} {screen.Text}"), ContentPart.FromImage(screen.Image!, screen.ImageMime)] });
                 request.Clear();
                 request.Add(ChatMessage.System(systemPrompt));
                 request.AddRange(History);

@@ -42,7 +42,7 @@ public class ReplyRoomLiveTests
         var observer = new RecordingObserver();
         await session.RunAsync("Call list_directory on the current folder once, then reply with the single word done.", observer, ct);
 
-        TestContext.Current.SendDiagnosticMessage($"{server.BaseUrl} {server.Model}, context {connection.ContextTokens}");
+        TestContext.Current.SendDiagnosticMessage($"{server.BaseUrl} {server.Model}, context {connection.ContextTokens}, Messages format: {connection.Client.SpeaksMessages}");
         foreach (var (body, status) in recorder.Sent)
             TestContext.Current.SendDiagnosticMessage($"max_tokens {body["max_tokens"]?.ToJsonString() ?? "(none)"}: {status}");
         foreach (var notice in observer.Notices)
