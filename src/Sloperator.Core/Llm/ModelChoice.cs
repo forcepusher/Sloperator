@@ -80,13 +80,48 @@ public static partial class ModelChoice
 
     /// <summary>
     /// <paramref name="picked"/> while the server offers it (a server that lists nothing is taken at
-    /// its word), otherwise the cheapest of the strongest models it offers (<see cref="Pick"/>).
-    /// Null when it offers none that can chat.
+    /// its word), or the name it lists that model by (<see cref="AsListed"/>), otherwise the cheapest
+    /// of the strongest models it offers (<see cref="Pick"/>). Null when it offers none that can chat.
     /// </summary>
     public static string? Choose(string picked, IReadOnlyList<ModelInfo> offered) =>
         !string.IsNullOrEmpty(picked) && (offered.Count == 0 || offered.Any(m => m.Id == picked))
             ? picked
-            : Pick(offered)?.Id;
+            : AsListed(picked, offered) ?? Pick(offered)?.Id;
+
+    /// <summary>
+    /// The name a server lists <paramref name="picked"/> by, null when it lists none: of two names
+    /// for it, the one written alike or else the shortest (an alias rather than a dated one).
+    /// </summary>
+    private static string? AsListed(string picked, IReadOnlyList<ModelInfo> offered)
+    {
+        var same = offered.Where(m => m.Chat && IsSameModel(m.Id, picked)).Select(m => m.Id).ToList();
+        return same.Find(id => Written(id) == Written(picked)) ?? same.MinBy(id => id.Length);
+    }
+
+    /// <summary>
+    /// Whether two names are one model. Each server writes names its own way: Sonnet 5.5 is
+    /// anthropic/claude-sonnet-5-5 on proxyapi.ru, anthropic/claude-sonnet-5.5 on OpenRouter and
+    /// claude-sonnet-5-5 on Anthropic's API, and Sonnet 4.5 has a date on some (…-4-5-20250929).
+    /// So the maker in front, how the words are joined and a date at the end don't count; anything
+    /// else does: Sonnet 5 isn't Sonnet 5.5, nor x:free the x that costs money.
+    /// </summary>
+    public static bool IsSameModel(string a, string b) =>
+        a == b || (DateAtEnd().Replace(Written(a), "") is { Length: > 0 } name && name == DateAtEnd().Replace(Written(b), ""));
+
+    /// <summary>A model's name without its maker, in <see cref="Words"/>.</summary>
+    private static string Written(string id) => string.Join(' ', Words(id[(id.LastIndexOf('/') + 1)..]));
+
+    /// <summary>Letters and numbers, a version as one word whichever way it is written: claude-opus-5-5-20261001 is claude, opus, 5.5, 20261001; qwen3.8-27b is qwen, 3.8, 27, b.</summary>
+    internal static List<string> Words(string name) =>
+        Word().Matches(name.ToLowerInvariant()).Select(m => m.Value.Replace('-', '.').Replace('_', '.')).ToList();
+
+    // A version's parts are one or two digits, each ending the number: not a date (-20261001) or a size (-27b).
+    [GeneratedRegex(@"[a-z]+|\d+(?:[.\-_]\d{1,2}(?![\da-z]))*")]
+    private static partial Regex Word();
+
+    // In Written's words: "20250929", "2025.09.29".
+    [GeneratedRegex(@" (?:\d{8}|\d{4}\.\d{2}\.\d{2})$")]
+    private static partial Regex DateAtEnd();
 
     /// <summary>
     /// The best value: of the models about as strong as the strongest (<see cref="Strongest"/>), the

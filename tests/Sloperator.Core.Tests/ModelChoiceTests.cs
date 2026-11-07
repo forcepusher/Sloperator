@@ -135,6 +135,49 @@ public class ModelChoiceTests
         Assert.DoesNotContain("qwen3.8-27b@q4_k_s", missing.Models);
     }
 
+    [Theory]
+    // The user's switch from proxyapi.ru to OpenRouter (2026-11-07) and on to Anthropic's API, lists as they were.
+    [InlineData("anthropic/claude-sonnet-5-5", "anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-5.5,anthropic/claude-sonnet-5,anthropic/claude-opus-5.5")]
+    [InlineData("anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-5-5", "anthropic/claude-sonnet-4-5-20250929,anthropic/claude-sonnet-5,anthropic/claude-sonnet-5-5")]
+    [InlineData("anthropic/claude-sonnet-5.5", "claude-sonnet-5-5", "claude-sonnet-5-5,claude-sonnet-5,claude-sonnet-4-5-20250929")]
+    [InlineData("openai/gpt-6.1-sol", "gpt-6-1-sol", "gpt-6-sol,gpt-6-1-sol")]
+    // An older model has a date on some servers, and an alias beside it on others.
+    [InlineData("anthropic/claude-sonnet-4.5", "claude-sonnet-4-5-20250929", "claude-sonnet-5-5,claude-sonnet-4-5-20250929")]
+    [InlineData("claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-5.5,anthropic/claude-sonnet-4.5")]
+    [InlineData("anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4-5", "anthropic/claude-sonnet-4-5-20250929,anthropic/claude-sonnet-4-5")]
+    [InlineData("claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4-5,anthropic/claude-sonnet-4-5-20250929")]
+    public async Task A_picked_model_goes_by_the_name_the_server_lists_it_by(string picked, string listed, string list)
+    {
+        var probe = await Probe(new() { ["/v1/models"] = Ids(list.Split(',')) }, picked);
+        Assert.Equal(listed, probe.Model);
+        Assert.False(probe.AutoPicked);
+    }
+
+    [Theory]
+    [InlineData("anthropic/claude-sonnet-5-5", "anthropic/claude-sonnet-5")]
+    [InlineData("anthropic/claude-sonnet-5-5", "anthropic/claude-haiku-5.5")]
+    [InlineData("openai/gpt-6-sol", "openai/gpt-6.1-sol")]
+    [InlineData("qwen3.8-27b@q6_k_xl", "qwen3.8-27b@q4_k_s")]
+    [InlineData("gemma-4-31b-it-qat", "gemma-4-31b-it")]
+    // A free model isn't the same as the one that costs money.
+    [InlineData("nvidia/nemotron-3.5-super-vl:free", "nvidia/nemotron-3.5-super-vl")]
+    [InlineData("nvidia/nemotron-3.5-super-vl", "nvidia/nemotron-3.5-super-vl:free")]
+    public async Task Another_model_with_a_name_like_the_one_picked_only_stands_in_for_it(string picked, string listed)
+    {
+        var probe = await Probe(new() { ["/v1/models"] = Ids([listed]) }, picked);
+        Assert.Equal(listed, probe.Model);
+        Assert.True(probe.AutoPicked);
+    }
+
+    [Theory]
+    [InlineData("日本語", "中文", false)]
+    [InlineData("日本語", "日本語", true)]
+    [InlineData("", "", true)]
+    [InlineData("claude-sonnet-5-5", "", false)]
+    [InlineData("20250929", "20261001", false)]
+    public void A_name_of_no_letters_it_can_read_is_only_the_same_written_alike(string a, string b, bool same) =>
+        Assert.Equal(same, ModelChoice.IsSameModel(a, b));
+
     [Fact]
     public async Task Among_equally_strong_models_the_loaded_one_wins_then_the_first_listed()
     {

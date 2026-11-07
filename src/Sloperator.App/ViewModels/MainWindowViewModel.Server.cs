@@ -383,6 +383,12 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         var before = server.ModelInUse;
         if (probe.Reachable)
         {
+            // The model picked, as this server names it: that is the pick from now on, not a stand-in for it.
+            if (!probe.AutoPicked && probe.Model is { } named && named != server.Model)
+            {
+                server.Model = named;
+                SaveSettings();
+            }
             server.AutoModel = probe.AutoPicked ? probe.Model : null;
             _autoModelDetails = probe.ModelDetails;
             _autoModelWhy = probe.PickedAs ?? ModelChoice.BestValue;
