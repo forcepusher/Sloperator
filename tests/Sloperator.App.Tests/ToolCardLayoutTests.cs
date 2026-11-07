@@ -140,7 +140,7 @@ public sealed class ToolCardLayoutTests
         {
             var button = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
             Assert.True(button.IsEffectivelyVisible);
-            Assert.Contains(card.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Shift+Pause/Break");
+            Assert.Contains(card.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Pause/Break");
             button.Command!.Execute(null);
             Assert.Equal(1, ended);
 
