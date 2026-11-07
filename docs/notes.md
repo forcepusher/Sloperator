@@ -2787,6 +2787,12 @@ sum serves all: new = prompt − cache read − cache write, each priced apart. 
 `prompt_tokens_details.cache_write_tokens` (OpenRouter, Kilo, proxyapi.ru) or
 `cache_creation_input_tokens` (LiteLLM, Anthropic).
 
+Each reply's own numbers are kept too, in `tokens` on its line in the chat's file (`ChatEntry.Tokens`: new, read,
+written, output; 2026-11-07, the user's pick after reading the chats of 3 and 4 November). The sum says how much was written to the
+cache, not when: that a pause of over 5 minutes wrote the whole context again could only be estimated from the
+times of the steps (one such pause at 300k on Sonnet 5.5, $0.75). They are for reading afterwards, shown nowhere, and
+go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply.
+
 Prices are typed per million tokens for the model in use on the server in use (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.
 The server's cost wins over typed prices (the user, 2026-11-02): they count only for a model whose
@@ -4544,6 +4550,22 @@ command ("…; exit 2\n$SloperatorOk = $? : Missing file"), and the position of 
 about 4,500 characters (Base64 in Base64 is longer), where it was about 12,000. Tests: `ToolTests`' Windows shell
 test checks the text and the line number; exit codes, stderr and the long command's file as before.
 
+**A program stopped by `select -first`** (2026-11-07). `git log | Select-Object -First 3` stops git once Select-Object
+has its lines, and Windows PowerShell 5.1 says the statement failed: `$?` false, `$LASTEXITCODE` -1, nothing in `$Error`
+(tried on the workstation; a cmdlet in front of the pipe, `Get-Content x | select -first 1`, gives true). Good output came
+back as "Exit code -1", and read as a failure. So a command with such a pipe, ending that way with no error recorded,
+exits 0. Only such a command: a program can end with -1 by itself. `$LASTEXITCODE` stays -1 after the statement, so a
+later one that fails still gives -1 rather than 1, as before. `| head -3` was fine as it was; `git grep` finding nothing
+(1) and `Get-Command x -ErrorAction SilentlyContinue` (1, with an error record) still say so, as the model may want
+to know: what they mean for look-ups is `Guesswork.ErrorLine`'s to read.
+
+**Get-Content reads UTF-8 by default** (`$PSDefaultParameterValues['Get-Content:Encoding']` in the setup, 2026-11-07).
+Windows PowerShell 5.1 takes a file without a byte order mark for the PC's code page (1251 on the workstation), so UTF-8
+source came back garbled: a run restored a file from git and redid its edit, another read it again. Tried on the
+workstation: UTF-8 with and without a mark and UTF-16 with one read right, `-Encoding` still wins, and `env:` and
+`function:` paths, which have no such parameter, still read. The cost: a file in the code page itself without a mark now
+reads garbled unless the command names `-Encoding Default`. Select-String read UTF-8 already.
+
 ### Auto
 **Auto** in the Side panel dropdown, right after None, and what a window opens with (the user, 2026-11-01: "a
 panel mode where relevant panels activate live for you to see everything happening as the model goes"; they had
@@ -4754,10 +4776,12 @@ presses for it at more points than errors:
 - After ten minutes of runs with nothing looked up (three at least, and only time in a run: not
   while the user is away between messages), or four runs however quick (probing how Blender 5.2 sets
   a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of
-  time), the run's result says it is time to look things up, and again every fourth run after it
-  until the model does. A run is a command, a script, an MCP call that changes something, a ComfyUI
-  job or a piece of a video; a file written or edited is no run for this (it still counts as a try
-  for the rest). Until 2026-11-03 it was eight tries, edits included, and every try after them got
+  time), the run's result says it is time to look things up, once for each message of the user's
+  and at least four runs after the last time. A run is a command, a script, an MCP call that changes
+  something, a ComfyUI job or a piece of a video; a file written or edited is no run for this (it
+  still counts as a try for the rest), and neither is a command that only reads, which is no try at
+  all (`ReadOnlyCommand`: a list of what reads, so a program it doesn't know stays a run; `TerminalWork` is
+  the opposite list, of what is work, and Blender isn't on it). Until 2026-11-03 it was eight tries, edits included, and every try after them got
   the note: building a Unity chat feature (Haiku 5.5, xhigh), 15 of the run's 17 look-up notes were
   this one, most of them after edits and passing builds, and Haiku made look-ups "for something" to
   obey it. Played over that run's calls (with its look-ups where they were), the new rule gives 10
@@ -4769,6 +4793,27 @@ presses for it at more points than errors:
   (`inspect.signature`, `--help`, `Get-Help`, `pip show`) counts as looking it up for this, and a
   plan to check something ("let's check the signature of FadeIn in moviepy 2.x") is no web search:
   the model makes that check on the PC, as qwen3.8 did with the installed moviepy.
+- Only failures a page could answer count (`Guesswork.Answerable`): not Sloperator's own tools failing
+  (bad arguments, a file that isn't there), a command that ran out of time, or a command line's own slip,
+  though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
+  install it). They use up no note either. After an exit code the output is what the command printed, so the
+  error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
+  wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that
+  looks something up gets no note for what failed beside it.
+
+**What the notes did in the chats of 3 and 4 November 2026** (three folders from the user's real work, Sonnet 5.5 and
+Haiku 5.5, the 70 notes whose text is still in the chats): "Time to look" 49 with 4 searches after them, all after a
+command that worked, about half of those reads; "Nothing looked up yet" 9 with none; "N tries failed" 9 with 2; "Came up
+before" 1, on `using System;`, the first line of two C# files; "Name doesn't exist" 2 with 1, the Unity CLI not on PATH.
+The model said what it thought of them ("I'm setting web search aside", "The nudge looks a bit stale"). Those chats played
+through the code as it is now (a test that was not kept, the calls and results in the order of the chats): 14 notes, 11 of them "Time to
+look", mostly after edits made through the shell, and the Unity CLI note stays.
+
+**Going in circles** (`LoopDetector`, the note after a result, never a block): the same 1 to 4 steps three times in a row,
+once for those rounds. Screenshots, zooms and waits don't count. It used to count one call three times among the last twelve,
+and all 44 notes in those chats were wrong: 36 a Unity menu opened with the same two clicks for a different item
+each time, 6 a zoom on the same spot after each action, 2 the Play button; the model never reacted to one. Played
+through the new rule: none. "The screen has not changed" is as it was.
 
 Measured with qwen3.8 on the Blender 5.2 task made from the command line instead (`blender -b`,
 one run each): before, it thought "let me do a quick web search… Actually, let me think about what

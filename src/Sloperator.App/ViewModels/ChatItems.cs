@@ -165,6 +165,7 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
         {
             Text = (message.Content ?? "").Trim();
             Reasoning = (message.Reasoning ?? Reasoning).Trim();
+            Tokens = ReplyTokens.Of(message);
         }
         Ended = at;
         IsStreaming = false;
@@ -273,6 +274,9 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
         get { lock (_gate) return _firstWords; }
         set { lock (_gate) _firstWords = value; }
     }
+
+    /// <summary>The reply's tokens, for the chat's file; shown nowhere.</summary>
+    public ReplyTokens? Tokens { get; set; }
 
     /// <summary>When the reply was complete, or the run stopped it.</summary>
     [ObservableProperty]

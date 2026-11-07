@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps your favourite models at the top.
 - **Skip wait** on the card of a wait in progress ends it early, and so does **Shift+Pause/Break** from any
   window. The agent is told and carries on with its task.
+- Each reply in a chat's saved file keeps its tokens: new, read from the prompt cache, written to it, and output.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
@@ -28,11 +29,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   short chats don't pay for a lookup and a task isn't held up by one.
 - The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
   for programs and scripts being run, no longer for commands that only look around or read files.
+- The agent is asked to look things up far less often: not after commands that only read, at most once
+  for each of your messages when nothing failed, and not for errors a web page can't answer.
+- **Going in circles** is only said when the same steps repeat three times in a row. Opening a menu again
+  for another item, or zooming in on the same spot, no longer counts.
+- `Get-Content` in the agent's commands reads UTF-8 by default. A file in the PC's old code page needs
+  `-Encoding Default`.
 
 ### Fixed
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
   own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
   5 seconds instead of one before it takes the pointer from Sloperator's window.
+- A command that cuts a program's output short with `select -first` no longer comes back as failed.
+- The first line a command printed is no longer taken for its error when the command ends with an exit code.
 - An MCP server with a tool schema from an older JSON Schema draft, or with a slip in it, no longer
   breaks the chat on any provider: every request used to fail, with "JSON schema is invalid" on
   Anthropic, on Continue too.

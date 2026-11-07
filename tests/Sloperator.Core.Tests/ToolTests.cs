@@ -1121,6 +1121,58 @@ public class ToolTests
         Assert.Contains("Exit code 1", cmdlet.Text);
     }
 
+    // `git log | Select-Object -First 5` stops git once it has its five lines: Windows PowerShell 5.1
+    // says the statement failed, with -1 and no error, and good output came back as a failure.
+    [Fact]
+    public async Task A_program_stopped_by_select_first_is_no_failure()
+    {
+#if !WINDOWS
+        Assert.Skip("Windows only");
+        IPlatformServices platform = new UnsupportedPlatform();
+#else
+        var platform = new Sloperator.Platform.Windows.WindowsPlatform();
+#endif
+        async Task<ToolResult> Run(string command) =>
+            await new ShellTool().ExecuteAsync(new JsonObject { ["command"] = command }, Ctx(platform), TestContext.Current.CancellationToken);
+
+        var cut = await Run("cmd /c \"for /L %i in (1,1,5000) do @echo line %i\" | Select-Object -First 2");
+        Assert.False(cut.IsError, cut.Text);
+        Assert.Contains("Exit code 0", cut.Text);
+        Assert.Contains("line 2", cut.Text);
+        Assert.DoesNotContain("line 3", cut.Text);
+
+        // A program that ends with -1 by itself still failed, and so does what follows a cut pipe.
+        Assert.Contains("Exit code -1", (await Run("cmd /c exit -1")).Text);
+        var after = await Run("cmd /c \"for /L %i in (1,1,5000) do @echo line %i\" | select -first 1; Get-Item 'C:\\no such folder here'");
+        Assert.True(after.IsError, after.Text);
+    }
+
+    [Fact]
+    public async Task Get_content_reads_utf8_without_a_byte_order_mark_and_other_files_as_before()
+    {
+#if !WINDOWS
+        Assert.Skip("Windows only");
+        IPlatformServices platform = new UnsupportedPlatform();
+#else
+        var platform = new Sloperator.Platform.Windows.WindowsPlatform();
+#endif
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        async Task<ToolResult> Read(string file, System.Text.Encoding encoding, string option = "")
+        {
+            var path = Path.Combine(dir, file);
+            await File.WriteAllTextAsync(path, "привет é", encoding, TestContext.Current.CancellationToken);
+            return await new ShellTool().ExecuteAsync(new JsonObject { ["command"] = $"Get-Content '{path}'{option}" }, Ctx(platform), TestContext.Current.CancellationToken);
+        }
+
+        Assert.Contains("привет é", (await Read("plain.txt", new System.Text.UTF8Encoding(false))).Text);
+        Assert.Contains("привет é", (await Read("marked.txt", new System.Text.UTF8Encoding(true))).Text);
+        Assert.Contains("привет é", (await Read("wide.txt", System.Text.Encoding.Unicode)).Text);
+        // Asked for by name, an encoding still wins, and what has no encoding still reads.
+        Assert.Contains("привет é", (await Read("named.txt", System.Text.Encoding.Unicode, " -Encoding Unicode")).Text);
+        var env = await new ShellTool().ExecuteAsync(new JsonObject { ["command"] = "Get-Content env:SystemRoot" }, Ctx(platform), TestContext.Current.CancellationToken);
+        Assert.False(env.IsError, env.Text);
+    }
+
     [Fact]
     public async Task A_powershell_script_written_with_write_file_runs_in_windows_powershell()
     {

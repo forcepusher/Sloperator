@@ -53,14 +53,14 @@ public class GuessworkTests
 
         Assert.Equal(Guesswork.FirstNote, guesswork.Check(Shell, ToolResult.Error("Exit code 1\nAccess to the path 'C:\\Windows\\x.txt' is denied.")));
         Assert.Null(guesswork.Check(Shell, new ToolResult("Exit code 0\nall good"))); // what went fine never counts
-        Assert.Null(guesswork.Check(Read, ToolResult.Error("File not found: C:\\x.txt")));
+        Assert.Null(guesswork.Check(Shell, ToolResult.Error("Exit code 1\nThe disk is full: the write failed.")));
         Assert.Equal(Guesswork.TriesNote(3), guesswork.Check(Shell, ToolResult.Error("Exit code 2\nThe process cannot access the file because another process uses it.")));
         Assert.Equal(Guesswork.TriesNote(4), guesswork.Check(Shell, ToolResult.Error("Exit code 3\nThe operation timed out at the third step.")));
 
         // A look-up starts the count again; an error from before still counts as one seen.
         Assert.Null(guesswork.Check(new WebSearchTool(), new ToolResult("1. Some page\n   https://example.com/")));
-        Assert.Null(guesswork.Check(Shell, ToolResult.Error("Exit code 4\nAnother thing went wrong.")));
-        Assert.Equal(Guesswork.RepeatNote, guesswork.Check(Read, ToolResult.Error("File not found: C:\\x.txt")));
+        Assert.Null(guesswork.Check(Shell, ToolResult.Error("Exit code 4\nAnother thing failed.")));
+        Assert.Equal(Guesswork.RepeatNote, guesswork.Check(Shell, ToolResult.Error("Exit code 1\nThe disk is full: the write failed.")));
     }
 
     [Fact]
@@ -146,22 +146,21 @@ public class GuessworkTests
     {
         foreach (var web in new[] { true, false })
         {
+            var execute = new McpTool("blender", "blender__execute_blender_code", new ModelContextProtocol.Protocol.Tool { Name = "execute_blender_code" },
+                (_, _) => Task.FromResult(new CallToolResult { Content = [new TextContentBlock { Text = BlenderError }] }));
             var server = new ScriptedServer(
-                Sse.ToolCall("r1", "read_file", """{"path":"missing.txt"}"""),
-                Sse.ToolCall("r2", "read_file", """{"path":"missing.txt"}"""),
+                Sse.ToolCall("r1", "blender__execute_blender_code", """{"code":"tree.inputs.clear()"}"""),
                 Sse.Text("It isn't there."));
             var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath() };
             var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null), new ChatRequestOptions(),
-                ToolRegistry.CreateDefault(includeScreenTools: false, includeWebTools: web), ctx, "sys");
+                ToolRegistry.CreateDefault(includeScreenTools: false, includeWebTools: web, extra: [execute]), ctx, "sys");
 
             var observer = new RecordingObserver();
             await session.RunAsync("read it", observer, CancellationToken.None);
 
-            // Said after the second result, in a message of its own.
+            // Said after the result, in a message of its own.
             var r1 = session.History.FindIndex(m => m.ToolCallId == "r1");
-            var r2 = session.History.FindIndex(m => m.ToolCallId == "r2");
-            Assert.DoesNotContain(session.History.Skip(r1).Take(r2 - r1), m => m.Content?.Contains("web_search") == true);
-            Assert.Equal(web, session.History[r2 + 1].Role == ChatRole.User && session.History[r2 + 1].Content!.Contains("look it up with web_search"));
+            Assert.Equal(web, session.History[r1 + 1].Role == ChatRole.User && session.History[r1 + 1].Content!.Contains("with web_search"));
             Assert.DoesNotContain(session.History, m => m.Role == ChatRole.Tool && m.Content!.Contains("web_search"));
             // The chat shows a line where the note was sent.
             Assert.Equal(web, observer.Notices.Contains("Asked the model to look this up with web_search before its next try."));
@@ -283,11 +282,110 @@ public class GuessworkTests
         searching.Read(Reply("Now the script."), [Shell]);
         Assert.Null(searching.Check(Shell, ToolResult.Error("Exit code 1\nZeroDivisionError: division by zero")));
 
-        // A command line's own slip is no matter for a search.
+        // A command line's own slip is no matter for a search, and uses up no note.
         var slip = new Guesswork();
-        Assert.Equal(Guesswork.FirstNote, slip.Check(Shell, ToolResult.Error("Exit code 1\nUnexpected token 'version' in expression or statement.")));
+        Assert.Null(slip.Check(Shell, ToolResult.Error("Exit code 1\nUnexpected token 'version' in expression or statement.")));
         slip.Read(Reply("Let me quote it."), [Shell]);
-        Assert.Null(slip.Check(Shell, ToolResult.Error("Exit code 1\nZeroDivisionError: division by zero")));
+        Assert.Equal(Guesswork.FirstNote, slip.Check(Shell, ToolResult.Error("Exit code 1\nZeroDivisionError: division by zero")));
+    }
+
+    [Fact]
+    public void Output_after_an_exit_code_is_no_error_unless_it_says_so()
+    {
+        // What a command printed, then "Exit code 1" from its last statement: the same first line of two
+        // C# files read through the shell was "an error that came up before".
+        Assert.Null(Guesswork.ErrorLine(ToolResult.Error("Exit code 1\nusing System;\nusing System.Net.Http;\nnamespace Game.Backend\n")));
+        Assert.Null(Guesswork.ErrorLine(ToolResult.Error("Exit code 1\n    LogExtension.Error($\"Popup not found\");\n    /// Fails with error 5 in a job object.\n")));
+        Assert.Null(Guesswork.ErrorLine(ToolResult.Error("Exit code 1\n"))); // git grep finding nothing, a check with -ErrorAction SilentlyContinue
+        Assert.Equal("fatal: not a git repository (or any of the parent directories): .git",
+            Guesswork.ErrorLine(ToolResult.Error("Exit code 128\nfatal: not a git repository (or any of the parent directories): .git\n")));
+        Assert.Equal("Program.cs(3,1): error CS0103: The name 'x' does not exist in the current context",
+            Guesswork.ErrorLine(ToolResult.Error("Exit code 1\n  Determining projects to restore...\nProgram.cs(3,1): error CS0103: The name 'x' does not exist in the current context\n")));
+
+        // A record's own line, after what the command printed, in any language.
+        const string Record = "At line:1 char:1\n+ Get-Content x\n+ ~~~~~~~~~~~~~\n    + CategoryInfo          : ObjectNotFound: (:) [], ItemNotFoundException\n    + FullyQualifiedErrorId : PathNotFound\n";
+        Assert.Equal("Get-Content : Cannot find path 'C:\\x' because it does not exist.",
+            Guesswork.ErrorLine(ToolResult.Error("Exit code 1\nusing System;\nGet-Content : Cannot find path 'C:\\x' because it does not exist.\n" + Record)));
+        Assert.Equal("Set-Location : Не удается найти позиционный параметр, принимающий аргумент \"Games\".",
+            Guesswork.ErrorLine(new ToolResult("Exit code 0\nSet-Location : Не удается найти позиционный параметр, принимающий аргумент \"Games\".\n" + Record)));
+    }
+
+    [Theory]
+    [InlineData("ValueError: invalid literal for int() with base 10: 'a'", true)]
+    [InlineData("error CS0117: 'KeyCode' does not contain a definition for 'Left'", true)]
+    [InlineData("Method invocation failed because [System.__ComObject] does not contain a method named 'Add'.", true)]
+    [InlineData("unity : The term 'unity' is not recognized as the name of a cmdlet, function, script file, or operable program.", true)]
+    [InlineData("Timed out after 60s.", false)]
+    [InlineData("Get-Content : Cannot find path 'C:\\x' because it does not exist.", false)]
+    [InlineData("test-stack.ps1 : A positional parameter cannot be found that accepts argument '{{.Status}}'.", false)]
+    [InlineData("c=sqlite3.connect : The term 'c=sqlite3.connect' is not recognized as the name of a cmdlet, function, script file, or operable program.", false)]
+    [InlineData("Unexpected token 'version' in expression or statement.", false)]
+    public void Only_failures_a_page_could_answer_count(string line, bool answerable) =>
+        Assert.Equal(answerable, Guesswork.Answerable(Shell, line));
+
+    [Fact]
+    public void Sloperators_own_tools_failing_is_no_matter_for_a_search()
+    {
+        var guesswork = new Guesswork();
+        for (var i = 0; i < 2 * Guesswork.Tries; i++)
+        {
+            Assert.Null(guesswork.Check(Read, ToolResult.Error("File not found: C:\\x.txt")));
+            Assert.Null(guesswork.Check(Write, ToolResult.Error("Missing required argument 'content'. Parameters for write_file: {}")));
+        }
+        // Nor does running out of time say anything, and it uses up no failed try.
+        Assert.Null(guesswork.Check(Shell, ToolResult.Error("Timed out after 60s.\nE:\\Repos\\Game\\Backend")));
+        Assert.Equal(Guesswork.FirstNote, guesswork.Check(Shell, ToolResult.Error("Exit code 1\nValueError: invalid literal for int() with base 10: 'a'")));
+    }
+
+    [Fact]
+    public void A_reply_that_looks_something_up_gets_no_note_for_what_failed_beside_it()
+    {
+        var guesswork = new Guesswork();
+        var failed = ToolResult.Error("Exit code 1\nValueError: invalid literal for int() with base 10: 'a'");
+        guesswork.Read(Reply("Let me check the page while this runs."), [Shell, new WebSearchTool()]);
+        Assert.Null(guesswork.Check(Shell, failed));
+        Assert.Null(guesswork.Check(new WebSearchTool(), new ToolResult("1. int() - Python documentation")));
+
+        // The next reply is told as before.
+        guesswork.Read(Reply("Try again."), [Shell]);
+        Assert.Equal(Guesswork.RepeatNote, guesswork.Check(Shell, failed));
+    }
+
+    [Theory]
+    // From the chats of 2026-11-03 and 04.
+    [InlineData("cd E:\\Repos\\Game; git status --short | Select-Object -First 20; git log --oneline -3", true)]
+    [InlineData("cd E:\\Repos\\Game\\Assets\\Source; Get-Content Scripts\\Backend\\CloudSave.cs | select -first 22; Select-String -Path Tests\\*.cs -Pattern \"Base|Url\"", true)]
+    [InlineData("$l=\"$env:LOCALAPPDATA\\Unity\\Editor\\Editor.log\"; (Get-Item $l).LastWriteTime; Select-String -Path $l -Pattern \"Reloading\" | Select-Object -Last 3", true)]
+    [InlineData("foreach($f in 'A.cs','B.cs'){ Select-String -Path $f -Pattern 'class ' | select -first 1 }", true)]
+    [InlineData("Get-Process Unity -ErrorAction SilentlyContinue | measure | % Count", true)]
+    [InlineData("sleep 1; Select-String -Path \"$env:LOCALAPPDATA\\Unity\\Editor\\Editor.log\" -Pattern \"Paywall\" 2>&1", true)]
+    [InlineData("cat /etc/nginx/nginx.conf | grep server_name; journalctl -u nginx -n 20", true)]
+    [InlineData("cd Chat; [System.IO.File]::ReadAllLines(\"$PWD\\ChatTexts.cs\",[System.Text.Encoding]::UTF8)[6..12]", true)]
+    [InlineData("git status | select -first 25; git branch --show-current; git log --oneline -5; git stash list", true)]
+    [InlineData("git stash pop", false)]
+    [InlineData("git add -A; git commit -m \"Chat\"", false)]
+    [InlineData("cd E:\\Repos\\Game; powershell -NoProfile -File Backend\\test-stack.ps1 ensure", false)]
+    [InlineData("python scatter.py", false)]
+    [InlineData("blender -b --python scatter.py", false)]
+    [InlineData("Get-Content a.txt | Set-Content b.txt", false)]
+    [InlineData("Get-Content a.txt > b.txt", false)]
+    [InlineData("Get-ChildItem *.meta | ForEach-Object { Remove-Item $_ }", false)]
+    [InlineData("$p = python scatter.py; $p", false)]
+    [InlineData("[IO.File]::WriteAllText('a.txt', 'x')", false)]
+    [InlineData("find . -name '*.tmp' -delete", false)]
+    [InlineData("", false)]
+    public void Commands_that_only_read_are_told_apart(string command, bool reads) =>
+        Assert.Equal(reads, ReadOnlyCommand.Is(command));
+
+    [Fact]
+    public void Commands_that_only_read_make_it_no_time_to_look()
+    {
+        var guesswork = new Guesswork();
+        guesswork.StartRun("Add a chat button");
+        var ok = new ToolResult("Exit code 0\nAssets/Source/Chat.cs:12:    private Button _send;");
+        const string Grep = """{"command":"git grep -n Button -- *.cs"}""";
+        for (var i = 0; i < 3 * Guesswork.CheckBurst; i++)
+            Assert.Null(guesswork.Check(Shell, ok, Grep));
     }
 
     [Theory]
@@ -373,13 +471,15 @@ public class GuessworkTests
         Assert.Null(guesswork.Check(new ReadFileTool(), new ToolResult("text"))); // only runs say it
         now += TimeSpan.FromMinutes(1);
         Assert.Null(guesswork.Check(Write, Wrote)); // nor do edits
-        // Said once, then again after another four runs with nothing looked up.
-        for (var i = 0; i < Guesswork.CheckBurst - 1; i++)
+        // Said once for a message of the user's, however many runs follow.
+        for (var i = 0; i < Guesswork.CheckBurst; i++)
             Assert.Null(guesswork.Check(Shell, ran));
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromMinutes(12), 7), guesswork.Check(Shell, ran));
+        guesswork.Heard("Go on");
+        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromMinutes(12), 8), guesswork.Check(Shell, ran));
 
         // A look-up starts the clock again, and so does reading the installed version's own API.
         Assert.Null(guesswork.Check(new FetchPageTool(), new ToolResult("# Motion control")));
+        guesswork.Heard("And with music?");
         now += TimeSpan.FromMinutes(5);
         Assert.Null(guesswork.Check(Shell, ran));
         now += TimeSpan.FromMinutes(4);
@@ -414,10 +514,14 @@ public class GuessworkTests
         now += TimeSpan.FromSeconds(20);
         Assert.Equal(Guesswork.CheckNote(TimeSpan.FromSeconds(80), 4), guesswork.Check(Shell, probed));
         Assert.StartsWith("[Sloperator] Time to look things up: 4 tries and 1 minute since", Guesswork.CheckNote(TimeSpan.FromSeconds(80), 4));
-        // Not on every run after that: once per four, until the model looks something up.
-        for (var i = 1; i < Guesswork.CheckBurst; i++)
+        // Not again for this message, however many runs follow: the model has heard it.
+        for (var i = 0; i < 2 * Guesswork.CheckBurst; i++)
             Assert.Null(guesswork.Check(Shell, probed));
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromSeconds(80), 8), guesswork.Check(Shell, probed));
+        // The user's next message opens it again, at least four runs on, and not at its first run if it is sooner.
+        guesswork.Heard("Keep going");
+        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromSeconds(80), 13), guesswork.Check(Shell, probed));
+        guesswork.Heard("And now the camera");
+        Assert.Null(guesswork.Check(Shell, probed));
         Assert.Null(guesswork.Check(new WebSearchTool(), new ToolResult("1. Geometry nodes")));
         for (var i = 1; i < Guesswork.CheckBurst; i++)
             Assert.Null(guesswork.Check(Shell, probed));

@@ -15,9 +15,12 @@ namespace Sloperator.Core.Tools;
 public static partial class PowerShellScript
 {
     /// <summary>Forcing UTF-8 output keeps non-ASCII file names and text intact in the redirected stream; no progress bars;
-    /// Windows PowerShell's curl is an alias of Invoke-WebRequest, which rejects curl's options, and models mean the real curl.exe.</summary>
+    /// Windows PowerShell's curl is an alias of Invoke-WebRequest, which rejects curl's options, and models mean the real curl.exe.
+    /// Get-Content takes a file without a byte order mark for the PC's own code page, so UTF-8 source came back garbled, and written
+    /// back it stayed that way; a file with a mark still reads by its mark, and -Encoding still wins.</summary>
     private const string Setup =
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $ProgressPreference = 'SilentlyContinue'; " +
+        "$PSDefaultParameterValues['Get-Content:Encoding'] = 'UTF8'; " +
         "Remove-Item Alias:curl -Force -ErrorAction SilentlyContinue";
 
     /// <summary>The last line of the command's block: whether its last statement worked, which <see cref="ExitCode"/> reads.</summary>
@@ -28,9 +31,16 @@ public static partial class PowerShellScript
     /// 0 for a program's messages on stderr taken in with 2>&amp;1 (Windows PowerShell 5.1 counts them as an
     /// error), else 1 for a cmdlet that failed. A command that ends with exit or return never gets here
     /// with a failure (its block's end isn't reached: $SloperatorOk stays true).
+    /// <para>
+    /// In `git log | Select-Object -First 5` Select-Object has all it wants and stops the program, and
+    /// PowerShell 5.1 calls the statement failed: $? false, $LASTEXITCODE -1, no error recorded. Good
+    /// output came back as "Exit code -1". Only a command with such a pipe gets this reading of -1,
+    /// as a program can end with -1 by itself.
+    /// </para>
     /// </summary>
-    private const string ExitCode =
-        "if (-not $SloperatorOk) { if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; " +
+    private static string ExitCode(bool cutsPipe) =>
+        "if (-not $SloperatorOk) { " + (cutsPipe ? "if ($LASTEXITCODE -eq -1 -and $Error.Count -eq 0) { exit 0 }; " : "") +
+        "if ($LASTEXITCODE -is [int] -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; " +
         "if ($Error.Count -gt 0 -and \"$($Error[0].FullyQualifiedErrorId)\" -like 'NativeCommandError*') { exit 0 }; exit 1 }";
 
     /// <summary>
@@ -43,8 +53,11 @@ public static partial class PowerShellScript
         var block = Convert.ToBase64String(Encoding.Unicode.GetBytes(command + "\n" + Ok));
         return $"{Setup}; $SloperatorOk = $true; " +
                $"$SloperatorCommand = [scriptblock]::Create([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('{block}')))\n" +
-               ". $SloperatorCommand\n" + ExitCode;
+               ". $SloperatorCommand\n" + ExitCode(CutPipe().IsMatch(command));
     }
+
+    [GeneratedRegex(@"\|\s*(select|select-object)\b[^|;\n]*-first\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CutPipe();
 
     /// <summary>
     /// Error text PowerShell wrote for a command run by <see cref="Wrap"/>, without what is Sloperator's: the
