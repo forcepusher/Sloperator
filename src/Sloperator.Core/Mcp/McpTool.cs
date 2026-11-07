@@ -109,12 +109,11 @@ public sealed partial class McpTool : Tools.Tool
     {
         var obj = schema.ValueKind == JsonValueKind.Object ? JsonNode.Parse(schema.GetRawText()) as JsonObject : null;
         obj ??= [];
+        obj.Remove("$schema");
+        ToDraft2020(obj);
         obj["type"] = "object";
         if (obj["properties"] is not JsonObject)
             obj["properties"] = new JsonObject();
-        if (obj["required"] is not null && obj["required"] is not JsonArray)
-            obj.Remove("required");
-        obj.Remove("$schema");
         FlattenAlternatives(obj);
         return obj;
     }

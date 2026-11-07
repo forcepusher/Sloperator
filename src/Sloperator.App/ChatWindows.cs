@@ -33,7 +33,7 @@ public sealed class ChatWindows
         Saver = new ChatSaver(new ChatStore(paths.ChatsDir));
         // One hook for every window: one press stops every run. A hook each, the first that stopped
         // its run swallowed the press, and the others never saw it.
-        platform.StopKey.Watch(StopAll);
+        platform.StopKey.Watch(StopAll, EndWaits);
         // A ComfyUI an earlier Sloperator started and left at work is closed once its jobs are done.
         Core.Comfy.ComfyHub.For(paths.ComfyDir).CloseLeftover();
         Core.Media.MediaRelease.Releasing += LetGo;
@@ -265,6 +265,15 @@ public sealed class ChatWindows
         foreach (var (vm, _) in _open)
             stopped |= vm.StopByKey();
         return stopped;
+    }
+
+    /// <summary>Shift+Pause/Break, from the hook's thread: ends every run's wait; false when none was going.</summary>
+    private bool EndWaits()
+    {
+        var ended = false;
+        foreach (var (vm, _) in _open)
+            ended |= vm.EndWait();
+        return ended;
     }
 
     private void Closed(MainWindowViewModel vm)

@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
 - The model dropdown has a search box when its models don't fit in the list, and a pin on each row that
   keeps your favourite models at the top.
+- **Skip wait** on the card of a wait in progress ends it early, and so does **Shift+Pause/Break** from any
+  window. The agent is told and carries on with its task.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
@@ -33,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
   own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
   5 seconds instead of one before it takes the pointer from Sloperator's window.
+- An MCP server with a tool schema from an older JSON Schema draft, or with a slip in it, no longer
+  breaks the chat on any provider: every request used to fail, with "JSON schema is invalid" on
+  Anthropic, on Continue too.
 
 ## [1.4.0] - 2026-11-04
 ### Added

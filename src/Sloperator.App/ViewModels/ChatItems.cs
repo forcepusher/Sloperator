@@ -373,7 +373,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public bool HasCommand => Command is { Length: > 0 };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError))]
+    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError), nameof(CanEndWait))]
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
@@ -400,6 +400,15 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
 
     /// <summary>The files the call made or showed, for the chat's file until their previews come (they are looked for in the background).</summary>
     public IReadOnlyList<string>? SavedFiles { get; set; }
+
+    /// <summary>Ends the call's wait; null on a card read back from a saved chat.</summary>
+    public Action? EndsWait { get; init; }
+
+    /// <summary>A wait going on: Skip wait shows on its card.</summary>
+    public bool CanEndWait => EndsWait is not null && State == ToolItemState.Running && Name is "wait" or "wait_until_change";
+
+    [RelayCommand]
+    private void EndWait() => EndsWait?.Invoke();
 
     public bool IsAwaitingApproval => State == ToolItemState.AwaitingApproval;
     public bool IsError => State is ToolItemState.Error or ToolItemState.Denied;

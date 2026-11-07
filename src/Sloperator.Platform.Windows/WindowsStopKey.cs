@@ -18,11 +18,13 @@ namespace Sloperator.Platform.Windows;
 /// swallowed whole, so the window the agent was working in never sees it: its key-down, the
 /// repeats while it is held and its key-up, and also the keys pressed while it is held (mashed in
 /// a hurry, they would land in that window). Otherwise the key goes through as usual.
+/// With Shift held the key has another job, the app's end of a wait: Shift only counts when the user
+/// holds it, so a Shift the agent holds down never turns the user's Pause into anything but a stop.
 /// </remarks>
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsStopKey : IStopKey
 {
-    public IDisposable Watch(Func<bool> onPressed) => new Hook(onPressed);
+    public IDisposable Watch(Func<bool> onPressed, Func<bool>? onShiftPressed = null) => new Hook(onPressed, onShiftPressed);
 
     private sealed class Hook : IDisposable
     {
@@ -34,16 +36,19 @@ internal sealed class WindowsStopKey : IStopKey
         private const long HeldGapMs = 2500;
 
         private readonly Func<bool> _onPressed;
+        private readonly Func<bool>? _onShiftPressed;
         private readonly LowLevelHookProc _proc; // kept alive for as long as the hook is installed
         // Used on the hook's thread only.
         private readonly Dictionary<uint, long> _swallowed = []; // keys swallowed until let go, and when each last went down
+        private readonly HashSet<uint> _shifts = []; // the Shift keys the user went down on
         private uint _stopPress; // the key that stopped a run (Pause or Break), while it is held; 0 if none
         private nint _hook;
         private uint _threadId;
 
-        public Hook(Func<bool> onPressed)
+        public Hook(Func<bool> onPressed, Func<bool>? onShiftPressed)
         {
             _onPressed = onPressed;
+            _onShiftPressed = onShiftPressed;
             _proc = Callback;
             using var ready = new ManualResetEventSlim();
             new Thread(() => Run(ready)) { IsBackground = true, Name = "Sloperator stop key" }.Start();
@@ -80,6 +85,13 @@ internal sealed class WindowsStopKey : IStopKey
         /// <summary>Whether a key event of the user's goes no further.</summary>
         private bool Swallow(uint message, uint vk)
         {
+            if (vk is VK_LSHIFT or VK_RSHIFT)
+            {
+                if (message is WM_KEYUP or WM_SYSKEYUP)
+                    _shifts.Remove(vk);
+                else
+                    _shifts.Add(vk);
+            }
             if (message is WM_KEYUP or WM_SYSKEYUP)
             {
                 if (vk == _stopPress) _stopPress = 0;
@@ -122,9 +134,12 @@ internal sealed class WindowsStopKey : IStopKey
 
         private bool Stopped()
         {
-            try { return _onPressed(); }
+            try { return (ShiftHeld ? _onShiftPressed ?? _onPressed : _onPressed)(); }
             catch { return false; } // a hook callback must never throw into the system
         }
+
+        /// <summary>Also down in Windows: a Shift let go where the hook can't see (see <see cref="HeldGapMs"/>) would turn every stop into this for good.</summary>
+        private bool ShiftHeld => _shifts.Any(IsDown);
 
         /// <summary>Whether Windows has the key down. In the hook, that is as it was before the event at hand.</summary>
         private static bool IsDown(uint vk) => (GetAsyncKeyState((int)vk) & 0x8000) != 0;

@@ -4931,6 +4931,42 @@ SVG or WebP the model's server can't read doesn't fail every request after it (o
 picture at all is left out, with a line saying so). Comments and trailing commas in the file are fine. The settings dialog shows how each
 server is doing, and a server that fails to start is reported in the chat; the others keep working.
 
+Every tool schema a server gives is made valid JSON Schema draft 2020-12, at every depth, before any
+provider sees it (`McpTool.ToDraft2020`). Most servers check each schema and refuse the whole request,
+so one bad tool failed every message of the chat, Continue included: spine-MCP's
+`spine_control_bones` has a `z.tuple`, zod-to-json-schema writes that as a list under `items` (the
+draft-07 way), and the answer was 400 "tools.37.custom.input_schema: JSON schema is invalid. It must
+match JSON Schema draft 2020-12". A tuple becomes one `items` with the lengths kept: the same schema
+when all places match, `anyOf` of them when not, so a mixed tuple no longer says which place holds
+what and the server's own check tells the model. 2020-12's own `prefixItems` would keep the places
+apart and passed everywhere it was tried, but `items` is the form all readers of a schema know, and
+the one the runs below were made on. Draft 4's `exclusiveMinimum: true` becomes the number. A keyword
+holding what it can't hold (`required: true` on a property, `type: "any"`, `description: null`, an
+empty `anyOf`, a `pattern` that doesn't compile) is left out, and the walk goes by keyword so that a
+property called `items` and what `enum` or `default` hold stay as they are. The walk works the same
+for every provider.
+
+Checked on real servers on 2026-11-07 with `McpSchemaLiveTests` (opt-in by `BB_LIVE_*`), 17 or 18 slips
+each, all of which passed fixed; spine's bones tool, written out by hand from its source and
+zod-to-json-schema's as the server itself wasn't run, passed fixed too, and every model called it with
+the curve as an array of four numbers.
+
+| Server | Refused as written |
+|---|---|
+| Anthropic, Haiku 5.5, direct and through proxyapi.ru's `/anthropic` and `/v1` | 13 |
+| proxyapi.ru: GPT 6 Luna (through `/v1/responses`), GPT-4o mini | 11 |
+| proxyapi.ru: DeepSeek V4.1 Flash | 7 |
+| proxyapi.ru: Gemini 3.6 Flash | 6 |
+| proxyapi.ru: Grok 4.7, Qwen 3.8 Flash; Kilo: Nemotron 3.5 Super VL | 0 |
+
+Anthropic runs the whole of the draft's meta-schema, its patterns too (`$id` with a fragment, `$anchor`
+with a space and a `$vocabulary` that isn't an object are refused), but not `format`: a broken regex
+and a `$ref` to nowhere pass. A broken regex is refused by DeepSeek and GPT 6 Luna, hence the check.
+An array without `items` and `prefixItems` alone passed everywhere they were tried, so an array is left
+as it is. Anthropic reads a schema naming draft-07 in its top `$schema` as draft-07, so spine's passes
+with that field; it failed here because `NormalizeSchema` takes the field out. Not run: LM Studio (the
+server didn't answer), OpenRouter, and the spine server itself.
+
 The agent sets servers up itself too, with its `mcp_servers` tool: when a program it is asked to
 use has an MCP server, it installs what the server needs (asking first, see below), adds it
 (`add` with a name and a command or url, as in the file), and its tools join the run at once and
@@ -4999,6 +5035,14 @@ usual Pause/Break, and the agent's own presses can't trigger it. Esc is left alo
 usual job in the windows you work in while the agent runs. After a stop, or an error that ended a
 run, the line saying so in the chat has a Continue button: the task carries on where it stopped,
 as if "Continue." had been sent (a stop before the model had the message runs that message again).
+Shift+Pause/Break, and Skip wait on the card, end a `wait` or `wait_until_change` in progress and the
+run goes on (the user, 2026-11-06). The model gets "The wait ended after 12s: the user ended it early." and a screenshot where
+the call would have had one. The key has this one job: with no wait going it goes through as usual and
+stops nothing, so a second press, or one just after the wait ran out, can't stop the run. Plain
+Pause/Break still stops it. Shift counts only as the user's own: the hook tracks untagged Shift presses
+and also asks Windows it is down, so a Shift the agent holds can't turn a stop into this, and a Shift
+let go where the hook can't see doesn't either. Like a stop it goes to every window: their waits all end.
+The CLI gives no second handler, so Shift+Pause stops there as it always did.
 A chat that ended stopped shows it again when opened from History. Sloperator
 stays on screen while it works but is left out of the agent's screenshots, and steps behind other
 windows for the moment a click lands on it: all of its windows (every chat window, the viewer,
