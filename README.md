@@ -14,7 +14,7 @@ Its settings, chats and whatever it downloads stay in a `SloperatorData` folder 
    **Run anyway**.
 3. Type what you want and press Enter.
 
-**Pause/Break** stops it at any time. It doesn't ask before it acts; to change that see Settings.
+**Pause/Break** stops it at any time, and **Shift+Pause/Break** skips a wait. It doesn't ask before it acts; to change that see Settings.
 While it works, a yellow frame goes round the screen. It waits for you to leave the mouse and keyboard
 alone before it acts, and locks them for the moment it clicks or types; Pause/Break gives them back,
 and the Stop button always takes a click.

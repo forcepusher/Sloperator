@@ -662,18 +662,25 @@ public abstract class WaitToolBase : Tool
     public override ToolRisk Risk => ToolRisk.ReadOnly;
 
     /// <summary>
-    /// Runs <paramref name="wait"/> and gives its words, or how long it went on before a message from
-    /// the user ended it: a ten-minute watch shouldn't keep them waiting.
+    /// Runs <paramref name="wait"/> and gives its words, or how long it went on before the user ended
+    /// it, with a message or <see cref="ToolContext.EndWait"/>: a ten-minute watch shouldn't keep them waiting.
     /// </summary>
-    protected static async Task<string> UntilMessageAsync(Func<CancellationToken, Task<string>> wait, ToolContext ctx, CancellationToken ct)
+    protected static async Task<string> UntilEndedAsync(Func<CancellationToken, Task<string>> wait, ToolContext ctx, CancellationToken ct)
     {
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, ctx.UserMessage);
+        using var ended = new CancellationTokenSource();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, ctx.UserMessage, ended.Token);
+        ctx.Waiting = ended;
         var clock = System.Diagnostics.Stopwatch.StartNew();
         try { return await wait(linked.Token).ConfigureAwait(false); }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested && ctx.UserMessage.IsCancellationRequested)
         {
             return $"The wait ended after {clock.Elapsed.TotalSeconds:0.#}s: the user sent you a message, which follows.";
         }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && ended.IsCancellationRequested)
+        {
+            return $"The wait ended after {clock.Elapsed.TotalSeconds:0.#}s: the user ended it early.";
+        }
+        finally { ctx.Waiting = null; }
     }
 
     protected static ToolResult WithScreenshot(string waited, ToolContext ctx)
@@ -698,7 +705,7 @@ public sealed class WaitTool : WaitToolBase
     public override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var seconds = TimeSpan.FromSeconds(Math.Clamp(GetNumber(args, "seconds") ?? 1, 0.1, MaxSeconds));
-        var waited = await UntilMessageAsync(async token =>
+        var waited = await UntilEndedAsync(async token =>
         {
             await Task.Delay(seconds, token).ConfigureAwait(false);
             return $"Waited {seconds.TotalSeconds:0.#}s.";
@@ -727,7 +734,7 @@ public sealed class WaitUntilChangeTool : WaitToolBase
     public override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         TimeSpan? limit = GetNumber(args, "seconds") is { } seconds ? TimeSpan.FromSeconds(Math.Max(seconds, 0.1)) : null;
-        var waited = await UntilMessageAsync(async token => await WaitForChangeAsync(ctx, limit, token).ConfigureAwait(false) switch
+        var waited = await UntilEndedAsync(async token => await WaitForChangeAsync(ctx, limit, token).ConfigureAwait(false) switch
         {
             { } after => $"The screen changed after {after.TotalSeconds:0.#}s.",
             null => $"Waited {limit!.Value.TotalSeconds:0.#}s; nothing on the screen changed.",
@@ -737,7 +744,7 @@ public sealed class WaitUntilChangeTool : WaitToolBase
 
     /// <summary>
     /// How long it took the screen to change from how it was at the start, or null if it didn't within
-    /// <paramref name="limit"/>; with no limit it waits until it does (or a message or Stop ends it).
+    /// <paramref name="limit"/>; with no limit it waits until it does (or the user or Stop ends it).
     /// </summary>
     private static async Task<TimeSpan?> WaitForChangeAsync(ToolContext ctx, TimeSpan? limit, CancellationToken ct)
     {

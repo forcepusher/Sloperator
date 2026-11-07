@@ -729,6 +729,23 @@
                        same day); when it began to run is its tooltip. -->
                   <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding StatusText}" ToolTip.Tip="{Binding TimeTip}" VerticalAlignment="Top" Margin="8,0,0,0" />
+                    <!-- A wait going on: skipped with a click, or with the key from any window (WindowsStopKey),
+                         in this line (a line of its own was one too many, the user, 2026-11-07). The button is
+                         taller than the line and the key chips too; their margins keep the card as high as any
+                         other. The keys are chips as on the start screen, not words, and the button stands between
+                         them and the time, a step further off: as words, the key and the time ran together (the
+                         user, the same day). -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="8,0,8,0" IsVisible="{Binding CanEndWait}">
+                      <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,-4" VerticalAlignment="Center">
+                        <Border Classes="key">
+                          <TextBlock Text="Shift" />
+                        </Border>
+                        <Border Classes="key">
+                          <TextBlock Text="Pause/Break" />
+                        </Border>
+                      </StackPanel>
+                      <Button Classes="ghost small" Content="Skip wait" Command="{Binding EndWaitCommand}" Margin="0,-4" VerticalAlignment="Center" />
+                    </StackPanel>
                     <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
                     <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
                       <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />

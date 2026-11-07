@@ -202,15 +202,16 @@ public interface IStopKey
     /// <summary>
     /// Calls <paramref name="onPressed"/> (on any thread) when the user presses the key. It returns
     /// true if it stopped something, in which case the press is swallowed, with any keys pressed
-    /// along with it; otherwise the key goes through to the focused app as usual.
+    /// along with it; otherwise the key goes through to the focused app as usual. With
+    /// <paramref name="onShiftPressed"/>, a press with Shift held goes to it instead, by the same rules.
     /// </summary>
-    IDisposable Watch(Func<bool> onPressed);
+    IDisposable Watch(Func<bool> onPressed, Func<bool>? onShiftPressed = null);
 }
 
 public sealed class NoStopKey : IStopKey
 {
     public static readonly NoStopKey Instance = new();
-    public IDisposable Watch(Func<bool> onPressed) => new Nothing();
+    public IDisposable Watch(Func<bool> onPressed, Func<bool>? onShiftPressed = null) => new Nothing();
 
     private sealed class Nothing : IDisposable
     {

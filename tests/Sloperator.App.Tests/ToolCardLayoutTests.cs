@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -128,6 +129,58 @@ public sealed class ToolCardLayoutTests
     private static Bitmap Picture() => new WriteableBitmap(new Avalonia.PixelSize(64, 40), new Avalonia.Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
 
     /// <summary>The chat's own templates, out of a main window, showing one card.</summary>
+    [Theory]
+    [InlineData("wait")]
+    [InlineData("wait_until_change")]
+    public void A_wait_going_on_has_Skip_wait_on_its_card_until_it_is_over(string tool)
+    {
+        var ended = 0;
+        var item = new ToolCallItem("1", tool, "Wait 60s") { EndsWait = () => ended++ };
+        HeadlessApp.Run(() => Shown(item, card =>
+        {
+            var button = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
+            Assert.True(button.IsEffectivelyVisible);
+            Assert.Contains(card.GetVisualDescendants().OfType<TextBlock>(), t => t.IsEffectivelyVisible && t.Text == "Pause/Break");
+            button.Command!.Execute(null);
+            Assert.Equal(1, ended);
+
+            item.Ended = DateTime.UtcNow;
+            item.State = ToolItemState.Done;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(button.IsEffectivelyVisible);
+            return 0;
+        }));
+        Assert.False(item.CanEndWait);
+    }
+
+    [Fact]
+    public void Skip_wait_sits_in_the_cards_line_and_leaves_its_height_alone()
+    {
+        var height = (ToolCallItem item) => HeadlessApp.Run(() => Shown(item, card => card.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card")).Bounds.Height));
+        var (going, status, button) = HeadlessApp.Run(() =>
+        {
+            var item = new ToolCallItem("1", "wait", "Wait 60s") { EndsWait = () => { } };
+            return Shown(item, card =>
+            {
+                var skip = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
+                var running = card.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == item.StatusText);
+                return (card.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card")).Bounds.Height,
+                        running.TranslatePoint(new Point(0, running.Bounds.Height / 2), card)!.Value.Y,
+                        skip.TranslatePoint(new Point(0, skip.Bounds.Height / 2), card)!.Value.Y);
+            });
+        });
+        Assert.Equal(height(new ToolCallItem("1", "wait", "Wait 60s") { State = ToolItemState.Done }), going);
+        Assert.InRange(button - status, -1, 1);
+    }
+
+    [Fact]
+    public void Only_a_wait_going_on_can_be_ended()
+    {
+        Assert.False(new ToolCallItem("1", "run_shell", "Run: dir") { EndsWait = () => { } }.CanEndWait);
+        Assert.False(new ToolCallItem("1", "wait", "Wait 60s") { EndsWait = () => { }, State = ToolItemState.AwaitingApproval }.CanEndWait);
+        Assert.False(new ToolCallItem("1", "wait", "Wait 60s").CanEndWait); // read back from a saved chat
+    }
+
     private static T Shown<T>(ToolCallItem item, Func<Control, T> read)
     {
         var main = new MainWindow();

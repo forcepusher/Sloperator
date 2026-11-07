@@ -141,6 +141,9 @@ public sealed partial class AgentSession(
         }
     }
 
+    /// <inheritdoc cref="ToolContext.EndWait"/>
+    public bool EndWait() => toolContext.EndWait();
+
     /// <summary>
     /// Takes back a message the model hasn't read yet (Cancel on it in the app): true while it was
     /// still waiting, false once the model has it. The very instance that was sent. Any thread.
