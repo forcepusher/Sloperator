@@ -56,7 +56,7 @@ public sealed class McpServersTool : Tool
         ("cwd", Str("The folder to start it in"), false),
         ("url", Str("For a server to connect to: its http(s) address"), false),
         ("headers", new JsonObject { ["type"] = "object", ["description"] = "HTTP headers for url, such as Authorization", ["additionalProperties"] = new JsonObject { ["type"] = "string" } }, false),
-        ("needs", Str("What must be running for it to work and how to start that, as the full command with its flags. Shown in every later task"), false),
+        ("needs", Str("The command line that starts what it needs, with the full path and flags, not a description. Shown in every later task"), false),
         ("timeout_seconds", Int("How long it may take to start (default 300: a first start may download it)"), false));
 
     public override string Describe(JsonObject args) => (GetString(args, "action") ?? "") switch

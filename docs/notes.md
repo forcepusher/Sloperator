@@ -4982,7 +4982,12 @@ starts by itself with the add-on on, Allow Online Access on (or `--online-mode`)
 "Cannot connect" without opening Blender, and after an install one Qwen run spent its time finding the flag
 again. So a server's entry in `mcp.json` can have `needs`, free text saying what must be running and how to
 start it; the agent gives it to `mcp_servers` when it adds such a server, and the prompt's server list says
-it in every task. The test folder's Blender is portable: its preferences are in `portable\config`, not
+it in every task, and the line that a server which can't connect needs its program open stands there too,
+where a model reads it when it has the tools (Haiku skips the rule's search then). With the exact command in
+`needs`, 6 of 6 runs used the server; with that line and nothing in `needs`, Haiku 3 of 3; with a description
+instead of a command, 4 of 5, and Qwen ran out of time twice while working through it. Haiku still writes a
+description when it adds a server, and in the next task after an install it fell back on a script 3 times in 3.
+The test folder's Blender is portable: its preferences are in `portable\config`, not
 %APPDATA%, and a killed Blender doesn't save them.
 
 Actions run without asking by default (approvals can be switched on in Settings).

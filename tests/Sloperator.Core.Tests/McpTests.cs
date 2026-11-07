@@ -497,7 +497,8 @@ public class McpTests
 
         Assert.Equal("thing.exe --online", McpConfig.Parse(File.ReadAllText(file)).Servers.Single().Needs);
         var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "", host.Statuses);
-        Assert.Contains("It needs this running: thing.exe --online", prompt);
+        Assert.Contains("Start this if it isn't running: thing.exe --online", prompt);
+        Assert.Contains("start the program and try again before you do without it", prompt);
     }
 
     [Fact]
