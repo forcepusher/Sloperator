@@ -5,6 +5,7 @@ using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
 using Sloperator.App.Views;
 using Sloperator.Core.Chats;
+using Sloperator.Core.Llm;
 using SkiaSharp;
 using Xunit;
 
@@ -153,6 +154,22 @@ public sealed class CaptureReplyTests : IDisposable
         Assert.False(failedCapture);
         Assert.False(noReply);
         Assert.Null(MainWindowViewModel.ToEntry(new AssistantMessageItem { Text = "x", IsStreaming = false }).Captures);
+    }
+
+    [Fact]
+    public void A_replys_tokens_go_with_it_into_the_chats_file_and_back()
+    {
+        var reply = new AssistantMessageItem();
+        reply.Finish(DateTime.UtcNow, new ChatMessage { Role = ChatRole.Assistant, Content = "Done.", PromptTokens = 1000, CachedTokens = 900, CacheWriteTokens = 80, CompletionTokens = 40 });
+
+        var entry = MainWindowViewModel.ToEntry(reply);
+        Assert.Equal((20, 900, 80, 40), (entry.Tokens!.New, entry.Tokens.Read, entry.Tokens.Written, entry.Tokens.Output));
+        Assert.Same(entry.Tokens, MainWindowViewModel.ReplyFrom(entry, new PreviewServices(null, () => null)).Tokens);
+
+        // A server that reports none leaves none.
+        var quiet = new AssistantMessageItem();
+        quiet.Finish(DateTime.UtcNow, new ChatMessage { Role = ChatRole.Assistant, Content = "Done." });
+        Assert.Null(MainWindowViewModel.ToEntry(quiet).Tokens);
     }
 
     /// <summary>The reply in the chat's own templates: where its words end, its preview and picture, whether the preview names the file, and where its caption starts.</summary>

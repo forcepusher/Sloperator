@@ -98,7 +98,7 @@ public class ChatStoreTests : IDisposable
                 new ChatEntry
                 {
                     Kind = ChatEntryKind.Assistant, Text = "Done.", At = at.AddSeconds(1), Sent = at.AddSeconds(3), FirstWords = at.AddSeconds(20),
-                    Ended = at.AddSeconds(42), RunTook = TimeSpan.FromSeconds(43.5),
+                    Ended = at.AddSeconds(42), RunTook = TimeSpan.FromSeconds(43.5), Tokens = new ReplyTokens { New = 20, Read = 900, Written = 80, Output = 40 },
                 },
             ],
         });
@@ -108,9 +108,11 @@ public class ChatStoreTests : IDisposable
         Assert.Equal(at, store.Load("timed")!.Entries[0].At);
         Assert.Equal((at.AddSeconds(1), at.AddSeconds(3), at.AddSeconds(20), at.AddSeconds(42)), (reply.At, reply.Sent, reply.FirstWords, reply.Ended));
         Assert.Equal(TimeSpan.FromSeconds(43.5), reply.RunTook);
+        Assert.Equal((20, 900, 80, 40), (reply.Tokens!.New, reply.Tokens.Read, reply.Tokens.Written, reply.Tokens.Output));
         var old = Assert.Single(store.Load("old")!.Entries);
         Assert.Null(old.At);
         Assert.Null(old.RunTook);
+        Assert.Null(old.Tokens);
     }
 
     [Fact]

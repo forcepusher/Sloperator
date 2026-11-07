@@ -17,7 +17,8 @@ namespace Sloperator.Core.Agent;
 /// plain text, which wasn't taken for an error at all. A note, never a block: an error naming
 /// something that doesn't exist gets it at once, the same error a second time, any failure from
 /// the third since the last look-up, and the first script or command that fails in a task before
-/// anything was looked up.
+/// anything was looked up. Only failures a search can answer count (see <see cref="Answerable"/>),
+/// and a reply that looks something up gets no note: it is doing what the note would say.
 /// <para>
 /// Errors weren't enough. Asked to make a character follow a video's motion with LTX, a run tried
 /// workflows for two hours; nothing failed, the videos just didn't move as asked, and the job was
@@ -25,8 +26,9 @@ namespace Sloperator.Core.Agent;
 /// model itself calls wrong, or the user does, counts as a failed one; a question the model asks
 /// itself about how something is done, which it goes on without looking up, gets a note to search,
 /// as does the next failed script after an error it was told to look up and went on past; and after ten
-/// minutes of runs (commands, scripts, jobs: not edits), or four quick ones, with nothing looked up, the
-/// next run says it is time to look, and every fourth after it until the model does.
+/// minutes of runs (commands, scripts, jobs: not edits, and not commands that only read), or four
+/// quick ones, with nothing looked up, the next run says it is time to look, once for each message
+/// of the user's and at least four runs after the last time.
 /// </para>
 /// <para>
 /// Sloperator doesn't search for the model. It used to, and put the results under the step with the
@@ -54,6 +56,8 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of time without the
     /// file. Said on every try after eight, edits included, the note came with nearly every edit of
     /// a Unity chat feature (15 of its 17 notes), and Haiku 5.5 searched "for something" to obey it.
+    /// Said every four runs with no other limit, 49 such notes in three chats brought 4 searches
+    /// (2026-11-04): the model passed over the rest, some with "I'm setting web search aside".
     /// </summary>
     internal const int CheckBurst = 4;
 
@@ -120,8 +124,11 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     private int _calls, _triesSince, _checkSaidAt, _lookUpsSinceTry, _lookedUpAt = -SearchGap;
     private TimeSpan _worked;
     private DateTime? _tick;
-    private bool _lookedUp, _firstSaid, _tried, _triedInRun;
+    private bool _lookedUp, _firstSaid, _tried, _triedInRun, _checkSaid;
     private string? _pending;
+
+    /// <summary>The reply whose calls are running looks something up (see <see cref="Read"/>).</summary>
+    private bool _searching;
 
     /// <summary>
     /// The last failure's note said to look its error up (<see cref="_noted"/>), the model's next
@@ -155,6 +162,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// <summary>A message of the user's, at the start of a run or while it goes on: one saying a result isn't right counts as a failed try.</summary>
     public void Heard(string? userText)
     {
+        _checkSaid = false;
         if (_triedInRun && userText is { } text && UserDoubts(text))
             _pending = Failed() ?? UserDoubtNote;
     }
@@ -168,10 +176,11 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// </summary>
     public void Read(ChatMessage reply, IReadOnlyList<Tool?> calls)
     {
+        _searching = calls.Any(t => t is WebSearchTool or FetchPageTool);
         if (calls.Count == 0)
             return;
         // It is looking something up: what it wondered and the error it was told about are its to search.
-        if (calls.Any(t => t is WebSearchTool or FetchPageTool))
+        if (_searching)
         {
             _noted = false;
             return;
@@ -199,6 +208,13 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// <param name="arguments">The call's arguments: what a comfyui or video call does, what a command runs.</param>
     public string? Check(Tool? tool, ToolResult result, string? arguments = null)
     {
+        var note = NoteFor(tool, result, arguments);
+        // Told to search in the reply that searches, the note came after the results it asked for.
+        return _searching && tool is not (WebSearchTool or FetchPageTool) ? null : note;
+    }
+
+    private string? NoteFor(Tool? tool, ToolResult result, string? arguments)
+    {
         _calls++;
         var now = _now();
         if (_tick is { } tick)
@@ -219,7 +235,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         // and what the note on a long search asks for.
         if (Reads(tool, arguments))
             (_worked, _triesSince, _checkSaidAt, _lookUpsSinceTry) = (TimeSpan.Zero, 0, 0, 0);
-        var isTry = IsTry(tool, arguments is null ? null : ActionOf(arguments)) && !Reads(tool, arguments);
+        var isTry = IsTry(tool, arguments is null ? null : ActionOf(arguments)) && !Reads(tool, arguments) && !OnlyLooks(tool, arguments);
         // Only a run says it is time to look: an edit is the work itself, and a coding task makes many.
         var isRun = isTry && tool is not (WriteFileTool or EditFileTool);
         if (isTry)
@@ -240,6 +256,8 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
             _tried = isTry;
             return pending ?? (isRun && CheckDue() ? CheckNote(_worked, _triesSince) : null);
         }
+        if (!Answerable(tool, line))
+            return pending;
 
         var signature = Signature(line);
         var count = _seen[signature] = _seen.GetValueOrDefault(signature) + 1;
@@ -266,15 +284,16 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
 
     /// <summary>
     /// Whether this run gets <see cref="CheckNote"/>: ten minutes of runs, or <see cref="CheckBurst"/> quick
-    /// ones, with nothing looked up; once, then again every <see cref="CheckBurst"/> runs until the model looks.
+    /// ones, with nothing looked up; once for each message of the user's, and <see cref="CheckBurst"/> runs
+    /// after the last time.
     /// </summary>
     private bool CheckDue()
     {
-        if (!(_worked >= CheckAfter && _triesSince >= CheckTries || _triesSince >= CheckBurst))
+        if (_checkSaid || !(_worked >= CheckAfter && _triesSince >= CheckTries || _triesSince >= CheckBurst))
             return false;
         if (_checkSaidAt > 0 && _triesSince - _checkSaidAt < CheckBurst)
             return false;
-        _checkSaidAt = _triesSince;
+        (_checkSaidAt, _checkSaid) = (_triesSince, true);
         return true;
     }
 
@@ -306,6 +325,11 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
 
     [GeneratedRegex(@"inspect\.(signature|getsource|getdoc|getmembers)|\bhelp\(|\.__doc__|--help\b|\bGet-Help\b|\bGet-Member\b|\bpip3? show\b", RegexOptions.IgnoreCase)]
     private static partial Regex Introspects();
+
+    /// <summary>Whether a command only looks at files or at how things stand: no try at anything (see <see cref="ReadOnlyCommand"/>).</summary>
+    internal static bool OnlyLooks(Tool? tool, string? arguments) =>
+        tool is ShellTool or SshTool && arguments is not null &&
+        ToolCallRepair.AsObject(arguments)?["command"] is JsonValue v && v.TryGetValue<string>(out var command) && ReadOnlyCommand.Is(command);
 
     /// <summary>The action argument of a call's arguments, if it has one.</summary>
     internal static string? ActionOf(string arguments) =>
@@ -356,6 +380,20 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     internal static bool Searchable(string line) =>
         !ShellSlip().IsMatch(line) && (Raised().IsMatch(line) || NamesWhatIsNotThere(line));
 
+    /// <summary>
+    /// Whether a page could say anything about this failure. Sloperator's own tools fail on how they
+    /// were called or on a file that isn't there; a command that ran out of time or tripped on its own
+    /// quoting says nothing about the program. A program that isn't on this PC is worth a look: in
+    /// a Unity run "unity : The term 'unity' is not recognized" brought the way to install it.
+    /// </summary>
+    internal static bool Answerable(Tool? tool, string line) =>
+        tool is ShellTool or SshTool or McpTool or ComfyTool or VideoEditorTool &&
+        !line.StartsWith("Timed out after", StringComparison.Ordinal) &&
+        (!ShellSlip().IsMatch(line) || ProgramMissing().IsMatch(line));
+
+    [GeneratedRegex(@"^(?<name>[\w-]+)(\.exe)? : The term '\k<name>(\.exe)?' is not recognized", RegexOptions.IgnoreCase)]
+    private static partial Regex ProgramMissing();
+
     [GeneratedRegex(@"^([A-Za-z_]\w*\.)*[A-Z]\w*(Error|Exception)\b")]
     private static partial Regex Raised();
 
@@ -396,6 +434,12 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     /// 0, and with <paramref name="errorsInText"/> so do a Python traceback and output that begins
     /// with "Error". For a traceback it is the line under its stack ("AttributeError: ..."): the
     /// one above is the same for every Python error.
+    /// <para>
+    /// After a command's exit code the output is mostly what it printed, not its error: read as an
+    /// error, `using System;` from two files read through the shell came "up before in this chat".
+    /// So a record's own line goes first, then a line that says something went wrong, and a command
+    /// with none (`git grep` finding nothing, a check with -ErrorAction SilentlyContinue) didn't fail.
+    /// </para>
     /// </summary>
     internal static string? ErrorLine(ToolResult result, bool errorsInText = false)
     {
@@ -411,8 +455,23 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
             stack = JsonEscape().Replace(stack, m => m.Groups[1].Value switch { "n" => "\n", "t" => "\t", "r" => "", var c => c });
         if (traceback >= 0 && FirstMeaningful(stack.Split('\n').Where(l => l.Length > 0 && !char.IsWhiteSpace(l[0]))) is { } raised)
             return raised;
-        return FirstMeaningful(text.Split('\n'));
+        var lines = text.Split('\n');
+        if (!text.StartsWith("Exit code ", StringComparison.Ordinal))
+            return FirstMeaningful(lines);
+        var meant = lines.Select(l => l.Trim()).Where(l => l.Length >= 8 && !Noise().IsMatch(l)).ToList();
+        return (text.Contains("FullyQualifiedErrorId", StringComparison.Ordinal) ? meant.Find(l => CmdletError().IsMatch(l)) : null) ?? meant.Find(l => SaysError().IsMatch(l) && !CodeLine().IsMatch(l));
     }
+
+    // A file printed before the failure: "LogExtension.Error($"Popup not found");" is no error of the command's.
+    [GeneratedRegex(@"^(//|/\*|\*|\#)|[;{}]$")]
+    private static partial Regex CodeLine();
+
+    // PowerShell's error record, in any language: "Get-Content : Не удается найти путь".
+    [GeneratedRegex(@"^[\w-]+ : ")]
+    private static partial Regex CmdletError();
+
+    [GeneratedRegex(@"\b(\w*error|\w*exception|failed|failure|fatal|denied|cannot|can't|could not|couldn't|unable to|not found|not recognized|no such|invalid|unknown|unexpected|unrecognized|missing|timed out|refused)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SaysError();
 
     [GeneratedRegex(@"\\(.)")]
     private static partial Regex JsonEscape();

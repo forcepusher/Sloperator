@@ -77,6 +77,9 @@ public sealed class ChatEntry
     /// <inheritdoc cref="Sent"/>
     public DateTime? FirstWords { get; set; }
 
+    /// <summary>For a reply: its tokens, when its server reported them. Never sent to the model. Chats saved before have none.</summary>
+    public ReplyTokens? Tokens { get; set; }
+
     /// <summary>On the line a run ended with: how long the run took, from the message that started it.</summary>
     public TimeSpan? RunTook { get; set; }
 }

@@ -384,7 +384,7 @@ public sealed partial class MainWindowViewModel
             UserMessageItem u => new ChatEntry { Kind = ChatEntryKind.User, Text = u.Text, Turn = u.Turn, Ids = u.Ids.Count > 0 ? [.. u.Ids] : null, Files = u.Files.Count > 0 ? u.Files : null, Via = u.Via, Context = u.Context, Cards = u.Cards?.ToList() },
             AssistantMessageItem a => new ChatEntry
             {
-                Kind = ChatEntryKind.Assistant, Text = a.Text, Reasoning = a.Reasoning, Ended = a.Ended, Sent = a.SentAt, FirstWords = a.FirstWords,
+                Kind = ChatEntryKind.Assistant, Text = a.Text, Reasoning = a.Reasoning, Ended = a.Ended, Sent = a.SentAt, FirstWords = a.FirstWords, Tokens = a.Tokens,
                 Captures = a.Captures.Count == 0 ? null : a.Captures.Select(c => new ReplyCapture { Path = c.Picture.Path, Caption = c.HasCaption ? c.Caption : null }).ToList(),
             },
             ToolCallItem t => new ChatEntry
@@ -426,7 +426,7 @@ public sealed partial class MainWindowViewModel
     {
         var reply = new AssistantMessageItem
         {
-            Text = e.Text ?? "", Reasoning = e.Reasoning ?? "", IsStreaming = false, Ended = e.Ended, SentAt = e.Sent, FirstWords = e.FirstWords,
+            Text = e.Text ?? "", Reasoning = e.Reasoning ?? "", IsStreaming = false, Ended = e.Ended, SentAt = e.Sent, FirstWords = e.FirstWords, Tokens = e.Tokens,
         };
         if (e.Captures is { Count: > 0 } captures)
             reply.ShowCaptures(captures.Select(c => (c.Path, c.Caption)), previews);

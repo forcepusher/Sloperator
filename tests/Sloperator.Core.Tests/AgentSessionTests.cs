@@ -692,11 +692,43 @@ public class AgentSessionTests
         Assert.Contains("3 times", third);
         Assert.Contains("screen has not changed", loops.Check(click, same));
 
-        // Watching the screen for a long time is fine.
+        // Watching the screen for a long time is fine, and so is looking closer at the same spot.
         var watcher = new LoopDetector();
         var shot = new ToolCall { Id = "s", Name = "screenshot", Arguments = "{}" };
+        var zoom = new ToolCall { Id = "z", Name = "zoom", Arguments = """{"x":992,"y":440}""" };
         for (var i = 0; i < 50; i++)
+        {
             Assert.Null(watcher.Check(shot, same));
+            Assert.Null(watcher.Check(zoom, new ToolResult("Zoomed in", [(byte)i])));
+        }
+    }
+
+    private static ToolCall ClickAt(int x, int y) => new() { Id = "c", Name = "mouse_click", Arguments = $$"""{"x":{{x}},"y":{{y}}}""" };
+
+    [Fact]
+    public void Loop_detector_takes_a_menu_opened_again_for_another_item_as_progress()
+    {
+        // A Unity test menu in a run (2026-11-03): the same two clicks to open it, a different item each time.
+        var loops = new LoopDetector();
+        foreach (var y in new[] { 122, 145, 167, 189, 211, 234 })
+        {
+            var i = (byte)y;
+            Assert.Null(loops.Check(ClickAt(512, 32), new ToolResult("Clicked.", [i, 1])));
+            Assert.Null(loops.Check(ClickAt(562, 100), new ToolResult("Clicked.", [i, 2])));
+            Assert.Null(loops.Check(ClickAt(735, y), new ToolResult("Clicked.", [i, 3])));
+        }
+    }
+
+    [Fact]
+    public void Loop_detector_warns_on_rounds_of_steps_repeated_in_a_row_once_for_three()
+    {
+        var loops = new LoopDetector();
+        ToolResult Moved(int i) => new("Clicked.", [(byte)i]);
+        var notes = Enumerable.Range(0, 14).Select(i => loops.Check(ClickAt(i % 2 == 0 ? 10 : 20, 5), Moved(i))).ToList();
+
+        Assert.Contains("same 2 calls 3 times in a row", notes[5]);
+        Assert.Contains("same 2 calls 3 times in a row", notes[11]);
+        Assert.Equal(2, notes.Count(n => n is not null));
     }
 
     [Fact]

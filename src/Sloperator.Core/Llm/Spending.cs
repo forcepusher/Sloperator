@@ -25,6 +25,29 @@ public sealed class TokenCount
     public TokenCount Copy() => (TokenCount)MemberwiseClone();
 }
 
+/// <summary>
+/// One reply's tokens as its server reported them, kept with the reply in the chat's file: a chat's
+/// <see cref="Spending"/> has only the sum, so which reply missed the prompt cache, and what that
+/// cost, couldn't be told afterwards.
+/// </summary>
+public sealed class ReplyTokens
+{
+    /// <summary>Prompt tokens read anew: neither from the prompt cache nor written to it.</summary>
+    public int New { get; set; }
+    public int Read { get; set; }
+    public int Written { get; set; }
+    public int Output { get; set; }
+
+    /// <summary>The tokens of <paramref name="reply"/>; null when its server reported none. Servers that speak OpenAI's format count cached tokens in the prompt; Anthropic's replies are given the same shape (see <see cref="AnthropicMessages"/>).</summary>
+    public static ReplyTokens? Of(ChatMessage reply)
+    {
+        if (reply.PromptTokens is null && reply.CompletionTokens is null)
+            return null;
+        var (read, written) = (reply.CachedTokens ?? 0, reply.CacheWriteTokens ?? 0);
+        return new ReplyTokens { New = Math.Max(0, (reply.PromptTokens ?? 0) - read - written), Read = read, Written = written, Output = reply.CompletionTokens ?? 0 };
+    }
+}
+
 /// <summary>What one model's tokens cost, in <see cref="Currency"/>. <c>CacheMissing</c>: its cache tokens have no price, so they aren't in <see cref="Amount"/>.</summary>
 public readonly record struct ModelCost(decimal Amount, string Currency, bool Estimate, bool CacheMissing = false);
 
@@ -58,7 +81,7 @@ public sealed class Spending
     [JsonIgnore]
     public bool IsEmpty { get { lock (_gate) return Models.Count == 0; } }
 
-    /// <summary>Counts a reply. Servers that speak OpenAI's format count cached tokens in the prompt; Anthropic's replies are given the same shape (see <see cref="AnthropicMessages"/>).</summary>
+    /// <summary>Counts a reply.</summary>
     public void Add(string baseUrl, string model, ChatMessage reply)
     {
         if (reply.PromptTokens is null && reply.CompletionTokens is null && reply.Cost is null)
@@ -69,12 +92,13 @@ public sealed class Spending
             // The model used last stays last: the total goes by its currency.
             Models.Remove(count);
             Models.Add(count);
-            var read = reply.CachedTokens ?? 0;
-            var written = reply.CacheWriteTokens ?? 0;
-            count.Input += Math.Max(0, (reply.PromptTokens ?? 0) - read - written);
-            count.CacheRead += read;
-            count.CacheWrite += written;
-            count.Output += reply.CompletionTokens ?? 0;
+            if (ReplyTokens.Of(reply) is { } tokens)
+            {
+                count.Input += tokens.New;
+                count.CacheRead += tokens.Read;
+                count.CacheWrite += tokens.Written;
+                count.Output += tokens.Output;
+            }
             count.Replies++;
             if (reply.Cost is { } cost)
             {
