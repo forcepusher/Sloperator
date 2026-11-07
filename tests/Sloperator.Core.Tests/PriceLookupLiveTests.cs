@@ -63,6 +63,7 @@ public class PriceLookupLiveTests
             contextTokens: connection.ContextTokens);
         var asked = 0;
         session.PriceLookup = () => asked++ == 0 ? SetApiPricingTool.LookupRequest(connection.Options.Model, connection.Client.BaseUrl) : null;
+        session.PriceLookupFrom = 0; // the test's chat stays short
         var observer = new RecordingObserver();
         var clock = Stopwatch.StartNew();
         // A task of its own, whose answer must stay the chat's last word (the user: the model mustn't get

@@ -21,8 +21,9 @@ public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? La
 
 /// <summary>
 /// Which panel Auto shows for what the agent does: the panel of its latest tool call that has one,
-/// kept through the calls that have none (a screenshot, a click, a file read, a search). One rule for
-/// every model and server, from the call alone: its tool, its arguments and what it made.
+/// kept through the calls that have none (a screenshot, a click, a file read, a search, a command that only
+/// looks around, see <see cref="TerminalWork"/>). One rule for every model and server, from the call alone: its tool,
+/// its arguments and what it made.
 /// </summary>
 public static class AutoRule
 {
@@ -40,7 +41,8 @@ public static class AutoRule
     /// </summary>
     public static AutoTarget? AtStart(string tool, JsonObject args, AutoPlaces places) => tool switch
     {
-        "run_shell" or "ssh" => new(SidePanelNames.Terminal),
+        "ssh" => new(SidePanelNames.Terminal),
+        "run_shell" when TerminalWork.Is(args["command"]?.ToString()) => new(SidePanelNames.Terminal),
         "video" => new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir)),
         "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, places.PicturesDir) is { } picture => new(SidePanelNames.ImageEditor, picture),
         _ => null,

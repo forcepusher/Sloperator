@@ -35,6 +35,9 @@ public sealed class ServerSettings
     /// <summary>The model picked by hand in the dropdown (or with --model); empty until one is. Kept while the server doesn't offer it.</summary>
     public string Model { get; set; } = "";
 
+    /// <summary>The models pinned in the dropdown, which go first in its list. By name, whichever server offers them.</summary>
+    public List<string> PinnedModels { get; set; } = [];
+
     /// <summary>
     /// The cheapest of the strongest models the server offers (see <see cref="Llm.ModelChoice"/>), used while
     /// <see cref="Model"/> is empty or not on the server. Found again at every check and not
@@ -419,7 +422,7 @@ public sealed class CostSettings
 
     /// <summary>
     /// Auto pricing lookup (Settings > Advanced, on by default): a model whose server reports no cost and
-    /// that has no prices, or none for the cache it uses, has them looked up and kept in a side task, as soon as a reply shows it (see <see cref="Agent.AgentSession.PriceLookup"/>).
+    /// that has no prices, or none for the cache it uses, has them looked up and kept in a side task, at the end of a run in a long chat (see <see cref="Agent.AgentSession.PriceLookup"/>).
     /// </summary>
     public bool AutoLookup { get; set; } = true;
 

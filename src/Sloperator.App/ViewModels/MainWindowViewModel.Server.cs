@@ -450,7 +450,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         _refreshingModels = true;
         foreach (var model in wanted)
             if (!Models.Contains(model))
-                InsertModel(Models, model);
+                InsertModel(Models, model, _settings.Server.PinnedModels);
         OnPropertyChanged(nameof(SelectedModel));
         for (var i = Models.Count - 1; i >= 0; i--)
             if (!wanted.Contains(Models[i]))
@@ -458,20 +458,43 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         _refreshingModels = false;
     }
 
-    /// <summary>The dropdown's order: by name, ignoring case, numbers by their value (qwen3-8b before qwen3-14b).</summary>
+    /// <summary>The dropdown's order among the pinned models and among the rest: by name, ignoring case, numbers by their value (qwen3-8b before qwen3-14b).</summary>
     private static readonly StringComparer ModelOrder =
         StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.NumericOrdering);
 
     /// <summary>
-    /// Puts a model in its place in the dropdown's list, which stays sorted. Inserted, never moved:
-    /// the ComboBox can lose a selection that moves (see <see cref="SetModels"/>).
+    /// Puts a model in its place in the dropdown's list, which stays sorted, the pinned models first.
+    /// Inserted, never moved: the ComboBox can lose a selection that moves (see <see cref="SetModels"/>).
     /// </summary>
-    public static void InsertModel(IList<string> models, string model)
+    public static void InsertModel(IList<string> models, string model, IReadOnlyCollection<string>? pinned = null)
     {
+        var first = pinned?.Contains(model) == true;
         var i = 0;
-        while (i < models.Count && ModelOrder.Compare(models[i], model) <= 0)
+        while (i < models.Count && Comes(models[i]))
             i++;
         models.Insert(i, model);
+
+        bool Comes(string other) =>
+            pinned?.Contains(other) == true != first ? !first : ModelOrder.Compare(other, model) <= 0;
+    }
+
+    /// <summary>Whether a model is pinned in the dropdown.</summary>
+    public bool IsPinned(string model) => _settings.Server.PinnedModels.Contains(model);
+
+    /// <summary>
+    /// Pins a model to the top of the dropdown's list, or lets it go back among the others. The one
+    /// time a row moves: the dropdown sets its selection back after this (MainWindow's OnPinClick).
+    /// </summary>
+    public void TogglePin(string model)
+    {
+        var pinned = _settings.Server.PinnedModels;
+        if (!pinned.Remove(model))
+            pinned.Add(model);
+        SaveSettings();
+        _refreshingModels = true;
+        Models.Remove(model);
+        InsertModel(Models, model, pinned);
+        _refreshingModels = false;
     }
 
     /// <summary>
@@ -550,7 +573,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         // In the list before the dropdown is told, as at startup: a selection the ComboBox can't find it doesn't take.
         _refreshingModels = true;
         if (saved.Model.Length > 0 && !Models.Contains(saved.Model))
-            InsertModel(Models, saved.Model);
+            InsertModel(Models, saved.Model, _settings.Server.PinnedModels);
         _refreshingModels = false;
         OnPropertyChanged(nameof(ServerAddress));
         OnPropertyChanged(nameof(ApiKey));
@@ -581,7 +604,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         // In the list before the dropdown is told, as at startup: a selection the ComboBox can't find it doesn't take.
         _refreshingModels = true;
         if (!Models.Contains(KiloGateway.Model))
-            InsertModel(Models, KiloGateway.Model);
+            InsertModel(Models, KiloGateway.Model, _settings.Server.PinnedModels);
         _refreshingModels = false;
         OnPropertyChanged(nameof(ServerAddress));
         OnPropertyChanged(nameof(ApiKey));

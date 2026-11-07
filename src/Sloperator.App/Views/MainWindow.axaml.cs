@@ -52,6 +52,7 @@ public partial class MainWindow : Window
 
         // Opening the model dropdown asks the server again, for a model loaded there meanwhile.
         ModelBox.DropDownOpened += (_, _) => Vm.RecheckModels();
+        ModelBox.IsPinned = model => Vm.IsPinned(model);
 
         // Follow new output while the user is at the bottom; stop following when they scroll up.
         // After every layout pass (streamed text, a growing thinking block, a new screenshot)
@@ -638,6 +639,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A saved server picked: the dropdown closes (afterwards, as History's: its row's command comes after the click).</summary>
+    private void OnPinClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: string model })
+        {
+            Vm.TogglePin(model);
+            // The row moved, and a ComboBox doesn't pick its selection up again from the binding.
+            if (ModelBox.SelectedItem is null)
+                ModelBox.SelectedItem = Vm.SelectedModel;
+            ModelBox.UpdateRows();
+        }
+    }
+
     private void OnSavedServerClick(object? sender, RoutedEventArgs e) =>
         Dispatcher.UIThread.Post(() => SavedServersButton.Flyout?.Hide());
 

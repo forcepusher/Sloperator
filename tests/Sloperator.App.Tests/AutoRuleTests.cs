@@ -30,6 +30,77 @@ public sealed class AutoRuleTests : IDisposable
         Assert.Null(AtEnd("run_shell", """{"command":"npm test"}"""));
     }
 
+    [Theory]
+    [InlineData("ssh web1 uptime")]
+    [InlineData("scp app.zip web1:/srv")]
+    [InlineData("sudo systemctl restart nginx")]
+    [InlineData("sudo -u postgres psql")]
+    [InlineData("docker compose up -d")]
+    [InlineData("Restart-Service W3SVC")]
+    [InlineData("pip install requests")]
+    [InlineData("winget install Git.Git")]
+    [InlineData("dotnet build")]
+    [InlineData("make -j8")]
+    [InlineData("cd src; dotnet build")]
+    [InlineData("cd src && npm run build")]
+    [InlineData("$out = dotnet build 2>&1; $out | Select-Object -Last 5")]
+    [InlineData("CC=clang make")]
+    [InlineData("if (Test-Path app.sln) { dotnet test }")]
+    [InlineData("Get-Content list.txt\r\nnpm test\r\n")]
+    [InlineData("& \"C:\\Program Files\\dotnet\\dotnet.exe\" publish")]
+    [InlineData(".\\gradlew assembleRelease")]
+    [InlineData(".\\build.ps1")]
+    [InlineData("./deploy.sh --prod")]
+    [InlineData("powershell -NoProfile -ExecutionPolicy Bypass -File C:\\tools\\setup.ps1")]
+    [InlineData("powershell -Command \"dotnet build\"")]
+    [InlineData("bash -c 'cd app && make'")]
+    [InlineData("cmd /c \"npm test\"")]
+    [InlineData("Start-Process dotnet -ArgumentList run")]
+    [InlineData("python train.py")]
+    [InlineData("node server.js")]
+    [InlineData("git clone https://example.com/a.git")]
+    [InlineData("git -C repo pull")]
+    public void Server_build_and_dev_work_opens_the_terminal(string command) =>
+        Assert.Equal(new AutoTarget(SidePanelNames.Terminal), AtStart("run_shell", new JsonObject { ["command"] = command }.ToJsonString()));
+
+    [Theory]
+    [InlineData("cd src")]
+    [InlineData("Set-Location C:\\Repos")]
+    [InlineData("ls -la")]
+    [InlineData("dir /b")]
+    [InlineData("Get-ChildItem -Recurse -Filter *.cs")]
+    [InlineData("cat README.md")]
+    [InlineData("type Makefile")]
+    [InlineData("Get-Content build.ps1 -TotalCount 20")]
+    [InlineData("Select-String -Path *.cs -Pattern dotnet")]
+    [InlineData("grep -rn docker src | head")]
+    [InlineData("cd src; ls; cat Program.cs")]
+    [InlineData("Test-Path C:\\tools\\ssh")]
+    [InlineData("Get-Process | Where-Object { $_.Name -eq 'node' }")]
+    [InlineData("echo \"dotnet build; npm test\"")]
+    [InlineData("Write-Output 'run make'")]
+    [InlineData("# dotnet build")]
+    [InlineData("Start-Process notepad")]
+    [InlineData("powershell -Command \"Get-Content a.txt\"")]
+    [InlineData("sudo cat /etc/nginx/nginx.conf")]
+    [InlineData("git status")]
+    [InlineData("git log --oneline -5")]
+    [InlineData("git diff HEAD~1")]
+    [InlineData("dotnet --version")]
+    [InlineData("node -v 2>&1")]
+    [InlineData("ssh -V")]
+    [InlineData("pip list")]
+    [InlineData("npm view react version")]
+    [InlineData("python -c \"print(2 + 2)\"")]
+    [InlineData("where.exe python")]
+    [InlineData("")]
+    public void Looking_around_leaves_the_panel_as_it_is(string command) =>
+        Assert.Null(AtStart("run_shell", new JsonObject { ["command"] = command }.ToJsonString()));
+
+    [Fact]
+    public void A_command_on_a_server_shows_the_terminal_whatever_it_is() =>
+        Assert.Equal(new AutoTarget(SidePanelNames.Terminal), AtStart("ssh", """{"host":"web1","command":"ls"}"""));
+
     [Fact]
     public void A_file_changed_shows_in_the_panel_for_its_kind()
     {

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
   from point to point. It shows when the agent waits for you and which step a failure stopped on.
 - While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
+- The model dropdown has a search box when its models don't fit in the list, and a pin on each row that
+  keeps your favourite models at the top.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
@@ -22,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Before it works in a program, the agent first looks for the makers' official MCP server or command line
   and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
   agent asks you in the chat first.
+- **Auto pricing lookup** runs only after the agent's answer, once the chat has reached 50k tokens, so
+  short chats don't pay for a lookup and a task isn't held up by one.
+- The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
+  for programs and scripts being run, no longer for commands that only look around or read files.
 
 ### Fixed
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's

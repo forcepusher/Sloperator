@@ -2260,6 +2260,19 @@ it, or where it is certain: "LM Studio loaded … with a 4k context" comes after
 loaded the model again (the user, 2026-11-01, of "in LM Studio: Limit Response Length" in the
 reply-length note: "weird", then "if we're absolutely sure it's this or that program, keep that").
 The reply-length notes, a context too small and a server offering no models say "the server".
+
+**The model dropdown** (`ModelDropdown`, a `ComboBox` with its closed box and rows as every other) has a
+search box over its list once the rows don't fit its 504 height, about 17 models, and a pin on each row (the
+user, 2026-11-06; OpenRouter lists hundreds). The search box and its "No models match" go into Fluent's popup when the
+template is applied, around the ScrollViewer, rather than a copy of the template. A row that doesn't match is hidden, never
+taken out of `Models`: the ComboBox would lose the picked model. So the rows sit in a plain `StackPanel`, whose
+containers are all there to hide. Words match in any order and case; the first match takes Enter, the arrow goes to
+the rows and back, typing on a row goes on with the search. A space typed must not be marked handled: Windows then
+drops the character (Avalonia ignores `WM_CHAR` after a handled key). A press the search box or a pin took must not reach
+the `ComboBox` either: it closes on any press it didn't take itself (`OnPointerPressed`). Pins are by name in `ServerSettings.PinnedModels`,
+whichever server offers the model; `InsertModel` puts pinned models first, sorted among themselves. Pinning is the one
+time a row moves, and the ComboBox can lose the picked row then: `OnPinClick` sets it back. The first opening builds every
+row (about a second for 400 in a Debug build, later ones 0.1 s).
 A service's website typed for its API (`openrouter.ai`, `groq.com`, `openai.com`, `mistral.ai`,
 `deepseek.com`, `x.ai`, `together.ai`, `fireworks.ai`, `anthropic.com`, `claude.com`, any page of them) has its API
 address tried first, so it just works; another website says it is one, rather than filling the
@@ -2717,10 +2730,16 @@ saved as the entry's `input`), and an Output only with output on, or for a failu
 (`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
 
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default) asks the same without the
-button, as a side task with no output. `AgentSession.PriceLookup` is asked after each step until it gives
-the request: as soon as a reply came with no cost from the server (the server's own cost wins) and the model
-has no prices. Then `LookUpPricesAsync` runs it right after that step's calls, before the next step, or,
-when the run's first reply was its answer, after that answer, and the run then ends. It gets only
+button, as a side task with no output. Only at the end of a run in a long chat: after the answer, at
+`AgentSession.PriceLookupFrom`, 50k tokens of `TokensInUse`, the figure in the top bar, which starts around
+15k in a new chat, so about 35k of actual chat (the user, 2026-11-07; before that it ran between steps right
+after the first reply, in chats too short to care what they cost). The figure is the conversation's size, not
+the tokens spent, so re-sent prompts don't count, a chat moved to another model counts at once, and a context
+under 50k never gets there (Look up prices still works; a small context is mostly a free model on the user's
+own PC). `AgentSession.PriceLookup` gives the request when a reply came with no cost from the server (the
+server's own cost wins) and the model has no prices. It isn't asked below the size, as asking spends the
+model's one lookup. A run that was stopped or failed has no end for it: the next answer has it. Then
+`LookUpPricesAsync` runs it and the run ends. It gets only
 web_search, fetch_page and set_api_pricing and ends once set_api_pricing has kept prices. Nothing of it
 joins the chat's context, so the answer is the model's last word. A message the user sends meanwhile is
 answered after it; Stop after the answer ends the run with no "stopped" note for the model. Its card reads
@@ -2735,8 +2754,8 @@ wrote its answer anew, opening on a made-up "The server didn't run into any prob
 prices, and that was the run's reply. Hiding what it wrote after the nudge, and ending the run once the
 prices were kept, were tried and turned down for the side task (whose first version, run only after the
 answer and with a system prompt about prices alone, the user also sent back). Its cost: a request of its own, a few
-thousand tokens with no cached prefix, and on a server that caches one prompt the chat's prompt is read
-anew on the next message.
+thousand tokens with no cached prefix, and on a server that caches one prompt the chat's prompt, by then
+50k or more, is read anew on the next message.
 
 Measured with `PriceLookupLiveTests` (was PriceNudgeLiveTests; unit tests in `SideTaskTests`) (opt-in, BB_LIVE_URL/KEY/MODEL/EXPECT; 2026-11-02, laptop): the task is to read
 a file and give its secret word, the nudge comes before the end, and the test checks the prices kept against
@@ -4531,7 +4550,7 @@ panel mode where relevant panels activate live for you to see everything happeni
 no rule in mind for which panel is the relevant one). It shows the panel of the agent's latest tool call that has
 one, and keeps it through the calls that have none (screenshots, clicks, reads, searches): one rule from the call
 alone, its tool, its arguments and what it made, the same for every model and server (`AutoRule`):
-- run_shell, ssh: **Terminal**, as the call starts, so the command's lines come in as it prints them.
+- ssh, and a run_shell command that is work (`TerminalWork`, below): **Terminal**, as the call starts, so the command's lines come in as it prints them.
 - write_file, edit_file, once the change is in File changes' list, the file by the path the call was given
   (`Written`; until the 1.3.0 release check the list's newest change since the last call was taken, and a
   command then a file in one go, the window's thread still opening the Terminal as both ended, gave the file to
@@ -4550,6 +4569,20 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
+
+**Which commands open the Terminal** (the user, 2026-11-06: every command opened it, also a `cd` or a `Get-Content`).
+The ssh tool always does. A run_shell line does when one of its commands is on a list of programs (`TerminalWork.Tools`:
+another machine, keeping a server, installing, building and testing), an interpreter running a program, or a script (.ps1,
+.sh, .bat, .cmd). A list of the work, not of the reading: looking around has no end of commands (and aliases), this work
+has few, and a program not on the list keeps the panel as it is, which costs less than a panel popping up for nothing.
+The line is cut at `;`, `&`, `|`, line breaks and brackets outside quotes, so `cd src; dotnet build`, a block and `$(...)` count
+by what they run; `$x = dotnet build` and `CC=clang make` by what comes after the variable; a path and `.exe` come off the
+program's name; a word that runs what follows (powershell, cmd, bash, sudo, Start-Process) counts by the words after it. Not
+work: a program asked only what it is or has (`node --version`, `pip list`, `npm view x`: the agent checks what is there all the
+time), `python -c`/`node -e` one-liners (how the agent reads a spreadsheet), and git but for clone, pull, push and fetch. curl and
+Invoke-WebRequest stay out: mostly reading a page. No fork by model or system: the list holds both Windows' and Unix' programs. A
+command that isn't work still goes to the Terminal's log, and shows there if the panel is open or opened later; a chat
+opened from History follows the same rule (`FromChat`). Tests: `AutoRuleTests`.
 
 **Code editor or File changes** (the user, 2026-11-01, on the first version, which sent every edit to File changes:
 "This choice can't be trivialized"; the Code editor lights what the agent writes too). Each shows a change well in
