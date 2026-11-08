@@ -29,16 +29,108 @@ public class AnthropicTests
         Parameters = JsonNode.Parse("""{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}}}""")!.AsObject(),
     };
 
+    [Theory]
+    // Live, 8 November 2026: api.anthropic.com without a key, with a wrong one, and with a right one as a bearer token.
+    [InlineData("""{"type":"error","error":{"type":"authentication_error","message":"x-api-key header is required"},"request_id":"req_1"}""", true)]
+    [InlineData("""{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_1"}""", true)]
+    [InlineData("""{"type":"error","error":{"type":"invalid_request_error","message":"anthropic-version: header is required"},"request_id":"req_1"}""", true)]
+    // Its list, and proxyapi.ru's /anthropic/v1, which lists it for a bearer token.
+    [InlineData("""{"data":[{"type":"model","id":"claude-haiku-5-5","display_name":"Claude Haiku 5.5"}],"has_more":false,"first_id":"a","last_id":"a"}""", true)]
+    // OpenAI's list (proxyapi.ru's /v1 too) and OpenRouter's or Kilo's, with no type on the models.
+    [InlineData("""{"object":"list","data":[{"id":"aion-labs/aion-2.0","object":"model","created":1,"owned_by":"aion-labs"}]}""", false)]
+    [InlineData("""{"data":[{"id":"anthropic/claude-haiku-5.5","name":"Anthropic: Claude Haiku 5.5"}]}""", false)]
+    // proxyapi.ru's, LM Studio's and OpenRouter's refusals: nothing of Anthropic's headers.
+    [InlineData("""{"detail":"Invalid API Key"}""", false)]
+    [InlineData("""{"error":{"message":"An LM Studio API token is required to make requests to this server"}}""", false)]
+    [InlineData("""{"type":"error","error":{"type":"authentication_error","message":"No cookie auth credentials found"}}""", false)]
+    [InlineData("<!DOCTYPE html><html></html>", false)]
+    public void An_answer_at_models_says_whether_the_server_speaks_Messages(string answer, bool messages) =>
+        Assert.Equal(messages, OpenAiChatClient.IsClaudeAnswer(answer));
+
     [Fact]
-    public void Anthropic_addresses_are_told_apart()
+    public async Task A_server_speaks_Messages_by_its_answers_wherever_it_is()
     {
-        Assert.True(OpenAiChatClient.IsAnthropic("https://api.anthropic.com"));
-        Assert.True(OpenAiChatClient.IsAnthropic("api.anthropic.com/v1/messages"));
-        Assert.False(OpenAiChatClient.IsAnthropic("https://openrouter.ai/api/v1"));
-        Assert.True(OpenAiChatClient.IsAnthropic("https://gateway.ai.cloudflare.com/v1/acc/gw/anthropic"));
-        Assert.False(OpenAiChatClient.IsAnthropic("https://anthropic-proxy.example.com/v1"));
-        Assert.False(OpenAiChatClient.IsAnthropic(""));
-        // Its websites lead to the API.
+        var api = new FakeAnthropic();
+        var proxy = new OpenAiChatClient(new HttpClient(api), "https://llm.example.com/v1", "sk-ant-test");
+        await proxy.CompleteAsync([ChatMessage.User("hi")], [], Opus, null, TestContext.Current.CancellationToken);
+        Assert.True(proxy.SpeaksMessages);
+        Assert.Contains(api.Requests, r => r.Path == "/v1/messages");
+
+        // The word in an address says nothing: this one lists no such thing.
+        var server = new ScriptedServer(Sse.Text("Hi."));
+        var named = new OpenAiChatClient(new HttpClient(server), "https://gateway.example.com/anthropic/v1", "key");
+        await named.CompleteAsync([ChatMessage.User("hi")], [], Opus, null, TestContext.Current.CancellationToken);
+        Assert.False(named.SpeaksMessages);
+        Assert.Single(server.Requests);
+    }
+
+    [Fact]
+    public async Task A_wrong_Anthropic_key_is_said_as_such_and_one_given_to_another_server_gets_its_address()
+    {
+        // Anthropic's answer, wherever it comes from: the key is wrong, the address isn't.
+        var wrong = await ServerProbe.CheckAsync(new HttpClient(new FakeAnthropic()), new ServerSettings { BaseUrl = "https://llm.example.com/v1", ApiKey = "sk-ant-wrong" }, CancellationToken.None);
+        Assert.True(wrong.KeyRefused);
+        Assert.DoesNotContain("the server address is", wrong.Message);
+
+        var other = new AnswerAtModels(System.Net.HttpStatusCode.Unauthorized, """{"error":{"message":"Invalid API key"}}""");
+        var elsewhere = await ServerProbe.CheckAsync(new HttpClient(other), new ServerSettings { BaseUrl = "https://openrouter.example.com/v1", ApiKey = "sk-ant-mine" }, CancellationToken.None);
+        Assert.True(elsewhere.KeyRefused);
+        Assert.Contains("the server address is https://api.anthropic.com", elsewhere.Message);
+    }
+
+    [Fact]
+    public async Task A_run_on_a_server_that_speaks_Messages_fits_Claudes_screenshots_wherever_it_is()
+    {
+        var paths = new AppPaths(Directory.CreateTempSubdirectory("bb-messages-").FullName);
+        var api = new FakeAnthropic();
+        var http = new HttpClient(api);
+        var settings = new ServerSettings { BaseUrl = "https://llm.example.com/v1", ApiKey = "sk-ant-test", Model = "claude-opus-5-5", SupportsVision = true };
+        var platform = new FakePlatform { ScreenBounds = new(0, 0, 2560, 1080) };
+        await using var mcp = new Sloperator.Core.Mcp.McpHost();
+        using var ssh = new Sloperator.Core.Ssh.SshHosts(paths.KnownHostsFile);
+
+        var backend = BackendConnection.Create(http, settings);
+        await backend.Client.SpeaksMessagesAsync(TestContext.Current.CancellationToken);
+        var session = AgentSetup.Create(backend, platform, new AgentSettings(), paths, mcp, ssh);
+        await session.RunAsync("hello", new RecordingObserver(), TestContext.Current.CancellationToken);
+
+        var sent = api.Requests.Last(r => r.Path == "/v1/messages").Body!;
+        Assert.Contains("1984x832", sent["system"]!.ToJsonString());
+    }
+
+    /// <summary>A server's answer at /models, whatever is asked.</summary>
+    private sealed class AnswerAtModels(System.Net.HttpStatusCode status, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+    }
+
+    [Fact]
+    public async Task A_server_having_a_bad_moment_at_models_is_asked_again()
+    {
+        var api = new FlakyList(new FakeAnthropic());
+        var http = new HttpClient(api);
+        const string address = "https://flaky.example.com/v1";
+        Assert.False(await new OpenAiChatClient(http, address, "sk-ant-test").SpeaksMessagesAsync(TestContext.Current.CancellationToken));
+        // The next run's client.
+        Assert.True(await new OpenAiChatClient(http, address, "sk-ant-test").SpeaksMessagesAsync(TestContext.Current.CancellationToken));
+        Assert.True(new OpenAiChatClient(http, address, "sk-ant-test").SpeaksMessages);
+    }
+
+    /// <summary>Answers 529 once, then as <paramref name="api"/> does.</summary>
+    private sealed class FlakyList(HttpMessageHandler api) : DelegatingHandler(api)
+    {
+        private int _asked;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            _asked++ == 0
+                ? Task.FromResult(new HttpResponseMessage((System.Net.HttpStatusCode)529) { Content = new StringContent("""{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}""") })
+                : base.SendAsync(request, ct);
+    }
+
+    [Fact]
+    public void Anthropic_websites_lead_to_its_API()
+    {
         Assert.Equal(Address, ServerAddress.Candidates("platform.claude.com")[0]);
         Assert.Equal(Address, ServerAddress.Candidates("Claude")[0]);
         Assert.Equal(Address, ServerAddress.Candidates("https://console.anthropic.com/settings/keys")[0]);

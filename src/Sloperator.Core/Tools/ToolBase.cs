@@ -44,10 +44,11 @@ public sealed class ToolContext
 
     /// <summary>
     /// The longest side a screenshot may have for this model, whatever the setting: Claude makes
-    /// larger ones smaller itself (and refuses them over 2000 px in a request with more than 20
-    /// pictures), and then points on the smaller picture, so a click would miss. Null for no limit.
+    /// larger ones smaller itself (and refuses them over 3000 px in a request with more than 20
+    /// pictures), and then points on the smaller picture, so a click would miss. Lowered mid-run when
+    /// a server refuses a size. Null for no limit.
     /// </summary>
-    public int? MaxScreenshotSide { get; init; }
+    public int? MaxScreenshotSide { get; set; }
 
     /// <summary>Whether the model takes images, so read_file can show it a picture. Turned off mid-run when its server refuses one.</summary>
     public bool SeesImages { get; set; } = true;
@@ -264,7 +265,11 @@ public sealed class ToolContext
     private (int Width, int Height) ScreenshotBox()
     {
         var box = Settings.ScreenshotBox;
-        return MaxScreenshotSide is { } most ? (Math.Min(box.Width, most), Math.Min(box.Height, most)) : box;
+        if (MaxScreenshotSide is not { } most)
+            return box;
+        // Screenshots are in whole patches: 3000, rounded to them, would make a picture of 3008.
+        var side = most / ScreenSpace.Patch * ScreenSpace.Patch;
+        return (Math.Min(box.Width, side), Math.Min(box.Height, side));
     }
 
     /// <summary>The monitor a physical point lies on; the current one if none contains it.</summary>

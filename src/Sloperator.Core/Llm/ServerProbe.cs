@@ -96,15 +96,15 @@ public static partial class ServerProbe
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)
-            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(server, candidates[0]), KeyRefused: true);
+            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(http, server, candidates[0]), KeyRefused: true);
         // The plain-http error reads better than a failed TLS handshake.
         var http0 = Math.Max(0, candidates.ToList().FindIndex(c => c.StartsWith("http://", StringComparison.OrdinalIgnoreCase)));
         return new ProbeResult(false, [], null, null, "Can't reach the server: " + attempts[http0].Result.Error);
     }
 
     /// <summary>An Anthropic key (sk-ant-…) given to another server: Claude's address is said.</summary>
-    private static string AnthropicKeyHint(ServerSettings server, string address) =>
-        server.ApiKey.Trim().StartsWith("sk-ant-", StringComparison.Ordinal) && !OpenAiChatClient.IsAnthropic(address)
+    private static string AnthropicKeyHint(HttpClient http, ServerSettings server, string address) =>
+        server.ApiKey.Trim().StartsWith("sk-ant-", StringComparison.Ordinal) && !new OpenAiChatClient(http, address, server.ApiKey).SpeaksMessages
             ? " That is an Anthropic API key: for Claude, the server address is https://api.anthropic.com."
             : "";
 
@@ -149,7 +149,7 @@ public static partial class ServerProbe
         var root = OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl)[..^"/v1".Length];
         var described = new Dictionary<string, ModelInfo>();
         // Anthropic's list says it all, and LM Studio's addresses there only answer "not found".
-        var openAiStyle = !OpenAiChatClient.IsAnthropic(server.BaseUrl);
+        var openAiStyle = !new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).SpeaksMessages;
         if (openAiStyle && await GetJsonAsync(http, server, $"{root}/api/v1/models", ct).ConfigureAwait(false) is { } v1 && v1["models"] is JsonArray models)
         {
             foreach (var m in models.OfType<JsonObject>())
@@ -400,7 +400,7 @@ public static partial class ServerProbe
         var root = v1[..^"/v1".Length];
 
         // Anthropic: its model list, in OpenAI style, says the context (max_input_tokens) and whether it takes pictures.
-        if (OpenAiChatClient.IsAnthropic(v1))
+        if (await new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).SpeaksMessagesAsync(ct).ConfigureAwait(false))
         {
             try { listed ??= await new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).ListModelEntriesAsync(ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException || ex is OperationCanceledException && !ct.IsCancellationRequested) { return default; }

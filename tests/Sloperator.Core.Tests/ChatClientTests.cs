@@ -247,6 +247,14 @@ public class ChatClientTests
         Assert.Equal(limit, TooManyImagesException.ParseLimit(error));
     }
 
+    [Theory]
+    [InlineData("messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels", 3000)]
+    [InlineData("messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size: 8000 pixels", 8000)]
+    [InlineData("too many images and documents: 104 + 1 > 100", null)]
+    [InlineData("The image is 21 MB; the most is 20 MB.", null)]
+    public void A_refusal_of_a_picture_size_names_the_size(string error, int? side) =>
+        Assert.Equal(side, PictureTooLargeException.ParseSide(error));
+
     [Fact]
     public async Task A_server_refusing_pictures_says_so_rather_than_being_asked_again()
     {

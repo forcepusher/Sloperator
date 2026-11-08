@@ -11,17 +11,60 @@ namespace Sloperator.Core.Llm;
 // for any server, so the agent, fresh looks and model questions use Claude unchanged.
 public sealed partial class OpenAiChatClient
 {
-    private readonly bool _anthropic;
+    /// <summary>
+    /// Whether the server speaks Anthropic's Messages format, as far as its model list has shown:
+    /// no address or model name says so, so a gateway or proxy is spoken to as it answers, wherever
+    /// it is. A chat request couldn't tell: Anthropic's OpenAI-compatible layer takes one and
+    /// silently does without what it doesn't do (no caching, no thinking back, no effort).
+    /// </summary>
+    public bool SpeaksMessages => Speakers.GetValueOrDefault(_baseUrl);
 
     /// <summary>
-    /// Whether the address is Anthropic's API (<c>api.anthropic.com</c>), which Sloperator speaks in
-    /// its Messages format, or a gateway's way to it: one whose path has an <c>anthropic</c> part,
-    /// such as Cloudflare's AI Gateway (<c>…/{account}/{gateway}/anthropic</c>).
+    /// <see cref="SpeaksMessages"/>, asking the server's model list if nothing has yet, once a
+    /// client (a run has one): a server that doesn't answer is taken not to, and the request itself
+    /// then says what is wrong, without each try waiting out a refused connection twice.
     /// </summary>
-    public static bool IsAnthropic(string? baseUrl) =>
-        Uri.TryCreate(NormalizeBaseUrl(baseUrl ?? ""), UriKind.Absolute, out var uri)
-        && (uri.Host.Equals("api.anthropic.com", StringComparison.OrdinalIgnoreCase)
-            || uri.AbsolutePath.Split('/').Contains("anthropic", StringComparer.OrdinalIgnoreCase));
+    public async Task<bool> SpeaksMessagesAsync(CancellationToken ct)
+    {
+        if (!_askedWhatItSpeaks && !Speakers.ContainsKey(_baseUrl))
+        {
+            _askedWhatItSpeaks = true;
+            try { await ListModelEntriesAsync(ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException || ex is OperationCanceledException && !ct.IsCancellationRequested) { }
+        }
+        return SpeaksMessages;
+    }
+
+    private bool _askedWhatItSpeaks;
+
+    /// <summary>
+    /// Whether an answer at /models is Anthropic's: its list (paged with has_more, entries of
+    /// <c>"type": "model"</c> where OpenAI's say <c>"object"</c>), or its error naming the headers
+    /// that format wants. Live, 8 November 2026: no key is 401 "x-api-key header is required", a
+    /// wrong one 401 "invalid x-api-key", a right one as a bearer token 400 "anthropic-version:
+    /// header is required"; proxyapi.ru's <c>/anthropic/v1</c> lists the models for a bearer token.
+    /// </summary>
+    internal static bool IsClaudeAnswer(string body)
+    {
+        JsonObject? answer;
+        try { answer = JsonNode.Parse(body) as JsonObject; }
+        catch (JsonException) { return false; }
+        if (answer is null)
+            return false;
+        if (GetString(answer, "type") == "error")
+            return ClaudeHeaderWords().IsMatch(ErrorText(body));
+        return answer["has_more"] is not null && answer["data"] is JsonArray { Count: > 0 } models
+            && models[0] is { } first && GetString(first, "type") == "model";
+    }
+
+    [GeneratedRegex(@"x-api-key|anthropic-version", RegexOptions.IgnoreCase)]
+    private static partial Regex ClaudeHeaderWords();
+
+    /// <summary>
+    /// Whether each server speaks Messages, by address, as its last model list showed, for as long
+    /// as Sloperator runs: server checks use an HttpClient of their own, and every check asks anew.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, bool> Speakers = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// What is learnt of Anthropic's API, for each HttpClient (the app has one; every task and
@@ -47,26 +90,22 @@ public sealed partial class OpenAiChatClient
 
     private void ClaudeHeaders(HttpRequestMessage req, IReadOnlyCollection<string>? betas = null)
     {
-        Authorize(req);
+        if (_apiKey is not null)
+            req.Headers.Add("x-api-key", _apiKey);
         req.Headers.Add("anthropic-version", AnthropicMessages.Version);
         if (betas is { Count: > 0 })
             req.Headers.Add("anthropic-beta", string.Join(",", betas));
     }
 
-    /// <summary>Anthropic's model list (all its pages), each model as an OpenAI-style entry (see <see cref="AnthropicMessages.ModelEntry"/>).</summary>
-    private async Task<IReadOnlyList<JsonObject>> ListClaudeModelsAsync(CancellationToken ct)
+    /// <summary>Anthropic's model list (all its pages, from <paramref name="firstPage"/> if it came already), each model as an OpenAI-style entry (see <see cref="AnthropicMessages.ModelEntry"/>).</summary>
+    private async Task<IReadOnlyList<JsonObject>> ListClaudeModelsAsync(string? firstPage, CancellationToken ct)
     {
         var entries = new List<JsonObject>();
         string? after = null;
         do
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + "/models?limit=1000" + (after is null ? "" : "&after_id=" + Uri.EscapeDataString(after)));
-            ClaudeHeaders(req);
-            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
-            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
-                throw KeyRefusedException.For((int)resp.StatusCode, body, _apiKey is not null)
-                      ?? new LlmException($"GET /models failed ({(int)resp.StatusCode}): {ErrorText(body).Clip(500)}");
+            var body = firstPage ?? await NextClaudeModelsAsync(after, ct).ConfigureAwait(false);
+            firstPage = null;
             JsonObject? page;
             try { page = JsonNode.Parse(body) as JsonObject; }
             catch (JsonException) { throw new LlmException("The answer at /models is not a model list (is this the right address?)."); }
@@ -81,6 +120,18 @@ public sealed partial class OpenAiChatClient
         }
         while (after is not null && entries.Count < 10_000);
         return entries;
+    }
+
+    private async Task<string> NextClaudeModelsAsync(string? after, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + "/models?limit=1000" + (after is null ? "" : "&after_id=" + Uri.EscapeDataString(after)));
+        ClaudeHeaders(req);
+        using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw KeyRefusedException.For((int)resp.StatusCode, body, _apiKey is not null)
+                  ?? new LlmException($"GET /models failed ({(int)resp.StatusCode}): {ErrorText(body).Clip(500)}");
+        return body;
     }
 
     /// <summary>What the model can do: from the list if it was read, else its own entry (<c>/v1/models/{id}</c>), else its name.</summary>

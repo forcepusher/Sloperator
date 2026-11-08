@@ -154,7 +154,9 @@ catch (OperationCanceledException)
 }
 
 using var ssh = new Sloperator.Core.Ssh.SshHosts(paths.KnownHostsFile);
-var session = AgentSetup.Create(BackendConnection.Create(http, settings.Server), platform, agent, paths, mcp, ssh, folderIndex: !noIndex);
+var backend = BackendConnection.Create(http, settings.Server);
+await backend.Client.SpeaksMessagesAsync(cts.Token);
+var session = AgentSetup.Create(backend, platform, agent, paths, mcp, ssh, folderIndex: !noIndex);
 var observer = new ConsoleObserver(autoYes, shotsDir, fullResults);
 
 var t0 = DateTime.UtcNow;
