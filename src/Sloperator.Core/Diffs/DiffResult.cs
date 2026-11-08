@@ -46,6 +46,15 @@ public sealed record DiffFile(string Path, string Status, IReadOnlyList<DiffLine
     /// <summary>A file that isn't text: whether it changed is all that is known.</summary>
     public bool Binary { get; init; }
 
+    /// <summary>
+    /// The whole file on the old side and the new, so its lines are coloured as the Code editor colours
+    /// them (a line inside a comment that starts above its hunk too); null where it isn't kept (a file that
+    /// isn't there on that side, or a diff read from git's own output).
+    /// </summary>
+    public string? OldText { get; init; }
+
+    public string? NewText { get; init; }
+
     /// <summary>In the File changes panel, the file's section in its git repository (and how to stage it); null outside one.</summary>
     public GitFile? Git { get; init; }
 

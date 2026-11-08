@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for another item, or zooming in on the same spot, no longer counts.
 - `Get-Content` in the agent's commands reads UTF-8 by default. A file in the PC's old code page needs
   `-Encoding Default`.
+- **File changes** shows its diff in the Code editor's editor, in the Code editor's colours, read from the
+  whole file so a line inside a long comment or docstring is coloured right. Select text as in the Code
+  editor (drag, Shift+click, a double click, or the numbers for whole lines): the lines it touches are
+  picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
 - Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide

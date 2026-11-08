@@ -4,7 +4,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Avalonia.Controls.Selection;
 using Avalonia.Threading;
+using Sloperator.App.Views;
 using Sloperator.Core.Diffs;
+using Sloperator.Core.Projects;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using static Sloperator.Core.Strings;
@@ -42,9 +44,6 @@ public sealed partial class DiffFileItem(DiffFile file, int row, string fullPath
 
     /// <summary>"unstaged", "staged", "committed"; "" outside git.</summary>
     public string SectionWord => Section?.ToString().ToLowerInvariant() ?? "";
-
-    /// <summary>A zero for each digit of the widest line number in its diff: an unseen copy sizes the number column to it.</summary>
-    public string NumberSizer { get; } = new('0', file.Lines.Select(l => l.New ?? l.Old ?? 0).DefaultIfEmpty().Max().ToString(CultureInfo.InvariantCulture).Length);
 
     /// <summary>The same file in the same section (the diff in it may have changed).</summary>
     internal bool IsSame(DiffFileItem? other) => other is not null && Section == other.Section && string.Equals(FullPath, other.FullPath, StringComparison.OrdinalIgnoreCase);
@@ -116,6 +115,12 @@ public sealed partial class DiffRow(DiffFileItem file, DiffLine? line) : Observa
 
     public string Text => Line is { } l ? l.Text : File.Name;
 
+    /// <summary>Its file's colours and which of the file's lines it is; null for a header.</summary>
+    public (DiffColours File, int Line)? Colouring { get; init; }
+
+    /// <summary>The line's code in the Code editor's colours, read as it is drawn; none for a header or divider.</summary>
+    public IReadOnlyList<SyntaxSpan> Colours => Colouring is { } colouring ? colouring.File.Of(colouring.Line) : [];
+
     /// <summary>A line with a number and a marker: not a file's header nor a hunk's divider.</summary>
     public bool IsCode => !IsHeader && !IsHunk;
 
@@ -156,7 +161,7 @@ public sealed partial class DiffRow(DiffFileItem file, DiffLine? line) : Observa
 /// The File changes panel, one of the chat window's side panels on the left of the chat: the files the
 /// agent changed in this chat (write_file, edit_file, and what its commands changed), each against
 /// what it held before the agent first changed it, updated as the agent works. Lines picked in it
-/// (click, drag, Shift+click, Ctrl+click) go into the chat's box as the files they are in, and the message
+/// (selected in its editor, <see cref="DiffView"/>) go into the chat's box as the files they are in, and the message
 /// sent from there carries them for the model: the user asks about them, has them explained,
 /// reviewed or changed (the user's request, 2026-10-24).
 /// </summary>
@@ -179,7 +184,7 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
         _chat = chat;
         ByAuto = chat.IsAuto;
         Selection = new SelectionModel<DiffRow> { SingleSelect = false };
-        Selection.SelectionChanged += (_, e) => OnPicked(e.SelectedItems.OfType<DiffRow>().ToList());
+        Selection.SelectionChanged += (_, _) => OnPicked();
         // Calls that come one after another (a file written in parts) are read once.
         _refreshTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
         {
@@ -394,8 +399,10 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
             if (!shown)
                 continue;
             rows.Add(new DiffRow(item, null) { Index = rows.Count });
-            foreach (var line in file.Lines.Take(MaxRows - rows.Count))
-                rows.Add(new DiffRow(item, line) { Index = rows.Count });
+            // In the language the Code editor opens its kind in.
+            var colours = new DiffColours(file, CodeLanguages.For(item.FullPath, _chat.Panels.CodeLanguages));
+            foreach (var (line, i) in file.Lines.Take(MaxRows - rows.Count).Select((l, i) => (l, i)))
+                rows.Add(new DiffRow(item, line) { Index = rows.Count, Colouring = (colours, i) });
         }
         // Another chat's list, or the first read, has no "just now": nothing lights up.
         var now = fresh ? Fresh(before, rows) : [];
@@ -463,9 +470,7 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
         {
             _picking = false;
         }
-        _refreshing = true;
-        try { OnPicked(); }
-        finally { _refreshing = false; }
+        OnPicked();
         Folder = diff.Root.Length > 0 ? diff.Root : null;
         // "2 files · +14", as each file's counts leave out what is none.
         // In git a file may be in two sections, so their counts add up to nothing: only the files are counted.
@@ -563,9 +568,6 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
 
     /// <summary>How long a change stays lit before it fades (over 2 s, Border.fresh in the panel): 1.5 s and 1 s were gone before the eye got there (the user, 2026-10-27).</summary>
     private static readonly TimeSpan LitFor = TimeSpan.FromSeconds(4);
-
-    /// <summary>Set while a refresh picks the same lines again: no click by hand, so a hunk isn't picked whole.</summary>
-    private bool _refreshing;
 
     /// <summary>Watch turned on: the last change in sight and lit up again (its file isn't selected: only a click selects one).</summary>
     private void GoToLatest()
@@ -750,24 +752,29 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
 
     // ---- what is picked, into the chat's box -----------------------------------------------------------
 
+    /// <summary>
+    /// The rows under a file's header (all its lines) or a hunk's divider (the hunk's), first to last, which a
+    /// click on it picks; null for a line, and for a header or divider with nothing under it.
+    /// </summary>
+    internal static (int From, int To)? Under(IReadOnlyList<DiffRow> rows, int row)
+    {
+        if (row < 0 || row >= rows.Count || rows[row] is not { } clicked || !clicked.IsHeader && clicked.Line?.Kind != DiffLineKind.Hunk)
+            return null;
+        var end = row + 1;
+        while (end < rows.Count && !rows[end].IsHeader && (clicked.IsHeader || rows[end].Line?.Kind != DiffLineKind.Hunk))
+            end++;
+        return end > row + 1 ? (row + 1, end - 1) : null;
+    }
+
     /// <summary>The picked lines into the box, as the files they are in ("Lines 12-18 · DiffTool.cs": the lines first, as a long name is cut short there).</summary>
-    private void OnPicked(IReadOnlyList<DiffRow>? added = null)
+    private void OnPicked()
     {
         if (_picking)
             return;
         _picking = true;
         try
         {
-            // A click on a hunk's divider picks its lines, on a file's name all the file's (Ctrl held: as
-            // well as what was picked). A header or divider is no line itself: it doesn't stay picked.
-            if (!_refreshing && added is [{ } clicked] && (clicked.IsHeader || clicked.Line?.Kind == DiffLineKind.Hunk))
-            {
-                var end = clicked.Index + 1;
-                while (end < Rows.Count && !Rows[end].IsHeader && (clicked.IsHeader || Rows[end].Line?.Kind != DiffLineKind.Hunk))
-                    end++;
-                if (end > clicked.Index + 1)
-                    Selection.SelectRange(clicked.Index + 1, end - 1);
-            }
+            // A header or divider is no line: it doesn't stay picked.
             foreach (var row in Selection.SelectedItems.OfType<DiffRow>().Where(r => !r.IsLine).ToList())
                 Selection.Deselect(row.Index);
             // A file picked in two sections (staged and unstaged) is one card in the box: its lines,
@@ -790,20 +797,20 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
     }
 
     /// <summary>
-    /// A drag over the diff from row <paramref name="from"/> to <paramref name="to"/>: every row between
-    /// is picked, as a Shift+click there would, with <paramref name="kept"/> (what was picked before a
-    /// Ctrl+drag) picked too. Called again as the drag goes on, so the pick follows it.
+    /// The lines selected in the diff's editor (by their rows): those picked, and nothing else. A file's
+    /// header or a hunk's divider among them is no line, and isn't picked. Called again as a drag goes on,
+    /// so the pick follows it; nothing happens while the same lines stay selected.
     /// </summary>
-    internal void PickDrag(int from, int to, IReadOnlyList<int> kept)
+    internal void PickRows(IReadOnlyCollection<int> rows)
     {
+        var lines = rows.Where(r => r >= 0 && r < Rows.Count && Rows[r].IsLine).ToHashSet();
+        if (lines.SetEquals(Selection.SelectedIndexes))
+            return;
         using (Selection.BatchUpdate())
         {
             Selection.Clear();
-            foreach (var row in kept)
+            foreach (var row in lines.Order())
                 Selection.Select(row);
-            Selection.SelectRange(Math.Min(from, to), Math.Max(from, to));
-            // Shift+click after the drag goes on from where it started.
-            Selection.AnchorIndex = from;
         }
     }
 
