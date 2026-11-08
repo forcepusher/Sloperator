@@ -308,11 +308,11 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
 
     /// <summary>
     /// Calls that try to get something done, as against looking or reading: running code or a
-    /// command, writing a file, a ComfyUI job, making a piece of a video.
+    /// command, writing a file or an edit of a sound, a ComfyUI job, making a piece of a video.
     /// </summary>
     internal static bool IsTry(Tool? tool, string? action) => tool switch
     {
-        ShellTool or SshTool or WriteFileTool or EditFileTool => true,
+        ShellTool or SshTool or WriteFileTool or EditFileTool or EditSoundTool => true,
         McpTool mcp => mcp.Risk != ToolRisk.ReadOnly,
         ComfyTool => action is "run",
         VideoEditorTool => action is "frame" or "shot" or "sound" or "join",
