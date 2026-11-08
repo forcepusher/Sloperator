@@ -597,19 +597,20 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
                 "action=templates finds one for sound effects, music or speech.]");
         var version = pick.Version;
         var versions = string.Join(", ", sound.Versions.Select((v, i) => $"{i + 1}: {v}"));
-        var edit = $"edit_sound with path \"{version.Path}\" makes its next version (cut, keep, fade_in, fade_out, volume, replace)";
+        var edit = $"run edit_sound with path \"{version.Path}\"";
+        const string edits = "(cut, keep, fade_in, fade_out, volume, replace): each edit is the sound's next version";
         if (pick.Stretch is { } r)
         {
             var inv = CultureInfo.InvariantCulture;
             return ($"Audio editor · {sound.Name} · {SoundRange.Label(r.From, r.To)} of version {version.Number}",
                 opening + $"They picked a stretch of version {version.Number} of the sound \"{sound.Name}\" ({version.Path}). {pick.Told}. " +
                 $"The picture {pick.File} attached below is that stretch's waveform (top) and spectrogram (bottom, low notes at the bottom, louder is brighter), its seconds marked. " +
-                string.Create(inv, $"To change only that stretch, {edit} with from {r.From:0.000} and to {r.To:0.000}; to make it anew, make a take about {r.To - r.From:0.0} s long with the comfyui tool ") +
+                string.Create(inv, $"To change only that stretch, {edit}, from {r.From:0.000} and to {r.To:0.000} {edits}; to make it anew, make a take about {r.To - r.From:0.0} s long with the comfyui tool ") +
                 $"(save_to a folder of its own, not the sound's) and put it in with edit=replace and with set to that file. Its versions: {versions}.]");
         }
         return ($"Audio editor · {sound.Name} · version {version.Number}",
             opening + $"They picked version {version.Number} of {sound.Versions.Count} of the sound \"{sound.Name}\" ({version.Path}, attached below). " +
-            $"To edit it, {edit}; to make it again, {save}. Its versions: {versions}.]");
+            $"To edit it, {edit} {edits}; to make it again, {save}. Its versions: {versions}.]");
     }
 
     /// <summary>The message went with the pick: it is no longer picked (a stretch's picture went with it, and stays).</summary>

@@ -356,8 +356,9 @@
              pixel at 125%, where it sat a pixel under the dropdown's word (docs/notes.md, Text in the
              middle of its box). -->
         <PathIcon DockPanel.Dock="Left" Width="10" Height="10" Margin="0,0,8,0.5" VerticalAlignment="Center" Foreground="{StaticResource BbAccent}" Data="M14 7l-5 5 5 5z" />
+        <!-- Every entry shown at once: Fluent's list stops at 504 high, which the Audio editor's row passed, and a scrollbar came. -->
         <ComboBox x:Name="SidePanelBox" DockPanel.Dock="Left" Classes="ghost" ItemsSource="{Binding SidePanelOptions}" SelectedItem="{Binding SelectedSidePanel}"
-                  VerticalAlignment="Center" AutomationProperties.Name="Side panel">
+                  MaxDropDownHeight="600" VerticalAlignment="Center" AutomationProperties.Name="Side panel">
           <!-- The window's caption, not the pick's word: under Auto it names the panel shown ("Auto (Terminal)"),
                in a slot as wide as every caption Auto has, whatever is picked, so the bar doesn't move as Auto changes panel
                or as another panel is picked. -->
