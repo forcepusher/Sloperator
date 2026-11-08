@@ -36,6 +36,7 @@ public sealed partial class DiffFileItem(DiffFile file, int row, string fullPath
     public string OtherCount => AddedCount.Length + RemovedCount.Length == 0 ? File.Counts : "";
     public bool IsNew => File.Status == "added";
     public bool IsDeleted => File.Status == "deleted";
+    public bool IsModified => File.Status == "modified";
 
     /// <summary>Its section in a git repository; null outside one.</summary>
     public GitSection? Section => File.Git?.Section;

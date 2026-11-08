@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `-Encoding Default`.
 - While you type in the message box during a task, the agent pauses altogether: no new request to the model
   and no tool call, not only its clicks and key presses. The message you send then is in its very next request.
+- **File changes** shows modified files in yellow in its file list, as new ones are green and deleted
+  ones red.
 
 ### Fixed
 - Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide

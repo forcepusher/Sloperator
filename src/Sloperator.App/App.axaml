@@ -87,10 +87,11 @@
          over, 6 right and 5 under kept. -->
     <Thickness x:Key="TextControlThemePadding">12,6,6,5</Thickness>
     <!-- The server dot when connected; a diff's added and removed lines (their counts, numbers and
-         markers, a new file's name), their rows a tint of the same. -->
+         markers, a new file's name), their rows a tint of the same; a modified file's name the yellow. -->
     <SolidColorBrush x:Key="BbOk" Color="#4CC38A" />
     <SolidColorBrush x:Key="BbAdded" Color="#7FD9A2" />
     <SolidColorBrush x:Key="BbRemoved" Color="#F28B82" />
+    <StaticResource x:Key="BbModified" ResourceKey="BbAccent" />
     <SolidColorBrush x:Key="BbAddedRow" Color="#1C50C878" />
     <SolidColorBrush x:Key="BbRemovedRow" Color="#21F05A5A" />
     <SolidColorBrush x:Key="BbError" Color="#E06C6C" />
