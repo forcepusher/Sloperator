@@ -2362,6 +2362,19 @@ opens (for a model loaded or downloaded on the server since; quiet, so the dot d
 dropdown did it itself (the user, 2026-10-29).
 The command-line runner picks the same way for the saved model or `--model`.
 
+A model picked keeps its place across servers, though each writes its name its own way. Sonnet 5.5 was
+`anthropic/claude-sonnet-5-5` on proxyapi.ru, `anthropic/claude-sonnet-5.5` on OpenRouter and
+`claude-sonnet-5-5` on Anthropic's API (2026-11-07); Sonnet 4.5 was `claude-sonnet-4-5-20250929` on
+Anthropic's and proxyapi.ru's. Switched from proxyapi.ru to OpenRouter by typing the address, the old
+name stayed: OpenRouter had no such model, so the banner said so and the auto-pick stood in, and the
+dropdown showed the old name beside OpenRouter's until another was picked. So `ModelChoice.Choose`,
+for every server alike and by the names alone (`IsSameModel`), looks for the picked name without its
+maker, with words joined any way (`Words`, as `switch_model` reads a name), then also without a date
+at its end. Written alike goes first, then the shortest. That isn't a stand-in: the probe says
+`AutoPicked` false, the app saves the server's name as the pick (with a saved server's entry, which
+may hold another server's name), and the old name leaves the dropdown. The command-line runner uses it
+too. Sonnet 5 isn't Sonnet 5.5, nor `x:free` the `x` that costs money: those get the banner as before.
+
 **Saved servers**: every server that answers is kept in `server.saved` in settings.json with its key
 and the model picked there (empty when Sloperator picks), in the order they first answered
 (`ServerSettings.Remember`, at each check that finds a model). **Servers** beside the address lists
