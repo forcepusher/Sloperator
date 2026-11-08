@@ -114,6 +114,8 @@ try
                 ? $"[server] no model picked: using {probe.Model}, the free model on Kilo that clicked best in Sloperator's tests"
                 : $"[server] no model picked: using {probe.Model}{details}, {why}");
     }
+    else
+        settings.Server.Model = probe.Model; // as this server names it
     settings.Server.SupportsVision = probe.Vision ?? true;
     settings.Server.EffortLevels = probe.Efforts ?? [];
     var facts = await ServerProbe.EnsureLoadedAsync(probeHttp, settings.Server, () => Console.WriteLine("[server] loading the model…"), cts.Token,
@@ -154,7 +156,9 @@ catch (OperationCanceledException)
 }
 
 using var ssh = new Sloperator.Core.Ssh.SshHosts(paths.KnownHostsFile);
-var session = AgentSetup.Create(BackendConnection.Create(http, settings.Server), platform, agent, paths, mcp, ssh, folderIndex: !noIndex);
+var backend = BackendConnection.Create(http, settings.Server);
+await backend.Client.SpeaksMessagesAsync(cts.Token);
+var session = AgentSetup.Create(backend, platform, agent, paths, mcp, ssh, folderIndex: !noIndex);
 var observer = new ConsoleObserver(autoYes, shotsDir, fullResults);
 
 var t0 = DateTime.UtcNow;

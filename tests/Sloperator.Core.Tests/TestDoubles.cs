@@ -105,6 +105,9 @@ internal sealed class ScriptedServer(params string[] responses) : HttpMessageHan
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
+        // It lists no models: the first request asks, to find out what the server speaks.
+        if (request.Method == HttpMethod.Get)
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
         if (Unreachable > 0)
         {
             Unreachable--;

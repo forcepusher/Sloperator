@@ -9,7 +9,7 @@ namespace Sloperator.Core.Llm;
 /// <param name="LoadedContext">Context size the server runs <paramref name="Model"/> with, if it says; also <paramref name="Vision"/> and <paramref name="Loaded"/> are about that model.</param>
 /// <param name="Loaded">False when the server says the model is not loaded yet (LM Studio loads on first use), so it has no context size yet.</param>
 /// <param name="BaseUrl">The complete address that answered ("host:1234" typed, "http://host:1234/v1" found).</param>
-/// <param name="Model">The model to use: the configured one while the server offers it, else the one <see cref="ModelChoice.Pick"/> chooses; null when there is none.</param>
+/// <param name="Model">The model to use: the configured one while the server offers it, as the server names it (see <see cref="ModelChoice.IsSameModel"/>), else the one <see cref="ModelChoice.Pick"/> chooses; null when there is none.</param>
 /// <param name="AutoPicked">True when <paramref name="Model"/> was chosen here, because none was configured or the server doesn't offer it.</param>
 /// <param name="ModelDetails">For a model chosen here, its size, quantization and benchmark score ("27B, 6-bit, 79.8% on Terminal-Bench 2.1") as far as known.</param>
 /// <param name="ContextHosted"><paramref name="LoadedContext"/> is the most a hosted service takes for the model, not a size a server runs it with (see <see cref="ModelFacts.Hosted"/>).</param>
@@ -56,8 +56,8 @@ public static partial class ServerProbe
     /// The address may be typed in any form (see <see cref="ServerAddress"/>); the first form that
     /// lists models wins and comes back as <see cref="ProbeResult.BaseUrl"/>, for the caller to
     /// keep if the address hasn't changed in the meantime. The model to use is the configured
-    /// <see cref="ServerSettings.Model"/> while the server offers it, else the strongest one it
-    /// offers (<see cref="ModelChoice"/>).
+    /// <see cref="ServerSettings.Model"/> while the server offers it, under the name it lists it by,
+    /// else the strongest one it offers (<see cref="ModelChoice"/>).
     /// </summary>
     public static async Task<ProbeResult> CheckAsync(HttpClient http, ServerSettings server, CancellationToken ct)
     {
@@ -86,7 +86,7 @@ public static partial class ServerProbe
             found.Model = (server.Model.Length == 0 && KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model) && !ModelChoice.OffersClaude(catalog)
                 ? KiloGateway.Model
                 : ModelChoice.Choose(server.Model, catalog)) ?? "";
-            var auto = found.Model.Length > 0 && found.Model != server.Model;
+            var auto = found.Model.Length > 0 && !ModelChoice.IsSameModel(found.Model, server.Model);
             var facts = await TryContextAsync(http, found, ct, models).ConfigureAwait(false);
             return new ProbeResult(true, catalog.Where(m => m.Chat).Select(m => m.Id).ToList(), facts.Context, facts.Vision,
                 models.Count == 0 ? "Connected, but the server lists no models." : "Connected.", facts.Loaded, candidates[i],
@@ -96,15 +96,15 @@ public static partial class ServerProbe
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)
-            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(server, candidates[0]), KeyRefused: true);
+            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(http, server, candidates[0]), KeyRefused: true);
         // The plain-http error reads better than a failed TLS handshake.
         var http0 = Math.Max(0, candidates.ToList().FindIndex(c => c.StartsWith("http://", StringComparison.OrdinalIgnoreCase)));
         return new ProbeResult(false, [], null, null, "Can't reach the server: " + attempts[http0].Result.Error);
     }
 
     /// <summary>An Anthropic key (sk-ant-…) given to another server: Claude's address is said.</summary>
-    private static string AnthropicKeyHint(ServerSettings server, string address) =>
-        server.ApiKey.Trim().StartsWith("sk-ant-", StringComparison.Ordinal) && !OpenAiChatClient.IsAnthropic(address)
+    private static string AnthropicKeyHint(HttpClient http, ServerSettings server, string address) =>
+        server.ApiKey.Trim().StartsWith("sk-ant-", StringComparison.Ordinal) && !new OpenAiChatClient(http, address, server.ApiKey).SpeaksMessages
             ? " That is an Anthropic API key: for Claude, the server address is https://api.anthropic.com."
             : "";
 
@@ -149,7 +149,7 @@ public static partial class ServerProbe
         var root = OpenAiChatClient.NormalizeBaseUrl(server.BaseUrl)[..^"/v1".Length];
         var described = new Dictionary<string, ModelInfo>();
         // Anthropic's list says it all, and LM Studio's addresses there only answer "not found".
-        var openAiStyle = !OpenAiChatClient.IsAnthropic(server.BaseUrl);
+        var openAiStyle = !new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).SpeaksMessages;
         if (openAiStyle && await GetJsonAsync(http, server, $"{root}/api/v1/models", ct).ConfigureAwait(false) is { } v1 && v1["models"] is JsonArray models)
         {
             foreach (var m in models.OfType<JsonObject>())
@@ -400,7 +400,7 @@ public static partial class ServerProbe
         var root = v1[..^"/v1".Length];
 
         // Anthropic: its model list, in OpenAI style, says the context (max_input_tokens) and whether it takes pictures.
-        if (OpenAiChatClient.IsAnthropic(v1))
+        if (await new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).SpeaksMessagesAsync(ct).ConfigureAwait(false))
         {
             try { listed ??= await new OpenAiChatClient(http, server.BaseUrl, server.ApiKey).ListModelEntriesAsync(ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException || ex is OperationCanceledException && !ct.IsCancellationRequested) { return default; }

@@ -791,6 +791,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
             var backend = BackendConnection.Create(_http, server);
+            await backend.Client.SpeaksMessagesAsync(ct);
             backend.Client.Spending = _spent;
             var session = _session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,

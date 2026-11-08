@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `-Encoding Default`.
 
 ### Fixed
+- Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide
+  screens: screenshots now fit the size the server takes, and the task carries on.
+- A server that speaks Anthropic's own format is recognised by its answers, whatever its address.
+- The model you picked stays picked when you switch to a server that writes its name differently, such as
+  `anthropic/claude-sonnet-5-5` on proxyapi.ru and `anthropic/claude-sonnet-5.5` on OpenRouter. Sloperator no
+  longer says the server doesn't offer it until you pick it again.
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
   own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
   5 seconds instead of one before it takes the pointer from Sloperator's window.

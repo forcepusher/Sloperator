@@ -15,7 +15,7 @@ namespace Sloperator.Core.Platform;
 /// </remarks>
 public sealed class ScreenSpace
 {
-    private const int Patch = 32;
+    internal const int Patch = 32;
 
     /// <param name="box">Largest size to send, or null for the screen's own resolution.</param>
     public ScreenSpace(ScreenRect screen, (int Width, int Height)? box)

@@ -325,6 +325,124 @@ public class AgentSessionTests
         Assert.False(session.SeesImages);
     }
 
+    /// <summary>Claude through proxyapi.ru's /v1, measured 8 November 2026: 21 pictures of 4000 px, at HTTP 400.</summary>
+    private const string PictureTooLarge = """{"error": {"message": "messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels", "type": "invalid_request_error", "param": null, "code": null}}""";
+
+    [Fact]
+    public async Task Pictures_too_large_for_the_server_leave_out_the_screenshots_and_the_screen_is_taken_anew_at_its_size()
+    {
+        var server = new ScriptedServer(Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, PictureTooLarge));
+        var platform = new FakePlatform { ScreenBounds = new(0, 0, 5120, 1080) };
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), platform, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(2, server.Requests.Count); // refused, then sent again: no handoff note
+        Assert.Equal([21, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.Equal(21, Regex.Count(server.Requests[1].ToJsonString(), Regex.Escape(AgentSession.OldScreenshotText)));
+        // Not the 3008 that 3000 rounds to in whole patches, which would be refused too.
+        Assert.Contains(server.Requests[1]["messages"]!.AsArray().SelectMany(m => m!["content"] as JsonArray ?? []), p => ((string?)p!["text"])?.Contains("Screenshot 2976x640.") == true);
+        Assert.Contains(observer.Notices, n => n.Contains("over 3000 px"));
+        Assert.Equal("Done.", session.History[^1].Content);
+    }
+
+    [Fact]
+    public async Task A_click_after_a_refused_picture_size_lands_by_the_new_size()
+    {
+        // The model points on the picture it got last, 2976x640 now: its middle is the screen's.
+        var server = new ScriptedServer(Sse.ToolCall("c1", "mouse_click", """{"x":1488,"y":320}"""), Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, PictureTooLarge));
+        var platform = new FakePlatform { ScreenBounds = new(0, 0, 5120, 1080) };
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), platform, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+
+        await session.RunAsync("click the middle", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Contains("move 2560,540", platform.Actions);
+    }
+
+    [Fact]
+    public async Task A_refused_picture_size_keeps_to_the_screen_the_model_was_looking_at()
+    {
+        var server = new ScriptedServer(Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, PictureTooLarge));
+        var platform = new FakePlatform { Screens = [new(0, 0, 1920, 1080), new(1920, 0, 5120, 1080)] };
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), platform, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+        session.History.Insert(session.History.Count - 1, ChatMessage.ToolResult("c20", "Screenshot of screen 2 of 2, 5120x1088."));
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Contains(server.Requests[1]["messages"]!.AsArray().SelectMany(m => m!["content"] as JsonArray ?? []), p => ((string?)p!["text"])?.Contains("Screenshot of screen 2 of 2, 2976x640.") == true);
+        Assert.Equal((1, 2), AgentSession.ScreenShown(session.History));
+    }
+
+    [Fact]
+    public async Task One_screenshot_over_the_most_any_request_takes_is_taken_anew_at_that_size()
+    {
+        // 8000 px holds in any request: with only one picture there is nothing else to leave out.
+        var server = new ScriptedServer(Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, """{"error":{"message":"messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size: 8000 pixels"}}"""));
+        var platform = new FakePlatform { ScreenBounds = new(0, 0, 9000, 1080) };
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), platform, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 1);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal([1, 1], server.Requests.Select(r => ImagesSent(r).Count));
+    }
+
+    [Fact]
+    public async Task A_gateway_saying_a_refused_picture_size_in_its_stream_is_heard_too()
+    {
+        // HTTP 200, the error in the stream, as gateways pass on what fails on the way.
+        const string refusal = """data: {"error":{"message":"messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels","code":400}}""" + "\n\n";
+        var server = new ScriptedServer(refusal, Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform { ScreenBounds = new(0, 0, 5120, 1080) }, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal([21, 1], server.Requests.Select(r => ImagesSent(r).Count));
+    }
+
+    [Fact]
+    public async Task A_gateway_wrapping_the_refusal_of_a_picture_size_is_heard_too()
+    {
+        // OpenRouter's shape: its own words, the provider's in metadata.raw.
+        var server = new ScriptedServer(Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, """{"error":{"message":"Provider returned error","code":400,"metadata":{"raw":"{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels\"}}","provider_name":"Anthropic"}}}"""));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform { ScreenBounds = new(0, 0, 5120, 1080) }, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal([21, 1], server.Requests.Select(r => ImagesSent(r).Count));
+    }
+
+    [Fact]
+    public async Task Pictures_refused_again_with_no_screenshots_left_to_go_end_the_run()
+    {
+        var server = new ScriptedServer();
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, PictureTooLarge));
+        server.Failures.Enqueue((HttpStatusCode.BadRequest, PictureTooLarge));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform { ScreenBounds = new(0, 0, 5120, 1080) }, contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 21);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Error, observer.StopReason);
+        Assert.Equal(2, server.Requests.Count);
+    }
+
     [Fact]
     public async Task A_request_too_large_with_screenshots_leaves_out_all_but_the_latest_without_a_reset()
     {
