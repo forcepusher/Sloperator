@@ -1287,6 +1287,32 @@ public sealed class VideoEditorToolTests : IDisposable
     }
 
     [Fact]
+    public async Task The_storyboards_fields_are_in_the_guide_asked_for_not_in_the_description()
+    {
+        var path = Path.Combine(_dir, "Keeper");
+        var said = new List<string>();
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, InConversation = t => said.Any(s => s.Contains(t)) };
+        var tool = new VideoEditorTool();
+        // Every request carries the description: what to read first, not the storyboard's fields.
+        Assert.Contains("action=guide", tool.Description);
+        Assert.DoesNotContain("soundLineVolumes", tool.Description);
+
+        var guide = await tool.ExecuteAsync(new JsonObject { ["action"] = "guide" }, ctx, CancellationToken.None);
+        Assert.False(guide.IsError, guide.Text);
+        Assert.Contains(VideoEditorTool.GuideHead, guide.Text);
+        Assert.Contains("soundLineVolumes", guide.Text); // the fields
+        Assert.Contains("used three ways", guide.Text); // a reference video
+        Assert.Contains("tries=N", guide.Text); // making the pieces
+        Assert.Contains("Versions", guide.Text); // the video's folder
+        Assert.Contains("Direction and distance", guide.Text); // how LTX reads a shot's prompt
+        // Read first, it doesn't come again with the storyboard.
+        var board = await tool.ExecuteAsync(new JsonObject { ["action"] = "storyboard", ["path"] = path, ["storyboard"] = JsonNode.Parse("""{"title": "Keeper", "shots": [{"id": "s1", "prompt": "he waves"}]}""") },
+            ctx, CancellationToken.None);
+        Assert.False(board.IsError, board.Text);
+        Assert.DoesNotContain(VideoEditorTool.GuideHead, board.Text);
+    }
+
+    [Fact]
     public async Task A_second_video_laid_out_without_a_path_is_a_video_of_its_own()
     {
         // "Two ads, coffee and tea": the tea ad, without a path, was written over the coffee one.

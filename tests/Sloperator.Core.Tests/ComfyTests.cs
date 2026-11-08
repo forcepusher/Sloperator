@@ -881,6 +881,40 @@ public class ComfyToolTests : IDisposable
     }
 
     [Fact]
+    public async Task The_guide_to_using_comfyui_comes_with_the_first_call_a_chat_makes()
+    {
+        // Every request carries the description, so how to use the tool is in the guide.
+        Assert.Contains("action=guide", new ComfyTool().Description);
+        Assert.DoesNotContain("Qwen-Image-Edit", new ComfyTool().Description);
+        var said = new List<string>();
+        _ctx.InConversation = t => said.Any(s => s.Contains(t));
+        const string Nodes = """{"action": "nodes", "names": ["KSampler"]}""";
+        var first = await Call(Nodes);
+        Assert.False(first.IsError, first.Text);
+        Assert.Contains(ComfyTool.UseGuideHead, first.Text);
+        Assert.Contains("Qwen-Image-Edit", first.Text);
+        said.Add(first.Text);
+        // The next run in the same chat: the conversation has it.
+        Assert.DoesNotContain(ComfyTool.UseGuideHead, (await Call(Nodes)).Text);
+
+        // The same run, after its context started afresh: the guide went with the rest.
+        var tool = new ComfyTool();
+        said.Clear();
+        Task<ToolResult> Again() => tool.ExecuteAsync(JsonNode.Parse(Nodes)!.AsObject(), _ctx, CancellationToken.None);
+        Assert.Contains(ComfyTool.UseGuideHead, (await Again()).Text);
+        Assert.DoesNotContain(ComfyTool.UseGuideHead, (await Again()).Text);
+        _ctx.ContextResets++;
+        Assert.Contains(ComfyTool.UseGuideHead, (await Again()).Text);
+
+        // Asked for, it isn't added again to the next call.
+        var asked = new ComfyTool();
+        said.Clear();
+        _ctx.ContextResets++;
+        Assert.Contains(ComfyTool.UseGuideHead, (await asked.ExecuteAsync(JsonNode.Parse("""{"action": "guide"}""")!.AsObject(), _ctx, CancellationToken.None)).Text);
+        Assert.DoesNotContain(ComfyTool.UseGuideHead, (await asked.ExecuteAsync(JsonNode.Parse(Nodes)!.AsObject(), _ctx, CancellationToken.None)).Text);
+    }
+
+    [Fact]
     public async Task A_comfyui_sloperator_started_closes_after_the_task_once_its_jobs_are_done()
     {
         var stops = 0;

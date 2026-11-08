@@ -273,7 +273,7 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   drawing one, and good at a clip's sounds (voices, footsteps, wind) and poor at music. So a video
   is a picture an image model makes, looked at, then animated with an image-to-video template;
   music comes from a music model (ACE-Step) and is put together with the video's sound. The tool's
-  description and the system prompt say so; a template search with video words adds it; running
+  guide and the system prompt say so; a template search with video words adds it; running
   or viewing an LTX workflow that draws its own picture (no `LTXVImgToVideo…` or `LTXVAddGuide`
   node) adds a note.
 - **A guide to video prompts** (`Comfy/Guides/video-prompts.md`, built into the exe;
@@ -799,7 +799,7 @@ and nor are the video-wide look and templates of older storyboards: the user's c
   goes; `from` names the copy ("Carl/CarlLineup.png") and the result says so. The copy never takes a
   name a planned piece will be made as (a `.json` of that name: "Carl (2).png" beside a planned
   Carl), and the same picture there already is used again (`Storyboard.KeepPicture`, which Drop
-  uses too). The tool's description and the storyboard guide say never to crop, resize, retouch or
+  uses too). The storyboard guide says never to crop, resize, retouch or
   redraw the user's pictures or save cut-outs beside them, but to name the whole picture and say in
   the prompt which figure to take.
 - **Nothing video-wide that goes into a prompt.** Each frame's and shot's prompt holds all of its
@@ -1214,9 +1214,11 @@ Continue on one the model never had sends it whole. A chat begun with Video edit
 the words and the video and picks ("Make it. (Fox Test · start of shot 1)"), not "Make it." alone.
 
 The model writes prompts as Sloperator's storyboard guide says (`Comfy/Guides/storyboards.md`, which
-the video tool shows with the first storyboard a chat reads or writes, together with the video
-guide; a chat that still has it in its conversation, `ToolContext.InConversation`, isn't shown it
-again, and one that lost it to a context reset is): who is in a frame (repeating what makes each person look like themselves), where, framing,
+the video tool shows with `action=guide`, which its description says to read first, or with the first
+storyboard a chat reads or writes, together with the video guide; a chat that still has it in its
+conversation, `ToolContext.InConversation`, isn't shown it again, and one that lost it to a context
+reset is; since 2026-11-09 it also holds the storyboard's fields and how each action works, which were
+in the tool's description, see "What a chat starts with"): who is in a frame (repeating what makes each person look like themselves), where, framing,
 light, and the video's look in the same words in every prompt; references in that look; a shot's
 action in order in the present tense, as long as it takes; first and last frames that agree on what
 stays put; lines that fit their shot; a model named only when the user names or describes one. That
@@ -2925,6 +2927,25 @@ long before 1M tokens: such a run was refused once with 413, reset, and went on 
 less than it had (`KiloOverflowTests`: 23.9 MB of screenshots, 61k tokens, went on at 46k); since
 28 October the screenshots before the latest are left out instead, and the context stays (see
 "Pictures a request"). Both cases pass against Kilo (`KiloOverflowTests`, 28 October 2026).
+
+### What a chat starts with
+Every request carries the system prompt and the tool definitions, so a chat holds them before the
+user's first word. The user saw about 20k tokens after "Hello" (2026-11-08). Counted with OpenAI's
+o200k tokenizer (`.dev/context-size-test`: builds the prompt and the tools as `AgentSetup` does, one
+1920x1200 screen, no MCP servers, and prints each rule and tool): the prompt 3.4k, the 33 tools 11.9k,
+15.3k in all; Claude counts the same text as more, and its API adds its own words for tools. The
+video tool's description was 2.26k and comfyui's 1.69k, a third of the tools, in every chat though
+few make pictures or videos. Of four ways out (those two shortened, the prompt's lines that repeat a
+tool's description dropped, rarely used tools loaded on demand, the long rules rewritten), the user
+picked the first: each description now says what the tool does, its actions, and to read its guide,
+and the rest went into the guides (`Comfy/Guides`), read once a chat. The storyboard's fields, the
+video's folder and how each action makes and checks a piece are in `storyboards.md`, which
+`action=guide` shows and the first storyboard a chat reads or writes brings if it wasn't read; the
+rest of comfyui's (workflows, a picture to follow or change, video and sound, models, the server) is
+`comfyui.md`, which comes with the tool's first answer in a chat that isn't an error, or with
+`action=guide`, and not again while the conversation has it (`ToolContext.InConversation`; a
+context reset brings it back). That took video to 0.68k and comfyui to 0.95k (its parameters are
+0.72k of it): 2.3k less, 13.3k in all with the 34 tools of 2026-11-09.
 
 ### Pictures a request
 Some servers take fewer pictures in one request than a run keeps. munito's gateway
