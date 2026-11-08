@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for another item, or zooming in on the same spot, no longer counts.
 - `Get-Content` in the agent's commands reads UTF-8 by default. A file in the PC's old code page needs
   `-Encoding Default`.
+- **File changes** shows modified files in yellow in its file list, as new ones are green and deleted
+  ones red.
 
 ### Fixed
 - Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide
