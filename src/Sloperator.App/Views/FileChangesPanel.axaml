@@ -14,14 +14,6 @@
     <Style Selector="Run.removedCount">
       <Setter Property="Foreground" Value="{StaticResource BbRemoved}" />
     </Style>
-    <!-- A hunk's divider: small, muted, starting where the numbers do. -->
-    <Style Selector="TextBlock.divider">
-      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
-      <Setter Property="FontSize" Value="11" />
-      <!-- 1 lower than its line, which held it 1 px (at 125%) over its row's middle; as tall. -->
-      <Setter Property="Margin" Value="4,1,4,-1" />
-      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-    </Style>
     <!-- A file some of whose lines are picked: grey, selected or not, as only those lines are (the
          user, 2026-10-28); yellow again once they are let go, if it is selected. -->
     <Style Selector="ListBox.files ListBoxItem.lines /template/ ContentPresenter#PART_ContentPresenter,
