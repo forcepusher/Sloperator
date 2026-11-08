@@ -648,6 +648,60 @@ balloon here" went to the model with the version, box and mask, and redraw_area 
 the box changed, blended at its edge (at 10 CPU steps SD 1.5 painted sky and cloud there, not a balloon), and the
 panel showed version 2 with "Denoise 0.75" and "From Sloperator_00001_.png" in its metadata.
 
+### The Audio editor panel
+**Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the
+Image editor and the Video editor: the Image editor for sounds, with edits done at once (the user, 2026-11-07, "Add an
+audio editor panel, since we already have video and image editor panels"; of three mockups, versions only, versions
+with hand edits, and several sound lines mixed to one file, they picked the second on 2026-11-08). Its sounds are
+folders in SloperatorData\sounds (`AppPaths.SoundsDir`), and a sound's **versions** are the sound files in its folder,
+oldest first by when they were written (`SoundFolder`, as `PictureFolder`): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
+File inspector's sounds. The agent makes a version with the comfyui tool's `save_to` the sound's folder; an edit
+writes one there. A `FileSystemWatcher` reads the folder again 250 ms after writing rests.
+
+**The panel**: the sounds in a 180 column (the newest version's waveform small and grey, `WaveThumb`, drawn at the
+screen's own pixels from 160 columns of lows and highs read off the window's thread, as loud as the big one draws it;
+its name; "3 versions"); the version shown as the File inspector shows a sound (`WaveformView` over an
+`InspectorSoundViewModel`: the ruler scrubs, a drag picks a stretch, a click sets the playhead, the wheel zooms down to
+the samples) with its player under it (play, the time, the stretch picked in yellow) and its versions in a foot bar as
+the Image editor's; and a 260 column with **Edit** (what the edits work on beside it: "the stretch picked" or "the
+whole sound") over six buttons, Cut, Keep only, Fade in, Fade out, Louder and Quieter, then **Prompt metadata** as
+the Image editor's. The bar has the sound and version, **New sound** ("Untitled sound", picked) and **Make again**
+("Make this sound again as a new version.", sent with the pick). Sound files dropped on the panel start a sound. The
+version on screen stays shown, stopped, until the next is read, so an edit doesn't blink the room empty, and the edits
+wait until the version shown is the one read. Space plays, Delete cuts the stretch picked, Esc lets go of a pick; on
+the waveform the arrows, Home and End move the playhead as in the File inspector.
+
+**The edits** (`SoundEdit`, shared with the agent's `edit_sound` tool) never change the file: each is a 16-bit WAV
+beside it, written as `.part` and then renamed so the watcher never reads half of one. In a sound's folder it is named
+after the edit, "Cut 3.18-5.00 s.wav", "+3 dB.wav", "-3 dB 0.50-1.00 s.wav", "Fade out 7.00-8.00 s.wav" (seconds with
+two decimals, no colons); elsewhere after the sound too, "song (Cut 1.00-2.00 s).wav"; " 2" when taken. Cut and Keep
+only need a stretch (greyed with "Drag over a stretch of the sound first"); the others work on the stretch, else
+Louder and Quieter (3 dB, `SoundEdit.Step`) on all of it and Fade in and Fade out on the first or last second (half of a
+sound under two). A cut crossfades over 10 ms centred on the join, so the length is exactly the rest's and nothing
+clicks; what Keep only keeps fades in and out over 5 ms where it was cut; Louder and Quieter go to their level over
+10 ms inside the stretch and round peaks above 0.9 off towards 1 (tanh) instead of clipping; fades follow a raised
+cosine. The tool's `replace` puts another sound in the stretch, fitted to the rate and channels (linear between
+samples, channels averaged down or repeated up) and crossfaded over 10 ms at both joins, which shortens the sound by
+those overlaps: the panel's "redo this bit" is the agent making a take with ComfyUI elsewhere and putting it in.
+An edit made on a stretch that keeps the length (a fade, louder, quieter) picks the same stretch again on the version
+it makes, so Louder clicked twice works on it twice; a cut, keep or replace lets it go. Up to 30 minutes are edited
+(`SoundEdit.Longest`): all samples are held at once.
+
+**How it was made goes with every edit**: the ComfyUI workflow the sound kept (`MediaRecipe.Workflow`, the same search
+as `Read`) is written into the new WAV's LIST/INFO/ICMT comment after its samples, where `MediaRecipe` finds it, so
+the version an edit makes still shows its prompt and settings. The video tool's WAVs (`VideoMaker.WriteWav`) go
+through the same writer.
+
+**Picks** (through `BoxPicks`): a click on a sound or a version picks the version shown ("Version 2 · Rain"; a sound
+not made yet as "New · Untitled sound"), and the model is told its folder and versions, that `edit_sound` with its path
+makes the next version, and how to make it again with save_to. A stretch dragged over goes in as the File inspector's
+does, a picture of its waveform over its spectrogram in SloperatorData\pasted ("0.50-1.00 s of version 2 · Rain"), the
+model told where it is to the sample and how it sounds there (`SoundRange.Told`), with `edit_sound` from and to, and
+how to make it anew (a take of that length, then edit=replace). An edit, Esc, sending or another pick let it go.
+
+**Auto** shows it for a comfyui run with save_to a sound's folder and for what a run or an edit_sound call made in
+one; an edit_sound of any other sound shows the new file in the File inspector.
+
 ## Videos
 (Films until 2026-10-25, when the user had film, take and sound track renamed video, clip and
 sound line everywhere: texts, the model's tool (`video`, was `film`) and guides, code, files and
@@ -912,7 +966,7 @@ will be more tools extending to the left side of the screen later."). The **Side
 tools are something else; the code's names followed in 1.2.0: `ISidePanel`, `SidePanelOption`, and on 2026-10-31, at the user's word that panels be panels in the code too, `SidePanelCard` (was `ToolCard`) and the comments that still called a panel a tool)
 takes the place of the second Sloperator logo and name under the title bar, an arrow pointing
 left beside it (outside the button since 2026-10-29, at the user's word), where its panels open: None or Video editor (`SidePanelOption`, `ISidePanel`, more to come); it
-now reads None, Auto, File changes, File inspector, Code editor, Image editor, Video editor, Web preview, Terminal (the user, 2026-10-26, and on 2026-11-01: "Put terminal last, and live preview before it"; Auto after None, picked when a window opens: see Auto under Tools the agent has), each with a grey line of what it is. The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
+now reads None, Auto, File changes, File inspector, Code editor, Image editor, Audio editor, Video editor, Web preview, Terminal, Cost estimates (the user, 2026-10-26, and on 2026-11-01: "Put terminal last, and live preview before it"; the Audio editor between the two other editors since 2026-11-08; Auto after None, picked when a window opens: see Auto under Tools the agent has), each with a grey line of what it is. All of it shows at once (`MaxDropDownHeight` 600: Fluent's 504 gave the list a scrollbar once the Audio editor was in it). The list is as wide as its longest line, 12 from its border on both sides as every dropdown row (`ComboBoxItem` Padding 12,6): rows were a fixed 300 wide, wrapping, until 2026-10-30, and left about 110 px empty right of the longest line. A muted "in
 development" beside it (the user, 2026-10-24) went on 2026-10-29, at the user's word. Its
 arrows are solid triangles, the left one and the dropdown's, as History's and every dropdown's are
 (the user: "Arrows need consistency"; Fluent's thin chevron is replaced in App.axaml by a style
@@ -3258,6 +3312,7 @@ prints the traceback and exits with 0.
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
 | `comfyui` | Pictures, video, sound, music, speech and 3D models with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
 | `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg (see Videos) |
+| `edit_sound` | Cuts, keeps, fades, makes louder or quieter a stretch of a sound, or puts another sound in its place, saved as a new WAV beside it (in an Audio editor sound, its next version; see The Audio editor panel) |
 | `run_shell` | PowerShell on Windows, `sh` elsewhere |
 | `ssh` | Commands on another computer over SSH, in a terminal that stays open between calls (see below) |
 | `copy` | Files and folders between this PC and an SSH host, or from one host to another (`user@host:/path`, as for scp), byte for byte |
@@ -4636,6 +4691,9 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
+- comfyui and edit_sound, for a sound: a run with save_to a sound of the Audio editor's (a folder right in
+  SloperatorData\sounds) in the **Audio editor** as it starts, and what a run or an edit made in one once it ends; an
+  edit of any other sound in the File inspector.
 
 **Which commands open the Terminal** (the user, 2026-11-06: every command opened it, also a `cd` or a `Get-Content`).
 The ssh tool always does. A run_shell line does when one of its commands is on a list of programs (`TerminalWork.Tools`:

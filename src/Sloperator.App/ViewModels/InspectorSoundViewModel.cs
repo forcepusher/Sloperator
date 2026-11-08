@@ -165,7 +165,7 @@ public sealed partial class InspectorSoundViewModel : ObservableObject, IDisposa
     /// <summary>The waveform was let go: the stretch dragged (null for a click) is the one picked.</summary>
     public event Action<(double From, double To)?>? Picked;
 
-    internal void Pick((double From, double To)? range)
+    public void Pick((double From, double To)? range)
     {
         Range = range;
         Picked?.Invoke(range);

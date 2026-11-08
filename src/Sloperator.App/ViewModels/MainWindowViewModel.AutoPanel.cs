@@ -99,7 +99,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>A call started: under Auto, the panel that shows it as it goes (a command's lines, a shot being made).</summary>
     private void AutoStarted(ToolCall call)
     {
-        if (IsAuto && AutoRule.AtStart(call.Name, AutoRule.Args(call.Arguments), new AutoPlaces(_paths.PicturesDir, _paths.VideosDir)) is { } target)
+        if (IsAuto && AutoRule.AtStart(call.Name, AutoRule.Args(call.Arguments), new AutoPlaces(_paths.PicturesDir, _paths.VideosDir, SoundsDir: _paths.SoundsDir)) is { } target)
             Follow(target);
     }
 
@@ -115,8 +115,8 @@ public sealed partial class MainWindowViewModel
             Follow(target);
     }
 
-    /// <summary>Where Auto's panels look: the pictures and videos folders, the chat's last web page, the Code editor's folder (as it picks it).</summary>
-    private AutoPlaces Places() => new(_paths.PicturesDir, _paths.VideosDir, Changes.Last(PreviewPage.IsPage), EditorFolder ?? Changes.Project());
+    /// <summary>Where Auto's panels look: the pictures, videos and sounds folders, the chat's last web page, the Code editor's folder (as it picks it).</summary>
+    private AutoPlaces Places() => new(_paths.PicturesDir, _paths.VideosDir, Changes.Last(PreviewPage.IsPage), EditorFolder ?? Changes.Project(), _paths.SoundsDir);
 
     /// <summary>
     /// Another chat on screen (opened, new, its first message undone): under Auto, the panel of its latest
@@ -186,6 +186,9 @@ public sealed partial class MainWindowViewModel
                 break;
             case ImageEditorViewModel image:
                 image.Show(path);
+                break;
+            case AudioEditorViewModel audio:
+                audio.Show(path);
                 break;
         }
     }

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Audio editor** side panel, beside the Image and Video editors: your sounds with their versions, a big waveform
+  to play and drag over, and Cut, Keep only, Fade in, Fade out, Louder and Quieter, each saved as a new version so
+  the earlier ones stay. The agent can make the same edits, and redo a stretch with a new take.
 - An MCP server can say what must be running for it to work (`needs` in `mcp.json`). The agent fills it in when
   it sets up a server that only works with its program open, and knows how to start that program in later tasks.
 - **Plan bar** above the message box: for work of several steps the agent keeps a plan with the new

@@ -58,6 +58,7 @@ public sealed class ToolRegistry
         yield return new CopyTool();
         yield return new ComfyTool();
         yield return new VideoEditorTool();
+        yield return new EditSoundTool();
         if (includeWebTools)
         {
             yield return new WebSearchTool();
