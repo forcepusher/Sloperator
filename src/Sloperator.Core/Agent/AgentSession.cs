@@ -145,6 +145,28 @@ public sealed partial class AgentSession(
     public bool EndWait() => toolContext.EndWait();
 
     /// <summary>
+    /// True while the user is writing a message in this agent's own box (the app's window); null where
+    /// there is no box. Meanwhile no request goes to the model and no tool call starts (<see cref="HoldWhileTypingAsync"/>).
+    /// Read from the run's thread.
+    /// </summary>
+    public Func<bool>? UserTyping { get; set; }
+
+    /// <summary>
+    /// Waits for as long as the user types to the agent (see <see cref="UserTyping"/>). Before, only
+    /// its clicks and key presses held off: the model went on with its requests, commands and file
+    /// edits under "Paused while you type", and the message the user was typing came a step or more late.
+    /// Held before a step's request, the message sent at its end is in that very request.
+    /// </summary>
+    private async Task HoldWhileTypingAsync(CancellationToken ct)
+    {
+        while (UserTyping?.Invoke() == true)
+            await Task.Delay(TypingPoll, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>How often a held run looks whether the user still types.</summary>
+    private static readonly TimeSpan TypingPoll = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
     /// Takes back a message the model hasn't read yet (Cancel on it in the app): true while it was
     /// still waiting, false once the model has it. The very instance that was sent. Any thread.
     /// </summary>
@@ -416,6 +438,7 @@ public sealed partial class AgentSession(
             for (var step = 1; ; step++)
             {
                 ct.ThrowIfCancellationRequested();
+                await HoldWhileTypingAsync(ct).ConfigureAwait(false);
                 DeliverIncoming(turnEnded, observer);
                 turnEnded = false;
                 // The reset first: its handoff note is a reply of its own, and the step's reply
@@ -559,6 +582,8 @@ public sealed partial class AgentSession(
                 using var calls = new StepScope(this, ct);
                 foreach (var call in reply.ToolCalls!)
                 {
+                    try { await HoldWhileTypingAsync(calls.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (calls.Interrupted(ct)) { }
                     // Interrupt: the rest of the reply's calls give way to the user's message.
                     if (calls.Interrupted(ct))
                     {

@@ -233,6 +233,7 @@ public sealed partial class AgentSession
         request.AddRange(overflowed ? LatestPart() : History);
         request.Add(ChatMessage.User(HandoffRequest));
 
+        await HoldWhileTypingAsync(ct).ConfigureAwait(false);
         observer.OnStepStarted(0);
         var guard = new RepetitionGuard(observer.OnDelta);
         var reply = await CompleteWithReconnectAsync(request, tools.Definitions(), options, observer, guard.OnDelta, ct).ConfigureAwait(false);

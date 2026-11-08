@@ -1417,6 +1417,96 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public async Task No_request_goes_to_the_model_while_the_user_types_to_it_and_the_message_they_send_is_in_the_next()
+    {
+        // Under "Paused while you type" the model went on with its requests, and the message being
+        // typed came a step late.
+        AgentSession? session = null;
+        var typing = false;
+        var note = new CallbackTool("note", () =>
+        {
+            // The user starts typing as the call runs, and sends the message half a second later.
+            Volatile.Write(ref typing, true);
+            _ = Task.Delay(500, TestContext.Current.CancellationToken).ContinueWith(_ =>
+            {
+                session!.Steer("Make it blue");
+                Volatile.Write(ref typing, false);
+            }, TestContext.Current.CancellationToken);
+        });
+        var server = new ScriptedServer(Sse.ToolCall("n1", "note", "{}"), Sse.Text("Made it blue."));
+        session = TypingSession(server, [note], () => Volatile.Read(ref typing));
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Make a poster", observer, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(2, server.Requests.Count);
+        Assert.Equal(SentDuring("Make a poster") + "Make it blue", LastText(server.Requests[1]));
+        Assert.Empty(session.TakeUndelivered());
+    }
+
+    [Fact]
+    public async Task A_tool_call_waits_while_the_user_types_to_the_agent()
+    {
+        System.Diagnostics.Stopwatch? typing = null;
+        var second = TimeSpan.Zero;
+        var server = new ScriptedServer(Sse.ToolCalls(("f1", "first", "{}"), ("s1", "second", "{}")), Sse.Text("Both done."));
+        var session = TypingSession(server,
+            // The user starts typing as the first call runs, for 600 ms.
+            [new CallbackTool("first", () => typing = System.Diagnostics.Stopwatch.StartNew()), new CallbackTool("second", () => second = typing!.Elapsed)],
+            () => typing is { } t && t.Elapsed < TimeSpan.FromMilliseconds(600));
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Do both", observer, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(["first", "second"], observer.ToolsRun);
+        Assert.True(second >= TimeSpan.FromMilliseconds(600), $"the second call started {second.TotalMilliseconds} ms into the typing");
+    }
+
+    [Fact]
+    public async Task Stop_ends_a_run_held_while_the_user_types()
+    {
+        using var stop = new CancellationTokenSource();
+        var typing = false;
+        var server = new ScriptedServer(Sse.ToolCall("n1", "note", "{}"), Sse.Text("Done."));
+        var session = TypingSession(server, [new CallbackTool("note", () =>
+        {
+            typing = true;
+            stop.CancelAfter(300);
+        })], () => typing);
+        var observer = new RecordingObserver();
+
+        await session.RunAsync("Make a poster", observer, stop.Token).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Equal(AgentStopReason.Cancelled, observer.StopReason);
+        Assert.Single(server.Requests);
+    }
+
+    /// <summary>A session with <paramref name="tools"/> alone, whose user types to it while <paramref name="typing"/> says so.</summary>
+    private static AgentSession TypingSession(ScriptedServer server, Tool[] tools, Func<bool> typing)
+    {
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings { ScreenshotAfterActions = false }, WorkingDirectory = Path.GetTempPath() };
+        var client = new OpenAiChatClient(new HttpClient(server), "http://test", null);
+        return new AgentSession(client, new ChatRequestOptions(), new ToolRegistry(tools), ctx, "sys") { UserTyping = typing };
+    }
+
+    /// <summary>A tool that does <paramref name="run"/> when called.</summary>
+    private sealed class CallbackTool(string name, Action run) : Tool
+    {
+        public override string Name => name;
+        public override string Description => "Does what the test says.";
+        public override ToolRisk Risk => ToolRisk.ReadOnly;
+        public override JsonObject Parameters => Schema();
+
+        public override Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
+        {
+            run();
+            return Task.FromResult(new ToolResult("Done."));
+        }
+    }
+
+    [Fact]
     public async Task Clicks_and_keys_wait_while_the_user_types_to_the_agent()
     {
         var typing = System.Diagnostics.Stopwatch.StartNew();

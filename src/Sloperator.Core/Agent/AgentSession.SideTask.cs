@@ -44,6 +44,7 @@ public sealed partial class AgentSession
         {
             for (var step = 0; step < MaxSideTaskSteps; step++)
             {
+                await HoldWhileTypingAsync(ct).ConfigureAwait(false);
                 var reply = await CompleteWithReconnectAsync(conversation, definitions, StepOptions(), observer, null, ct).ConfigureAwait(false);
                 TextToolCallParser.TryExtract(reply, tools);
                 conversation.Add(reply);
@@ -57,6 +58,7 @@ public sealed partial class AgentSession
                 }
                 foreach (var call in reply.ToolCalls!)
                 {
+                    await HoldWhileTypingAsync(ct).ConfigureAwait(false);
                     var result = await RunSideTaskCallAsync(call, taskTools, progress, observer, ct).ConfigureAwait(false);
                     var text = result.Image is not null ? result.Text + "\n(A picture came with this, left out: a side task gets text only.)" : result.Text;
                     conversation.Add(ChatMessage.ToolResult(call.Id, text));

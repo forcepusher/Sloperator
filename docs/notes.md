@@ -5292,8 +5292,22 @@ agent took it away and Stop stayed unclicked; after, it stayed on Stop and the r
 the click. A press on another window during the wait still goes nowhere and ends the action.
 
 To change or add to a task while it runs, type in the box at the bottom and press Enter. The agent
-reads the message before its next step, and a wait it is in ends for it. While you type there,
-its clicks and key presses hold off (for up to a minute), so they don't land in your typing. That
+reads the message before its next step, and a wait it is in ends for it. While you type there, the
+agent holds off altogether (`AgentSession.UserTyping`, the user's ask of 8 November 2026): no request
+goes to the model and no tool call starts, side tasks' and the handoff note's included. Until then
+only its clicks and key presses held off, and under "Paused while you type" the model went on with
+its requests, commands and file edits, the message being typed coming a step or more late. A reply
+streaming in and a call already running go on to their end; Interrupt still cuts them short. The
+hold comes before the step's messages are gathered, so the one you send is in the very next request;
+the box empties only after the message is handed to the agent, or the agent, going on as it empties,
+could send that request just before. The hold has no time limit, as it ends by itself. Measured on
+the laptop with a stand-in model that calls `wait` (1 s) over and over, "MAKE IT BLUE" typed in the
+box a letter every 500 ms for 7 s and then sent (`.dev/pause-typing-test`): before, five requests went
+out while it was typed; after, none, and the next one, with the message in it, 0.13 s after Send.
+With Resume instead of Send, the run went on 0.13 s after it, the text still in the box. Clicks and
+key presses hold off on their own as well (for up to a minute), also for typing in another window's
+box ("My clicks and keys wait while you type in another window.", where that window's agent goes on
+thinking and working with files): so they don't land in your typing. That
 includes a click whose target it is still looking for, and the rest of a series of key presses or
 of long text it is typing, which then goes back to the window it was meant for. A line above the
 box says it is paused and counts down to when it carries on by itself, 15 seconds after the last key
