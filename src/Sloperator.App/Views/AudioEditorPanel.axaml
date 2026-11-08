@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Sloperator.App.ViewModels"
+             xmlns:views="using:Sloperator.App.Views"
+             x:Class="Sloperator.App.Views.AudioEditorPanel"
+             x:DataType="vm:AudioEditorViewModel"
+             Background="{StaticResource BbBackground}">
+
+  <UserControl.Styles>
+    <!-- The sound shown: grey, as the Image editor's picture; what goes with a message is the box's card. -->
+    <Style Selector="ListBox.sounds ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.sounds ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.sounds ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BbChip}" />
+    </Style>
+    <!-- The version shown: grey too, as in the Image editor. -->
+    <Style Selector="Button.version.shown /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource BbButtonPressed}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BbControlBorderHover}" />
+    </Style>
+    <Style Selector="Button.version:not(.shown) TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
+    </Style>
+    <Style Selector="ListBox.sounds ListBoxItem">
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="Grid.edits > Button">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- The sound and version shown, or how the panel is used; New sound and Make again, then × to close. -->
+    <Border DockPanel.Dock="Top" Classes="bar">
+      <DockPanel MinHeight="32">
+        <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <Button DockPanel.Dock="Right" Classes="ghost act" Margin="8,0,0,0" Command="{Binding MakeAgainCommand}"
+                ToolTip.Tip="{Binding MakeAgainTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Make again">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+            <TextBlock Text="Make again" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button DockPanel.Dock="Right" Classes="ghost" Margin="12,0,0,0" Command="{Binding NewSoundCommand}"
+                ToolTip.Tip="Start a sound: say in the chat what it is" AutomationProperties.Name="New sound">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            <TextBlock Text="New sound" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <TextBlock Classes.muted="{Binding !HasSelected}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
+      </DockPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="180,4,*,4,260">
+      <!-- The sounds, the one changed last first: its newest version's waveform small, its name, how many versions. -->
+      <Panel Grid.Column="0">
+        <TextBlock Classes="muted" IsVisible="{Binding !HasSounds}" Text="No sounds yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <ListBox x:Name="List" Classes="files sounds" ItemsSource="{Binding Sounds}" SelectedItem="{Binding Selected}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Sounds">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AudioItem">
+              <StackPanel Spacing="4" ToolTip.Tip="{Binding Folder}">
+                <Border Height="56" Background="{StaticResource BbFrame}" CornerRadius="4" ClipToBounds="True">
+                  <views:WaveThumb Peaks="{Binding Peaks}" Margin="4,0" />
+                </Border>
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="muted" Text="{Binding Count}" FontSize="12" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Panel>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- The version shown: its waveform (a drag picks a stretch, a click sets the playhead, the ruler scrubs,
+           the wheel zooms), its player, its versions under it. -->
+      <DockPanel Grid.Column="2">
+        <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="4" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:VersionItem">
+                  <Button Classes="ghost small version" Classes.shown="{Binding IsShown}" MinWidth="32" HorizontalContentAlignment="Center"
+                          Click="OnVersionClick" ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding}">
+                    <TextBlock Text="{Binding Label}" TextElement.FontFeatures="+tnum" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </DockPanel>
+        </Border>
+        <!-- Its player, as the File inspector's: play (the stretch picked, else from the playhead); where the playhead is; the stretch picked. -->
+        <Border DockPanel.Dock="Bottom" IsVisible="{Binding HasSound}" Padding="12,4,12,12">
+          <DockPanel DataContext="{Binding Sound}" x:DataType="vm:InspectorSoundViewModel">
+            <Button DockPanel.Dock="Left" Classes="ghost icon"
+                    Command="{Binding PlayCommand}" ToolTip.Tip="Play or pause (Space)" AutomationProperties.Name="Play">
+              <PathIcon Width="14" Height="14" Data="{Binding PlayIcon}" />
+            </Button>
+            <Panel DockPanel.Dock="Left" Margin="8,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="{Binding LongestTimeText}" FontSize="12" FontFeatures="+tnum" Opacity="0" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+              <TextBlock Classes="muted" Text="{Binding TimeText}" FontSize="12" FontFeatures="+tnum" AutomationProperties.Name="Time" />
+            </Panel>
+            <TextBlock Text="{Binding RangeText}" IsVisible="{Binding HasRange}" FontSize="12" FontFeatures="+tnum" Foreground="{StaticResource BbAccent}"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,4,0" TextTrimming="CharacterEllipsis" AutomationProperties.Name="Stretch picked" />
+          </DockPanel>
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasSound}" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" />
+          <views:WaveformView x:Name="Waveform" Sound="{Binding Sound}" IsVisible="{Binding HasSound}" Margin="16,16,16,8"
+                              views:FileMenu.File="{Binding Shown.Path, FallbackValue={x:Null}}" AutomationProperties.Name="Waveform" />
+        </Panel>
+      </DockPanel>
+      <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+      <!-- The edits, each a new version: on the stretch picked, else the whole sound (a fade, its first or last second).
+           Under them how the version shown was made, as the File inspector's Prompt metadata shows it. -->
+      <DockPanel Grid.Column="4">
+        <Border DockPanel.Dock="Top" Classes="bar slim">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding EditsOn}" VerticalAlignment="Center" Margin="12,0,0,0" />
+            <TextBlock Text="Edit" FontWeight="SemiBold" VerticalAlignment="Center" ToolTip.Tip="Each edit is saved as a new version; the ones before stay" />
+          </DockPanel>
+        </Border>
+        <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1" Padding="16,12">
+          <Grid Classes="edits" ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto,8,Auto">
+            <Button Grid.Row="0" Grid.Column="0" Classes="ghost" Content="Cut" Command="{Binding CutCommand}" ToolTip.Tip="{Binding CutTip}" />
+            <Button Grid.Row="0" Grid.Column="2" Classes="ghost" Content="Keep only" Command="{Binding KeepCommand}" ToolTip.Tip="{Binding KeepTip}" />
+            <Button Grid.Row="2" Grid.Column="0" Classes="ghost" Content="Fade in" Command="{Binding FadeInCommand}" ToolTip.Tip="{Binding FadeInTip}" />
+            <Button Grid.Row="2" Grid.Column="2" Classes="ghost" Content="Fade out" Command="{Binding FadeOutCommand}" ToolTip.Tip="{Binding FadeOutTip}" />
+            <Button Grid.Row="4" Grid.Column="0" Classes="ghost" Content="Louder" Command="{Binding LouderCommand}" ToolTip.Tip="{Binding LouderTip}" />
+            <Button Grid.Row="4" Grid.Column="2" Classes="ghost" Content="Quieter" Command="{Binding QuieterCommand}" ToolTip.Tip="{Binding QuieterTip}" />
+          </Grid>
+        </Border>
+        <Border DockPanel.Dock="Top" Classes="bar slim">
+          <TextBlock Text="Prompt metadata" FontWeight="SemiBold" VerticalAlignment="Center" />
+        </Border>
+        <Panel>
+          <TextBlock Classes="muted" IsVisible="{Binding !HasRecipe}" Text="The version shown says nothing of how it was made" HorizontalAlignment="Center"
+                     VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="200" />
+          <ScrollViewer IsVisible="{Binding HasRecipe}" HorizontalScrollBarVisibility="Disabled">
+            <views:RecipeView DataContext="{Binding Recipe}" Margin="16,12,16,16" />
+          </ScrollViewer>
+        </Panel>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>

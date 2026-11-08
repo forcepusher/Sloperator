@@ -87,6 +87,9 @@ public sealed class AppPaths
     /// <summary>The pictures made in the Image editor panel, a folder each holding its versions (see <see cref="Media.PictureFolder"/>), beside the videos.</summary>
     public string PicturesDir => Path.Combine(DataDir, "pictures");
 
+    /// <summary>The sounds made in the Audio editor panel, a folder each holding its versions (see <see cref="Media.SoundFolder"/>), beside the pictures.</summary>
+    public string SoundsDir => Path.Combine(DataDir, "sounds");
+
     /// <summary>The indexes of the folders the agent indexed, a file each (see <see cref="Projects.FolderIndex"/>).</summary>
     public string IndexDir => Path.Combine(DataDir, "index");
 

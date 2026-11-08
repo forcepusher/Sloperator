@@ -55,7 +55,7 @@ public interface IWatchPanel : ISidePanel
 public static class SidePanelNames
 {
     public const string None = "None", Auto = "Auto", FileChanges = "File changes", FileInspector = "File inspector", CodeEditor = "Code editor",
-        ImageEditor = "Image editor", VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal", CostEstimates = "Cost estimates";
+        ImageEditor = "Image editor", AudioEditor = "Audio editor", VideoEditor = "Video editor", WebPreview = "Web preview", Terminal = "Terminal", CostEstimates = "Cost estimates";
 }
 
 /// <summary>The Watch button's words under Auto, for every panel that has one.</summary>
@@ -115,6 +115,8 @@ public sealed partial class MainWindowViewModel
             OpenIn: "Code editor", Opens: Core.Documents.FileInspector.IsText),
         new(SidePanelNames.ImageEditor, "Make pictures and redraw parts of them", 760, 0,
             vm => new ImageEditorViewModel(vm, vm._paths.PicturesDir, vm._paths.PastedDir)),
+        new(SidePanelNames.AudioEditor, "Make sounds and cut, fade or redo parts of them", 760, 0,
+            vm => new AudioEditorViewModel(vm, vm._previews, vm._paths.SoundsDir, vm._paths.PastedDir)),
         new(SidePanelNames.VideoEditor, "Plan and make a video shot by shot", 770, 633,
             vm => new VideoEditorViewModel(vm._previews, vm, vm._paths.VideosDir, null)),
         new(SidePanelNames.WebPreview, "Play a web page or game as it is built", 640, 0,

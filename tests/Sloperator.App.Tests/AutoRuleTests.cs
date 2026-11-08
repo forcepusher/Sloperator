@@ -10,16 +10,17 @@ public sealed class AutoRuleTests : IDisposable
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-auto-panel-").FullName;
     private string Pictures => Path.Combine(_dir, "pictures");
     private string Videos => Path.Combine(_dir, "videos");
+    private string Sounds => Path.Combine(_dir, "sounds");
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     private static JsonObject Args(string json) => AutoRule.Args(json);
 
-    private AutoTarget? AtStart(string tool, string args = "{}") => AutoRule.AtStart(tool, Args(args), new AutoPlaces(Pictures, Videos));
+    private AutoTarget? AtStart(string tool, string args = "{}") => AutoRule.AtStart(tool, Args(args), new AutoPlaces(Pictures, Videos, SoundsDir: Sounds));
 
     private AutoTarget? AtEnd(string tool, string args = "{}", string? written = null, IReadOnlyList<string>? made = null, string? lastPage = null, bool failed = false,
         bool isNew = false, string? editor = null) =>
-        AutoRule.AtEnd(tool, Args(args), failed, written is null ? null : new AutoWritten(written, isNew), made, new AutoPlaces(Pictures, Videos, lastPage, editor));
+        AutoRule.AtEnd(tool, Args(args), failed, written is null ? null : new AutoWritten(written, isNew), made, new AutoPlaces(Pictures, Videos, lastPage, editor, Sounds));
 
     [Fact]
     public void A_command_shows_the_terminal_as_it_starts()
@@ -170,6 +171,24 @@ public sealed class AutoRuleTests : IDisposable
     }
 
     [Fact]
+    public void A_sound_made_or_edited_shows_in_the_audio_editor_or_the_inspector()
+    {
+        var rain = Path.Combine(Sounds, "Rain");
+        Directory.CreateDirectory(rain);
+        var run = $$"""{"action":"run","name":"audio_stable_audio_example","save_to":{{JsonValue.Create(rain).ToJsonString()}}}""";
+        // A version of an Audio editor sound: the editor, as the run starts and once it has ended.
+        Assert.Equal(new AutoTarget(SidePanelNames.AudioEditor, rain), AtStart("comfyui", run));
+        Assert.Equal(new AutoTarget(SidePanelNames.AudioEditor, rain), AtEnd("comfyui", run, made: [Path.Combine(rain, "ComfyUI_00001_.mp3")]));
+        // An edit of one is its next version there; an edit of any other sound, in the inspector.
+        Assert.Equal(new AutoTarget(SidePanelNames.AudioEditor, rain),
+            AtEnd("edit_sound", """{"edit":"cut","from":1,"to":2}""", made: [Path.Combine(rain, "Cut 1.00-2.00 s.wav")]));
+        var elsewhere = Path.Combine(_dir, "Music", "song (+3 dB).wav");
+        Assert.Equal(new AutoTarget(SidePanelNames.FileInspector, elsewhere), AtEnd("edit_sound", """{"edit":"volume","db":3}""", made: [elsewhere]));
+        // A failed edit shows nothing.
+        Assert.Null(AtEnd("edit_sound", """{"edit":"cut"}""", failed: true));
+    }
+
+    [Fact]
     public void A_video_call_shows_its_video_in_the_video_editor()
     {
         var boat = Video("Paper Boat");
@@ -198,7 +217,7 @@ public sealed class AutoRuleTests : IDisposable
     [Fact]
     public void Auto_names_only_panels_of_the_dropdown()
     {
-        var names = new[] { "File changes", "File inspector", "Code editor", "Image editor", "Video editor", "Web preview", "Terminal" };
+        var names = new[] { "File changes", "File inspector", "Code editor", "Image editor", "Audio editor", "Video editor", "Web preview", "Terminal" };
         Assert.All(AutoRule.Panels, p => Assert.Contains(p, names));
     }
 

@@ -262,6 +262,9 @@
     <DataTemplate DataType="vm:ImageEditorViewModel">
       <views:ImageEditorPanel />
     </DataTemplate>
+    <DataTemplate DataType="vm:AudioEditorViewModel">
+      <views:AudioEditorPanel />
+    </DataTemplate>
     <DataTemplate DataType="vm:FileChangesViewModel">
       <views:FileChangesPanel />
     </DataTemplate>

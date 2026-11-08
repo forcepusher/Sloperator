@@ -1063,23 +1063,5 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     }
 
     /// <summary>Samples (interleaved, -1 to 1) as a 16-bit PCM WAV file.</summary>
-    internal static void WriteWav(string path, float[] samples, int rate, int channels)
-    {
-        using var file = new BinaryWriter(File.Create(path));
-        var bytes = samples.Length * 2;
-        file.Write("RIFF"u8);
-        file.Write(36 + bytes);
-        file.Write("WAVEfmt "u8);
-        file.Write(16);
-        file.Write((short)1);
-        file.Write((short)channels);
-        file.Write(rate);
-        file.Write(rate * channels * 2);
-        file.Write((short)(channels * 2));
-        file.Write((short)16);
-        file.Write("data"u8);
-        file.Write(bytes);
-        foreach (var s in samples)
-            file.Write((short)Math.Round(Math.Clamp(s, -1f, 1f) * 32767));
-    }
+    internal static void WriteWav(string path, float[] samples, int rate, int channels) => SoundEdit.WriteWav(path, new SoundSamples(samples, rate, channels));
 }

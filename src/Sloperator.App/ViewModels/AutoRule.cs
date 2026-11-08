@@ -14,10 +14,11 @@ public sealed record AutoWritten(string Path, bool Made);
 
 /// <summary>
 /// Where the panels Auto shows look: the Image editor's pictures (SloperatorData\pictures), the Video editor's videos
-/// (SloperatorData\videos), the web page the agent wrote last in the chat (null before one), and the folder the Code
-/// editor shows (the one the user opened, else the agent's project; null before either).
+/// (SloperatorData\videos), the web page the agent wrote last in the chat (null before one), the folder the Code
+/// editor shows (the one the user opened, else the agent's project; null before either), and the Audio editor's
+/// sounds (SloperatorData\sounds; null where there are none).
 /// </summary>
-public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? LastPage = null, string? EditorFolder = null);
+public sealed record AutoPlaces(string PicturesDir, string VideosDir, string? LastPage = null, string? EditorFolder = null, string? SoundsDir = null);
 
 /// <summary>
 /// Which panel Auto shows for what the agent does: the panel of its latest tool call that has one,
@@ -29,28 +30,29 @@ public static class AutoRule
 {
     /// <summary>The panels Auto may show; the room it opens is as narrow and short as the widest and tallest of them needs.</summary>
     public static readonly IReadOnlyList<string> Panels =
-        [SidePanelNames.FileChanges, SidePanelNames.FileInspector, SidePanelNames.CodeEditor, SidePanelNames.ImageEditor, SidePanelNames.VideoEditor, SidePanelNames.WebPreview, SidePanelNames.Terminal];
+        [SidePanelNames.FileChanges, SidePanelNames.FileInspector, SidePanelNames.CodeEditor, SidePanelNames.ImageEditor, SidePanelNames.AudioEditor, SidePanelNames.VideoEditor,
+         SidePanelNames.WebPreview, SidePanelNames.Terminal];
 
     /// <summary>Beside a web page the agent wrote, the files it loads: written, the page reloads in the Web preview, which is where to see them.</summary>
     private static readonly string[] PageFiles = [".css", ".js", ".mjs", ".json", ".svg"];
 
     /// <summary>
     /// As a call starts, for what shows it as it goes: a command's lines as it prints them (Terminal),
-    /// the piece of a video being made (Video editor), a picture of the Image editor being made again.
-    /// Null for a call whose panel shows it once it has ended, or that has none.
+    /// the piece of a video being made (Video editor), a picture of the Image editor or a sound of the Audio
+    /// editor being made again. Null for a call whose panel shows it once it has ended, or that has none.
     /// </summary>
     public static AutoTarget? AtStart(string tool, JsonObject args, AutoPlaces places) => tool switch
     {
         "ssh" => new(SidePanelNames.Terminal),
         "run_shell" when TerminalWork.Is(args["command"]?.ToString()) => new(SidePanelNames.Terminal),
         "video" => new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir)),
-        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo && PictureOf(saveTo, places.PicturesDir) is { } picture => new(SidePanelNames.ImageEditor, picture),
+        "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo => EditorOf(saveTo, places),
         _ => null,
     };
 
     /// <summary>
     /// Once a call has ended, for what it left: the file a write_file or edit_file call changed (see
-    /// <see cref="ForFile"/>), what a ComfyUI run made, the video worked on. Null for a call that failed,
+    /// <see cref="ForFile"/>), what a ComfyUI run or an edit_sound call made, the video worked on. Null for a call that failed,
     /// or one with no panel.
     /// </summary>
     /// <param name="written">The file a write_file or edit_file call changed; null when File changes has none (a file on a server, Sloperator's own).</param>
@@ -65,9 +67,9 @@ public static class AutoRule
                 return ForFile(written, places);
             case "video":
                 return new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir));
-            case "comfyui" when made is [var first, ..]:
-                return Path.GetDirectoryName(first) is { } folder && PictureOf(folder, places.PicturesDir) is { } picture
-                    ? new(SidePanelNames.ImageEditor, picture)
+            case "comfyui" or "edit_sound" when made is [var first, ..]:
+                return Path.GetDirectoryName(first) is { } folder && EditorOf(folder, places) is { } editor
+                    ? editor
                     : new(SidePanelNames.FileInspector, first);
             default:
                 return null;
@@ -106,13 +108,18 @@ public static class AutoRule
     internal static string? Arg(JsonObject args, string name) =>
         args[name] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Trim('"') is { Length: > 0 } text ? text : null;
 
-    /// <summary>A picture of the Image editor's: a folder right in <paramref name="picturesDir"/>; null for any other.</summary>
-    private static string? PictureOf(string folder, string picturesDir)
+    /// <summary>The Image editor for a picture's folder, the Audio editor for a sound's (a folder right in theirs); null for any other folder.</summary>
+    private static AutoTarget? EditorOf(string folder, AutoPlaces places) =>
+        FolderIn(folder, places.PicturesDir) is { } picture ? new(SidePanelNames.ImageEditor, picture)
+        : places.SoundsDir is { } sounds && FolderIn(folder, sounds) is { } sound ? new(SidePanelNames.AudioEditor, sound) : null;
+
+    /// <summary><paramref name="folder"/> in full when it is right in <paramref name="root"/>; null for any other.</summary>
+    private static string? FolderIn(string folder, string root)
     {
         try
         {
             var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
-            return string.Equals(Path.GetDirectoryName(full), Path.TrimEndingDirectorySeparator(Path.GetFullPath(picturesDir)), StringComparison.OrdinalIgnoreCase) ? full : null;
+            return string.Equals(Path.GetDirectoryName(full), Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), StringComparison.OrdinalIgnoreCase) ? full : null;
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {

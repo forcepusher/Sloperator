@@ -57,23 +57,44 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
                 if (texts.TryGetValue("parameters", out var parameters))
                     return FromParameters(parameters);
             }
-            if (FindApiPrompt(bytes) is { } found)
-                return FromComfy(found);
-            if (file.Length > bytes.Length)
-            {
-                file.Seek(Math.Max(bytes.Length, file.Length - Searched), SeekOrigin.Begin);
-                var tail = new byte[file.Length - file.Position];
-                file.ReadExactly(tail);
-                if (FindApiPrompt(tail) is { } atEnd)
-                    return FromComfy(atEnd);
-            }
-            return null;
+            return (FindApiPrompt(bytes) ?? AtEnd(file, bytes.Length)) is { } found ? FromComfy(found) : null;
         }
         // A file that can't be read, or a workflow shaped as no reader here expects: it says nothing.
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The ComfyUI workflow the file keeps, in the API format it ran in; null when it keeps none. An edit of a
+    /// sound (<see cref="SoundEdit"/>) carries it over, so the version it makes says how the sound was made.
+    /// </summary>
+    public static JsonObject? Workflow(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            var bytes = Head(file);
+            if (IsPng(bytes))
+                return PngTexts(bytes).TryGetValue("prompt", out var prompt) && ParseObject(prompt) is { } graph && IsApiPrompt(graph) ? graph : null;
+            return FindApiPrompt(bytes) ?? AtEnd(file, bytes.Length);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The workflow kept at the end of a file larger than its start searched (<paramref name="head"/> bytes).</summary>
+    private static JsonObject? AtEnd(FileStream file, int head)
+    {
+        if (file.Length <= head)
+            return null;
+        file.Seek(Math.Max(head, file.Length - Searched), SeekOrigin.Begin);
+        var tail = new byte[file.Length - file.Position];
+        file.ReadExactly(tail);
+        return FindApiPrompt(tail);
     }
 
     /// <summary>The start of the file, the whole of it when it is small.</summary>
