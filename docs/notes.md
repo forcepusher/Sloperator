@@ -3926,8 +3926,8 @@ again from History shows it again; a new chat starts empty.
 left and their diff beside them. It opens only when picked in the Side panel dropdown: from 2026-10-27 it opened by
 itself on the agent's first file change in a chat (with a setting to turn that off), until the user found it
 "flat out bad" (2026-10-31): it widened the window, to the whole screen, in the middle of a task. It reads them again 250 ms after a call that may have changed files (a file written in
-parts is read once), keeping the picked lines picked. Lines are picked with a click,
-Shift+click and Ctrl+click (a hunk's divider picks its lines, a file's name all of it; the rows themselves are never picked) and go into the chat's box as their
+parts is read once), keeping the picked lines picked. Lines are picked by selecting them (the diff is
+an editor, below; a hunk's divider picks its lines, a file's name all of it; neither is picked itself) and go into the chat's box as their
 file, captioned "Lines 48-49 · MainWindowViewModel.SidePanel.cs" (the lines first: a long name is
 cut there). A message sent then carries, for the model, the files changed (up to 30 named) and each
 picked line with its number and +/-, at most 300 lines; nothing while no file has changed. It
@@ -3938,19 +3938,42 @@ panel away from the lines (below the last, a header or divider, the bar at the t
 below its files) unpicks them all, as Esc does there, like the Video editor's click away (the user,
 2026-10-25). What keeps them: a click on a file in the list (it only goes there, so lines are picked
 in two files), Shift or Ctrl held (they add), and any click in the chat, as the box is clicked to
-ask about them. A plain click on a picked line picks only it; clicked again it stays picked. Lines
-and files handle their own presses, so the panel's handler only sees what no control took
+ask about them. Files handle their own presses, so the panel's handler only sees what no control took
 (scrollbars and the splitter keep the pick too); checked with real clicks on 2026-10-25.
-**A drag over lines** picks every line between, live as it goes, as a Shift+click there would (the
-user, 2026-10-26): the panel notes the row pressed (a tunnel handler, ahead of the line's own pick),
-and once the pointer reaches another row the list takes the pointer and `PickDrag` picks the range
-from the pressed row (Shift+click after it goes on from there). Ctrl+drag adds the range to what
-was picked; Shift+press is a Shift+click and starts no drag. The pointer must move 4 px first: a
-row pressed half in sight is scrolled into it, which slid the next rows under a still pointer and
-picked them. Above or below the diff the list scrolls every 30 ms, faster the further away (up to
-80 px a tick), and the pick follows the first or last row in sight. Checked with real mouse drags
-on 2026-10-26 (a 201-line new file): 7 to 12 and back up, Ctrl+drag, past both edges, and a click
-on a half-shown @@ line still unpicks.
+Until 2026-11-08 the diff was a list of rows, picked with a click, Shift+click, Ctrl+click and a drag
+(`PickDrag`, the user's ask of 2026-10-26), its code in one colour.
+**The diff is the Code editor's editor** (the user, 2026-11-08: "Changelog needs the code highlighting as
+well"; of three ways drawn for them on a real change, colouring only the diff's lines, colouring the whole
+file and showing the diff's lines, or a real Code editor in place of the list, they picked the editor).
+`DiffView` is a read-only `CodeView`, each row of the diff a line of its text (a header its file's name, a
+divider its words), so text is selected, copied (Ctrl+C) and scrolled as in the Code editor; Ctrl+wheel
+doesn't zoom it (`CodeView.Zooms`). A header and a divider are drawn as they were, as inline controls in
+place of their text (`RowElements`), standing on the line's baseline down to the code font's descent:
+AvaloniaEdit's `InlineObjectRun` hung them under the baseline, and a 26 px header's line came out 39. A
+divider's row is as tall as a line of code, a header's its words, 5 px over and under them and 10 over
+that, as before; both start where the code does, no longer at the panel's edge. The number and marker are
+a gutter of its own (`Gutter`, a `LineNumberMargin` that draws them, so a press there takes whole lines as
+on the Code editor's numbers), as wide as the widest number in the whole diff (it was each file's own),
+with the green and red bands under it and a picked line's edge in the accent.
+**Colours** (`DiffColours`): each line in the Code editor's, in the language the Code editor opens its kind
+in. Each side of a file is highlighted whole, as the Code editor would (`DiffFile.OldText` and `NewText`,
+which `FileChanges` keeps with the diff), and a line takes its line's colours: an added or kept line the
+new side's, a removed one the old side's. Highlighted from the diff's lines alone, a hunk starting inside
+a /* */ comment showed its end as code, and a docstring's closing quotes opened a string that ran to the
+hunk's end (both drawn for the user before they chose). A side not kept is highlighted hunk by hunk.
+Read as lines are drawn, as AvaloniaEdit's highlighter goes (it keeps where it got to), on the UI thread:
+its `DocumentHighlighter` refuses any other.
+**Picking**: the lines a selection touches are picked, live as it changes (a part of a line means the
+line; one ending where a line starts leaves it out, as the Code editor's card does): a drag, Shift+click,
+Shift+arrows, a double click, Ctrl+A, a press or drag on the numbers. A click on a header picks the file's
+lines and on a divider the hunk's, the editor starting no selection there. A click that leaves nothing
+selected is a click away: the lines and files are let go, as Esc does. Ctrl keeps what was selected beside
+the next selection, drawn as it (`Kept`); AvaloniaEdit selects nothing on the text with Ctrl held, so a
+Ctrl+drag there is the view's own, and a Ctrl+click picks a line or lets it go, as Ctrl+click on a row did.
+What the panel picks (a refresh, a message sent, Esc, a file off the box) is selected again a moment after
+(`ShowPicks`), as whole lines, each run apart kept and the last the selection; with the same rows, a
+selection of part of a line stays as it is. What the agent just changed is lit by the Code editor's Watch
+light (`CodeView.LightOnly`, the same 4 s and 2 s fade), and Watch brings it near with `BringNear`.
 A right-click on a file in the list offers **Show in folder** (the user, 2026-10-25): Explorer
 opens on its folder with it selected, through the file cards' `FilePreview.ShowInFolder`; greyed
 out for a deleted file. The menu is a plain `ContextMenu`, as the Video editor's are; checked
@@ -3990,12 +4013,11 @@ click on the only one, the list's selection (UI Automation) and the box's cards 
 there (shown only once a file changed until 2026-10-31, when the user asked that the bar not change
 mid-task; both stay usable with no files, as Watch on then follows the first change), both on by
 default and kept in settings.json under `panels` (`wrapDiff`, `watchChanges`; `PanelSettings`).
-**Wrap**: the diff's code column is `*` (under a sideways scroll it sizes to the line, as Auto did) and
-`ListBox.diff.wrap` turns the sideways scrollbar off and the code TextBlock to Wrap, so a long line
-wraps under its code with the number and marker on its first row.
-Rows stay logical lines: picks, drags (checked with a real drag across two wrapped lines) and the box's
-card are as before.
-**Going to a row** (a file clicked in the list, Watch following the agent) is `BringRow`: a row already laid
+**Wrap**: the editor's WordWrap, so a long line wraps under its code with the number and marker on its
+first row (until 2026-11-08, the list's code TextBlock wrapped). Rows stay logical lines: picks and the
+box's card are as before.
+**Going to a row** (a file clicked in the list, Watch following the agent) is the editor scrolling to the
+line's top since 2026-11-08 (`DiffView.ShowFile`, `ShowChange`). In the list it was `BringRow`: a row already laid
 out is scrolled to by its place; one that isn't, from the top of the diff down with `ScrollIntoView`, then
 put where it goes (a file's header at the top, the agent's change a quarter down). Never `ScrollIntoView`
 up to a row far above: with Wrap on the list measured every wrapped row on the way. A click went to the
@@ -4005,11 +4027,12 @@ answered, the user's run of 2026-11-04). With Wrap off neither was slow.
 **The number gutter** (the user, 2026-10-28, from a screenshot where it took about 110 px: two 46 px
 columns, old and new, and a 16 px one for the marker) is one number, the new line's, or a removed line's
 old one at half opacity (`DiffRow.Number`), with the + or - right after it and no gap. Its column is as
-wide as the file's widest number: each row lays an unseen `DiffFileItem.NumberSizer` ("000") under the
+wide as the file's widest number: each row laid an unseen `DiffFileItem.NumberSizer` ("000") under the
 number and an unseen "+" under the marker, so every row of a file comes out the same width without
 measuring the font. 4 px before the number and 4 between the marker and the code, so at 125% with 3-digit
 numbers the gutter is about 39 px (with its 2 px pick border) instead of 110. Two columns were weighed
 and dropped on the user's call ("keep a single column"); what a message tells the model still has both.
+In the editor (2026-11-08) the gutter draws them itself, as wide as the widest number in the whole diff.
 **A hunk's divider** (the user, 2026-10-28: git's @@ line "serves no purpose here, only duplicates
 stuff") stands where its @@ line was: "Lines 96-104" for `@@ -96,8 +96,9 @@`, the new side's lines
 (`DiffRow.Divider`), "Removed lines 1-140" when nothing is left on the new side, and git's function

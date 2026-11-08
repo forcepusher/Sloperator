@@ -417,6 +417,8 @@ public sealed class FileChanges
             {
                 Added = lines.Count(l => l.Kind == DiffLineKind.Added),
                 Removed = lines.Count(l => l.Kind == DiffLineKind.Removed),
+                OldText = before.Text,
+                NewText = now.Text,
             };
             shown.Add((path, file));
         }
@@ -488,6 +490,8 @@ public sealed class FileChanges
                     Added = lines.Count(l => l.Kind == DiffLineKind.Added),
                     Removed = lines.Count(l => l.Kind == DiffLineKind.Removed),
                     Git = gitFile,
+                    OldText = from.Text,
+                    NewText = to.Text,
                 }));
             }
         }

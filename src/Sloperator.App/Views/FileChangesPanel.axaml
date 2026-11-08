@@ -7,106 +7,12 @@
              Background="{StaticResource BbBackground}">
 
   <UserControl.Styles>
-    <!-- The diff's rows: no look of a list item's own, but for the line's colour and the pick's. -->
-    <Style Selector="ListBox.diff">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="FontSize" Value="12" />
-      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
-    </Style>
-    <!-- Wrap: no scrolling sideways, so a line is as wide as the panel and wraps under its code. -->
-    <Style Selector="ListBox.diff.wrap">
-      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
-    </Style>
-    <Style Selector="ListBox.diff.wrap TextBlock.code">
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-    <!-- What the agent just changed, while watching: lit up, then it fades. -->
-    <Style Selector="Border.fresh">
-      <Setter Property="Background" Value="#40FCC21B" />
-      <Setter Property="Opacity" Value="0" />
-      <Setter Property="IsHitTestVisible" Value="False" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <DoubleTransition Property="Opacity" Duration="0:0:2" />
-        </Transitions>
-      </Setter>
-    </Style>
-    <Style Selector="Border.fresh.on">
-      <Setter Property="Opacity" Value="1" />
-    </Style>
-    <Style Selector="ListBox.diff ListBoxItem">
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="MinHeight" Value="0" />
-      <Setter Property="Margin" Value="0" />
-    </Style>
-    <Style Selector="ListBox.diff ListBoxItem /template/ ContentPresenter#PART_ContentPresenter,
-                     ListBox.diff ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter,
-                     ListBox.diff ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
-                     ListBox.diff ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
-                     ListBox.diff ListBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-    <Style Selector="Border.row">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="2,0,0,0" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-    </Style>
-    <Style Selector="Border.row.added">
-      <Setter Property="Background" Value="{StaticResource BbAddedRow}" />
-    </Style>
-    <Style Selector="Border.row.removed">
-      <Setter Property="Background" Value="{StaticResource BbRemovedRow}" />
-    </Style>
-    <!-- A file's header: a card's colour. A hunk's divider has no band of its own, only its words.
-         (No line over the header: a row's border is only its left side, for the pick, and Avalonia
-         draws no box shadow on a border whose sides differ.) -->
-    <Style Selector="Border.row.header">
-      <Setter Property="Background" Value="{StaticResource BbSurface}" />
-      <Setter Property="Margin" Value="0,10,0,0" />
-    </Style>
-    <Style Selector="ListBox.diff ListBoxItem:pointerover Border.row">
-      <Setter Property="BorderBrush" Value="#80FCC21B" />
-    </Style>
-    <!-- Picked: goes with the next message. -->
-    <Style Selector="ListBox.diff ListBoxItem:selected Border.row">
-      <Setter Property="Background" Value="{StaticResource BbAccentTint}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BbAccent}" />
-    </Style>
-    <!-- A line's number faint; an added line's green and a removed line's (the old file's) red, as
-         their markers. The code a shade under the main text. -->
-    <Style Selector="TextBlock.number">
-      <Setter Property="Foreground" Value="{StaticResource BbFaint}" />
-      <Setter Property="TextAlignment" Value="Right" />
-    </Style>
-    <Style Selector="Border.row.added TextBlock.number">
-      <Setter Property="Foreground" Value="{StaticResource BbAdded}" />
-    </Style>
-    <Style Selector="Border.row.removed TextBlock.number">
-      <Setter Property="Foreground" Value="{StaticResource BbRemoved}" />
-    </Style>
-    <Style Selector="ListBox.diff TextBlock.code">
-      <Setter Property="Foreground" Value="{StaticResource BbCode}" />
-    </Style>
-    <Style Selector="TextBlock.marker.added">
-      <Setter Property="Foreground" Value="{StaticResource BbAdded}" />
-    </Style>
-    <Style Selector="TextBlock.marker.removed">
-      <Setter Property="Foreground" Value="{StaticResource BbRemoved}" />
-    </Style>
     <!-- "+10 -3" after a file and in the summary: added lines green, removed red, as the markers. -->
     <Style Selector="Run.addedCount">
       <Setter Property="Foreground" Value="{StaticResource BbAdded}" />
     </Style>
     <Style Selector="Run.removedCount">
       <Setter Property="Foreground" Value="{StaticResource BbRemoved}" />
-    </Style>
-    <!-- A hunk's divider: small, muted, starting where the numbers do. -->
-    <Style Selector="TextBlock.divider">
-      <Setter Property="Foreground" Value="{StaticResource BbMuted}" />
-      <Setter Property="FontSize" Value="11" />
-      <!-- 1 lower than its line, which held it 1 px (at 125%) over its row's middle; as tall. -->
-      <Setter Property="Margin" Value="4,1,4,-1" />
-      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
     <!-- A file some of whose lines are picked: grey, selected or not, as only those lines are (the
          user, 2026-10-28); yellow again once they are let go, if it is selected. -->
@@ -223,47 +129,10 @@
               <TextBlock Classes="muted" Text="{Binding Target}" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Target}" />
             </DockPanel>
           </Border>
-          <!-- Every row of the diff; clicked lines are picked into the chat's box. A right-click on a file's name gives the file's menu. -->
-          <ListBox x:Name="DiffList" Classes="diff" Classes.wrap="{Binding Wrap}" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Rows}" Selection="{Binding Selection}" SelectionMode="Multiple" ContextRequested="OnFileMenu"
-                   AutomationProperties.Name="Diff">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:DiffRow">
-                <Border Classes="row" Classes.added="{Binding IsAdded}" Classes.removed="{Binding IsRemoved}" Classes.hunk="{Binding IsHunk}" Classes.header="{Binding IsHeader}">
-                  <Panel>
-                    <Border Classes="fresh" Classes.on="{Binding IsFresh}" />
-                    <!-- A long path is cut short at its start, the details kept right after it. A click here picks the whole file. -->
-                    <DockPanel Margin="8,5" IsVisible="{Binding IsHeader}" HorizontalAlignment="Left">
-                      <TextBlock DockPanel.Dock="Right" Classes="muted" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <Run Text="{Binding HeaderStatus}" /><Run Classes="addedCount" Text="{Binding File.AddedCount}" /><Run Classes="removedCount" Text="{Binding File.RemovedCount}" /><Run Text="{Binding File.OtherCount}" />
-                      </TextBlock>
-                      <TextBlock Text="{Binding Text}" FontWeight="SemiBold" FontSize="13" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding File.FullPath}" />
-                    </DockPanel>
-                    <!-- One number (the new line's, a removed line's old one greyed out) in a column as wide as the file's
-                         widest, the marker right after it; unseen copies of "000" and "+" size both the same on every row.
-                         The code's column takes what is left (wrapping); scrolled sideways, as wide as the line. The number
-                         and marker stay on a wrapped line's first row. -->
-                    <!-- A hunk: a slim divider saying which lines follow ("Lines 96-104"), not git's @@ line, whose numbers
-                         the gutter already shows. A click here picks the hunk. -->
-                    <TextBlock Classes="divider" IsVisible="{Binding IsHunk}" Text="{Binding Divider}" />
-                    <!-- More room over the code than under it (3 px and -1 at 125%, the row as tall as with 1
-                         each): Consolas' capitals sit high in its line, and a line's text was 2.5 px over the
-                         middle of its row. -->
-                    <Grid ColumnDefinitions="Auto,Auto,*" IsVisible="{Binding IsCode}" Margin="0,2.4,0,-0.8" TextElement.FontFamily="Cascadia Mono,Consolas,monospace">
-                      <Panel Grid.Column="0" Margin="4,0,0,0" VerticalAlignment="Top">
-                        <TextBlock Text="{Binding File.NumberSizer}" Opacity="0" />
-                        <TextBlock Classes="number" Classes.removed="{Binding IsRemoved}" Text="{Binding Number}" />
-                      </Panel>
-                      <Panel Grid.Column="1" Margin="0,0,4,0" VerticalAlignment="Top">
-                        <TextBlock Text="+" Opacity="0" />
-                        <TextBlock Classes="marker" Classes.added="{Binding IsAdded}" Classes.removed="{Binding IsRemoved}" Text="{Binding Marker}" />
-                      </Panel>
-                      <TextBlock Grid.Column="2" Classes="code" Text="{Binding Text}" Margin="0,0,16,0" />
-                    </Grid>
-                  </Panel>
-                </Border>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+          <!-- The diff in the Code editor's editor (DiffView): text selected there picks its lines into the chat's box. A right-click on a file's name gives the file's menu. -->
+          <views:DiffView x:Name="Diff" IsVisible="{Binding HasFiles}" WordWrap="{Binding Wrap}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
+                          Background="Transparent" Foreground="{StaticResource BbCode}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                          ContextRequested="OnFileMenu" AutomationProperties.Name="Diff" />
         </DockPanel>
       </Panel>
     </Grid>

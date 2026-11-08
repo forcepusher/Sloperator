@@ -10,9 +10,9 @@ namespace Sloperator.App.Views;
 /// <summary>
 /// The Code editor panel's editor: AvaloniaEdit's (MIT), its highlighting the ones it comes with,
 /// drawn in the app's syntax colours (<c>BbSyntax*</c> in App.axaml) on the dark background rather
-/// than in their own colours, which are for a white one.
+/// than in their own colours, which are for a white one. File changes' diff is one too (<see cref="DiffView"/>).
 /// </summary>
-public sealed class CodeView : TextEditor
+public class CodeView : TextEditor
 {
     public CodeView()
     {
@@ -20,6 +20,9 @@ public sealed class CodeView : TextEditor
         // Ahead of the editor's own scrolling: Ctrl+wheel zooms the text instead.
         AddHandler(PointerWheelChangedEvent, OnZoomWheel, Avalonia.Interactivity.RoutingStrategies.Tunnel);
     }
+
+    /// <summary>Whether Ctrl+wheel sets the text's size; File changes' diff keeps its own.</summary>
+    protected virtual bool Zooms => true;
 
     /// <summary>What a touchpad's wheel turned short of a notch, kept for the next turn.</summary>
     private double _wheel;
@@ -51,7 +54,7 @@ public sealed class CodeView : TextEditor
     /// </summary>
     private void OnZoomWheel(object? sender, Avalonia.Input.PointerWheelEventArgs e)
     {
-        if ((e.KeyModifiers & Avalonia.Input.KeyModifiers.Control) == 0)
+        if (!Zooms || (e.KeyModifiers & Avalonia.Input.KeyModifiers.Control) == 0)
             return;
         e.Handled = true;
         _wheel += e.Delta.Y;
@@ -137,14 +140,31 @@ public sealed class CodeView : TextEditor
     /// </summary>
     public void Light(IReadOnlyList<(int From, int To)> lines)
     {
-        if (Document is not { } document || lines.Count == 0)
+        if (Document is null || lines.Count == 0)
             return;
-        _light.Light(TextArea.TextView, document, lines);
-        var first = Math.Clamp(lines.Min(l => l.From), 1, document.LineCount);
+        LightOnly(lines);
+        BringNear(lines.Min(l => l.From));
+    }
+
+    /// <summary>The lines lit as <see cref="Light"/> lights them, the view left where it is.</summary>
+    public void LightOnly(IReadOnlyList<(int From, int To)> lines)
+    {
+        if (Document is { } document && lines.Count > 0)
+            _light.Light(TextArea.TextView, document, lines);
+    }
+
+    /// <summary>Line <paramref name="line"/> (from 1) left where it is in the upper half of the view, else brought a quarter of the way down.</summary>
+    public void BringNear(int line)
+    {
+        if (Document is not { } document)
+            return;
+        var at = Math.Clamp(line, 1, document.LineCount);
         // Once the file just opened is laid out.
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            var top = TextArea.TextView.GetVisualTopByDocumentLine(first);
+            if (Document != document)
+                return;
+            var top = TextArea.TextView.GetVisualTopByDocumentLine(at);
             if (top < VerticalOffset || top > VerticalOffset + ViewportHeight / 2)
                 ScrollToVerticalOffset(Math.Max(0, top - ViewportHeight / 4));
         }, Avalonia.Threading.DispatcherPriority.Background);
