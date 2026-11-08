@@ -1,3 +1,4 @@
+using Sloperator.Core.Agent;
 using Sloperator.Core.Mcp;
 using Sloperator.Core.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -71,6 +72,27 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
         get => (int)Agent.ScreenshotSize;
         set => Agent.ScreenshotSize = (ScreenshotSize)Math.Clamp(value, 0, ScreenshotSizes.Length - 1);
     }
+
+    // ---- System prompt -----------------------------------------------------------------
+
+    /// <summary>Sloperator's own prompt with the settings as they are in the dialog.</summary>
+    private string DefaultPrompt => AgentSetup.DefaultPrompt(Agent);
+
+    /// <summary>The System prompt window's text: the user's own prompt, or Sloperator's.</summary>
+    public SystemPromptViewModel EditPrompt() =>
+        new(string.IsNullOrWhiteSpace(Agent.SystemPrompt) ? DefaultPrompt : Agent.SystemPrompt, DefaultPrompt);
+
+    /// <summary>What the System prompt window saved, kept with the other settings when the dialog is saved.</summary>
+    public void SetPrompt(SystemPromptViewModel prompt)
+    {
+        Agent.SystemPrompt = prompt.Saved;
+        OnPropertyChanged(nameof(PromptLine));
+    }
+
+    /// <summary>Beside View and edit: whether the prompt is Sloperator's or the user's, and about how long.</summary>
+    public string PromptLine => string.IsNullOrWhiteSpace(Agent.SystemPrompt)
+        ? SystemPromptViewModel.Describe(DefaultPrompt, edited: false)
+        : SystemPromptViewModel.Describe(Agent.SystemPrompt, edited: true);
 
     // ---- MCP servers -------------------------------------------------------------------
 

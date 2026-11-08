@@ -103,6 +103,13 @@
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="When the server doesn't report what replies cost and the model has no prices, they are looked up on the web after an answer, once the chat has reached 50k tokens." />
 
+            <TextBlock Classes="h2" Text="System prompt" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="What Sloperator tells the model before your first message, for every model and server." />
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+              <Button Classes="ghost" Content="View and edit" Click="OnEditPrompt" />
+              <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding PromptLine}" />
+            </StackPanel>
+
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."
                        ToolTip.Tip="{Binding Paths.McpConfigFile, StringFormat='Kept in {0}'}" />

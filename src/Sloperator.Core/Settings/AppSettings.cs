@@ -352,6 +352,12 @@ public sealed class AgentSettings
     public const int InputLogSeconds = 15;
 
     public string CustomInstructions { get; set; } = "";
+
+    /// <summary>
+    /// The system prompt the user wrote in Settings, sent to every model in place of Sloperator's own, its
+    /// words in braces (<see cref="Sloperator.Core.Agent.SystemPrompt.Markers"/>) filled in for each chat; empty for Sloperator's.
+    /// </summary>
+    public string SystemPrompt { get; set; } = "";
 }
 
 /// <summary>Where the main window was, so it opens there again: position in screen pixels, size in the UI's own units.</summary>

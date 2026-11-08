@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skip wait** on the card of a wait in progress ends it early, and so does **Shift+Pause/Break** from any
   window. The agent is told and carries on with its task.
 - Each reply in a chat's saved file keeps its tokens: new, read from the prompt cache, written to it, and output.
+- **System prompt** in Settings > Advanced: **View and edit** shows what Sloperator tells every model, and lets
+  you change it. Words in braces, like `{date}` and `{screens}`, are filled in for each chat. **Reset to default**
+  brings Sloperator's own back.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
