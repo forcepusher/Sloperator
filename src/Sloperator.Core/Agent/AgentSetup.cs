@@ -78,7 +78,7 @@ public static class AgentSetup
             includeControl: agent.Controls, includeFindText: agent.EnableTextRecognition);
         mcpSetup.Registry = registry;
         string Prompt() => SystemPrompt.Build(platform.Name, screens, ctx.WorkingDirectory, agent.CustomInstructions, mcp.Connected, webSearch: true, paths.ToolsDir, paths.ScratchDir,
-            folderIndex, control: agent.Controls, modelServer: modelServer is not null, findText: agent.EnableTextRecognition, madeDirectory: MadeDirectory());
+            folderIndex, control: agent.Controls, modelServer: modelServer is not null, findText: agent.EnableTextRecognition, madeDirectory: MadeDirectory(), text: agent.SystemPrompt);
         var session = new AgentSession(backend.Client, backend.Options, registry, ctx, Prompt(), history, backend.ContextTokens);
         // A server the agent adds or removes: the prompt then lists the servers as the next
         // message's will, in the same request whose tools change anyway.
@@ -93,6 +93,15 @@ public static class AgentSetup
         };
         return session;
     }
+
+    /// <summary>
+    /// Sloperator's own system prompt as the app's runs get it with these settings, its words in braces left
+    /// as they are: what Settings shows to edit while the user has no prompt of their own. As for a model
+    /// that sees the screen, which one that can't gets without the lines on screenshots.
+    /// </summary>
+    public static string DefaultPrompt(AgentSettings agent) =>
+        SystemPrompt.Text(screen: agent.EnableScreenshots, webSearch: true, toolsDirectory: true, scratchDirectory: true, folderIndex: true,
+            control: agent.Controls, modelServer: true, findText: agent.EnableTextRecognition, madeDirectory: true);
 
     /// <summary>The longest side screenshots go at: what a Claude model sees where its server speaks Messages, and what the server said it takes, if it refused larger ones.</summary>
     private static int? LongestScreenshot(BackendConnection backend)

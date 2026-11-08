@@ -3296,6 +3296,33 @@ type or command), when the same error comes back, on every failure from the thir
 anything was looked up (and tries that fail without an error, see Web search). Errors a tool that runs code reports as its output count too: an
 MCP server's "Error executing code: ..." comes as an ordinary result, and Blender run with a script
 prints the traceback and exits with 0.
+## System prompt
+`SystemPrompt.Text` writes Sloperator's own prompt for the tools a run has (screen or not, mouse and
+keyboard, find_text, web search, model switching), with words in braces where things change from chat to
+chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
+`{made folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
+`SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
+instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
+`{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model
+that can't see) the line goes. Markers are matched whatever their case; other braces stay as written.
+Built this way the prompt came out the same to the byte as before, over 6,912 mixes of screens, MCP
+servers, instructions and every switch (8 November 2026).
+
+Settings' Advanced has **System prompt**: **View and edit** opens a window with the prompt in the Code
+editor's editor (lines wrapped, the markers in the accent), and Reset to default, Cancel and Save at its
+foot. The text shown is `AgentSetup.DefaultPrompt`: the app's run with the dialog's settings, as for a
+model that sees. Only a change is kept (`AgentSettings.SystemPrompt`, `systemPrompt` in settings.json):
+saving Sloperator's text, or nothing, keeps it empty, and an empty one is Sloperator's own, which follows
+the other settings and new versions. The user's text is sent to every model and server, by the app and
+the CLI alike, with its markers filled in; it no longer changes with the settings (a model that can't
+see still gets its lines on screenshots, if the user kept them) or with later versions of Sloperator's
+text. Save in the window keeps the text in the dialog; Settings' Save writes it with the rest. Beside the
+button, "Default" or "Edited" and about how many tokens the text takes (two for seven characters, as a
+chat's are reckoned). Rig: `.dev/prompt-setting-test/run.ps1` (fresh app, stand-in server, posted keys:
+the window, a change, Reset, Save in both, then a message whose request starts with the change and has
+no marker left). Posted keys reach AvaloniaEdit only after a posted click inside its text (its padding is
+not the text area) and one key down (Home); a posted WM_KEYDOWN for a letter types it twice with WM_CHAR.
+
 ## Tools the agent has
 | Tool | What it does |
 | --- | --- |

@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Sloperator.Core.Agent;
 using Sloperator.Core.Llm;
+using Sloperator.Core.Mcp;
 using Sloperator.Core.Platform;
 using Sloperator.Core.Settings;
 using Sloperator.Core.Tools;
@@ -1769,6 +1770,47 @@ public class AgentSessionTests
         var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "");
         Assert.Contains(DateTime.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture), prompt);
         Assert.DoesNotMatch(@"\d{1,2}:\d{2}", prompt);
+    }
+
+    [Fact]
+    public void The_users_own_prompt_is_sent_with_its_words_in_braces_filled_in()
+    {
+        // Settings' System prompt: the user's text for every model, with what changes from chat to chat filled in.
+        ScreenSpace[] screens = [new ScreenSpace(new ScreenRect(0, 0, 2560, 1440), (1280, 720))];
+        McpServerStatus[] mcp = [new("blender", McpServerState.Connected, ["run"], null, null)];
+        var text = "Be a pirate on {OS}, {date}.\n{screens}\nHome {home folder}, tools {tools folder}.\n{mcp servers}\n{instructions}\nKeep {this} and {date\n";
+        var prompt = SystemPrompt.Build("Test OS", screens, @"C:\Users\me", "Be brief about {date}.", mcp, toolsDirectory: @"D:\tools", text: text);
+        var today = DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        var nl = Environment.NewLine;
+        Assert.Equal($"Be a pirate on Test OS, {today}.{nl}- Screenshots are {screens[0].ImageWidth}x{screens[0].ImageHeight} pixels.{nl}- Coordinates: {screens[0].Describe()}{nl}" +
+                     $@"Home C:\Users\me, tools D:\tools.{nl}{nl}Tools from the user's MCP servers are named <server>__<tool>; use them like any other tool when they fit the task. " +
+                     $"One that can't connect usually needs its program open: start the program and try again before you do without it.{nl}- blender__*: 1 tool{nl}" +
+                     $"{nl}Additional instructions from the user:{nl}Be brief about {{date}}.{nl}Keep {{this}} and {{date{nl}", prompt);
+
+        // A block with nothing in it takes its line with it; a blank prompt is Sloperator's own.
+        Assert.Equal($"A{nl}B{nl}", SystemPrompt.Build("Test OS", null, "C:\\", "", text: "A\r\n{screens}\r\n  {mcp servers}\r\nB\r\n{instructions}\r\n"));
+        Assert.Equal(SystemPrompt.Build("Test OS", screens, "C:\\", "x", mcp), SystemPrompt.Build("Test OS", screens, "C:\\", "x", mcp, text: " \n"));
+    }
+
+    [Fact]
+    public void Sloperators_own_prompt_is_its_text_with_the_words_in_braces_filled_in()
+    {
+        ScreenSpace[] screens = [new ScreenSpace(new ScreenRect(0, 0, 2560, 1440), (1280, 720))];
+        var text = SystemPrompt.Text(screen: true, webSearch: true, toolsDirectory: true, scratchDirectory: true, madeDirectory: true);
+        Assert.All(SystemPrompt.Markers, marker => Assert.Contains(marker, text));
+        Assert.Equal(SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m"),
+            SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m", text: text));
+        Assert.Contains(@"(such as D:\m\Hello world)", SystemPrompt.Build("Test OS", null, "C:\\", "", madeDirectory: @"D:\m"));
+
+        // What Settings shows: the app's run with the user's settings, the screen's lines as they turned them.
+        var agent = new AgentSettings();
+        Assert.Contains("Start GUI tasks with a screenshot", AgentSetup.DefaultPrompt(agent));
+        Assert.Contains("switch_model", AgentSetup.DefaultPrompt(agent));
+        agent.EnableControl = false;
+        Assert.Contains("but not use the mouse or keyboard", AgentSetup.DefaultPrompt(agent));
+        agent.EnableScreenshots = false;
+        Assert.DoesNotContain("Start GUI tasks", AgentSetup.DefaultPrompt(agent));
+        Assert.DoesNotContain("capture_result", AgentSetup.DefaultPrompt(agent));
     }
 
     [Fact]

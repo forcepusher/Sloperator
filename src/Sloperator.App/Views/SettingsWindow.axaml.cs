@@ -27,4 +27,14 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(false);
+
+    /// <summary>The System prompt window; what it saves is kept when this dialog is saved, with the rest.</summary>
+    private async void OnEditPrompt(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel settings)
+            return;
+        var prompt = settings.EditPrompt();
+        if (await new SystemPromptWindow { DataContext = prompt }.ShowDialog<bool>(this))
+            settings.SetPrompt(prompt);
+    }
 }
