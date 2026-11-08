@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
 
@@ -186,7 +185,7 @@ public sealed class SetEffortTool : Tool
 }
 
 /// <summary>What the model tools share.</summary>
-internal static partial class ModelTools
+internal static class ModelTools
 {
     /// <summary>
     /// The models <paramref name="wanted"/> names: the one it names exactly; else those whose name
@@ -199,8 +198,8 @@ internal static partial class ModelTools
     {
         if (models.FirstOrDefault(m => m.Equals(wanted, StringComparison.OrdinalIgnoreCase)) is { } exact)
             return [exact];
-        var words = Words(wanted);
-        var like = words.Count == 0 ? [] : models.Where(m => HasRun(Words(m), words)).ToList();
+        var words = ModelChoice.Words(wanted);
+        var like = words.Count == 0 ? [] : models.Where(m => HasRun(ModelChoice.Words(m), words)).ToList();
         return like.Count > 0 ? like : models.Where(m => m.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
@@ -218,13 +217,9 @@ internal static partial class ModelTools
 
     /// <summary>The first number in the name that isn't a date (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0 for none.</summary>
     private static Version VersionOf(string name) =>
-        Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
+        ModelChoice.Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
             .Select(w => Version.TryParse(w.Contains('.') ? w : w + ".0", out var v) ? v : null)
             .FirstOrDefault(v => v is not null) ?? new Version(0, 0);
-
-    /// <summary>Letters and numbers, a version as one word whichever way it is written: claude-opus-5-5-20261001 is claude, opus, 5.5, 20261001; qwen3.8-27b is qwen, 3.8, 27, b.</summary>
-    private static List<string> Words(string name) =>
-        Word().Matches(name.ToLowerInvariant()).Select(m => m.Value.Replace('-', '.').Replace('_', '.')).ToList();
 
     private static bool HasRun(List<string> words, List<string> run)
     {
@@ -233,10 +228,6 @@ internal static partial class ModelTools
                 return true;
         return false;
     }
-
-    // A version's parts are one or two digits, each ending the number: not a date (-20261001) or a size (-27b).
-    [GeneratedRegex(@"[a-z]+|\d+(?:[.\-_]\d{1,2}(?![\da-z]))*")]
-    private static partial Regex Word();
 
     public const string NoTopBar = "Sloperator's model server can't be changed from this run: the user sets it in the top bar of Sloperator's window.";
 

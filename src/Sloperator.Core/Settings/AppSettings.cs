@@ -32,7 +32,10 @@ public sealed class ServerSettings
     public string BaseUrl { get; set; } = Llm.KiloGateway.Address;
     public string ApiKey { get; set; } = "";
 
-    /// <summary>The model picked by hand in the dropdown (or with --model); empty until one is. Kept while the server doesn't offer it.</summary>
+    /// <summary>
+    /// The model picked by hand in the dropdown (or with --model); empty until one is. Kept while the
+    /// server doesn't offer it, and takes the name a server lists it by (see <see cref="Llm.ModelChoice.IsSameModel"/>).
+    /// </summary>
     public string Model { get; set; } = "";
 
     /// <summary>The models pinned in the dropdown, which go first in its list. By name, whichever server offers them.</summary>

@@ -114,6 +114,8 @@ try
                 ? $"[server] no model picked: using {probe.Model}, the free model on Kilo that clicked best in Sloperator's tests"
                 : $"[server] no model picked: using {probe.Model}{details}, {why}");
     }
+    else
+        settings.Server.Model = probe.Model; // as this server names it
     settings.Server.SupportsVision = probe.Vision ?? true;
     settings.Server.EffortLevels = probe.Efforts ?? [];
     var facts = await ServerProbe.EnsureLoadedAsync(probeHttp, settings.Server, () => Console.WriteLine("[server] loading the model…"), cts.Token,
