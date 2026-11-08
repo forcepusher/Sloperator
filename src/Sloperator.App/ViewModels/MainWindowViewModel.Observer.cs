@@ -22,6 +22,7 @@ public sealed partial class MainWindowViewModel
         while (Items.Count > MaxChatItems)
         {
             Items[0].DisposePreviews();
+            Items[0].Fold?.Drop(Items[0]);
             Items.RemoveAt(0);
         }
         foreach (var old in Items.OfType<ToolCallItem>().Where(t => t.HasScreenshot).SkipLast(MaxThumbnails).ToList())
@@ -328,6 +329,8 @@ public sealed partial class MainWindowViewModel
             if (Items.LastOrDefault(i => i is not UserMessageItem && i.At >= started) is { } end)
                 end.RunTook = at - started;
             ShowCaptureInReply(Items, started, _previews);
+            // Its work out of the way under a card, the reply in sight.
+            WorkFold.FoldFinished(Items, toTheEnd: false);
 
             // Not for a stop: the user stopped it. Nor for a task that goes on with what they sent
             // too late for this run, nor for a context compacted, which the user waits for.
@@ -408,7 +411,9 @@ public sealed partial class MainWindowViewModel
 
     private ToolCallItem FindOrAddTool(ToolCall call, string summary)
     {
-        var existing = Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == call.Id);
+        // Not a finished run's (folded): a server that numbers each reply's calls from call_0 gave the
+        // next run's calls an old card's id, and they ran on it, out of sight.
+        var existing = Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == call.Id && t.Fold is null);
         if (existing is not null)
             return existing;
         var item = new ToolCallItem(call.Id, call.Name, summary) { Arguments = call.Arguments, EndsWait = () => EndWait() };

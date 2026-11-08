@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skip wait** on the card of a wait in progress ends it early, and so does **Shift+Pause/Break** from any
   window. The agent is told and carries on with its task.
 - Each reply in a chat's saved file keeps its tokens: new, read from the prompt cache, written to it, and output.
+- Once the agent has answered, the task's tool calls and thinking fold under one card that says how long it
+  worked, how many tool calls it made and which tools; **Show steps** unfolds them. Chats opened from History
+  open folded.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it

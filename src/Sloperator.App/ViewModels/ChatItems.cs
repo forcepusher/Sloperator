@@ -30,11 +30,50 @@ public abstract partial class ChatItemViewModel : ObservableObject
 
     /// <summary>On the line a run ended with: how long the whole run took, from the message that started it.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRunTook), nameof(RunTookText))]
+    [NotifyPropertyChangedFor(nameof(HasRunTook), nameof(RunTookText), nameof(ShowsRunTook))]
     private TimeSpan? _runTook;
 
     public bool HasRunTook => RunTook is not null;
     public string RunTookText => RunTook is { } took ? $"Worked for {ChatTimes.Duration(took)}" : "";
+
+    /// <summary>Under the line, unless the run's work is folded: its card says it.</summary>
+    public bool ShowsRunTook => HasRunTook && Fold is null;
+
+    // ---- folded work (see WorkFold) ---------------------------------------------------------
+
+    /// <summary>The folded work of a finished run this line is in, or ends; null while its run goes on.</summary>
+    public WorkFold? Fold { get; private set; }
+
+    /// <summary>The whole line folds away; false for the line the run ended with (its reply, its stop), which stays.</summary>
+    private bool _foldsWhole;
+
+    /// <summary>The fold whose card shows over this line: its first line still in the chat.</summary>
+    public WorkFold? Card => Fold?.Head == this ? Fold : null;
+
+    public bool HasCard => Card is not null;
+
+    /// <summary>The line itself shows: it isn't folded away.</summary>
+    public bool IsShown => !(_foldsWhole && Fold is { IsOpen: false });
+
+    /// <summary>It takes room in the chat: the line, or the card over it. A line folded away takes none, nor the gap after it.</summary>
+    public bool InChat => IsShown || HasCard;
+
+    internal void JoinFold(WorkFold fold, bool whole)
+    {
+        (Fold, _foldsWhole) = (fold, whole);
+        FoldChanged();
+    }
+
+    /// <summary>The fold opened or closed, or its card moved to this line.</summary>
+    internal virtual void FoldChanged()
+    {
+        OnPropertyChanged(nameof(Fold));
+        OnPropertyChanged(nameof(Card));
+        OnPropertyChanged(nameof(HasCard));
+        OnPropertyChanged(nameof(IsShown));
+        OnPropertyChanged(nameof(InChat));
+        OnPropertyChanged(nameof(ShowsRunTook));
+    }
 
     /// <summary>Files shown under the item: what a tool made or showed, or what a reply names by its path.</summary>
     public System.Collections.ObjectModel.ObservableCollection<FilePreview> Previews { get; } = [];
@@ -176,8 +215,17 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
     private string _text = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasReasoning), nameof(ShownReasoning), nameof(ShowTypingDots), nameof(TypingText))]
+    [NotifyPropertyChangedFor(nameof(HasReasoning), nameof(ShownReasoning), nameof(ShowTypingDots), nameof(TypingText), nameof(ShowsThoughts))]
     private string _reasoning = "";
+
+    /// <summary>The Thoughts show: there are some, and they aren't folded with the run's work (the reply that ended it stays, its thinking folds).</summary>
+    public bool ShowsThoughts => HasReasoning && Fold is not { IsOpen: false };
+
+    internal override void FoldChanged()
+    {
+        base.FoldChanged();
+        OnPropertyChanged(nameof(ShowsThoughts));
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ThinkingLabel), nameof(ShowTypingDots))]
@@ -564,6 +612,143 @@ public sealed partial class NoticeItem(string text, bool isError, Action? carryO
     /// <summary>The run it starts takes the button off (and every other one); with a run still going it does nothing.</summary>
     [RelayCommand]
     private void Continue() => carryOn?.Invoke();
+}
+
+/// <summary>
+/// The work of a finished run folded under one card (the user, 2026-11-08: once the agent has
+/// answered, its tool calls and thinking go out of the way, with a button to see them again). The
+/// card says how long the run worked and how many tool calls it made, with the tools that ran as
+/// their chips; Show steps unfolds the lines in place, Hide steps folds them again. What the run
+/// ended with stays out of the fold: its reply (but its thinking folds) or its stop with Continue,
+/// as does any message of the user's (one sent during the run ends one fold, the rest of the run
+/// makes another). Folded only once the run is over: while it runs, every line shows.
+/// </summary>
+public sealed partial class WorkFold : ObservableObject
+{
+    private readonly List<ChatItemViewModel> _lines;
+
+    /// <summary>What the run ended with, which stays in the chat with its thinking folded: its reply and any line after it, or its stop.</summary>
+    private readonly List<ChatItemViewModel> _kept;
+
+    /// <param name="lines">The lines that fold away, in order.</param>
+    /// <param name="kept">The lines the run ended with, which stay (its reply, or its stop).</param>
+    /// <param name="took">How long the run worked, from the message that started it; null when the chat didn't keep the times.</param>
+    public WorkFold(IReadOnlyList<ChatItemViewModel> lines, IReadOnlyList<ChatItemViewModel> kept, TimeSpan? took)
+    {
+        _lines = [.. lines];
+        _kept = [.. kept];
+        var calls = _lines.OfType<ToolCallItem>().ToList();
+        Tools = calls.Select(c => c.Name).Distinct().ToList();
+        Title = string.Join(" · ", new[]
+        {
+            took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
+            calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
+        }.OfType<string>().DefaultIfEmpty("Thoughts"));
+        foreach (var line in _lines)
+            line.JoinFold(this, whole: true);
+        foreach (var line in _kept)
+            line.JoinFold(this, whole: false);
+    }
+
+    /// <summary>"Worked for 3 min 12 s · 4 tool calls".</summary>
+    public string Title { get; }
+
+    /// <summary>The tools the run called, each once, in the order it first called them.</summary>
+    public IReadOnlyList<string> Tools { get; }
+
+    public bool HasTools => Tools.Count > 0;
+
+    /// <summary>The line the card shows over: the first still in the chat (a long run drops its oldest), the reply when nothing else folds.</summary>
+    public ChatItemViewModel? Head => _lines.Count > 0 ? _lines[0] : _kept.FirstOrDefault();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToggleText))]
+    private bool _isOpen;
+
+    public string ToggleText => IsOpen ? "Hide steps" : "Show steps";
+
+    partial void OnIsOpenChanged(bool value)
+    {
+        foreach (var line in _lines.Concat(_kept))
+            line.FoldChanged();
+    }
+
+    [RelayCommand]
+    private void Toggle() => IsOpen = !IsOpen;
+
+    /// <summary>A line left the chat (the oldest of a long run's): the card moves to the next.</summary>
+    public void Drop(ChatItemViewModel line)
+    {
+        var wasHead = ReferenceEquals(Head, line);
+        if (!_lines.Remove(line))
+            _kept.Remove(line);
+        if (wasHead)
+            Head?.FoldChanged();
+    }
+
+    /// <summary>
+    /// Folds every finished run in <paramref name="chat"/> not folded yet, each stretch of its work
+    /// on its own: a stretch ends at a message of the user's, at the line a run ended with (it has
+    /// <see cref="ChatItemViewModel.RunTook"/>), and at a stop or an error, which stays in sight. A
+    /// stretch with no tool call and no thinking (a model loaded, a plain answer) stays as it is.
+    /// Called once a run is over, and on a chat opened from History.
+    /// </summary>
+    /// <param name="toTheEnd">
+    /// The lines after the last that ends a stretch fold too: in a chat opened from History, saved
+    /// before runs kept their times (no line ends one). Not as a run ends: the next can be under way.
+    /// </param>
+    public static void FoldFinished(IReadOnlyList<ChatItemViewModel> chat, bool toTheEnd)
+    {
+        var stretch = new List<ChatItemViewModel>();
+        foreach (var line in chat)
+        {
+            if (line.Fold is not null)
+            {
+                stretch.Clear(); // an earlier run's, folded already
+                continue;
+            }
+            switch (line)
+            {
+                case UserMessageItem:
+                    Close(stretch, Between(stretch, line), endsWith: false);
+                    break;
+                case { RunTook: { } took }:
+                    stretch.Add(line);
+                    Close(stretch, took, endsWith: line is NoticeItem);
+                    break;
+                case NoticeItem { IsError: true } or NoticeItem { Stopped: true }:
+                    var stopped = Between(stretch, line);
+                    stretch.Add(line);
+                    Close(stretch, stopped, endsWith: true);
+                    break;
+                default:
+                    stretch.Add(line);
+                    break;
+            }
+        }
+        if (toTheEnd)
+            Close(stretch, null, endsWith: false);
+    }
+
+    /// <summary>How long a stretch the run's end didn't time took: from its first line to what came after it.</summary>
+    private static TimeSpan? Between(List<ChatItemViewModel> stretch, ChatItemViewModel next) =>
+        stretch.Count > 0 && stretch[0].At is { } from && next.At is { } to && to >= from ? to - from : null;
+
+    /// <summary>
+    /// Folds the stretch, but for what it ended with: its reply (the last words of the model's with
+    /// no tool call after them) and anything after that, or with no reply, a last line that stays in
+    /// sight (<paramref name="endsWith"/>: a stop, an error).
+    /// </summary>
+    private static void Close(List<ChatItemViewModel> stretch, TimeSpan? took, bool endsWith)
+    {
+        var reply = stretch.FindLastIndex(l => l is AssistantMessageItem { HasText: true });
+        if (reply < 0 || stretch.Skip(reply).Any(l => l is ToolCallItem))
+            reply = endsWith ? stretch.Count - 1 : stretch.Count;
+        var (lines, kept) = (stretch[..reply], stretch[reply..]);
+        if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true }) || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
+            _ = new WorkFold(lines, kept, took);
+        stretch.Clear();
+    }
 }
 
 /// <summary>A picture of the work under a reply (see <see cref="AssistantMessageItem.Captures"/>), with the line the model gave it; empty for none.</summary>
