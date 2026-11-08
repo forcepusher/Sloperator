@@ -17,34 +17,17 @@ public sealed partial class ComfyTool : Tool
 {
     public override string Name => "comfyui";
 
+    // The rest of how to use it is in its guide (Comfy/Guides/comfyui.md), which comes with the first
+    // call in a chat: it was 1,690 tokens of every request in every chat, most of which never use ComfyUI.
     public override string Description =>
-        "Make pictures, video, sound, music, speech and 3D models with ComfyUI on this PC. The user's own is found and used " +
-        "(one already running, a portable build, the Desktop app, an install of their own), started for you if needed; " +
-        "only when the PC has none, action=install installs one (the portable build that suits its graphics card, or its CPU). " +
-        "A workflow is JSON in ComfyUI's API format: {\"node id\": {\"class_type\": \"…\", \"inputs\": {\"name\": a value, or [\"other node id\", output index]}}}. " +
-        "Never write node, input or model names from memory: start from a template (action=templates with search finds them; with name it shows one " +
-        "as a workflow, saved to a file you can edit), or look names up (action=nodes with search or names, action=models). " +
-        "action=run runs a workflow (template, workflow_file, or workflow itself), changed by set {\"node id.input\": value}, e.g. " +
-        "{\"6.text\": \"a red fox in snow\", \"3.seed\": 42}; it is checked first, then it waits until the job is done and gives you the files " +
-        "with a look at them. For an input picture, sound or video, put its full local path where LoadImage/LoadAudio/LoadVideo name a file: it is uploaded. " +
-        "A picture the user gives you to follow (a character, a reference sheet, a style) is where the result starts, not something to describe in words: " +
-        "image to image from it (sloperator/image_to_image; denoise 0.5 to 0.7 keeps the character), or a reference or edit model's template when one is installed; " +
-        "crop or scale it inside the workflow (ImageCrop, ImageScaleToTotalPixels), not with a script. " +
-        "To change a picture or restyle it (put a hat on, make a photo anime or a painting), or to draw the character it shows in a new scene or pose, " +
-        "an installed edit model's template (templates search \"edit\": Qwen-Image-Edit, Flux Kontext) does what is asked and keeps the subject, with no download; " +
-        "image to image keeps the photo's look at low denoise and loses the subject at high. " +
-        "A video starts from a picture: make it with an image model first and look at it, then animate it with an image-to-video template (first and last frames " +
-        "when where it ends matters); text-to-video draws its own picture badly, so only when the user asks for it. LTX makes the video's sound (speech, " +
-        "footsteps, wind) but not music: say \"no music\" and make music with a music model (ACE-Step); foley for a video that has no sound is sloperator/video_to_audio (MMAudio). Before writing a video prompt, read action=guide " +
-        "search=\"video\": motion, direction, poses and props are what ruin most takes. " +
-        "A checkpoint's or LoRA's card (with action=models search=its file name, a template's view, or after its first run) says how its maker uses it: " +
-        "the prompt style, size, sampler, CFG and negative prompt to start from. " +
-        "Change the seed for a different result. A model a workflow lacks: action=download with its url (a template lists the links of its models); " +
-        "action=find_models searches Civitai and Hugging Face for others (a style, a checkpoint the user named, a LoRA, an upscaler) with their sizes and links, " +
-        "and what the month's most downloaded on Civitai are for those words; without search it lists this month's most downloaded checkpoints " +
-        "(kind=lora: LoRAs) and the base models they are on, so you know what is current before you pick one. " +
-        "action=status shows the server, GPU and queue (with prompt_id: waits for that job); action=cancel with prompt_id stops that job only; " +
-        "action=free unloads its models to free the GPU; action=restart restarts it (after installing custom nodes into its custom_nodes folder); action=stop stops it.";
+        "Make pictures, video, sound, music, speech and 3D models with ComfyUI on this PC: the user's own, found and started for you " +
+        "(action=install sets one up only when the PC has none). " +
+        "Never write node, input or model names from memory: start from a template (action=templates: search finds them, name shows one as a workflow), " +
+        "or look them up (action=nodes, action=models). " +
+        "action=run runs a template, workflow_file or workflow, changed by set {\"node id.input\": value}, waits for it and gives you the files with a look at them; " +
+        "an input picture, sound or video goes in by its full path. " +
+        "Sloperator's guide to using it comes with your first call in a chat (action=guide shows it again; search=\"video\" before you write a video prompt). " +
+        "Models online: action=find_models, then action=download. The server: action=status, cancel, free, restart, stop.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
@@ -93,7 +76,13 @@ public sealed partial class ComfyTool : Tool
             return ToolResult.Error("ComfyUI isn't available in this run.");
         var action = RequireString(args, "action").Trim().ToLowerInvariant();
         if (action is "guide" or "guides")
-            return Guide(GetString(args, "search"));
+            return Guide(GetString(args, "search"), ctx);
+        var result = await ActAsync(action, args, hub, ctx, ct).ConfigureAwait(false);
+        return !result.IsError && UseGuideFor(ctx) is { } guide ? result with { Text = result.Text + "\n\n" + guide } : result;
+    }
+
+    private async Task<ToolResult> ActAsync(string action, JsonObject args, ComfyHub hub, ToolContext ctx, CancellationToken ct)
+    {
         // From before it may be started: when the task is over, a ComfyUI Sloperator started is closed.
         if (!_usesServer)
         {
@@ -164,13 +153,33 @@ public sealed partial class ComfyTool : Tool
     /// <summary>Whether the video guide was shown in this task: with an LTX workflow, once.</summary>
     private bool _guideShown;
 
-    private ToolResult Guide(string? search)
+    private ToolResult Guide(string? search, ToolContext ctx)
     {
         var found = ComfyGuides.Find(search);
         if (found.Count == 0)
             return new ToolResult($"No guide matches \"{search}\". The guides: {string.Join(", ", ComfyGuides.Names)}.");
         _guideShown |= found.Contains(ComfyGuides.Video);
+        if (found.Contains(ComfyGuides.Comfy))
+            _useGuideShown = ctx.ContextResets;
         return new ToolResult(string.Join("\n\n", found.Select(ComfyGuides.Text)));
+    }
+
+    /// <summary>How the guide to using ComfyUI starts, by which a chat that has it is told.</summary>
+    internal const string UseGuideHead = "# Using ComfyUI (Sloperator's guide)";
+
+    /// <summary>The context reset the guide to using ComfyUI was last shown after (see <see cref="ToolContext.ContextResets"/>).</summary>
+    private int? _useGuideShown;
+
+    /// <summary>
+    /// The guide to using ComfyUI, with the first call in a chat that gets an answer: workflows, a
+    /// picture to follow or change, video and sound, models. Null when the chat has it already (a context reset drops it).
+    /// </summary>
+    private string? UseGuideFor(ToolContext ctx)
+    {
+        if (_useGuideShown == ctx.ContextResets || ctx.InConversation?.Invoke(UseGuideHead) == true)
+            return null;
+        _useGuideShown = ctx.ContextResets;
+        return ComfyGuides.Text(ComfyGuides.Comfy);
     }
 
     /// <summary>The video guide, the first time an LTX workflow is looked at or run in a task: what a model writes for LTX is what ruins most takes.</summary>

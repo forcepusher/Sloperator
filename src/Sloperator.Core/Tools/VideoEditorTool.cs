@@ -20,51 +20,20 @@ public sealed class VideoEditorTool : Tool
 {
     public override string Name => "video";
 
+    // The storyboard's fields and how to write and make one are in the guide (Comfy/Guides/storyboards.md),
+    // read once a chat: they were 2,260 tokens of every request in every chat, most of which never makes a video.
     public override string Description =>
         "Make a video (a music video, a short story, an ad: anything longer than one shot) from a storyboard, with ComfyUI on this PC. " +
-        "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat, from where they pick its pictures, clips and folders into their messages to you: " +
-        "References, with the pictures frames are made from (image files of the user's and generated images Sloperator makes) and the user's video files; Generated, with what Sloperator makes: each shot's frames and clip (s1.mp4) and the songs; and the joined video. The user calls the shots clips: clip 1 is the first. " +
-        "Each file has a .json of its name beside it (what it is and how it was made: video.json for video.mp4) and the ComfyUI workflow that made it (video.workflow.json). " +
-        "The storyboard is all of it at once: shots in order, each going from a first frame to an optional last frame in so many seconds, the pictures they start and end on, and the sounds over them. " +
-        "action=storyboard shows it (path: the video's folder), with Sloperator's guide to writing one the first time in a chat, or makes or changes it with storyboard={...}: title (the video's folder is named after it: a new one renames it), " +
-        "width, height, fps, voice (who says the lines: age, voice, manner), soundLines (how many sound lines), soundLineVolumes (each sound line's volume, 1 as its sounds are: [1, 0.5]), frames:[{id, prompt (what it shows and its look), model, seed, from: [what it is made from, to keep people and places the same: frames' ids, " +
-        "a picture in the References folder by its name (\"Mira\" or \"Mira.png\"), or a picture of the user's from elsewhere by its full path (one they attached: it is copied into References as it is)], " +
-        "file (a picture of the user's, cut to the video's frame), name, reference: true for a character or place sheet, made at its own shape into References/<name>.png, " +
-        "of: a shot's id, for a frame taken from where that shot's clip ends, so the shot that starts on it goes on from that moment (after a shot without a last frame), or a video file in References (\"walk.mp4\") to go on from where the user's clip ends}], " +
-        "shots:[{id, name (a few words naming it, \"intro\", \"the leap\"), first, last (frame ids), seconds, prompt (what happens, and its look), camera, model, transition: cut|dissolve|fade, " +
-        "line (what is said in it, lip-synced, in the video's voice; it starts 0.4 s in, so leave time for it), seed, motion (a video file in References, \"dance.mp4\": the shot copies its movement, poses and timing from its first frame, with a template that follows a video: LTX's IC-LoRA control or Wan Animate; not with a line)}], " +
-        "sounds:[{id, name, source: song (made by Sloperator: tags = its style, lyrics, model, seed), foley (made by Sloperator from what the clips under it show: tags = what is heard, which it can do without; model, seed) " +
-        "or file (the user's: file = its full path, copied into Sounds), soundLine (from 0), start (seconds into the video), " +
-        "trim (seconds cut off its start), seconds (how long it plays; 0 to its end), volume (1 as it is)}]: sounds overlap as they please, as on a video editor's sound lines. " +
-        "Frames, shots and sounds are matched by id; {\"id\": …, \"delete\": true} removes one, and a field set to null is taken out (a shot's \"last\": null). " +
-        "Nothing is video-wide, so a change remakes only what it changes: write the video's look into every frame's and shot's prompt. " +
-        "model is what one is made with: a model or workflow in words (\"z image turbo\", \"juggernaut xl\", \"my pony workflow\"), matched against what ComfyUI has installed, " +
-        "or none for the best installed one; action=models lists what is installed for each kind of picture, video and song. " +
-        "Without path a new video goes into a folder of its own in Sloperator's SloperatorData\\videos, where the Video editor panel finds it " +
-        "(Sloperator is portable: what it makes stays next to it). " +
-        "A shot that starts on the last frame of the one before goes on with the same camera; " +
-        "a new first frame is a cut to another scene or angle. Every shot starts on a frame: the video model animates a picture well and draws one badly. " +
-        "Keep one clear action per shot, as many seconds as it takes (2 to 8; a longer clip holds its opening pose, then rushes): say which way things move on screen, from where to where, and what stays still, " +
-        "and what is heard (the shot's own sound is kept at half under a song; music comes from songs on the sound lines, not the video model). " +
-        "The References folder also holds any picture the user puts there (action=storyboard lists them): name one in a frame's from to make the frame from it, " +
-        "whatever its shape: a frame made from pictures is made the video's size with all of each in view. " +
-        "A video file of the user's in References (a reference video) is used three ways: a shot's motion to move as it does (say in the prompt what moves, the look comes from the first frame), " +
-        "a frame's of to start where it ends (continuity), or in a frame's from, where a picture from its middle shows a look, a person or a place to keep. " +
-        "The user's pictures stay as they gave them: never crop, resize, retouch or redraw one, or put pictures of your own beside them (a cut-out, a padded copy); " +
-        "name the whole picture in from and say in the prompt who or what in it to take (\"the rabbit on the left, in the grey t-shirt\"): the picture model picks one out of a lineup or a sheet. " +
-        "action=frame id= makes a frame's picture (a reference's too) and has a fresh look at it; action=sound id= makes a song, a minute long at least (the video uses its start), the best of tries=3 by a judge " +
-        "of how good music sounds (SongEval); write lyrics for the part the video uses; for foley it makes its sound from the clips under it, which are made first. action=shot id= makes a shot's clip and checks it (does it start and end on its frames, " +
-        "how it moves, and a fresh look at what happens, faults and whether people stay the same); tries=N makes up to N tries with new seeds until one passes. " +
-        "What is made again keeps the one before as a version (in Versions, in its folder), which the user can put back in the Video editor panel. " +
-        "Fix a frame or shot the look finds wrong: a plainer prompt, another seed, frames closer to each other, or a new frame. " +
-        "action=join puts the shots and the sounds together into the video; action=check looks at a frame or shot (id) or, without id, the whole video. " +
-        "Order: frames (those others are made from first), the shots, the songs and foley, then join and check the video. " +
-        "prompt, camera, seconds, seed, model and from given with action=frame or shot change the storyboard before it is made.";
+        "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat: References (the pictures frames are made from, " +
+        "the user's and Sloperator's), Generated (each shot's frames and clip, the songs) and the joined video. The user calls the shots clips: clip 1 is the first. " +
+        "Before you write or change a storyboard the first time in a chat, read action=guide: the storyboard's fields, how to write its frames, shots and sounds, and how each action makes them. " +
+        "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
+        "action=join puts the video together; action=check looks at a piece or the whole video; action=models lists the installed models.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("action", Str("What to do", "storyboard", "frame", "shot", "sound", "join", "check", "models"), true),
+        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "check", "models"), true),
         ("path", Str("The video's folder (or the name of a video in the videos folder); a new video's folder for action=storyboard"), false),
         ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound)"), false),
         ("storyboard", new JsonObject { ["type"] = "object", ["description"] = "action=storyboard: the storyboard, or the parts of it to change (frames and shots by id)" }, false),
@@ -89,6 +58,7 @@ public sealed class VideoEditorTool : Tool
             "join" => "Join the video",
             "check" => id is null ? "Check the video" : $"Check {id}",
             "models" => "List the installed models for videos",
+            "guide" => "Read the storyboard guide",
             _ => "video " + action,
         };
     }
@@ -108,6 +78,11 @@ public sealed class VideoEditorTool : Tool
         {
             if (action is "models" or "workflows" or "templates")
                 return await ModelsAsync(ctx, ct).ConfigureAwait(false);
+            if (action is "guide" or "guides" or "help")
+            {
+                _guideShown = ctx.ContextResets;
+                return new ToolResult(Guide());
+            }
             _note = null;
             var board = LoadOrCreate(args, ctx, create: action == "storyboard");
             _lastFolder = board.Folder;
@@ -124,7 +99,7 @@ public sealed class VideoEditorTool : Tool
                 "sound" or "song" => await SoundAsync(board, GetString(args, "id"), (int)Math.Clamp(GetNumber(args, "tries") ?? 3, 1, 8), ctx, ct).ConfigureAwait(false),
                 "join" or "montage" => await JoinAsync(board, ctx, ct).ConfigureAwait(false),
                 "check" => await CheckAsync(board, GetString(args, "id"), ctx, ct).ConfigureAwait(false),
-                _ => throw new ToolArgumentException("action must be storyboard, frame, shot, sound, join, check or models."),
+                _ => throw new ToolArgumentException("action must be guide, storyboard, frame, shot, sound, join, check or models."),
             };
             return _note is { } note ? result with { Text = note + result.Text } : result;
         }
@@ -300,19 +275,25 @@ public sealed class VideoEditorTool : Tool
     private int? _guideShown;
 
     /// <summary>
-    /// The guide to writing a storyboard, and how the video model reads a shot's prompt, with the
-    /// first storyboard a chat reads or writes: the user never writes a prompt, so what the models
-    /// are given is what the agent writes. Null when the chat has it already (a context reset drops it).
+    /// The guide, with the first storyboard a chat reads or writes when the model didn't ask for it
+    /// (action=guide) first. Null when the chat has it already (a context reset drops it).
     /// </summary>
     private string? GuideFor(ToolContext ctx)
     {
         if (_guideShown == ctx.ContextResets || ctx.InConversation?.Invoke(GuideHead) == true)
             return null;
         _guideShown = ctx.ContextResets;
-        return $"{GuideHead}, to follow when you write or change one:\n\n" + ComfyGuides.Text(ComfyGuides.Storyboards) +
-               "\n\nHow the video model (LTX) reads a shot's prompt, which is how to write one:\n\n" +
-               ComfyGuides.Without(ComfyGuides.Video, "Pictures first", "Sound and music", "Exact motion: tracks and controls", "Settings");
+        return Guide();
     }
+
+    /// <summary>
+    /// The guide to writing a storyboard (its fields too) and making it, and how the video model
+    /// reads a shot's prompt: the user never writes a prompt, so what the models are given is what the agent writes.
+    /// </summary>
+    internal static string Guide() =>
+        $"{GuideHead}, to follow when you write or change one:\n\n" + ComfyGuides.Text(ComfyGuides.Storyboards) +
+        "\n\nHow the video model (LTX) reads a shot's prompt, which is how to write one:\n\n" +
+        ComfyGuides.Without(ComfyGuides.Video, "Pictures first", "Sound and music", "Exact motion: tracks and controls", "Settings");
 
     /// <summary>The storyboard as the model reads it: each frame and shot, what is made and what is out of date, and what to do next.</summary>
     internal static string Overview(Storyboard board)

@@ -9,14 +9,19 @@ namespace Sloperator.Core.Comfy;
 /// what went wrong in Sloperator's videos: the user found most clips ruined by motion going the wrong
 /// way, poses bending wrong and props moving by themselves, and LTX drawing its own first picture
 /// badly. The comfyui tool shows it with a video workflow, and the video tool with the storyboard
-/// guide (how to write a video's frames, shots, lines and song).
+/// guide (how to write a video's frames, shots, lines and song). The guide to using the comfyui tool
+/// and the storyboard's fields are here too, read when a chat first uses the tool rather than in its
+/// description, which goes with every request of every chat.
 /// </summary>
 public static partial class ComfyGuides
 {
     public const string Video = "video-prompts";
 
-    /// <summary>How to write a video's storyboard: its frames, references, shots, lines and song (the video tool shows it).</summary>
+    /// <summary>How to write a video's storyboard: its fields, frames, references, shots, lines and song, and making it (the video tool shows it).</summary>
     public const string Storyboards = "storyboards";
+
+    /// <summary>How to use the comfyui tool: workflows, a picture to follow or change, video and sound, models, the server (it comes with the tool's first call in a chat).</summary>
+    public const string Comfy = "comfyui";
 
     private static readonly Dictionary<string, string> Loaded = [];
 
