@@ -255,24 +255,12 @@ public static class SystemPrompt
         if (modelServer)
             sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, use switch_model; to change how hard you think (effort), set_effort: " +
                           "Sloperator's own window is left out of your screenshots, so its settings can't be clicked.");
-        // qwen3.8 drove ComfyUI's HTTP API well but wrote wrong node, input and model names from memory.
-        sb.AppendLine("- To make pictures, video, sound, music, speech or 3D models, use the comfyui tool (ComfyUI on this PC; it needs no MCP server; " +
-                      "when the PC has none, action=install sets it up). " +
-                      "Start from the template closest to the request (action=templates with a few words), run it with your changes in set, " +
-                      "and look at what it made before you answer; for what no template does, " +
-                      (webSearch ? "first read how the model's makers do it (their guide and example workflows, with web_search), then " : "") +
-                      "build the workflow from node and model names you looked up (action=nodes, action=models), never from memory. A picture the user gave you goes into LoadImage by its full path. " +
-                      "A model it lacks: action=download with the link the template gives, or action=find_models to look for one online " +
-                      "(a style, or a checkpoint or LoRA the user named); a custom node pack or program it lacks you can install yourself. " +
-                      // The user's finding: LTX animates a picture well and draws one badly, and makes sounds well and music badly.
-                      "A video starts from a picture an image model makes, which an image-to-video template animates; music comes from a music model, " +
-                      "not the video model. Read action=guide search=\"video\" before writing a video prompt. " +
-                      "Its files stay in ComfyUI's output folder, where the user finds them; copy them elsewhere (save_to) only when the user names a place. " +
-                      "Give the full paths of the files you made in your answer.");
-        sb.AppendLine("- A video of more than one shot (a music video, a story, an ad) is made with the video tool: plan it as a storyboard " +
-                      "(shots from a first frame to a last one, frames made from earlier ones so people stay the same, sounds over them), make each piece, " +
-                      "check every shot and fix the ones that are wrong, then join them and check the video. A storyboard the user gives you is theirs: " +
-                      "keep to it, and change only what doesn't work.");
+        // Which tool, and that it needs no MCP server (the rule above would send the model looking for
+        // one): how to use them is in their guides (Comfy/Guides), which come with their first answer
+        // in a chat. These two lines were 400 tokens of every request (2026-11-08).
+        sb.AppendLine("- To make pictures, video, sound, music, speech or 3D models, use the comfyui tool (ComfyUI on this PC; it needs no MCP server), " +
+                      "as its guide says. Give the full paths of the files you made in your answer.");
+        sb.AppendLine("- A video of more than one shot (a music video, a story, an ad) is made with the video tool, from a storyboard, as its guide says.");
         // The user's rule: what can't be opened gets the right tool, not a hand-made decoder (a PDF
         // took eight minutes of inflating streams and mapping glyphs in PowerShell).
         if (toolsDirectory)

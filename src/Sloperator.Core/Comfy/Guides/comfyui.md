@@ -3,13 +3,16 @@
 ## Workflows
 - A workflow is JSON in ComfyUI's API format: {"node id": {"class_type": "…", "inputs": {"name": a
   value, or ["other node id", output index]}}}.
-- Never write node, input or model names from memory: start from a template (action=templates with
-  search finds them; with name it shows one as a workflow, saved to a file you can edit), or look
-  names up (action=nodes with search or names, action=models).
+- Never write node, input or model names from memory: start from the template closest to the
+  request (action=templates with a few words in search finds them; with name it shows one as a
+  workflow, saved to a file you can edit), or look names up (action=nodes with search or names,
+  action=models).
+- For what no template does, first read how the model's makers do it (their guide and example
+  workflows, with web_search), then build the workflow from node and model names you looked up.
 - action=run runs a workflow (template, workflow_file, or workflow itself), changed by set
   {"node id.input": value}, e.g. {"6.text": "a red fox in snow", "3.seed": 42}; it is checked first,
-  then it waits until the job is done and gives you the files with a look at them. Change the seed
-  for a different result.
+  then it waits until the job is done and gives you the files with a look at them. Look at what it
+  made before you answer. Change the seed for a different result.
 - For an input picture, sound or video, put its full local path where LoadImage/LoadAudio/LoadVideo
   name a file: it is uploaded.
 
@@ -39,10 +42,15 @@
   after its first run) says how its maker uses it: the prompt style, size, sampler, CFG and negative
   prompt to start from.
 - A model a workflow lacks: action=download with its url (a template lists the links of its models).
+  A custom node pack or program it lacks you can install yourself (then action=restart).
 - action=find_models searches Civitai and Hugging Face for others (a style, a checkpoint the user
   named, a LoRA, an upscaler) with their sizes and links, and what the month's most downloaded on
   Civitai are for those words; without search it lists this month's most downloaded checkpoints
   (kind=lora: LoRAs) and the base models they are on, so you know what is current before you pick one.
+
+## What it makes
+- A run's files stay in ComfyUI's output folder, where the user finds them; copy them elsewhere
+  (save_to) only when the user names a place. Give their full paths in your answer.
 
 ## The server
 - The user's own ComfyUI is found and used (one already running, a portable build, the Desktop app,
