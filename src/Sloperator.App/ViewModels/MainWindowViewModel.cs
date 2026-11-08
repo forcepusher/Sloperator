@@ -456,9 +456,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         // A piece picked in the side panel that isn't made yet has no file: the panel says what it is.
         var files = Attachments.Where(a => !a.Picked || File.Exists(a.Path) || Directory.Exists(a.Path)).Select(a => a.Path).ToList();
         var input = WithQuote(WithSidePanel(new UserInput(UserInput.Tidy(Input), files), Picked));
+        // During a run the message reaches the agent before the box empties: held while the user
+        // types (see TypingHere), the agent goes on as it empties, and its next request must have it.
+        var steered = IsBusy ? SendAsync(input) : null;
         Input = "";
         ClearAttachments();
-        await SendAsync(input);
+        await (steered ?? SendAsync(input));
     }
 
     private async Task SendAsync(UserInput input)
@@ -588,7 +591,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             notice.CanContinue = false;
     }
 
-    /// <summary>When the user last typed in the box; while they are typing, the agent's mouse and keyboard wait.</summary>
+    /// <summary>When the user last typed in the box; while they are typing, the agent waits (see <see cref="TypingHere"/>).</summary>
     private DateTime _lastTyped;
 
     partial void OnInputChanged(string value)
@@ -608,7 +611,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// <summary>How long after the last key press in the box the agent carries on by itself.</summary>
     private static readonly TimeSpan TypingQuiet = TimeSpan.FromSeconds(15);
 
-    /// <summary>The agent's clicks and key presses are on hold because the user is typing to an agent (see <see cref="ChatWindows.UserComposing"/>).</summary>
+    /// <summary>
+    /// The agent is on hold because the user is typing to it, or its clicks and key presses because
+    /// they are typing to another window's (see <see cref="ChatWindows.UserComposing"/>).
+    /// </summary>
     public bool TypingPause => IsBusy && _windows.UserComposing();
 
     /// <summary>The plan on the bar above the message box; null while there is none.</summary>
@@ -626,7 +632,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// <summary>The blob beside Send; with a plan it walks the bar instead.</summary>
     public bool ShowsSendBlob => !ShowIntro && !HasPlan;
 
-    public bool PlanDancing => IsBusy && !TypingPause;
+    /// <summary>The plan walks while the agent works: not while the user types to it, though typing to another window's agent only holds its clicks and keys.</summary>
+    public bool PlanDancing => IsBusy && !TypingHere();
 
     /// <summary>The run ended with the plan unfinished: it is the user's turn.</summary>
     public bool PlanWaiting => !IsBusy && !PlanFailed && Plan is { Finished: false };
@@ -641,7 +648,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// </summary>
     public string TypingPauseText => TypingHere()
         ? $"Paused while you type. I carry on in {Math.Max(1, (int)Math.Ceiling((TypingQuiet - (DateTime.UtcNow - _lastTyped)).TotalSeconds))} s."
-        : "Paused while you type in another window.";
+        : "My clicks and keys wait while you type in another window.";
 
     /// <summary>Lets the agent carry on at once; what was typed stays in the box, to finish and send later.</summary>
     [RelayCommand]
@@ -653,8 +660,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
 
     /// <summary>
     /// The user is writing a message in this window's box: text in it, typed in the last 15
-    /// seconds. Every window's agent waits with its clicks and key presses meanwhile, so neither
-    /// ends up in the other's window. Read from the agents' threads.
+    /// seconds. This window's agent sends no request and starts no tool call meanwhile (see
+    /// <see cref="AgentSession.UserTyping"/>), and every window's agent waits with its clicks and key
+    /// presses, so neither ends up in the other's window. Read from the agents' threads.
     /// </summary>
     internal bool TypingHere() => Input.Length > 0 && DateTime.UtcNow - _lastTyped < TypingQuiet;
 
@@ -797,6 +805,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
                 setPrices: KeepPricesFromAgent, plan: Plan);
             session.PriceLookup = PriceLookupFor(backend.Client.BaseUrl, backend.Options.Model);
+            session.UserTyping = TypingHere;
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);
             var imagesKey = session.SeesImages ? runKey : null;
