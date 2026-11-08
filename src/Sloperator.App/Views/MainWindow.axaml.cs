@@ -697,6 +697,17 @@ public partial class MainWindow : Window
             OpenViewer(tool);
     }
 
+    /// <summary>
+    /// Show steps or Hide steps on a folded run's card (its command turns it after this): the card
+    /// stays where it is, the steps unfolding under it. At the chat's end, which the chat follows,
+    /// the steps would have pushed the card up out of sight; it follows again once back at the end.
+    /// </summary>
+    private void OnFoldClick(object? sender, RoutedEventArgs e)
+    {
+        _stickToBottom = false;
+        Dispatcher.UIThread.Post(UpdateStickiness, DispatcherPriority.Background);
+    }
+
     /// <summary>A picture under the box, waiting to go with the next message: full screen on its own.</summary>
     private void OnComposerPictureReleased(object? sender, PointerReleasedEventArgs e)
     {

@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **System prompt** in Settings > Advanced: **View and edit** shows what Sloperator tells every model, and lets
   you change it. Words in braces, like `{date}` and `{screens}`, are filled in for each chat. **Reset to default**
   brings Sloperator's own back.
+- Once the agent has answered, the task's tool calls and thinking fold under one card that says how long it
+  worked, how many tool calls it made and which tools; **Show steps** unfolds them. Chats opened from History
+  open folded.
 
 ### Changed
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it

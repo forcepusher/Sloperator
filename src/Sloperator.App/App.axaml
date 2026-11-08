@@ -618,6 +618,10 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Data" Value="M7 10l5 5 5-5z" />
     </Style>
+    <!-- Pointing up while what it shows is open (a folded run's Hide steps). -->
+    <Style Selector="Button.menu PathIcon.arrow.open">
+      <Setter Property="RenderTransform" Value="rotate(180deg)" />
+    </Style>
     <!-- A button that opens a list beside the top bar's dropdowns (Servers): its word at their
          padding and the arrow 10 from the right, as theirs; filled as a button, beside the address
          field (the Neutral look, 2026-10-29). Hovered and pressed it changes as a button does, the
@@ -713,10 +717,18 @@
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="12" />
     </Style>
-    <!-- The tool's name on a card (read_file, run_shell): yellow on a chip of its own. -->
+    <!-- The tool's name on a card (read_file, run_shell), and the tools a folded run called: yellow
+         on a chip of its own. 2 over the name and none under: Consolas' capitals sit high in its
+         line (1.5 px over the chip's middle at 125%). -->
     <Style Selector="Border.tag">
       <Setter Property="Background" Value="{StaticResource BbChip}" />
       <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8,2,8,0" />
+    </Style>
+    <Style Selector="Border.tag > TextBlock">
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{StaticResource BbAccent}" />
     </Style>
     <!-- A line from Sloperator in the chat (a nudge to the model, a stop): boxed, its words secondary,
          its time muted. The border is an inset shadow, so the box is as big as without one at every

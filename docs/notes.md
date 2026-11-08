@@ -1525,8 +1525,39 @@ message the time it was sent, each step of the model when it was asked and how l
 words, and writing), each tool call how long it ran ("Done in 1.2 s", when it began in its tooltip:
 the step over it has the time; a wait for your OK doesn't count), and a notice when it came up. A step that only called tools keeps
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
-and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s").
+and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s"),
+or, once the task's work is folded (below), its card does.
 The times are saved with the chat; a chat saved before they were kept shows none.
+
+### Folded work
+Once a run is over, its work folds under one card where it began (the user, 2026-11-08: "Fold all work
+history (tool calls, thinking) after finishing responding", with a button to unfold it; of four mockups
+they picked the card, https://claude.ai/artifact/9gniHzrgR9swv1rgB15qd9, B). The card says how long the
+run worked and how many tool calls it made ("Worked for 3 min 12 s · 4 tool calls"), shows the tools it
+called as the chips the tool cards have, each once in the order first called, and has **Show steps**,
+which unfolds the lines in place under it (**Hide steps** folds them again; the button keeps its width as
+it turns). What folds is a `WorkFold` (ChatItems.cs): the step lines with their thoughts and words, the
+tool cards, and Sloperator's notices among them. What stays in sight: the run's reply (the model's last
+words with no tool call after them, and any line after it), with its thinking folded; the stop or error
+it ended with, with Continue; and every message of the user's, so one sent during the run ends one fold
+and the rest of the run makes another (timed from its first line to the message). A stretch with no tool
+call and no thinking (a model loaded, a plain answer) isn't folded and keeps its "Worked for" line.
+
+While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
+reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
+with: the next run may already be under way. A chat opened from History folds as it opens, to its end
+too, as a chat saved before runs kept their times has no line that ends one. Folds aren't saved; every
+chat opens folded. The lines stay in the chat's list (saving, Undo, the right-click menu and selection
+see them as before): a folded line's place in the list is hidden as a whole (a style on
+`ItemsControl.chat > ContentPresenter` binds its `IsVisible` to `InChat`), since a place hidden only
+inside kept the 12 between places, a band of them in a long run. The card is drawn over the first folded
+line, in its place, and moves to the next when a long run drops its oldest lines (`TrimChat`). A tool
+call is matched to its card only among cards not folded: a server that numbers each reply's calls from
+call_0 gave the next run's calls an old card's id, and they ran on it, folded out of sight.
+
+Show steps doesn't let the chat follow its end, which it does while the user is at the bottom: the
+steps unfolding under the card would push the card up out of sight. The card stays where it is, and the
+chat follows again once scrolled back to the end (`MainWindow.OnFoldClick`).
 
 **Undo message and everything below** (the user, 2026-10-29) is the right-click menu of a message of
 the user's: in the chat's one right-click menu (`MainWindow.OnChatMenu`, which opens before the

@@ -153,6 +153,7 @@ public sealed partial class MainWindowViewModel
         // A chat that ended stopped can be carried on from where it stopped; an earlier stop it went on from can't.
         foreach (var notice in Items.OfType<NoticeItem>())
             notice.CanContinue = notice.Stopped && ReferenceEquals(notice, Items[^1]);
+        WorkFold.FoldFinished(Items, toTheEnd: true);
         AutoChatChanged();
         MarkCurrentChat();
     }

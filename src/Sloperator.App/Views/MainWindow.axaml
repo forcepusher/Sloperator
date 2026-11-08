@@ -585,7 +585,14 @@
                   views:SelectableText.KeepsSelection="True">
         <!-- Unclipped (an ItemsControl and a ContentControl clip to their bounds by default), so a
              message's text can reach past its sides: a drag in the gutter beside it starts a selection. -->
-        <ItemsControl ItemsSource="{Binding Items}" ClipToBounds="False">
+        <ItemsControl Classes="chat" ItemsSource="{Binding Items}" ClipToBounds="False">
+          <ItemsControl.Styles>
+            <!-- A line folded away under its run's card takes no room, nor the gap after it (a line
+                 hidden inside its place left the 12 between places, a band of them in a long run). -->
+            <Style Selector="ItemsControl.chat > ContentPresenter" x:DataType="vm:ChatItemViewModel">
+              <Setter Property="IsVisible" Value="{Binding InChat}" />
+            </Style>
+          </ItemsControl.Styles>
           <ItemsControl.Resources>
             <!-- A tool call's picture, as the model got it: open on the card for a look, folded for an action. -->
             <DataTemplate x:Key="ToolShot" x:DataType="vm:ToolCallItem">
@@ -603,17 +610,63 @@
           </ItemsControl.ItemsPanel>
 
           <!-- Every line as its kind shows it (the templates below), each with the time it happened;
-               the line a run ended with says under it how long the run took. -->
+               the line a run ended with says under it how long the run took, unless the run's work
+               is folded: then the card over its first line says it (WorkFold). -->
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ChatItemViewModel">
-              <StackPanel Spacing="6">
-                <ContentControl Content="{Binding}" ClipToBounds="False" />
-                <TextBlock Classes="muted" Text="{Binding RunTookText}" IsVisible="{Binding HasRunTook}" HorizontalAlignment="Center" />
+              <StackPanel Spacing="12">
+                <ContentControl Content="{Binding Card}" IsVisible="{Binding HasCard}" />
+                <StackPanel Spacing="6" IsVisible="{Binding IsShown}">
+                  <ContentControl Content="{Binding}" ClipToBounds="False" />
+                  <TextBlock Classes="muted" Text="{Binding RunTookText}" IsVisible="{Binding ShowsRunTook}" HorizontalAlignment="Center" />
+                </StackPanel>
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
 
           <ItemsControl.DataTemplates>
+
+            <!-- A finished run's work folded (WorkFold), as a card where it began: how long the run
+                 worked and how many tool calls it made, the tools it called as the chips the tool
+                 cards have, and a button that unfolds the lines under it (the user picked this of
+                 four mockups, 2026-11-08). Both its words lie under the one it shows, see-through,
+                 so it keeps its width as it turns. -->
+            <DataTemplate DataType="vm:WorkFold">
+              <Border Classes="card" Margin="0,0,40,0">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Classes="ghost menu" Command="{Binding ToggleCommand}" Click="OnFoldClick"
+                          VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{Binding ToggleText}">
+                    <DockPanel>
+                      <PathIcon DockPanel.Dock="Right" Classes="arrow" Classes.open="{Binding IsOpen}" />
+                      <Panel VerticalAlignment="Center">
+                        <TextBlock Text="Show steps" Opacity="0" AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock Text="Hide steps" Opacity="0" AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock Text="{Binding ToggleText}" />
+                      </Panel>
+                    </DockPanel>
+                  </Button>
+                  <!-- 2 over the words taken back: their line has room over the capitals the chips under
+                       them don't have, and the card read 2 px lower inside at 125% (18 over, 16 under). -->
+                  <StackPanel Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Margin="0,-2,0,0" />
+                    <ItemsControl ItemsSource="{Binding Tools}" IsVisible="{Binding HasTools}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel ItemSpacing="8" LineSpacing="8" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                          <Border Classes="tag">
+                            <TextBlock Text="{Binding}" />
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
 
             <DataTemplate DataType="vm:UserMessageItem">
               <StackPanel HorizontalAlignment="Right" MaxWidth="640" Margin="60,0,0,0" Spacing="3">
@@ -690,7 +743,7 @@
             <DataTemplate DataType="vm:AssistantMessageItem">
               <StackPanel Spacing="6" Margin="0,0,40,0">
                 <TextBlock Classes="muted" Text="{Binding TimeText}" IsVisible="{Binding HasTime}" ToolTip.Tip="{Binding TimeTip}" HorizontalAlignment="Left" />
-                <Expander Classes="thoughts" IsVisible="{Binding HasReasoning}" Header="{Binding ThinkingLabel}" HorizontalAlignment="Stretch" IsExpanded="True"
+                <Expander Classes="thoughts" IsVisible="{Binding ShowsThoughts}" Header="{Binding ThinkingLabel}" HorizontalAlignment="Stretch" IsExpanded="True"
                           Padding="16,12">
                   <views:SelectableText Classes="muted" views:MarkdownText.Plain="{Binding ShownReasoning}" TextWrapping="Wrap" Margin="-16,-12" Padding="16,12" />
                 </Expander>
@@ -750,9 +803,8 @@
                       </StackPanel>
                       <Button Classes="ghost small" Content="Skip wait" Command="{Binding EndWaitCommand}" Margin="0,-4" VerticalAlignment="Center" />
                     </StackPanel>
-                    <!-- 2 over the name and none under: Consolas' capitals sit high in its line (1.5 px over the chip's middle at 125%). -->
-                    <Border DockPanel.Dock="Left" Classes="tag" Padding="8,2,8,0" VerticalAlignment="Top" Margin="0,0,8,0">
-                      <TextBlock Text="{Binding Name}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Foreground="{StaticResource BbAccent}" />
+                    <Border DockPanel.Dock="Left" Classes="tag" VerticalAlignment="Top" Margin="0,0,8,0">
+                      <TextBlock Text="{Binding Name}" />
                     </Border>
                     <TextBlock Text="{Binding Line}" TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
