@@ -2716,7 +2716,8 @@ command-line runner has no evaluation: on Auto it runs on the daily driver, at m
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
 (`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
-evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output. Up to a
+evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output, open, under
+"What it found", its Markdown shown as a reply's (`ToolCallItem.FoundText`; a tool's output is code, in the mono font). Up to a
 dearer model of the three than the one in use (evaluation, then daily, then complex: the user's own order, no
 prices compared) the run asks first, on a card over the message box (`AutoSwitchQuestion`): "Switch to
 claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,

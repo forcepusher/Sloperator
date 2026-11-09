@@ -862,9 +862,13 @@
                     <views:SelectableText Text="{Binding Input}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>
 
-                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09). -->
+                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09): notes for
+                       people, in the model's Markdown as a reply's are shown, where a tool's output is code. -->
                   <Expander IsVisible="{Binding HasResult}" Header="{Binding OutputHeader}" IsExpanded="{Binding IsAuto, Mode=OneTime}" Padding="8,4" HorizontalAlignment="Stretch">
-                    <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                    <Panel>
+                      <views:SelectableText Text="{Binding ResultText}" IsVisible="{Binding !IsAuto}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                      <views:SelectableText views:MarkdownText.Source="{Binding FoundText}" IsVisible="{Binding IsAuto}" TextWrapping="Wrap" Margin="-8,-4" Padding="8,4" />
+                    </Panel>
                   </Expander>
                 </StackPanel>
               </Border>

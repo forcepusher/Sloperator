@@ -438,8 +438,11 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasResult))]
+    [NotifyPropertyChangedFor(nameof(HasResult), nameof(FoundText))]
     private string _resultText = "";
+
+    /// <summary>What Auto's card found, shown as Markdown; null on any other card, whose output is shown as it is (and not parsed for nothing).</summary>
+    public string? FoundText => IsAuto ? ResultText : null;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasScreenshot), nameof(HasOpenScreenshot), nameof(HasFoldedScreenshot))]
