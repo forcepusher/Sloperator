@@ -421,6 +421,7 @@ public sealed partial class AgentSession(
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
         var cutOffs = 0;
         var missChecked = false;
+        var (planWork, planChecked) = (false, false);
         var pricesLooked = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
@@ -535,6 +536,20 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
+                    if (!planChecked && planWork && toolContext.Plan is { Finished: false })
+                    {
+                        planChecked = true;
+                        try
+                        {
+                            await PlanBehindAsync(observer, ct).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                        {
+                            // The answer was complete: no note that the task was stopped.
+                            observer.OnFinished(AgentStopReason.Cancelled, null);
+                            return;
+                        }
+                    }
                     // Prices to look up, once the chat is long and a reply came with no cost from the
                     // server (whose own cost would win): the side task comes after the answer, and the
                     // run ends after the side task.
@@ -591,6 +606,11 @@ public sealed partial class AgentSession(
                         continue;
                     }
                     var result = await RunToolAsync(call, observer, ct, calls.Token).ConfigureAwait(false);
+                    // Work since the plan last moved: the plan may have fallen behind it (see PlanBehindAsync).
+                    if (ToolCallRepair.ResolveTool(call.Name, tools) is not PlanTool)
+                        planWork = true;
+                    else if (!result.IsError)
+                        planWork = false;
                     // A call Interrupt stopped failed for no fault of the model's.
                     // Each note the model is sent shows in the chat as a line of its own, as the
                     // user asked: what Sloperator tells the model is no secret.
@@ -725,6 +745,52 @@ public sealed partial class AgentSession(
     internal const string MissedEndNote =
         "[Sloperator] Your last click changed nothing on screen, so it probably missed, yet you ended there. Zoom in on what you meant to click: " +
         "if it isn't selected or changed, click it again; if it already was, say so.";
+
+    /// <summary>What the model is asked, aside, when its plan fell behind its work (see <see cref="PlanBehindAsync"/>).</summary>
+    internal static string PlanBehindNote(AgentPlan plan) =>
+        $"[Sloperator] Your plan on the user's bar still says step {plan.At + 1} of {plan.Steps.Count}, \"{plan.Steps[plan.At].Word}\", " +
+        "though you went on working and then ended your turn. Call plan with now set to where the work stands " +
+        $"({plan.Steps.Count + 1} when all of it is done). Call nothing else and write nothing: your answer above stands.";
+
+    /// <summary>
+    /// The plan on the user's bar left behind its work (the user's pick, 2026-11-09): Sonnet 5.5 set a plan of four
+    /// steps, did all four without moving it, and answered, and the bar said "Module", the first, for good. When a run
+    /// ends short of its plan's end with work done since the plan last moved, the model is asked once where the plan
+    /// stands, aside: the conversation and <see cref="PlanBehindNote"/> go as one request with the same tools (so
+    /// the server's cache holds), only its plan calls run, and neither the note nor the reply joins the
+    /// conversation or the chat, so the answer stays the run's last word (a reply to a note in the chat became the
+    /// reply the run folded under). A plan set and then asked about ("does this suit you?") had no work after it.
+    /// </summary>
+    private async Task PlanBehindAsync(IAgentObserver observer, CancellationToken ct)
+    {
+        if (toolContext.Plan is not { Finished: false } before)
+            return;
+        var request = new List<ChatMessage>(History.Count + 2) { ChatMessage.System(systemPrompt) };
+        request.AddRange(History);
+        request.Add(ChatMessage.User(PlanBehindNote(before)));
+        ChatMessage reply;
+        try
+        {
+            reply = await CompleteWithReconnectAsync(request, tools.Definitions(), StepOptions(), observer, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return; // the answer stands, and the plan as it was
+        }
+        foreach (var call in reply.ToolCalls ?? [])
+            if (ToolCallRepair.ResolveTool(call.Name, tools) is PlanTool plan && ToolCallRepair.AsObject(call.Arguments) is { } args)
+            {
+                try { await plan.ExecuteAsync(args, toolContext, ct).ConfigureAwait(false); }
+                catch (ToolArgumentException) { }
+            }
+        var was = $"The plan was left at step {before.At + 1} of {before.Steps.Count}; asked the model where it stands";
+        observer.OnNotice(toolContext.Plan switch
+        {
+            { Finished: true } => $"{was}: all done.",
+            { } now when !ReferenceEquals(now, before) => $"{was}: step {now.At + 1}, \"{now.Steps[now.At].Word}\".",
+            _ => $"{was}: it left it there.",
+        });
+    }
 
     /// <summary>Whether the tool results since the model's previous reply include a click that changed nothing.</summary>
     private bool LastClickMissed()

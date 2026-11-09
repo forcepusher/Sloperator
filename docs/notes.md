@@ -1738,7 +1738,18 @@ tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 until the next message. Side tasks don't get the tool: their steps are not the chat's.
 
 Its calls have no cards, as the bar shows them, and a reply that only made one leaves no line in the
-chat. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
+chat.
+
+**A plan left behind its work** (the user's pick, 2026-11-09): Sonnet 5.5 set four steps, wrote the module, the tests
+and the README, ran the tests and answered, all without moving the plan, and the bar said "Module", the first, for good
+(in accent, as a plan the run stopped short of). When a run ends with its plan short of the end and a call other than
+plan since the plan last moved, the model is asked once where the plan stands (`AgentSession.PlanBehindAsync`):
+aside, as one request of the conversation, its tools and `PlanBehindNote` ("Call plan with now set to where the work
+stands … write nothing: your answer above stands"); only the plan calls of its reply run, and neither the note nor
+the reply joins the conversation or the chat, so the answer stays the run's last word, and what the run folds under
+(a reply to a note in the chat would have been the one kept, and the answer folded away). A line after the answer
+says so ("The plan was left at step 1 of 4; asked the model where it stands: all done."). A plan set and then put to
+the user ("does this suit you?") has no call after it, and stays. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
 last `now` lost that call, and the bar stopped a step short.
 
 `PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a

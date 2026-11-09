@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it sets up a server that only works with its program open, and knows how to start that program in later tasks.
 - **Plan bar** above the message box: for work of several steps the agent keeps a plan with the new
   `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
-  from point to point. It shows when the agent waits for you and which step a failure stopped on.
+  from point to point. It shows when the agent waits for you and which step a failure stopped on. When its work
+  ran ahead of the plan, the agent is asked once to bring it up to date as it finishes.
 - While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
 - The model dropdown has a search box when its models don't fit in the list, and a pin on each row that
   keeps your favourite models at the top.
