@@ -3022,7 +3022,10 @@ Each reply's own numbers are kept too, in `tokens` on its line in the chat's fil
 written, output; 2026-11-07, the user's pick after reading the chats of 3 and 4 November). The sum says how much was written to the
 cache, not when: that a pause of over 5 minutes wrote the whole context again could only be estimated from the
 times of the steps (one such pause at 300k on Sonnet 5.5, $0.75). They are for reading afterwards, shown nowhere, and
-go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply.
+go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply. The
+conversation in the file keeps the server's counts on its replies too (`ChatStore.ForSaving`, since 2026-11-10): a chat
+opened again measured its context by an estimate until its next reply (`AgentSession.TokensInUse`), which decides when
+the context is reset.
 
 Prices are typed per million tokens for a model on its server, the one in use or a row picked (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.

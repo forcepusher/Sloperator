@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A chat opened from **History** knows how full its context is from the server's own count, rather than an estimate,
+  so the context is compacted at the right time.
 - The agent is no longer told it is going in circles when it clicks or presses the same thing on purpose and the
   screen moves on each time, such as a counter's button or Down through a list.
 - A click whose effect shows a little way off, such as a counter above the button, is no longer reported to the agent
