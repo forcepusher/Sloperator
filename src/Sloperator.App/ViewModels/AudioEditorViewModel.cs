@@ -139,7 +139,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>The version whose waveform is shown; null before the sound has one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid))]
     private VersionItem? _shown;
 
     /// <summary>The version shown, read: its waveform, playhead and stretch picked, and its player.</summary>
@@ -151,10 +151,13 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>How the version shown was made, as its file says (ComfyUI's workflow); null when it doesn't.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe))]
+    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
     private MediaRecipe? _recipe;
 
     public bool HasRecipe => Recipe is not null;
+
+    /// <inheritdoc cref="ImageEditorViewModel.MadeUnsaid"/>
+    public bool MadeUnsaid => Shown is not null && Recipe is null;
 
     partial void OnSelectedChanged(AudioItem? value)
     {

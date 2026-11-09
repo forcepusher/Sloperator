@@ -124,7 +124,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>The version in the big view; null before the picture has one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPicture))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPicture), nameof(MadeUnsaid))]
     private VersionItem? _shown;
 
     /// <summary>The version shown, decoded.</summary>
@@ -139,10 +139,13 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>How the version shown was made, as its file says (ComfyUI's prompt, the settings); null when it doesn't.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe))]
+    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
     private MediaRecipe? _recipe;
 
     public bool HasRecipe => Recipe is not null;
+
+    /// <summary>A version is shown and says nothing of how it was made: said in the Prompt metadata column (with none shown, it said so of no version).</summary>
+    public bool MadeUnsaid => Shown is not null && Recipe is null;
 
     /// <summary>The zoom of the big view (1 fits it).</summary>
     [ObservableProperty]
