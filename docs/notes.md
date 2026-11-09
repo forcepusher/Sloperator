@@ -1618,7 +1618,9 @@ go back and is said. What else changes things isn't kept and can't be undone: ru
 ComfyUI and video jobs, MCP tools, write_file and edit_file on an SSH host, and clicks and typing in
 other programs. The chat says which of those ran in the part undone ("Not undone, as Sloperator
 doesn't keep what they change: run_shell ×2 and mouse_click."), with the files put back and any that
-couldn't be; nothing when only looking tools ran. A chat saved before turns has none on its messages,
+couldn't be; nothing when only looking tools ran, nor for Auto's card or the tools that change only
+Sloperator's own window (plan, show_panel, list_models): it said "Not undone…: Auto and run_shell" (2026-11-10). A
+chat saved before turns has none on its messages,
 so its files stay as they are, and the chat says so if write_file or edit_file ran.
 
 ## Scrollbars

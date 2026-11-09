@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Undoing a message no longer lists Auto's look, the plan or a side panel opened among what couldn't be undone.
 - Work in a folder a repository's .gitignore leaves out (a scratch folder, another project kept there) no longer has the agent
   told to index the whole repository and read its notes.
 - "Worked for" no longer counts the time a call waited for your OK.

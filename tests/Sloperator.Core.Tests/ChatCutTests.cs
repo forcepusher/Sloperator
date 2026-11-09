@@ -148,7 +148,7 @@ public class ChatCutTests
                      "Couldn't put back report.docx: It is open in Word. " +
                      "Not undone, as Sloperator doesn't keep what they change: run_shell ×2 and mouse_click.", said);
         // Only looking and replying: nothing to say.
-        Assert.Null(ChatCut.Said(new FileChanges.RollBack([], [], []), [("screenshot", true), ("read_file", true)]));
+        Assert.Null(ChatCut.Said(new FileChanges.RollBack([], [], []), [("screenshot", true), ("read_file", true), ("plan", true), ("show_panel", true)]));
         // A message from before messages had turns: its files can't be put back.
         Assert.StartsWith("The files write_file and edit_file changed weren't put back", ChatCut.Said(null, [("edit_file", true)]));
     }
