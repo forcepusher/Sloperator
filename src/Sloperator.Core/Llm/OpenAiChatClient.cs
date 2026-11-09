@@ -526,10 +526,11 @@ public sealed partial class OpenAiChatClient
         // up waiting for the rest of the request (408): worth sending again, like a
         // dropped connection, rather than ending a long run.
         if (status is 408 or >= 500)
-            return new ConnectionLostException($"{_baseUrl} answered {status}: {err.Clip(300)}", false);
+            return new ConnectionLostException($"{_baseUrl} answered {status}: {ErrorText(err).Clip(300)}", false);
         if (KeyRefusedException.For(status, err, _apiKey is not null) is { } refused)
             return refused;
-        return new LlmException($"Chat request failed ({status}): {err.Clip(1000)}");
+        // The server's words, not its JSON, as Anthropic's route says them: "No endpoints found that support image input".
+        return new LlmException($"Chat request failed ({status}): {ErrorText(err).Clip(1000)}");
     }
 
     /// <summary>
