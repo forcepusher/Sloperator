@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A message sent while the server can't be reached says so, rather than asking you to enter the address that is there.
 - The **Terminal** panel no longer shows a table's rows a blank line apart when Wrap is on.
 - Saving **MCP servers** text that isn't valid JSON shows why in plain words, with the line and character, and scrolls
   the message into sight.

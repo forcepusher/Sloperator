@@ -937,6 +937,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             var probe = Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count > 0 ? await ProbeServerAsync(quiet: true, ct, probeHttp) : null;
             // Said with Continue by the catch below, which also gives back what was sent meanwhile:
             // returning here left those messages above the box for good.
+            // A server that didn't answer says so: "Enter your model server's address" read as if none were there.
+            if (probe is { Reachable: false, Message: { Length: > 0 } why })
+                throw new InvalidOperationException(probe.KeyRefused
+                    ? $"{why} Then press Continue."
+                    : $"{why.TrimEnd('.')}. Check the server address at the top and that the server is running, then press Continue.");
             if (Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count == 0 || string.IsNullOrWhiteSpace(server.ModelInUse))
                 throw new InvalidOperationException("Enter your model server's address and pick a model at the top first, then press Continue.");
             // LM Studio loads models on first use; do that now so we know the real context size.

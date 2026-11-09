@@ -2386,7 +2386,9 @@ provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes a
 request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
 another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Any other failed
 request says the server's words too, not its JSON ("Chat request failed (404): No endpoints found that support image
-input"), as the Messages route already did. Nothing answering on LM
+input"), as the Messages route already did. A message sent while the server can't be reached stops with that and Continue
+("Can't reach the server: … Check the server address at the top and that the server is running"), where it asked to enter
+an address that was there (2026-11-10). Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
 1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
