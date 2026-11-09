@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Screen readers name every text box, dropdown and slider, such as the server address, API key, message box and
+  **Tool call approval**, rather than calling them "edit" or "combo box".
 - A workbook the agent writes or edits shows its totals and other plain formulas in the File inspector and Windows' preview,
   rather than empty cells or old totals until Excel opens it.
 - When a program the agent runs isn't installed, it is told so, and to ask you before installing, rather than that

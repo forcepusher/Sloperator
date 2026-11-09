@@ -128,7 +128,7 @@
             <PathIcon Data="{Binding PlayIcon}" Width="14" Height="14" />
           </Button>
           <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText}" FontSize="12" FontFeatures="+tnum" VerticalAlignment="Center" Margin="12,0,4,0" />
-          <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" Margin="8,0,0,0" VerticalAlignment="Center" />
+          <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" AutomationProperties.Name="Position" Margin="8,0,0,0" VerticalAlignment="Center" />
         </DockPanel>
         <Button Classes="bare" Click="OnMediaClick" ToolTip.Tip="Full screen" AutomationProperties.Name="Video full screen" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 views:FileMenu.Image="{Binding Frame}" views:FileMenu.File="{Binding Path}">
@@ -159,7 +159,7 @@
         <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText}" FontSize="12" FontFeatures="+tnum" VerticalAlignment="Center" Margin="12,0,0,0" />
         <Panel Height="64" Margin="12,0,0,0">
           <Image Source="{Binding Waveform}" Stretch="Fill" />
-          <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" VerticalAlignment="Center" Opacity="0.85" />
+          <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" AutomationProperties.Name="Position" VerticalAlignment="Center" Opacity="0.85" />
         </Panel>
       </DockPanel>
     </DataTemplate>

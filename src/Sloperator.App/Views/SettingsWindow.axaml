@@ -44,7 +44,7 @@
         <ScrollViewer>
           <StackPanel Spacing="4" Margin="16,8,28,24">
             <TextBlock Classes="h2" Text="Things Sloperator should always know" />
-            <TextBox Text="{Binding Agent.CustomInstructions}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100"
+            <TextBox Text="{Binding Agent.CustomInstructions}" AutomationProperties.Name="Things Sloperator should always know" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100"
                      PlaceholderText="For example: my documents are in D:\Docs. Use Firefox for browsing. Answer in German." />
 
             <TextBlock Classes="h2" Text="Auto model" />
@@ -74,7 +74,7 @@
             <TextBlock Classes="h2" Text="Safety" />
             <Grid Classes="form" ColumnDefinitions="160,*">
               <TextBlock Classes="label" Text="Tool call approval" />
-              <ComboBox Grid.Column="1" ItemsSource="{Binding ApprovalModes}" SelectedIndex="{Binding ApprovalIndex}" HorizontalAlignment="Stretch" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding ApprovalModes}" AutomationProperties.Name="Tool call approval" SelectedIndex="{Binding ApprovalIndex}" HorizontalAlignment="Stretch" />
             </Grid>
             <CheckBox x:Name="ScreenshotsBox" IsChecked="{Binding Agent.EnableScreenshots}" Content="Enable screenshots" />
             <!-- No clicking blind: the mouse and keyboard only go with screenshots. -->
@@ -133,7 +133,7 @@
             <TextBlock Classes="h2" Text="MCP servers" />
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Tools from other programs, like Blender. Sloperator adds them as needed."
                        ToolTip.Tip="{Binding Paths.McpConfigFile, StringFormat='Kept in {0}'}" />
-            <TextBox x:Name="McpBox" Text="{Binding McpConfigText}" PlaceholderText="{Binding McpExample}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+            <TextBox x:Name="McpBox" AutomationProperties.Name="MCP servers" Text="{Binding McpConfigText}" PlaceholderText="{Binding McpExample}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
                      FontFamily="Cascadia Mono,Consolas,Menlo,monospace" FontSize="12" MinHeight="200" Margin="0,8,0,0"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ToolTip.Tip="Same format as Claude Desktop, LM Studio and Cursor" />

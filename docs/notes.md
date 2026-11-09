@@ -1895,6 +1895,11 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
   reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
 ## One look for every control
+Every control a person can type in, pick from or drag has a name for screen readers and UI Automation
+(`AutomationProperties.Name`, the words of the label beside it): the server address, API key, context size, the
+message box ("Message"), the players' Position sliders, and in Settings the instructions box, Tool call approval
+and MCP servers had none (2026-11-10), so a screen reader said "edit" or "combo box" alone.
+
 Every window and side panel draws its controls from the styles in App.axaml, one a kind, not
 sizes set on each control (the user, 2026-10-30, after drift was found in turn: text boxes with
 different focus rules, popups anchored differently, Servers' brushes, text off centre, History and
