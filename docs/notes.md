@@ -2614,7 +2614,8 @@ model is its name as the server lists it, or in words: those whose name holds th
 however written, so "opus 5.5" is `claude-opus-5-5` (and OpenRouter's `anthropic/claude-opus-5.5`),
 "haiku" any Haiku, but "opus 5" not Opus 5.5, a version being one word (5.5) and a date or size not
 part of it; failing that, a part of the name as written. Of several, the same for every model and
-server: the highest version the name gives (its first number that isn't a date), then the strongest
+server: the highest version the name gives (its first number that isn't a date or a size: "gpt" found
+`openai/gpt-oss-120b` as version 120 until 9 November 2026), then the strongest
 by the agent-model ranking on what the names tell, then the shortest name (an alias rather than a
 dated one); the result names the others, to switch again by name (the user, 3 November 2026: "haiku 5.5", "opus
 5.5", or even "haiku" or "opus" should work; before, a name that fitted several changed nothing). The
