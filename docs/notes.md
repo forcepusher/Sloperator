@@ -5061,6 +5061,12 @@ inputs of the modifier), qwen3.8 failed 11 and 6 scripts in two runs before the 
 (see Unstable connections), and searched only after the 7th and the 4th failure; with them it failed
 4 and 3, searched after the second, and finished in 6.4 minutes on average instead of 7.7.
 
+A search's results end with one line, when they have snippets (`WebSearchTool.SnippetsMayBeOld`): the snippets come
+from the search engine's index and can be out of date, so open the page before stating a version, a date or a price
+(the user's pick, 2026-11-09, about 30 tokens a search). Asked for 7-Zip's newest version in the desktop check,
+Haiku 5.5 wrote 26.05 from the snippets of 7-zip.org and two trackers where the page said 26.06; with the line it
+read 7-zip.org and wrote 26.06.
+
 Errors weren't enough. Asked to make a character follow a video's motion with LTX, a run tried
 workflows for two hours: nothing failed, the videos just didn't move as asked, and the job was done
 right after the user said to look for guidance and it read LTX's motion control guide. So Sloperator
