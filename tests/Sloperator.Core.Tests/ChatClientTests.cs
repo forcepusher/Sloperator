@@ -437,6 +437,14 @@ public class ChatClientTests
         Assert.Null((await ServerProbe.TryContextAsync(page, new Sloperator.Core.Settings.ServerSettings { BaseUrl = "http://host:80", Model = "m" }, CancellationToken.None)).Context);
     }
 
+    [Theory]
+    [InlineData("""{"error":{"message":"Provider returned error","metadata":{"raw":"{\"error\":{\"message\":\"Overloaded\"}}"}}}""", "Provider returned error: Overloaded")]
+    [InlineData("""{"error":{"message":"Provider returned error","metadata":{"raw":""}}}""", "Provider returned error")]
+    [InlineData("""{"error":{"message":"Bad gateway: upstream timed out","metadata":{"raw":"upstream timed out"}}}""", "Bad gateway: upstream timed out")]
+    [InlineData("""{"error":"busy"}""", "busy")]
+    public void A_gateway_error_says_what_the_provider_behind_it_said(string body, string said) =>
+        Assert.Equal(said, OpenAiChatClient.ErrorText(body));
+
     [Fact]
     public async Task A_refused_api_key_is_named_as_such_not_as_an_unreachable_server()
     {
@@ -449,6 +457,13 @@ public class ChatClientTests
         var wrongKey = await Assert.ThrowsAsync<KeyRefusedException>(Send);
         Assert.Equal("The server turned down the API key (it says \"User not found.\"). Check the key next to the server address at the top.", wrongKey.Message);
         Assert.Contains("run out of credits (it says \"Insufficient credits\")", (await Assert.ThrowsAsync<KeyRefusedException>(Send)).Message);
+
+        // The provider behind OpenRouter turning the model down is no fault of the key, and says why.
+        server.Failures.Enqueue((System.Net.HttpStatusCode.Forbidden, """{"error":{"message":"Provider returned error","code":403,"metadata":{"raw":"sakana/fugu-max is not available in your region: Sakana AI blocks requests originating from your location.","provider_name":"Sakana AI","is_byok":false}}}"""));
+        Assert.Equal("The model's provider turned the request down (it says \"Provider returned error: sakana/fugu-max is not available in your region: "
+            + "Sakana AI blocks requests originating from your location.\"). Pick another model at the top.", (await Assert.ThrowsAsync<KeyRefusedException>(Send)).Message);
+        server.Failures.Enqueue((System.Net.HttpStatusCode.Forbidden, """{"error":{"message":"Key limit exceeded","code":403}}"""));
+        Assert.Contains("the API key may be wrong", (await Assert.ThrowsAsync<KeyRefusedException>(Send)).Message);
 
         // OpenAI wants a key for its model list too: the server answered, so it isn't "Can't reach the server".
         var noKey = await ServerProbe.CheckAsync(new HttpClient(new KeyServer()), new Sloperator.Core.Settings.ServerSettings { BaseUrl = "api.example.com/v1" }, CancellationToken.None);

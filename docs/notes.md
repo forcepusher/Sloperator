@@ -2360,7 +2360,11 @@ that answers. An API key, if your server needs one, goes next to the address (th
 shows it). A server that answers but turns the key down (none given, a wrong one, an account out
 of credits: HTTP 401, 402, 403) says so, with the server's own words and what to change, rather
 than "Can't reach the server" and its JSON: a wrong OpenRouter key showed only `Chat request
-failed (401): {"error":{"message":"User not found.","code":401}}`. Nothing answering on LM
+failed (401): {"error":{"message":"User not found.","code":401}}`. A gateway's error carries what the
+provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes after its own words
+(`ErrorText`); a 403 with it is the provider's refusal, not the key's: "The model's provider turned the
+request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
+another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
 1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says

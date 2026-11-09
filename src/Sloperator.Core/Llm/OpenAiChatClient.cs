@@ -148,7 +148,9 @@ public sealed class KeyRefusedException(string message, bool outOfCredit = false
             401 when keySent => new($"The server turned down the API key{said}. Check the key next to the server address at the top."),
             401 => new($"The server wants an API key{said}. Enter yours next to the server address at the top."),
             402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top.", outOfCredit: true),
-            403 when keySent => new($"The server refused access{said}: the API key may be wrong, or not allowed to use this model."),
+            // The provider behind a gateway, not the key: "not available in your region".
+            403 when OpenAiChatClient.FromProvider(body) => new($"The model's provider turned the request down{said}. Pick another model at the top."),
+            403 when keySent =>new($"The server refused access{said}: the API key may be wrong, or not allowed to use this model."),
             403 => new($"The server refused access{said}: it may want an API key, next to the server address at the top."),
             _ => null,
         };
@@ -591,6 +593,8 @@ public sealed partial class OpenAiChatClient
             {
                 var errorText = (error as JsonObject)?["message"]?.ToString()
                                 ?? (error is JsonValue said && said.TryGetValue<string>(out var words) ? words : error.ToJsonString());
+                if (ProviderSaid(error) is { } provider && !errorText.Contains(provider, StringComparison.Ordinal))
+                    errorText += ": " + provider;
                 var code = (error as JsonObject)?["code"]?.ToString();
                 throw StreamError(errorText, code, error.ToJsonString(), content.Length > 0 || reasoning.Length > 0 || calls.Count > 0,
                     calls.Values.LastOrDefault().Name is { Length: > 0 } inProgress ? inProgress : null);
@@ -912,16 +916,42 @@ public sealed partial class OpenAiChatClient
         return obj;
     }
 
-    /// <summary>The message of a JSON error ({"error":{"message":…}} or {"error":"busy"}), else the answer as it is.</summary>
+    /// <summary>
+    /// The message of a JSON error ({"error":{"message":…}} or {"error":"busy"}), else the answer as it is. A
+    /// gateway's error says what the provider behind it said too: OpenRouter's "Provider returned error" alone
+    /// hid that the model "is not available in your region" (sakana/fugu-max, 2026-11-10).
+    /// </summary>
     internal static string ErrorText(string err)
     {
         try
         {
             if (JsonNode.Parse(err) is JsonObject answer && answer["error"] is JsonNode error)
-                return ((error as JsonObject)?["message"] ?? error).ToString();
+            {
+                var message = ((error as JsonObject)?["message"] ?? error).ToString();
+                return ProviderSaid(error) is { } said && !message.Contains(said, StringComparison.Ordinal) ? $"{message}: {said}" : message;
+            }
         }
         catch (JsonException) { }
         return err.Trim();
+    }
+
+    /// <summary>What the provider behind a gateway said, in the error's metadata.raw (OpenRouter, Kilo); null when it isn't there.</summary>
+    private static string? ProviderSaid(JsonNode error) =>
+        (error as JsonObject)?["metadata"]?["raw"] is JsonValue raw && raw.TryGetValue<string>(out var said) && said.Trim() is { Length: > 0 } text
+            ? ErrorText(text)
+            : null;
+
+    /// <summary>Whether a JSON error is the provider behind a gateway turning the request down, not the gateway.</summary>
+    internal static bool FromProvider(string err)
+    {
+        try
+        {
+            return JsonNode.Parse(err) is JsonObject answer && answer["error"] is { } error && ProviderSaid(error) is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

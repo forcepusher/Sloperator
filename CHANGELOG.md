@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A model that OpenRouter's provider turns down no longer blames your API key: the message says what the provider
+  said, such as the model not being available in your region.
 - **File changes** says it lists the files the agent writes or edits, not what its commands change: a file a command
   deleted never showed, under a line that promised every change.
 - The Image editor no longer says "The version shown says nothing of how it was made" before a picture is picked.
