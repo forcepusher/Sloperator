@@ -128,11 +128,12 @@ internal static partial class SheetEdit
         if (formulas || rows.Count > 0 || others)
         {
             Recalculate(parts);
-            // Plain formulas get their new values here, for what shows the file without working them out.
+            // Plain formulas get their new values here, for what shows the file without working them out. A sheet of
+            // more formulas than a hand-made one has is left to Excel: each edit would go over all of them.
             foreach (var sheet in sheets)
             {
                 var xml = parts.Get(sheet.Part);
-                if (!xml.Descendants(S + "f").Any())
+                if (xml.Descendants(S + "f").Take(MaxWorkedOut + 1).Count() is 0 or > MaxWorkedOut)
                     continue;
                 SheetFormula.WriteValues(xml.Descendants(S + "c"));
                 parts.Changed(sheet.Part);
@@ -148,6 +149,9 @@ internal static partial class SheetEdit
 
     /// <summary>Excel's last row, and the most rows one line may insert.</summary>
     private const int MaxRow = 1_048_576, MaxInsert = 100_000;
+
+    /// <summary>The most formulas a sheet may have for an edit to work them out (see <see cref="SheetFormula.WriteValues"/>).</summary>
+    private const int MaxWorkedOut = 5_000;
 
     /// <summary>
     /// Cell lines as read_file shows them and row insertions and deletions ("insert row 7",

@@ -139,7 +139,9 @@ public sealed partial class TerminalViewModel : ObservableObject, IWatchPanel
         var lines = run.LinesFrom(_shownLines);
         if (lines.Count == 0)
             return;
-        var text = (_shownLines == 0 ? "" : "\n") + string.Join("\n", lines);
+        // Without the spaces a line ends with: PowerShell pads a table's lines to the console's width, and with Wrap
+        // on each wrapped to a blank line under it (Get-ChildItem's rows shown a line apart, 2026-11-10).
+        var text = (_shownLines == 0 ? "" : "\n") + string.Join("\n", lines.Select(l => l.TrimEnd()));
         _shownLines += lines.Count;
         document.Insert(document.TextLength, text);
         OnPropertyChanged(nameof(Details));

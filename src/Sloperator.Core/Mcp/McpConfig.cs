@@ -140,6 +140,25 @@ public sealed class McpConfig
         return (root, servers);
     }
 
+    /// <summary>
+    /// Where the text stops being JSON and why, in words: .NET's "Expected depth to be zero at the end of the JSON
+    /// payload… LineNumber: 0 | BytePositionInLine: 43." showed under the box as it was.
+    /// </summary>
+    internal static string NotJson(JsonException ex)
+    {
+        var reason = ex.Message;
+        foreach (var tail in (string[])[" Path:", " LineNumber:"])
+            if (reason.IndexOf(tail, StringComparison.Ordinal) is > 0 and var cut)
+                reason = reason[..cut];
+        reason = reason.TrimEnd(' ', '.', '|');
+        if (reason.StartsWith("Expected depth to be zero", StringComparison.Ordinal))
+            reason = "a { or [ is never closed";
+        else if (reason.Contains("end of data", StringComparison.OrdinalIgnoreCase) || reason.Contains("incomplete", StringComparison.OrdinalIgnoreCase))
+            reason = "it ends too soon";
+        var at = ex.LineNumber is { } line ? $" (line {line + 1}{(ex.BytePositionInLine is { } column ? $", character {column + 1}" : "")})" : "";
+        return $"This is not valid JSON{at}: {reason}.";
+    }
+
     /// <summary>Parses the file text; a readable <see cref="McpConfigException"/> says what is wrong with it.</summary>
     public static McpConfig Parse(string json)
     {
@@ -153,7 +172,7 @@ public sealed class McpConfig
         }
         catch (JsonException ex)
         {
-            throw new McpConfigException("This is not valid JSON: " + ex.Message);
+            throw new McpConfigException(NotJson(ex));
         }
         if (root is not JsonObject obj)
             throw new McpConfigException("The file must be a JSON object with an \"mcpServers\" entry.");

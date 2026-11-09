@@ -67,6 +67,8 @@ public class McpTests
 
     [Theory]
     [InlineData("not json", "not valid JSON")]
+    // Where and why in words, not .NET's "Expected depth to be zero at the end of the JSON payload… BytePositionInLine: 43".
+    [InlineData("""{ "mcpServers": { "x": { "command": "node" """, "This is not valid JSON (line 1, character 44): a { or [ is never closed.")]
     [InlineData("[1,2]", "must be a JSON object")]
     [InlineData("""{"foo": 1}""", "No \"mcpServers\" entry")]
     [InlineData("""{"mcpServers": {"a": {}}}""", "needs either \"command\"")]

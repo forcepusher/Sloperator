@@ -137,7 +137,7 @@
                      FontFamily="Cascadia Mono,Consolas,Menlo,monospace" FontSize="12" MinHeight="200" Margin="0,8,0,0"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ToolTip.Tip="Same format as Claude Desktop, LM Studio and Cursor" />
-            <views:SelectableText Classes="muted error" TextWrapping="Wrap" Text="{Binding McpError}" IsVisible="{Binding HasMcpError}" />
+            <views:SelectableText x:Name="McpErrorText" Classes="muted error" TextWrapping="Wrap" Text="{Binding McpError}" IsVisible="{Binding HasMcpError}" />
             <views:SelectableText Classes="muted" TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding McpStatusText}" IsVisible="{Binding HasMcpStatus}" />
           </StackPanel>
         </ScrollViewer>

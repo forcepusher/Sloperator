@@ -110,7 +110,8 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
   formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value"): a total showed as
   an empty cell there (2026-11-10). Anything else (another sheet's cell, text, other functions, a division by zero, a
-  loop) has none, as before. An edit (`SheetEdit`) works them out again on every sheet, so a total over a number
+  loop) has none, as before. An edit (`SheetEdit`) works them out again on every sheet of up to 5,000 formulas (more
+  are left to Excel, as each edit would go over them all), so a total over a number
   changed shows its new value; one that can't be worked out here keeps Excel's last, and so do those that use it. A
   chain of formulas over 200 deep is left to Excel (`SheetFormula.MaxDepth`): followed from the top, 5,000 would overflow the stack.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
@@ -1507,7 +1508,8 @@ folder. The frame tool now says when a frame is made from words alone in a video
 
 ## Chat history
 Every chat is saved on its own in `SloperatorData/chats/` from its first message on, after every step, and
-named after that message. **History** next to **New chat** lists them, the latest first: pick one to
+named after that message, a long path in it cut to its last name (`ChatStore.TitleFrom`: "In …\units make a
+module", where every row read "In C:\Repos\Sloperator\.dev\shine-test\r3…", 2026-11-10). **History** next to **New chat** lists them, the latest first: pick one to
 read it and carry on where it stopped (the model gets the conversation back), or delete it with its
 trash button. The pictures the model was shown (screenshots, zoomed crops, pictures tools made or
 the user sent) are kept beside the chat, in `SloperatorData/chats/<id>/` as `0001.jpg`, `0002.png`… in the
@@ -4858,7 +4860,10 @@ starting a WebView2 of its own, so that one is neither written down nor said (`C
 **Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
 the agent runs, live (the user's request through the coordinator, 2026-11-01): run_shell on this PC and ssh
 on a server. Read-only: a command's input is closed (run_shell) or answered by the agent (ssh's input), so
-nothing is typed here.
+nothing is typed here. Lines show without the spaces they end with: PowerShell
+pads a table's lines to the console's width, and with Wrap on each wrapped to a blank line under it (2026-11-10).
+The model gets them without such padding either (`ShellTool.OutputCapture`: 8 spaces or more at a line's end;
+Get-ChildItem's rows ended in some 60 each), while a few (Markdown's line break, a diff's whitespace) stay.
 
 **Where the lines come from.** The tools had no way to hand their output on as it came; now `ToolContext.Commands`
 (a `CommandLog`, one per chat, made with File changes' list in `UseChanges` and given to the session by
@@ -5365,6 +5370,10 @@ it is the same format Claude Desktop, LM Studio and Cursor use, and it is kept i
   }
 }
 ```
+
+Text that isn't a server list isn't saved: Save goes to the box and says under it what is wrong, the error brought into
+sight with the box (it stayed under the window's edge), in words and with where (`McpConfig.NotJson`: "This is not valid
+JSON (line 1, character 44): a { or [ is never closed.", where .NET's own words were shown, 2026-11-10).
 
 Servers with a `command` are started with Sloperator (and stopped with it); `env` and `cwd` are passed
 on. Servers with a `url` are connected to over Streamable HTTP, or the older SSE protocol when the

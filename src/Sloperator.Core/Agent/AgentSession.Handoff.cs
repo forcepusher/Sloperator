@@ -122,7 +122,8 @@ public sealed partial class AgentSession
         // Very long user messages alone could still be too big; trimming is the last resort.
         if (EstimateTokens() > ResetThreshold)
             FitContext(ResetThreshold);
-        observer.OnNotice($"Context reset: about {before / 1000}k tokens replaced by a handoff note ({EstimateTokens() / 1000 + 1}k).");
+        // What the context holds now, prompt and tools included: "replaced by a handoff note (16k)" read as a 16k note.
+        observer.OnNotice($"Context reset: about {before / 1000}k tokens replaced by a handoff note; the context is now about {EstimateTokens() / 1000 + 1}k.");
     }
 
     private async Task<string> TryHandoffNoteAsync(IAgentObserver observer, CancellationToken ct)

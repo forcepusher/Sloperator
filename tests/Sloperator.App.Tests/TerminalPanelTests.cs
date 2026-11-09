@@ -41,7 +41,8 @@ public sealed class TerminalPanelTests : IDisposable
             Assert.Same(vm.Commands[1], vm.Selected);
             Assert.Equal("journalctl -n 3", vm.Commands[1].Command);
             Assert.StartsWith("admin@web1 · running", vm.Commands[1].Status);
-            second.Add("two");
+            // A table's line padded to the console's width shows without its spaces, which wrapped to a blank line.
+            second.Add("two" + new string(' ', 120));
             second.Add("three");
             Refresh();
             Assert.Equal("one\ntwo\nthree", vm.Document!.Text);
