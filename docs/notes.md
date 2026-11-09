@@ -1538,7 +1538,9 @@ the step over it has the time; a wait for your OK doesn't count), and a notice w
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
 and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s"),
 or, once the task's work is folded (below), its card does.
-The times are saved with the chat; a chat saved before they were kept shows none.
+The times are saved with the chat; a chat saved before they were kept shows none. The time waiting for the user's
+OK on a call (Tool call approval) isn't work and isn't counted (`MainWindowViewModel._waitedForOk`): a Get-Date
+allowed after 25 s said "Worked for 28 s" (2026-11-10), now 8 s.
 
 ### Folded work
 Once a run is over, its work folds under one card where it began (the user, 2026-11-08: "Fold all work

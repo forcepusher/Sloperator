@@ -144,14 +144,22 @@ public sealed partial class MainWindowViewModel
 
     async Task<bool> IAgentObserver.RequestApprovalAsync(ToolCall call, Tool tool, string summary, CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var asked = DateTime.UtcNow;
+        try
         {
-            if (_runDetached) return Task.FromResult(false);
-            var item = FindOrAddTool(call, summary);
-            var waiting = item.WaitForApprovalAsync(ct);
-            NotifyUser(FirstLine($"Waiting for your OK: {summary}"));
-            return waiting;
-        });
+            return await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_runDetached) return Task.FromResult(false);
+                var item = FindOrAddTool(call, summary);
+                var waiting = item.WaitForApprovalAsync(ct);
+                NotifyUser(FirstLine($"Waiting for your OK: {summary}"));
+                return waiting;
+            });
+        }
+        finally
+        {
+            Interlocked.Add(ref _waitedForOk, (DateTime.UtcNow - asked).Ticks);
+        }
     }
 
     /// <summary>The offer of text recognition on the chat bar; one at a time, until it is answered.</summary>
@@ -311,6 +319,7 @@ public sealed partial class MainWindowViewModel
     {
         // Read here: by the time the window gets to this, a run of what came too late for this one may have started.
         var started = _runStarted;
+        var waited = TimeSpan.FromTicks(Interlocked.Read(ref _waitedForOk));
         var logged = _failureLogged;
         _failureLogged = false;
         var compacting = _compacting;
@@ -335,7 +344,7 @@ public sealed partial class MainWindowViewModel
             // How long the run took, under the line it ended with: its last reply, or the notice it
             // stopped with. A message of the user's that came too late for it is the next run's.
             if (Items.LastOrDefault(i => i is not UserMessageItem && i.At >= started) is { } end)
-                end.RunTook = at - started;
+                end.RunTook = at - started - waited;
             ShowCaptureInReply(Items, started, _previews);
             // Its work out of the way under a card, the reply in sight.
             WorkFold.FoldFinished(Items, toTheEnd: false);
