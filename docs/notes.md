@@ -4720,7 +4720,8 @@ day, as an Auto panel to come will be the live view of the model's work; the cod
 exe, WebView2 being Windows' own Edge runtime: the published exe grew 0.24 MB (28,141,496 to 28,384,893 bytes
 against develop 4d0fd59, no trim warnings), and the trimmed exe ran the panel as the Debug build did. Its profile (cookies, cache, local storage) is kept in
 SloperatorData\webview (`AppPaths.WebViewDir`, set as WebView2's user data folder in `EnvironmentRequested`), so the app
-stays portable.
+stays portable. Under the page is white, as in a browser (`NativeWebView.Background`): the web view took the panel's
+dark background, and a page that sets none of its own showed its black text on #161616 (2026-11-10).
 
 **Ways in.** Open file in its bar (a picker of .html and .htm, in the shown page's folder), a page dropped on
 the panel (`Drop`: the first web page of the files; other files go with the next message), and **Open in
