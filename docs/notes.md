@@ -5186,7 +5186,10 @@ look", mostly after edits made through the shell, and the Unity CLI note stays.
 once for those rounds. Screenshots, zooms and waits don't count. It used to count one call three times among the last twelve,
 and all 44 notes in those chats were wrong: 36 a Unity menu opened with the same two clicks for a different item
 each time, 6 a zoom on the same spot after each action, 2 the Play button; the model never reacted to one. Played
-through the new rule: none. "The screen has not changed" is as it was.
+through the new rule: none. "The screen has not changed" is as it was. One call made three times that left a new
+screen each time is stepping, not going round (`LoopDetector.Stepping`): asked to click a page's "Click me" a few
+times, Qwen 3.8 was told after the third that it was repeating itself (2026-11-10). A screen seen before in those three
+(a box ticked, unticked, ticked) and a call that shows no screen (a command) still count.
 
 Measured with qwen3.8 on the Blender 5.2 task made from the command line instead (`blender -b`,
 one run each): before, it thought "let me do a quick web search… Actually, let me think about what
