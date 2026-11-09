@@ -179,15 +179,11 @@ public sealed partial class MainWindowViewModel
             return $"The {name} doesn't show {(folder ? "a folder" : Path.GetFileName(path))}.";
         if (IsAuto)
         {
-            var old = SidePanel;
-            if (!ReferenceEquals(option, _autoShown) || old is null)
+            if (!ReferenceEquals(option, _autoShown) || SidePanel is null)
             {
                 foreach (var picked in Attachments.Where(a => a.Picked).ToList())
                     RemoveAttachment(picked);
-                AutoShown = option;
-                SidePanel = OpenForAuto(option);
-                if (old is not null && !ReferenceEquals(old, _autoChanges))
-                    old.Dispose();
+                ReplaceAutoPanel(option);
             }
         }
         else if (!ReferenceEquals(SelectedSidePanel, option))
