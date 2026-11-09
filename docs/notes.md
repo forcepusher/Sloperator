@@ -1507,7 +1507,8 @@ folder. The frame tool now says when a frame is made from words alone in a video
 
 ## Chat history
 Every chat is saved on its own in `SloperatorData/chats/` from its first message on, after every step, and
-named after that message. **History** next to **New chat** lists them, the latest first: pick one to
+named after that message, a long path in it cut to its last name (`ChatStore.TitleFrom`: "In …\units make a
+module", where every row read "In C:\Repos\Sloperator\.dev\shine-test\r3…", 2026-11-10). **History** next to **New chat** lists them, the latest first: pick one to
 read it and carry on where it stopped (the model gets the conversation back), or delete it with its
 trash button. The pictures the model was shown (screenshots, zoomed crops, pictures tools made or
 the user sent) are kept beside the chat, in `SloperatorData/chats/<id>/` as `0001.jpg`, `0002.png`… in the

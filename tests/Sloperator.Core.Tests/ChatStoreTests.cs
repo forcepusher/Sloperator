@@ -306,6 +306,11 @@ public class ChatStoreTests : IDisposable
     [Theory]
     [InlineData("  Open Notepad  ", "Open Notepad")]
     [InlineData("First line\nsecond line", "First line")]
+    // A long path is cut to its last name; a short one, or one with spaces, stays.
+    [InlineData(@"In C:\Repos\Sloperator\.dev\shine-test\r3or\units make a module", @"In …\units make a module")]
+    [InlineData(@"Open \\nas\share\reports\2026\q3.xlsx and sum it", @"Open …\q3.xlsx and sum it")]
+    [InlineData(@"Clean C:\Temp\x up", @"Clean C:\Temp\x up")]
+    [InlineData(@"Sort C:\My Documents\Photos by date", @"Sort C:\My Documents\Photos by date")]
     public void The_title_is_the_first_line_of_the_first_message(string message, string title) =>
         Assert.Equal(title, ChatStore.TitleFrom(message));
 

@@ -163,19 +163,27 @@ public sealed class ChatHeader
 }
 
 /// <summary>Every chat is its own file, SloperatorData/chats/&lt;id&gt;.json, written whenever the chat changes.</summary>
-public sealed class ChatStore(string dir)
+public sealed partial class ChatStore(string dir)
 {
     public string Folder { get; } = dir;
 
     // Invariant: a Thai Windows wrote the Buddhist year (25691017-…) and a Saudi one the Hijri date.
     public static string NewId() => DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N")[..6];
 
-    /// <summary>The first line of the first message, cut to fit the dropdown.</summary>
+    /// <summary>
+    /// The first line of the first message, cut to fit the dropdown. A long path in it is cut to its last folder
+    /// or file: History's rows all read "In C:\Repos\Sloperator\.dev\shine-test\r3…" (2026-11-10).
+    /// </summary>
     public static string TitleFrom(string firstMessage)
     {
         var line = firstMessage.Trim().Split('\n')[0].Trim();
+        line = LongPath().Replace(line, m => m.Length > 30 ? "…\\" + m.Groups["last"].Value : m.Value);
         return line.Length <= 80 ? line : line[..77].TrimEnd() + "…";
     }
+
+    // A path with a drive or a share and two or more names, without spaces: C:\Repos\Game\src, \\nas\share\docs.
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?:\b[A-Za-z]:|\\\\[^\\\s]+)\\(?:[^\\\s""'<>|:*?]+\\)+(?<last>[^\\\s""'<>|:*?]+)")]
+    private static partial System.Text.RegularExpressions.Regex LongPath();
 
     /// <summary>Saved chats, the most recently changed first. Files that don't parse are left out.</summary>
     public List<ChatHeader> List()
