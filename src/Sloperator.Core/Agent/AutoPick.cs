@@ -25,6 +25,18 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     /// <summary>Replies the evaluation gets at most: a look around, not the task.</summary>
     internal const int MaxSteps = 12;
 
+    /// <summary>The most words a reply is short at: <see cref="IsShortReply"/>.</summary>
+    internal const int ShortReplyWords = 5;
+
+    /// <summary>
+    /// A short reply in a chat under way ("thanks", "yes, go on", "do it"), with no file or panel pick: it goes
+    /// on with the model and effort in use, with no look first (the user's pick, 2026-11-09: each such message
+    /// took 2 to 7 s and a request of the evaluation model). A first message is looked at however short.
+    /// </summary>
+    public static bool IsShortReply(UserInput input, bool chatUnderWay) =>
+        chatUnderWay && input.Files.Count == 0 && input.Cards is not { Count: > 0 } && input.Context is null &&
+        input.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= ShortReplyWords;
+
     /// <summary>
     /// What the evaluation model is asked. It picks the model where <paramref name="pickModel"/> and the effort
     /// where <paramref name="pickEffort"/>; <paramref name="chatTokens"/> and <paramref name="chatModel"/> say how

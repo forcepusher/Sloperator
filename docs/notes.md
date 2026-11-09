@@ -2693,8 +2693,10 @@ evaluation to every message with no model to choose. switch_model with no model,
 pick", is Auto.
 
 **The evaluation** (`AgentSession.EvaluateAsync`, `AutoPick`): when a message starts a run (not a Compact, not a
-message sent during a run) and Auto has something to pick (`AutoToPick`: the model on Auto with two of the three
-differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
+message sent during a run, not a short reply in a chat under way: five words or fewer with no file, pick or panel
+context, "yes, go on", `AutoPick.IsShortReply`, which goes on with the model and effort in use, the user's pick of
+2026-11-09, as each took 2 to 7 s and a request) and Auto has something to pick (`AutoToPick`: the model on Auto with
+two of the three differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
 run's session: a side task on the evaluation model at low effort (the nearest it takes), with `read_file`,
 `list_directory`, `index_folder`, `web_search` and `fetch_page` only, 12 replies at most. It is told the three models
 (evaluation for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which

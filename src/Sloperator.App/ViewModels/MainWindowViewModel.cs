@@ -774,8 +774,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
             var runInput = input;
-            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it.
-            if (input is not null && AutoToPick(probe) is var (set, pickModel, pickEffort))
+            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it;
+            // a short reply in the chat goes on with the model in use.
+            if (input is not null && !AutoPick.IsShortReply(input, history.Count > 0) && AutoToPick(probe) is var (set, pickModel, pickEffort))
             {
                 var tier = server.AutoTier;
                 var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort);
