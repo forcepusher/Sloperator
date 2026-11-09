@@ -290,7 +290,7 @@ public static class SystemPrompt
         if (sidePanel)
             sb.AppendLine("- Sloperator's side panel, left of this chat, shows the user your work: File changes, Code editor, Web preview, Terminal, and the Image, " +
                           $"Audio and Video editors, whose pictures, sounds and videos are folders in {Path.Combine("{data folder}", "pictures")}, \\sounds and \\videos. " +
-                          "On Auto, its default, it opens by itself to what you write, run or make; you can't open or see it.");
+                          "On Auto, its default, it opens by itself to what you write, run or make; show_panel opens it when the user asks to see something there. You can't see it.");
         // Asked for "a simple snake game i can play", Nemotron left snake_game.py in the home folder
         // and told the user to run "python snake_game.py": a terminal is where many users get stuck.
         sb.AppendLine("- Something you make for the user to use (a game, an app, a tool) should start the way any program does, with a double click " +

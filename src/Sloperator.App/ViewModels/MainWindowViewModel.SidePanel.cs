@@ -163,6 +163,58 @@ public sealed partial class MainWindowViewModel
         (SidePanel as IFilePanel)?.Show(path);
     }
 
+    /// <summary>
+    /// show_panel: the panel named open beside the chat, with the page, file or folder in it. Under Auto, Auto
+    /// shows it as it shows a panel for the agent's work, and stays picked; else it opens as one picked by hand,
+    /// in place of the panel open. Null when it did, else why it didn't.
+    /// </summary>
+    private Task<string?> ShowPanelForAgent(string name, string? path) => Dispatcher.UIThread.InvokeAsync<string?>(() =>
+    {
+        if (_closed)
+            return "The window is closing.";
+        if (SidePanelOptions.FirstOrDefault(o => o.Name == name && o.Open is not null && o.Name != SidePanelNames.Auto) is not { } option)
+            return $"There is no panel \"{name}\".";
+        var folder = path is not null && Directory.Exists(path);
+        if (path is not null && option.Opens is { } opens && (folder ? option.Name != SidePanelNames.CodeEditor : !opens(path)))
+            return $"The {name} doesn't show {(folder ? "a folder" : Path.GetFileName(path))}.";
+        if (IsAuto)
+        {
+            var old = SidePanel;
+            if (!ReferenceEquals(option, _autoShown) || old is null)
+            {
+                foreach (var picked in Attachments.Where(a => a.Picked).ToList())
+                    RemoveAttachment(picked);
+                AutoShown = option;
+                SidePanel = OpenForAuto(option);
+                if (old is not null && !ReferenceEquals(old, _autoChanges))
+                    old.Dispose();
+            }
+        }
+        else if (!ReferenceEquals(SelectedSidePanel, option))
+            SelectedSidePanel = option;
+        if (path is null)
+            return null;
+        switch (SidePanel)
+        {
+            case CodeEditorViewModel editor when folder:
+                editor.OpenFolder(path);
+                break;
+            case IFilePanel file:
+                file.Show(path);
+                break;
+            case VideoEditorViewModel video:
+                video.Open(path);
+                break;
+            case ImageEditorViewModel image:
+                image.Show(folder ? path : Path.GetDirectoryName(path)!);
+                break;
+            case AudioEditorViewModel audio:
+                audio.Show(folder ? path : Path.GetDirectoryName(path)!);
+                break;
+        }
+        return (string?)null;
+    }).GetTask();
+
     /// <summary>The × on the open panel: None in the dropdown; under Auto the panel closes and Auto stays.</summary>
     internal void CloseSidePanel()
     {

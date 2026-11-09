@@ -3471,13 +3471,22 @@ keyboard, find_text, web search, model switching), with words in braces where th
 chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
 `{made folder}`, `{data folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
 
-**The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(sidePanel:
-true)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
+**The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
+…)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
-`\pictures`, `\sounds` and `\videos`, and that on Auto it opens by itself to what the agent writes, runs or makes,
-which the agent can neither open nor see. About 80 tokens. Without it, asked to show a page "in the Web preview
+`\pictures`, `\sounds` and `\videos`, that on Auto it opens by itself to what the agent writes, runs or makes, that
+show_panel opens it when the user asks to see something there, and that the agent can't see it. About 90 tokens. Without it, asked to show a page "in the Web preview
 panel", Sonnet 5.5 searched for how, then said it couldn't (the panel had opened by itself), and asked about "my
 Sloperator sounds" it searched the whole home folder for them.
+
+**show_panel** (`ShowPanelTool`, in the app only; `ToolContext.ShowPanel` is `MainWindowViewModel.ShowPanelForAgent`)
+opens a panel by its name in the dropdown, with a page, file or folder in it: a page in the Web preview, a file in the
+Code editor or File inspector (a folder in the Code editor), a picture's, sound's or video's folder in its editor.
+Under Auto, Auto shows it as it shows a panel for the agent's work and stays picked; with None or another panel picked,
+it opens as one picked by hand, in place of the panel open. A file a panel doesn't open (a .txt in the Web preview)
+is refused with why. About 150 tokens with its schema. Asked to "show it in the Web preview" with the panel closed,
+Haiku 5.5 had opened the page in Edge and said it couldn't open Sloperator's panel (2026-11-10); with the tool it called
+show_panel once and the page opened beside the chat, with the panel on None and on Auto.
 `SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
 instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
 `{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model
