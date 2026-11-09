@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   open folded.
 
 ### Changed
-- A new chat starts with about 2,300 fewer tokens: the video and ComfyUI tools' long how-tos moved into
+- A new chat starts with about 2,600 fewer tokens: the video and ComfyUI tools' long how-tos moved into
   guides the agent reads the first time it uses them in a chat.
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
   starts. When you question something it answers first, and it looks at the result itself as its last
