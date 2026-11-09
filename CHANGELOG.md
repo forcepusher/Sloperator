@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Wait and key cards write their seconds as the rest of the chat does, "Wait 60 s" rather than "Wait 60s".
 - **Send** brings the chat to its end, as Enter does: the message you sent was out of sight when you had scrolled
   up to read.
 - A long model name in the model dropdown ends in … when it doesn't fit, rather than cut in the middle of a letter.

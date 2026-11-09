@@ -361,7 +361,7 @@ public class ToolTests
         var result = await new PressKeysTool().ExecuteAsync(new JsonObject { ["keys"] = new JsonArray("shift", "w"), ["hold_seconds"] = 0.3 }, Ctx(platform), CancellationToken.None);
         Assert.Equal(["hold shift+w", "release shift+w"], platform.Actions);
         Assert.True(started.ElapsedMilliseconds >= 280, $"held for {started.ElapsedMilliseconds} ms");
-        Assert.Equal("Press shift+w, held 0.3s done.", result.Text);
+        Assert.Equal("Press shift+w, held 0.3 s done.", result.Text);
 
         // Stopped mid-hold: the keys still come up.
         platform.Actions.Clear();
