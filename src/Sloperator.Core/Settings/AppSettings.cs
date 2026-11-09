@@ -54,14 +54,39 @@ public sealed class ServerSettings
     public string ModelInUse => AutoModel ?? Model;
 
     /// <summary>
+    /// The model dropdown's Auto (the user, 2026-11-09): no model picked by hand, so the evaluation model
+    /// picks one of <see cref="AutoModels"/> for each message (see <see cref="Agent.AutoPick"/>).
+    /// </summary>
+    [JsonIgnore]
+    public bool ModelOnAuto => Model.Length == 0;
+
+    /// <summary>The three models Auto picks from, as words or names (Settings).</summary>
+    public AutoModels Auto { get; set; } = new();
+
+    /// <summary>
+    /// Which of <see cref="Auto"/>'s models Auto uses now: the daily driver until the evaluation of a
+    /// message picks another, and that one until the next message's. Not saved.
+    /// </summary>
+    [JsonIgnore]
+    public AutoTier AutoTier { get; set; } = AutoTier.Daily;
+
+    /// <summary>
     /// Whether the model accepts images, which screen control needs. Read from LM Studio each time
     /// the app connects ("vlm" or "llm"); other servers don't say, so their models are assumed to. Not saved.
     /// </summary>
     [JsonIgnore]
     public bool SupportsVision { get; set; } = true;
 
-    /// <summary>How hard the model thinks, picked in the top bar: one of <see cref="Efforts.Levels"/>.</summary>
+    /// <summary>How hard the model thinks, picked in the top bar: one of <see cref="Efforts.Levels"/>, or <see cref="Efforts.Auto"/>.</summary>
     public string Effort { get; set; } = Efforts.Default;
+
+    /// <summary>The effort dropdown's Auto: the evaluation of each message picks the level (<see cref="AutoEffort"/>).</summary>
+    [JsonIgnore]
+    public bool EffortOnAuto => Effort == Efforts.Auto;
+
+    /// <summary>The level the last evaluation picked, while the effort is on Auto; null before one has, and medium is used. Not saved.</summary>
+    [JsonIgnore]
+    public string? AutoEffort { get; set; }
 
     /// <summary>
     /// The effort levels the model in use takes, as the server says (see <see cref="Llm.ServerProbe"/>);
@@ -70,9 +95,9 @@ public sealed class ServerSettings
     [JsonIgnore]
     public IReadOnlyList<string> EffortLevels { get; set; } = [];
 
-    /// <summary>The effort requests ask for: <see cref="Effort"/>, or the nearest level the model takes; null when it takes none.</summary>
+    /// <summary>The effort requests ask for: <see cref="Effort"/> (on Auto the level picked), or the nearest level the model takes; null when it takes none.</summary>
     [JsonIgnore]
-    public string? EffortInUse => Efforts.Nearest(Effort, EffortLevels);
+    public string? EffortInUse => Efforts.Nearest(EffortOnAuto ? AutoEffort ?? Efforts.Default : Effort, EffortLevels);
 
     /// <summary>
     /// Assumed context window when the server doesn't report one. If the real one is smaller, the
@@ -167,6 +192,34 @@ public sealed class SavedServer
     public string Model { get; set; } = "";
 }
 
+/// <summary>Which of <see cref="AutoModels"/> Auto uses: what the evaluation model judged the task to need.</summary>
+public enum AutoTier { Evaluation, Daily, Complex }
+
+/// <summary>
+/// The three models the model dropdown's Auto picks from (the user, 2026-11-09), each as words or a name a
+/// server lists, matched as switch_model matches them: the newest model whose name holds the words (see
+/// <see cref="Llm.ModelChoice.Named"/>). The defaults are the user's: the latest Claude Haiku, Sonnet and Opus.
+/// A server with none that fits stands in its own pick (<see cref="Llm.ModelChoice.Pick"/>).
+/// </summary>
+public sealed class AutoModels
+{
+    /// <summary>Looks at each message first and picks; it does a simple task itself.</summary>
+    public string Evaluation { get; set; } = "Claude Haiku";
+
+    /// <summary>For most tasks, and what Auto uses before the first message.</summary>
+    public string Daily { get; set; } = "Claude Sonnet";
+
+    /// <summary>For tasks the evaluation judges complex.</summary>
+    public string Complex { get; set; } = "Claude Opus";
+
+    public string this[AutoTier tier] => tier switch
+    {
+        AutoTier.Evaluation => Evaluation,
+        AutoTier.Complex => Complex,
+        _ => Daily,
+    };
+}
+
 /// <summary>The sizes the context slider stops at, and how sizes are written.</summary>
 public static class ContextSizes
 {
@@ -250,6 +303,9 @@ public static class Efforts
     public static readonly IReadOnlyList<string> Levels = ["low", "medium", "high", "xhigh", "max"];
 
     public const string Default = "medium";
+
+    /// <summary>The effort dropdown's Auto, saved as <see cref="ServerSettings.Effort"/>: picked for each message with the model (see <see cref="Agent.AutoPick"/>).</summary>
+    public const string Auto = "auto";
 
     /// <summary>The level as the dropdown says it.</summary>
     public static string Label(string level) => level switch

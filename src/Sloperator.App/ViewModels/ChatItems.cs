@@ -395,6 +395,12 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
 
     public bool HasInput => Input.Length > 0;
 
+    /// <summary>Auto's evaluation (see <see cref="MainWindowViewModel.AutoCardName"/>): no call of the model's; what it found shows open.</summary>
+    public bool IsAuto => Name == MainWindowViewModel.AutoCardName;
+
+    /// <summary>The Output foldout's header: "What it found" on Auto's card.</summary>
+    public string OutputHeader => IsAuto && !IsError ? "What it found" : "Output";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
     private string _summary = summary;
@@ -425,7 +431,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public bool HasCommand => Command is { Length: > 0 };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError), nameof(CanEndWait))]
+    [NotifyPropertyChangedFor(nameof(IsAwaitingApproval), nameof(StatusText), nameof(IsError), nameof(CanEndWait), nameof(OutputHeader))]
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
@@ -637,7 +643,8 @@ public sealed partial class WorkFold : ObservableObject
     {
         _lines = [.. lines];
         _kept = [.. kept];
-        var calls = _lines.OfType<ToolCallItem>().ToList();
+        // Auto's card is no call of the model's.
+        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto).ToList();
         Tools = calls.Select(c => c.Name).Distinct().ToList();
         Title = string.Join(" · ", new[]
         {
