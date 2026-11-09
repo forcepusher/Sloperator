@@ -2456,8 +2456,9 @@ Anthropic's and proxyapi.ru's. Switched from proxyapi.ru to OpenRouter by typing
 name stayed: OpenRouter had no such model, so the banner said so and the auto-pick stood in, and the
 dropdown showed the old name beside OpenRouter's until another was picked. So `ModelChoice.Choose`,
 for every server alike and by the names alone (`IsSameModel`), looks for the picked name without its
-maker, with words joined any way (`Words`, as `switch_model` reads a name), then also without a date
-at its end. Written alike goes first, then the shortest. That isn't a stand-in: the probe says
+maker or a tag in brackets at its end (`[1m]`, see "Claude through Anthropic's API"), with words joined
+any way (`Words`, as `switch_model` reads a name), then also without a date at its end. Written alike
+goes first, then the shortest. That isn't a stand-in: the probe says
 `AutoPicked` false, the app saves the server's name as the pick (with a saved server's entry, which
 may hold another server's name), and the old name leaves the dropdown. The command-line runner uses it
 too. Sonnet 5 isn't Sonnet 5.5, nor `x:free` the `x` that costs money: those get the banner as before.
@@ -2655,8 +2656,17 @@ looked at is the answer to `GET /models`, which every server check asks for anyw
 check has): Anthropic's list has `has_more` and entries of `"type": "model"`, and its refusals name its
 headers. Live, 8 November 2026: no key is 401 "x-api-key header is required", a wrong one 401 "invalid
 x-api-key", a right one as a bearer token without `anthropic-version` 400 "anthropic-version: header is
-required", and with it the list, so that header goes with this request to every server, which keeps a
-check on Anthropic at one request. proxyapi.ru's `/anthropic/v1` lists its models for a bearer token,
+required", and with it the list. So the list is asked for plainly, and Anthropic's refusal naming its
+header brings a second request with it: two requests a check on Anthropic. Until 9 November 2026 that
+header went with the first request to every server, to save the second, but OpenRouter answers it in
+Anthropic's format: its own model names with `anthropic/` in front and `[1m]` behind
+(`anthropic/claude-haiku-5.5[1m]`), no prices, scores or what each model takes. The picked
+`anthropic/claude-haiku-5.5` wasn't among them, Sonnet 5.5 stood in, and its `/messages` refused the
+request (400 "Invalid Anthropic Messages API request", the field named only in `metadata.raw`: `fallbacks`
+should be an array). Asked plainly, OpenRouter lists its models as before, and Kilo, proxyapi.ru's `/v1` and
+`/anthropic/v1` answer the same either way (measured that day). A tag in brackets at the end of a name
+doesn't count when names are compared (`ModelChoice.IsSameModel`), so a model picked under such a name
+finds its plain one. proxyapi.ru's `/anthropic/v1` lists its models for a bearer token,
 so a gateway at any address goes the same way, and one that passes on Anthropic's answers (Cloudflare's
 AI Gateway, `…/{account}/{gateway}/anthropic`, untried) does too. A
 408, 429 or 5xx says nothing, and it is asked again. A refusal of a chat request couldn't pick the route as

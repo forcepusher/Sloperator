@@ -102,14 +102,20 @@ public static partial class ModelChoice
     /// Whether two names are one model. Each server writes names its own way: Sonnet 5.5 is
     /// anthropic/claude-sonnet-5-5 on proxyapi.ru, anthropic/claude-sonnet-5.5 on OpenRouter and
     /// claude-sonnet-5-5 on Anthropic's API, and Sonnet 4.5 has a date on some (…-4-5-20250929).
-    /// So the maker in front, how the words are joined and a date at the end don't count; anything
-    /// else does: Sonnet 5 isn't Sonnet 5.5, nor x:free the x that costs money.
+    /// OpenRouter's list in Anthropic's format marks its million-token models with a tag in
+    /// brackets (anthropic/claude-haiku-5.5[1m], 9 November 2026). So the maker in front, how the
+    /// words are joined, a date and a tag in brackets at the end don't count; anything else does:
+    /// Sonnet 5 isn't Sonnet 5.5, nor x:free the x that costs money.
     /// </summary>
     public static bool IsSameModel(string a, string b) =>
         a == b || (DateAtEnd().Replace(Written(a), "") is { Length: > 0 } name && name == DateAtEnd().Replace(Written(b), ""));
 
-    /// <summary>A model's name without its maker, in <see cref="Words"/>.</summary>
-    private static string Written(string id) => string.Join(' ', Words(id[(id.LastIndexOf('/') + 1)..]));
+    /// <summary>A model's name without its maker or a tag in brackets at its end, in <see cref="Words"/>.</summary>
+    private static string Written(string id) => string.Join(' ', Words(TagAtEnd().Replace(id[(id.LastIndexOf('/') + 1)..], "")));
+
+    // "[1m]"
+    [GeneratedRegex(@"\[[^\[\]]*\]\s*$")]
+    private static partial Regex TagAtEnd();
 
     /// <summary>Letters and numbers, a version as one word whichever way it is written: claude-opus-5-5-20261001 is claude, opus, 5.5, 20261001; qwen3.8-27b is qwen, 3.8, 27, b.</summary>
     internal static List<string> Words(string name) =>

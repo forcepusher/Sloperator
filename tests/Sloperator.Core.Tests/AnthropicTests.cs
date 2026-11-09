@@ -65,6 +65,47 @@ public class AnthropicTests
     }
 
     [Fact]
+    public async Task A_server_that_answers_in_Anthropics_format_only_when_asked_with_its_header_is_spoken_to_as_it_answers_plainly()
+    {
+        var gateway = new AnthropicWhenAsked();
+        var http = new HttpClient(gateway);
+        const string address = "https://gateway.example.com/api/v1";
+        var probe = await ServerProbe.CheckAsync(http, new ServerSettings { BaseUrl = address, ApiKey = "sk-or-test", Model = "anthropic/claude-haiku-5.5" }, CancellationToken.None);
+        Assert.Equal(("anthropic/claude-haiku-5.5", false), (probe.Model, probe.AutoPicked));
+        Assert.Contains("anthropic/claude-sonnet-5.5", probe.Models);
+
+        var client = new OpenAiChatClient(http, address, "sk-or-test");
+        var reply = await client.CompleteAsync([ChatMessage.User("Say hello.")], [], new ChatRequestOptions { Model = "anthropic/claude-haiku-5.5" }, null, CancellationToken.None);
+        Assert.Equal("Hello.", reply.Content);
+        Assert.False(client.SpeaksMessages);
+        Assert.DoesNotContain("/api/v1/messages", gateway.Paths);
+    }
+
+    /// <summary>
+    /// OpenRouter on 9 November 2026: its model list in Anthropic's format when asked with
+    /// anthropic-version (ids with "[1m]", no prices), else its own; chat completions answered.
+    /// </summary>
+    private sealed class AnthropicWhenAsked : HttpMessageHandler
+    {
+        public List<string> Paths { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            Paths.Add(path);
+            var body = path == "/api/v1/models" && request.Method == HttpMethod.Get
+                ? request.Headers.Contains("anthropic-version")
+                    ? """{"data":[{"id":"anthropic/claude-haiku-5.5[1m]","type":"model","display_name":"Anthropic: Claude Haiku 5.5","max_input_tokens":1000000,"max_tokens":128000,"capabilities":null},{"id":"anthropic/claude-sonnet-5.5[1m]","type":"model","display_name":"Anthropic: Claude Sonnet 5.5","max_input_tokens":1000000,"max_tokens":128000,"capabilities":null}],"has_more":false,"first_id":"anthropic/claude-haiku-5.5[1m]","last_id":"anthropic/claude-sonnet-5.5[1m]"}"""
+                    : """{"data":[{"id":"anthropic/claude-haiku-5.5","context_length":1000000,"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"pricing":{"prompt":"0.000001","completion":"0.000005"},"supported_parameters":["tools","reasoning"]},{"id":"anthropic/claude-sonnet-5.5","context_length":1000000,"architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"pricing":{"prompt":"0.000003","completion":"0.000015"},"supported_parameters":["tools","reasoning"]}]}"""
+                : path == "/api/v1/chat/completions" ? Sse.Text("Hello.")
+                : null;
+            return Task.FromResult(body is null
+                ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+                : new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
+    [Fact]
     public async Task A_wrong_Anthropic_key_is_said_as_such_and_one_given_to_another_server_gets_its_address()
     {
         // Anthropic's answer, wherever it comes from: the key is wrong, the address isn't.
