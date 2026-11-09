@@ -490,11 +490,27 @@
 
         <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Model" Margin="0,0,8,0" />
         <DockPanel Grid.Row="1" Grid.Column="1">
-          <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), as wide as
-               "Extra high" needs; greyed out for a model whose server lists no effort for it. -->
+          <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), or Auto with the level it
+               uses ("Auto (High)"), in a slot as wide as "Auto (Extra high)" needs; greyed out for a model whose
+               server lists no effort for it. -->
           <ComboBox x:Name="EffortBox" DockPanel.Dock="Right" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
-                    Width="112" Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
-                    AutomationProperties.Name="Effort" />
+                    Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="Effort">
+            <ComboBox.SelectionBoxItemTemplate>
+              <DataTemplate x:DataType="vm:EffortOption">
+                <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxText}"
+                                Slot="{x:Static vm:MainWindowViewModel.EffortBoxSlot}" VerticalAlignment="Center" />
+              </DataTemplate>
+            </ComboBox.SelectionBoxItemTemplate>
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:EffortOption">
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding Label}" />
+                  <TextBlock Classes="muted" Text="Picked with the model" IsVisible="{Binding IsAuto}" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
           <views:ModelDropdown x:Name="ModelBox" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                PlaceholderText="No models: check the server address" ToolTip.Tip="{Binding ModelToolTip}" AutomationProperties.Name="Model">
             <ComboBox.ItemsPanel>
@@ -505,17 +521,23 @@
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:String">
                 <DockPanel>
+                  <!-- Auto, the first row, has no pin: it says what it does. -->
                   <Button DockPanel.Dock="Right" Classes="icon small pin" Margin="12,-4,-4,-4" Focusable="False" Click="OnPinClick"
-                          ToolTip.Tip="Pin to the top or unpin" AutomationProperties.Name="Pin">
+                          ToolTip.Tip="Pin to the top or unpin" AutomationProperties.Name="Pin"
+                          IsVisible="{Binding Converter={x:Static vm:MainWindowViewModel.IsModelRow}}">
                     <PathIcon Data="M14 4v5c0 1.12.37 2.16 1 3H9c.65-.86 1-1.9 1-3V4h4m3-2H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3V4h1c.55 0 1-.45 1-1s-.45-1-1-1z" />
                   </Button>
-                  <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                  <StackPanel Spacing="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding}" />
+                    <TextBlock Classes="muted" Text="Picks the model for each message" IsVisible="{Binding Converter={x:Static vm:MainWindowViewModel.IsAutoRow}}" />
+                  </StackPanel>
                 </DockPanel>
               </DataTemplate>
             </ComboBox.ItemTemplate>
+            <!-- The model picked, or Auto with the one it uses now: "Auto (claude-sonnet-5-5)". -->
             <ComboBox.SelectionBoxItemTemplate>
               <DataTemplate x:DataType="x:String">
-                <TextBlock Text="{Binding}" />
+                <TextBlock Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).ModelBoxText}" />
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
           </views:ModelDropdown>
@@ -840,7 +862,8 @@
                     <views:SelectableText Text="{Binding Input}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>
 
-                  <Expander IsVisible="{Binding HasResult}" Header="Output" Padding="8,4" HorizontalAlignment="Stretch">
+                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09). -->
+                  <Expander IsVisible="{Binding HasResult}" Header="{Binding OutputHeader}" IsExpanded="{Binding IsAuto, Mode=OneTime}" Padding="8,4" HorizontalAlignment="Stretch">
                     <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>
                 </StackPanel>
@@ -1053,6 +1076,23 @@
     <!-- Input -->
     <Border x:Name="InputRow" Grid.Row="5" Padding="16,8,16,16">
       <StackPanel MaxWidth="860" Spacing="8">
+        <!-- Auto picked a dearer model than the one in use: Switch, or stay on it; with no answer in 10 s
+             Auto's pick is taken, the bar under the buttons running down to it (the mockups' third design). -->
+        <Border Classes="card" Padding="14,12,14,0" ClipToBounds="True" IsVisible="{Binding SwitchQuestion, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel Spacing="10" DataContext="{Binding SwitchQuestion}" x:DataType="vm:AutoSwitchQuestion">
+            <DockPanel>
+              <PathIcon DockPanel.Dock="Left" Width="18" Height="18" Margin="0,1,10,0" VerticalAlignment="Top" Foreground="{StaticResource BbAccent}"
+                        Data="M9 1.5l1.9 4.6 4.6 1.9-4.6 1.9L9 14.5l-1.9-4.6L2.5 8l4.6-1.9z" />
+              <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Classes="primary" Content="Switch" Command="{Binding SwitchCommand}" Margin="8,0,0,0" />
+              <Button DockPanel.Dock="Right" Classes="ghost" Content="{Binding StayText}" Command="{Binding StayCommand}" />
+              <TextBlock Classes="muted" Text="{Binding Countdown}" Margin="28,0,0,0" VerticalAlignment="Center" />
+            </DockPanel>
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding Left}" Height="2" MinHeight="2" Margin="-14,0" CornerRadius="0" />
+          </StackPanel>
+        </Border>
         <!-- Messages sent during the run that the model hasn't read yet, as their bubbles will be: each
              joins the chat when it is read; × takes one back, "Interrupt the model" has them read now. -->
         <Border IsVisible="{Binding HasQueued}">

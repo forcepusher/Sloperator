@@ -22,30 +22,33 @@ public sealed partial class AgentSession
             : "Nothing you write goes back: do what the task asks, then end with a short line saying it is done.");
 
     /// <summary>
-    /// A side task (the user, 2026-11-02): a job done on the same server and model in a conversation of its
-    /// own, with <paramref name="toolNames"/> or else the run's tools but those in <see cref="NotInSideTasks"/>.
+    /// A side task (the user, 2026-11-02): a job done on the same server in a conversation of its own, by the
+    /// run's model or the one <paramref name="on"/> names (the user, 2026-11-09: "side tasks should be able to
+    /// run in any model"; Auto's evaluation runs on the evaluation model), with <paramref name="toolNames"/> or
+    /// else the run's tools but those in <see cref="NotInSideTasks"/>.
     /// It runs where it is called, never beside the main conversation, which waits for it, and nothing of it
     /// joins that conversation. The model's side_task calls run it (<see cref="ToolContext.SideTask"/>), and
     /// so does Auto pricing lookup. Each call it makes is a line of <paramref name="progress"/>; a call that
     /// needs the user's OK gets its own card to ask on. With <paramref name="output"/> its final answer is the
     /// result; without, the result only says it is done (output is off unless asked for). It ends when the
     /// model answers without calls, when a call of a tool that worked is <paramref name="done"/>, or after
-    /// <see cref="MaxSideTaskSteps"/> replies. A server's failure ends it, not the run; the user's Stop ends both.
+    /// <paramref name="maxSteps"/> replies. A server's failure ends it, not the run; the user's Stop ends both.
     /// </summary>
     private async Task<ToolResult> RunSideTaskAsync(string task, bool output, IReadOnlyList<string>? toolNames, Func<Tool, bool>? done,
-        Action<string>? progress, IAgentObserver observer, CancellationToken ct)
+        Action<string>? progress, IAgentObserver observer, CancellationToken ct, SideTaskModel? on = null, int maxSteps = MaxSideTaskSteps)
     {
         var taskTools = toolNames is null
             ? tools.All.Where(t => !NotInSideTasks.Contains(t.Name)).ToList()
             : [.. toolNames.Select(tools.Find).OfType<Tool>()];
         var definitions = tools.Definitions().Where(d => taskTools.Any(t => t.Name == d.Name)).ToList();
         List<ChatMessage> conversation = [ChatMessage.System(SideTaskPrompt(output)), ChatMessage.User(task)];
+        var options = SideTaskOptions(on);
         try
         {
-            for (var step = 0; step < MaxSideTaskSteps; step++)
+            for (var step = 0; step < maxSteps; step++)
             {
                 await HoldWhileTypingAsync(ct).ConfigureAwait(false);
-                var reply = await CompleteWithReconnectAsync(conversation, definitions, StepOptions(), observer, null, ct).ConfigureAwait(false);
+                var reply = await CompleteWithReconnectAsync(conversation, definitions, options, observer, null, ct).ConfigureAwait(false);
                 TextToolCallParser.TryExtract(reply, tools);
                 conversation.Add(reply);
                 if (!reply.HasToolCalls)
@@ -66,12 +69,27 @@ public sealed partial class AgentSession
                         return new ToolResult(NoOutputText);
                 }
             }
-            return ToolResult.Error($"The side task ended after {MaxSideTaskSteps} replies without finishing.");
+            return ToolResult.Error($"The side task ended after {maxSteps} replies without finishing.");
         }
         catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException)
         {
             return ToolResult.Error("The side task stopped: " + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// The requests of a side task: the step's own (<see cref="StepOptions"/>), on the model and effort
+    /// <paramref name="on"/> names where it names one. The server and its client are the run's, so its
+    /// replies count in the chat's cost by their own model.
+    /// </summary>
+    private ChatRequestOptions SideTaskOptions(SideTaskModel? on)
+    {
+        if (on is null)
+            return StepOptions();
+        var options = StepOptions().Clone();
+        options.Model = on.Model;
+        options.Effort = on.Effort;
+        return options;
     }
 
     /// <summary>What a side task without output returns.</summary>
@@ -130,3 +148,6 @@ public sealed partial class AgentSession
         return result;
     }
 }
+
+/// <summary>A model on the run's server for a side task to run on, in place of the run's own, and the effort to ask it for (null for none).</summary>
+public sealed record SideTaskModel(string Model, string? Effort);

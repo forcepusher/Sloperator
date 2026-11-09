@@ -8,7 +8,10 @@ public sealed partial class MainWindowViewModel
     // ---- settings -------------------------------------------------------------------
 
     public SettingsViewModel CreateSettingsViewModel() =>
-        new(_settings.Clone(), _paths, LoadMcpConfig(), _mcp.Statuses) { Updater = Updater, TextLanguages = _platform.Text?.Languages() };
+        new(_settings.Clone(), _paths, LoadMcpConfig(), _mcp.Statuses)
+        {
+            Updater = Updater, TextLanguages = _platform.Text?.Languages(), ServerModels = Models.Where(m => m != AutoModelItem).ToList(),
+        };
 
     /// <summary>
     /// mcp.json as it is, read again a moment later when caught while the agent replaces it:
@@ -39,7 +42,10 @@ public sealed partial class MainWindowViewModel
         // open: its copy still had the setting the other window changed, and took it back.
         var updated = _settings.With(dialog.Opened, dialog.Settings);
         // The server, key, model and context size live in the top bar, not in the dialog; prices in the Cost estimates panel (Auto pricing lookup is the dialog's).
+        // Auto's three models are the dialog's, kept with the server.
+        var auto = updated.Server.Auto;
         updated.Server = _settings.Server;
+        updated.Server.Auto = auto;
         updated.Cost.Prices = _settings.Cost.Prices;
         updated.Window = _settings.Window;
         _settings = updated;
@@ -80,7 +86,9 @@ public sealed partial class MainWindowViewModel
     internal void TakeSettings(AppSettings applied, bool mcpChanged)
     {
         var taken = applied.Clone();
+        var auto = taken.Server.Auto;
         taken.Server = _settings.Server;
+        taken.Server.Auto = auto;
         taken.Cost.Prices = _settings.Cost.Prices;
         taken.Window = _settings.Window;
         _settings = taken;

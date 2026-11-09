@@ -80,7 +80,7 @@ public sealed class ModelToolsTests
         Assert.False(result.IsError, result.Text);
         // The address that answered, no key, and no model picked: the strongest one is Sloperator's pick.
         Assert.Equal([("http://localhost:1234/v1", "", "")], bar.Switched);
-        Assert.Contains("uses qwen3.8-27b (Sloperator's own pick, the cheapest of the strongest models on the server", result.Text);
+        Assert.Contains("uses qwen3.8-27b (Auto, the cheapest of the strongest models on the server", result.Text);
         Assert.Contains("the user's next message goes to the new one", result.Text);
     }
 
@@ -114,14 +114,14 @@ public sealed class ModelToolsTests
     }
 
     [Fact]
-    public async Task Switched_to_another_server_without_a_model_the_agent_gets_Sloperators_own_pick_there()
+    public async Task Switched_to_another_server_without_a_model_the_agent_gets_Auto_there()
     {
-        // "Switch to OpenRouter" with no model named: the cheapest of the strongest, as the top bar picks.
+        // "Switch to OpenRouter" with no model named: Auto, on the daily driver, as the top bar picks.
         var bar = new TopBar();
         var result = await Switch(new ScoredServer(), bar, new JsonObject { ["address"] = "https://switch-scored.test/api/v1", ["api_key"] = "sk-test" });
         Assert.False(result.IsError, result.Text);
         Assert.Equal([("https://switch-scored.test/api/v1", "sk-test", "")], bar.Switched);
-        Assert.Contains("uses anthropic/claude-sonnet-5.5 (Sloperator's own pick, the cheapest of the strongest models on the server: " +
+        Assert.Contains("uses anthropic/claude-sonnet-5.5 (Auto, your daily driver model: " +
                         "54.2 on the Artificial Analysis Intelligence Index, $2 in and $10 out a million tokens;", result.Text);
     }
 

@@ -24,4 +24,13 @@ public sealed class ModelListTests
         Assert.Equal(["a-model", "b-model", "c-model"], models);
         Assert.Same(c, models[2]);
     }
+
+    [Fact]
+    public void Auto_stays_the_first_row_before_pinned_models_and_any_name()
+    {
+        var models = new List<string>();
+        foreach (var model in new[] { "a-model", MainWindowViewModel.AutoModelItem, "b-model", "0-model" })
+            MainWindowViewModel.InsertModel(models, model, pinned: ["b-model"]);
+        Assert.Equal([MainWindowViewModel.AutoModelItem, "b-model", "0-model", "a-model"], models);
+    }
 }

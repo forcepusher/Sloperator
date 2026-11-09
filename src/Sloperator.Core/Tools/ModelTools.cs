@@ -13,7 +13,7 @@ public interface IModelServerSwitch
     /// <summary>
     /// Puts them in the top bar, as typing them there would, and checks the server. The run going
     /// on keeps its model; the user's next message goes to the new one. An empty model is
-    /// Sloperator's own pick (see <see cref="ModelChoice.Pick"/>).
+    /// Auto (see <see cref="ServerSettings.ModelOnAuto"/>).
     /// </summary>
     Task SwitchAsync(string baseUrl, string apiKey, string model);
 
@@ -44,7 +44,7 @@ public sealed class ListModelsTool(Func<HttpClient>? http = null) : Tool
         if (ctx.ModelServer is not { } sw)
             return ToolResult.Error(ModelTools.NoTopBar);
         var current = sw.Current;
-        var probe = await ModelTools.ProbeAsync(http, new ServerSettings { BaseUrl = current.BaseUrl, ApiKey = current.ApiKey, Model = current.Model }, ct).ConfigureAwait(false);
+        var probe = await ModelTools.ProbeAsync(http, new ServerSettings { BaseUrl = current.BaseUrl, ApiKey = current.ApiKey, Model = current.Model, Auto = current.Auto }, ct).ConfigureAwait(false);
         var text = $"Sloperator runs on {ModelTools.Named(current.ModelInUse)} at {current.BaseUrl}, " + (current.ApiKey.Length > 0 ? "with an API key." : "without an API key.");
         text += current.EffortInUse is { } effort ? $" Effort: {effort} (it takes {string.Join(", ", current.EffortLevels)})." : " The model has no effort setting.";
         return new ToolResult(text + (probe.Reachable ? "\n" + ModelTools.ModelList(probe.Models) : $"\nThe server doesn't answer now: {probe.Message}"));
@@ -75,7 +75,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
     public override JsonObject Parameters => Schema(
         ("address", Str("The server's address, such as http://localhost:1234/v1"), true),
         ("api_key", Str("The API key the user gave for that server; leave it out for a server without one (an address in use or used before keeps its key)"), false),
-        ("model", Str("The model to use, as the server lists it or in words (\"opus 5.5\", \"haiku\": the newest such); leave it out for Sloperator's own pick"), false));
+        ("model", Str("The model to use, as the server lists it or in words (\"opus 5.5\", \"haiku\": the newest such); leave it out for Auto, which picks one for each message"), false));
 
     // Never the key itself: the tool card shows this.
     public override string Describe(JsonObject args) =>
@@ -94,7 +94,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
             : SameServer(address, current.BaseUrl) ? current.ApiKey
             : current.Saved.FirstOrDefault(s => SameServer(address, s.BaseUrl))?.ApiKey ?? "";
         var wanted = GetString(args, "model")?.Trim() ?? "";
-        var probe = await ModelTools.ProbeAsync(http, new ServerSettings { BaseUrl = address, ApiKey = key }, ct).ConfigureAwait(false);
+        var probe = await ModelTools.ProbeAsync(http, new ServerSettings { BaseUrl = address, ApiKey = key, Auto = current.Auto }, ct).ConfigureAwait(false);
         if (probe.KeyRefused)
             return ToolResult.Error($"Nothing changed: {probe.Message} Ask the user for the right API key.");
         if (!probe.Reachable)
@@ -109,7 +109,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
             var like = ModelTools.Like(wanted, probe.Models);
             if (like.Count == 0)
                 return ToolResult.Error($"Nothing changed: the server has no model \"{wanted}\".\n" +
-                                        ModelTools.ModelList(probe.Models) + "\nSwitch again with one of them, or without model for Sloperator's own pick.");
+                                        ModelTools.ModelList(probe.Models) + "\nSwitch again with one of them, or without model for Auto.");
             model = like.Count == 1 ? like[0] : ModelTools.Best(like);
             if (like.Count > 1)
                 others = $" (the newest or strongest of {like.Count} like \"{wanted}\": {string.Join(", ", like.Where(m => m != model).Take(20))}; switch again with one of their names for another)";
@@ -119,7 +119,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
 
         var inUse = model.Length > 0 ? model : probe.Model ?? probe.Models[0];
         var why = probe.ModelDetails is { } details ? $": {details}" : "";
-        var how = model.Length > 0 ? others : $" (Sloperator's own pick, {probe.PickedAs ?? ModelChoice.BestValue}{why}; pass model to pick another)";
+        var how = model.Length > 0 ? others : $" (Auto, {probe.PickedAs ?? ModelChoice.BestValue}{why}; pass model to pick another)";
         var vision = probe.Vision == false && (model.Length == 0 || model == probe.Model)
             ? $" Note: the server says {inUse} doesn't take images, so on it Sloperator can't see or use the screen; tell the user, or connect a model that sees images." : "";
         return new ToolResult($"Sloperator is now connected to {url} and uses {inUse}{how}" + (key.Length > 0 ? ", with the API key." : ".") + vision +
@@ -187,47 +187,11 @@ public sealed class SetEffortTool : Tool
 /// <summary>What the model tools share.</summary>
 internal static class ModelTools
 {
-    /// <summary>
-    /// The models <paramref name="wanted"/> names: the one it names exactly; else those whose name
-    /// holds its words in a row, written any way ("opus 5.5" is claude-opus-5-5 and
-    /// anthropic/claude-opus-5.5, "haiku" every Haiku, but "opus 5" not Opus 5.5); else those
-    /// holding it as written. The user, 3 November 2026: "haiku 5.5", "opus 5.5", or even "haiku"
-    /// or "opus" should work.
-    /// </summary>
-    public static IReadOnlyList<string> Like(string wanted, IReadOnlyList<string> models)
-    {
-        if (models.FirstOrDefault(m => m.Equals(wanted, StringComparison.OrdinalIgnoreCase)) is { } exact)
-            return [exact];
-        var words = ModelChoice.Words(wanted);
-        var like = words.Count == 0 ? [] : models.Where(m => HasRun(ModelChoice.Words(m), words)).ToList();
-        return like.Count > 0 ? like : models.Where(m => m.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
-    }
+    /// <inheritdoc cref="ModelChoice.Like"/>
+    public static IReadOnlyList<string> Like(string wanted, IReadOnlyList<string> models) => ModelChoice.Like(wanted, models);
 
-    /// <summary>
-    /// Of several models named alike, the same way for every model and server: the highest version
-    /// its name gives ("haiku" is Haiku 5.5 rather than 4.5 or 3.5); between equal versions the
-    /// strongest by <see cref="ModelChoice.Strongest"/> on what the names tell ("gemma" is the 31b
-    /// rather than the 12b), and the shortest name (an alias rather than a dated one).
-    /// </summary>
-    public static string Best(IReadOnlyList<string> like)
-    {
-        var newest = like.GroupBy(VersionOf).MaxBy(g => g.Key)!.OrderBy(id => id.Length).ToList();
-        return ModelChoice.Strongest(newest.Select(ModelChoice.FromName))?.Id ?? newest[0];
-    }
-
-    /// <summary>The first number in the name that isn't a date (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0 for none.</summary>
-    private static Version VersionOf(string name) =>
-        ModelChoice.Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
-            .Select(w => Version.TryParse(w.Contains('.') ? w : w + ".0", out var v) ? v : null)
-            .FirstOrDefault(v => v is not null) ?? new Version(0, 0);
-
-    private static bool HasRun(List<string> words, List<string> run)
-    {
-        for (var i = 0; i + run.Count <= words.Count; i++)
-            if (words.Skip(i).Take(run.Count).SequenceEqual(run))
-                return true;
-        return false;
-    }
+    /// <inheritdoc cref="ModelChoice.Newest"/>
+    public static string Best(IReadOnlyList<string> like) => ModelChoice.Newest(like);
 
     public const string NoTopBar = "Sloperator's model server can't be changed from this run: the user sets it in the top bar of Sloperator's window.";
 

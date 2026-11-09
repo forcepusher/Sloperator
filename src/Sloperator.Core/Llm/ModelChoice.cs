@@ -159,6 +159,56 @@ public static partial class ModelChoice
     public const string BestValue = "the cheapest of the strongest models on the server";
 
     /// <summary>
+    /// The model <paramref name="wanted"/> names among <paramref name="models"/>, as switch_model reads a name
+    /// (<see cref="Like"/>, then <see cref="Newest"/> of several): "Claude Haiku" is the newest Haiku there.
+    /// Null when none fits, or nothing is asked.
+    /// </summary>
+    public static string? Named(string wanted, IReadOnlyList<string> models) =>
+        string.IsNullOrWhiteSpace(wanted) ? null : Like(wanted.Trim(), models) is { Count: > 0 } like ? Newest(like) : null;
+
+    /// <summary>
+    /// The models <paramref name="wanted"/> names: the one it names exactly; else those whose name
+    /// holds its words in a row, written any way ("opus 5.5" is claude-opus-5-5 and
+    /// anthropic/claude-opus-5.5, "haiku" every Haiku, but "opus 5" not Opus 5.5); else those
+    /// holding it as written. The user, 3 November 2026: "haiku 5.5", "opus 5.5", or even "haiku"
+    /// or "opus" should work.
+    /// </summary>
+    public static IReadOnlyList<string> Like(string wanted, IReadOnlyList<string> models)
+    {
+        if (models.FirstOrDefault(m => m.Equals(wanted, StringComparison.OrdinalIgnoreCase)) is { } exact)
+            return [exact];
+        var words = Words(wanted);
+        var like = words.Count == 0 ? [] : models.Where(m => HasRun(Words(m), words)).ToList();
+        return like.Count > 0 ? like : models.Where(m => m.Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>
+    /// Of several models named alike, the same way for every model and server: the highest version
+    /// its name gives ("haiku" is Haiku 5.5 rather than 4.5 or 3.5); between equal versions the
+    /// strongest by <see cref="Strongest"/> on what the names tell ("gemma" is the 31b
+    /// rather than the 12b), and the shortest name (an alias rather than a dated one).
+    /// </summary>
+    public static string Newest(IReadOnlyList<string> like)
+    {
+        var newest = like.GroupBy(VersionOf).MaxBy(g => g.Key)!.OrderBy(id => id.Length).ToList();
+        return Strongest(newest.Select(FromName))?.Id ?? newest[0];
+    }
+
+    /// <summary>The first number in the name that isn't a date (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0 for none.</summary>
+    private static Version VersionOf(string name) =>
+        Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
+            .Select(w => Version.TryParse(w.Contains('.') ? w : w + ".0", out var v) ? v : null)
+            .FirstOrDefault(v => v is not null) ?? new Version(0, 0);
+
+    private static bool HasRun(List<string> words, List<string> run)
+    {
+        for (var i = 0; i + run.Count <= words.Count; i++)
+            if (words.Skip(i).Take(run.Count).SequenceEqual(run))
+                return true;
+        return false;
+    }
+
+    /// <summary>
     /// The newest fit Sonnet, else Opus, else Haiku, on a server that reports no scores: without
     /// them nothing tells Sonnet from Opus (Anthropic's API lists neither scores nor prices, and
     /// the table has no Claude 5.5 yet). Sonnet is half the price of Opus and about as strong

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Sloperator.Core.Llm;
 using Sloperator.Core.Settings;
@@ -232,29 +233,55 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         OnPropertyChanged(nameof(ContextToolTip));
     }
 
-    /// <summary>Models the server offers that can chat. Always contains the one shown, even while the server doesn't offer it.</summary>
-    public ObservableCollection<string> Models { get; } = [];
+    /// <summary>
+    /// The model dropdown's first row (the user, 2026-11-09): no model picked by hand, and the evaluation model
+    /// picks one of the three in Settings for each message (see <see cref="AutoPick"/>).
+    /// </summary>
+    public const string AutoModelItem = "Auto";
+
+    /// <summary>Whether a row of the model dropdown is its Auto, which has no pin and says what it does.</summary>
+    public static FuncValueConverter<string?, bool> IsAutoRow { get; } = new(row => row == AutoModelItem);
+
+    /// <inheritdoc cref="IsAutoRow"/>
+    public static FuncValueConverter<string?, bool> IsModelRow { get; } = new(row => row != AutoModelItem);
+
+    /// <summary>Auto, then the models the server offers that can chat. Always contains the one shown, even while the server doesn't offer it.</summary>
+    public ObservableCollection<string> Models { get; } = [AutoModelItem];
 
     /// <summary>
-    /// The model picked by hand; until there is one, the one <see cref="ModelChoice.Pick"/> chooses, which Sloperator
-    /// picks anew at every check. A picked model stays shown while the server doesn't offer it, and
-    /// the setup banner says which model stands in for it meanwhile.
+    /// The model picked by hand, or Auto (<see cref="AutoModelItem"/>), which uses one of the three models in
+    /// Settings, and Sloperator's own pick (<see cref="ModelChoice.Pick"/>) where the server has none of them. A
+    /// picked model stays shown while the server doesn't offer it, and the setup banner says which model stands
+    /// in for it meanwhile.
     /// </summary>
     public string? SelectedModel
     {
-        get => _settings.Server.Model is { Length: > 0 } picked ? picked : _settings.Server.AutoModel;
+        get => _settings.Server.ModelOnAuto ? AutoModelItem : _settings.Server.Model;
         set
         {
             // Refilling the list briefly clears the selection; that is not the user choosing nothing.
             if (_refreshingModels || string.IsNullOrEmpty(value) || value == SelectedModel)
                 return;
-            _settings.Server.Model = value;
+            _settings.Server.Model = value == AutoModelItem ? "" : value;
             _settings.Server.AutoModel = null;
             SaveSettings();
             OnPropertyChanged();
-            OnPropertyChanged(nameof(ModelToolTip));
+            OnModelShownChanged();
             _ = CheckServerAsync();
         }
+    }
+
+    /// <summary>
+    /// What the closed model dropdown says: the model picked, or on Auto the model it uses now in brackets,
+    /// "Auto (claude-sonnet-5-5)", as the Side panel's Auto names the panel it shows.
+    /// </summary>
+    public string ModelBoxText => !_settings.Server.ModelOnAuto ? _settings.Server.Model
+        : _settings.Server.AutoModel is { } inUse ? $"{AutoModelItem} ({inUse})" : AutoModelItem;
+
+    private void OnModelShownChanged()
+    {
+        OnPropertyChanged(nameof(ModelBoxText));
+        OnPropertyChanged(nameof(ModelToolTip));
     }
 
     /// <summary>Size, quantization and benchmark score of the model Sloperator picked ("27B, 6-bit, 79.8% on Terminal-Bench 2.1"), as far as known.</summary>
@@ -265,32 +292,51 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
 
     private string AutoModelDetails => _autoModelDetails is { } details ? $" ({details})" : "";
 
-    /// <summary>Why the model shown is the one, when Sloperator picked it.</summary>
-    public string? ModelToolTip => !string.IsNullOrEmpty(_settings.Server.Model) || _settings.Server.AutoModel is not { } auto ? null
+    /// <summary>Why the model shown is the one, when Sloperator picked it: on Auto, which of the three it is, or how it stands in for them.</summary>
+    public string? ModelToolTip => !_settings.Server.ModelOnAuto ? null
+        : _settings.Server.AutoModel is not { } auto ? "Auto: before each message, the evaluation model picks one of the three models in Settings."
         : auto == KiloGateway.Model && KiloGateway.Is(_settings.Server.BaseUrl)
-            ? "Picked automatically: the free Kilo model that clicked best in tests."
-            : $"Picked automatically: {_autoModelWhy}{AutoModelDetails}.";
+            ? $"Auto uses {auto}: the free Kilo model that clicked best in tests."
+            : $"Auto uses {auto}: {_autoModelWhy}{AutoModelDetails}.";
 
     /// <summary>
     /// The effort dropdown's levels: those the model in use takes, least to most; all of them,
     /// greyed out, for a model that takes none, so the one picked still shows.
     /// </summary>
-    public ObservableCollection<EffortOption> EffortOptions { get; } = new(Efforts.Levels.Select(l => new EffortOption(l)));
+    public ObservableCollection<EffortOption> EffortOptions { get; } = new(Efforts.Levels.Prepend(Efforts.Auto).Select(l => new EffortOption(l)));
 
     private bool _refreshingEfforts;
 
-    /// <summary>The effort picked (medium until another is), or the nearest one the model takes. Saved; used from the next message on.</summary>
+    /// <summary>
+    /// The effort picked (medium until another is), or the nearest one the model takes; or Auto, which the
+    /// evaluation of each message picks a level for. Saved; used from the next message on.
+    /// </summary>
     public EffortOption? SelectedEffort
     {
-        get => new(_settings.Server.EffortInUse ?? _settings.Server.Effort);
+        get => new(_settings.Server.EffortOnAuto ? Efforts.Auto : _settings.Server.EffortInUse ?? _settings.Server.Effort);
         set
         {
             if (_refreshingEfforts || value is null || value == SelectedEffort) return;
             _settings.Server.Effort = value.Level;
             SaveSettings();
             OnPropertyChanged();
-            OnPropertyChanged(nameof(EffortToolTip));
+            OnEffortShownChanged();
         }
+    }
+
+    /// <summary>What the closed effort dropdown says: the level, or on Auto the one it uses now in brackets, "Auto (High)".</summary>
+    public string EffortBoxText => !_settings.Server.EffortOnAuto ? Efforts.Label(_settings.Server.EffortInUse ?? _settings.Server.Effort)
+        : _settings.Server.AutoEffort is not null && _settings.Server.EffortInUse is { } inUse ? $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(inUse)})"
+        : Efforts.Label(Efforts.Auto);
+
+    /// <summary>The words the effort dropdown is as wide as, whatever it says: "Auto (Extra high)" the widest.</summary>
+    public static IReadOnlyList<string> EffortBoxSlot { get; } =
+        [.. Efforts.Levels.Select(Efforts.Label), .. Efforts.Levels.Select(l => $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(l)})")];
+
+    private void OnEffortShownChanged()
+    {
+        OnPropertyChanged(nameof(EffortBoxText));
+        OnPropertyChanged(nameof(EffortToolTip));
     }
 
     /// <summary>The server says the model in use takes an effort; otherwise none is sent and the dropdown is greyed out.</summary>
@@ -300,6 +346,8 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     {
         get
         {
+            if (CanSetEffort && _settings.Server.EffortOnAuto)
+                return "How hard the model thinks: on Auto, the evaluation model picks it for each message.";
             if (CanSetEffort)
                 return "How hard the model thinks. More is slower and costs more.";
             var server = _settings.Server;
@@ -311,7 +359,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     /// <summary>The levels of the model in use, after a check: the list changes in place, so the dropdown keeps its selection.</summary>
     private void OnEffortsChanged()
     {
-        var wanted = CanSetEffort ? _settings.Server.EffortLevels : Efforts.Levels;
+        IReadOnlyList<string> wanted = [Efforts.Auto, .. CanSetEffort ? _settings.Server.EffortLevels : Efforts.Levels];
         _refreshingEfforts = true;
         for (var i = 0; i < wanted.Count; i++)
             if (EffortOptions.All(o => o.Level != wanted[i]))
@@ -323,7 +371,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         _refreshingEfforts = false;
         OnPropertyChanged(nameof(SelectedEffort));
         OnPropertyChanged(nameof(CanSetEffort));
-        OnPropertyChanged(nameof(EffortToolTip));
+        OnEffortShownChanged();
     }
 
     private async Task CheckAfterTypingAsync()
@@ -394,7 +442,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
             _autoModelWhy = probe.PickedAs ?? ModelChoice.BestValue;
         }
         SetModels(probe.Models);
-        OnPropertyChanged(nameof(ModelToolTip));
+        OnModelShownChanged();
         var kilo = KiloGateway.Is(server.BaseUrl);
         if (probe.KeyRefused)
         {
@@ -450,7 +498,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     /// </summary>
     private void SetModels(IReadOnlyList<string> fromServer)
     {
-        var wanted = fromServer.ToList();
+        List<string> wanted = [AutoModelItem, .. fromServer.Where(m => m != AutoModelItem)];
         if (SelectedModel is { } shown && !wanted.Contains(shown))
             wanted.Add(shown);
         _refreshingModels = true;
@@ -474,14 +522,20 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     /// </summary>
     public static void InsertModel(IList<string> models, string model, IReadOnlyCollection<string>? pinned = null)
     {
+        // Auto is the first row, whatever else is pinned or how it sorts.
+        if (model == AutoModelItem)
+        {
+            models.Insert(0, model);
+            return;
+        }
         var first = pinned?.Contains(model) == true;
         var i = 0;
         while (i < models.Count && Comes(models[i]))
             i++;
         models.Insert(i, model);
 
-        bool Comes(string other) =>
-            pinned?.Contains(other) == true != first ? !first : ModelOrder.Compare(other, model) <= 0;
+        bool Comes(string other) => other == AutoModelItem ||
+            (pinned?.Contains(other) == true != first ? !first : ModelOrder.Compare(other, model) <= 0);
     }
 
     /// <summary>Whether a model is pinned in the dropdown.</summary>
@@ -566,7 +620,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         _settings.Server.Effort = level;
         SaveSettings();
         OnPropertyChanged(nameof(SelectedEffort));
-        OnPropertyChanged(nameof(EffortToolTip));
+        OnEffortShownChanged();
     }).GetTask();
 
     /// <summary>Puts a server, its key and model in the top bar, as typing them there would, then checks it.</summary>
@@ -584,7 +638,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         OnPropertyChanged(nameof(ServerAddress));
         OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(SelectedModel));
-        OnPropertyChanged(nameof(ModelToolTip));
+        OnModelShownChanged();
         SetSavedServers();
         return CheckServerAsync();
     }
@@ -615,6 +669,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         OnPropertyChanged(nameof(ServerAddress));
         OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(SelectedModel));
+        OnModelShownChanged();
         OnPropertyChanged(nameof(AutoContext));
         OnContextChanged();
         _ = CheckServerAsync();

@@ -2381,8 +2381,9 @@ listens on, so each new connection waited 2 s. On 24 October 2026, with LM Studi
 request that loads it went out 5.5 s after the message was sent, and 1.0 s after the fix; with the
 server's own address over the VPN, 1.6 s and 1.0 s.
 
-Until you pick a model, Sloperator uses the cheapest of the strongest ones the server offers
-(`ModelChoice.Pick`). It finds the strongest, then keeps every model as able (takes images, calls
+With no model picked (the dropdown's Auto, see "Auto model and effort" below) and none of Auto's three
+models on the server, Sloperator stands in the cheapest of the strongest ones the server offers
+(`ModelChoice.Pick`); until 9 November 2026 that was simply the model used until one was picked. It finds the strongest, then keeps every model as able (takes images, calls
 tools) that scores at most a tenth below it, and of those takes the cheapest, by three input tokens
 to one output token (the blend Artificial Analysis prices by; an agent sends far more than it gets
 back). Prices within a tenth of each other count as equal; between those, the one that does best
@@ -2641,6 +2642,64 @@ These were one `model_server` tool with an `action` (show, connect, effort) unti
 the user found its five parameters, each good for one action only, and its name too much, so each
 action became a tool of its own with only its own parameters.
 
+### Auto model and effort
+The user, 2026-11-09: "Make an 'Auto' mode for model, and 'Auto' mode for effort selection (separate from each
+other)", first in both dropdowns, with three preferred models in Settings, and a Haiku side task that evaluates the
+prompt and switches to the model and effort it thinks viable, keeping itself for simple tasks, then gives what it
+found exploring the project.
+
+**The three models** (`AutoModels`, saved as `server.auto` in settings.json; Settings > General > Auto model):
+Evaluation model "Claude Haiku", Daily driver model "Claude Sonnet", Complex task model "Claude Opus", the user's
+defaults. Each is words or a name, found on the server in use as switch_model finds a model
+(`ModelChoice.Named`: the words in a row in a listed name, then the highest version; `ModelChoice.Like` and
+`Newest`, moved from `ModelTools`): "Claude Opus" is `claude-opus-5-5` on Anthropic's API and
+`anthropic/claude-opus-5.5` on OpenRouter. Words that fit no listed model take the model Sloperator picks itself
+(above, and Kilo's tested free one) in their place (`AutoModelSet.Resolve`), so on LM Studio or Kilo without a key
+all three are one model and there is nothing to choose (`AutoModelSet.Differ`). Nothing else tells models apart:
+the defaults are the user's words, not a branch. Settings shows beside each box the model its words find on the
+server in use ("claude-haiku-5-5 here", "None here: Sloperator picks"). The dialog's server is the window's
+(`ApplySettingsAsync` keeps the window's), so the three are carried over it by hand, and into other windows.
+
+**Auto in the dropdowns**: the model dropdown's first row is "Auto" (`MainWindowViewModel.AutoModelItem`, which
+stands for `server.model` empty, what "no model picked" always was), with "Picks the model for each message" under
+it and no pin; it stays first whatever is pinned (`InsertModel`). Closed, it says the model Auto uses now in
+brackets, "Auto (claude-sonnet-5-5)", as the Side panel's Auto names its panel; before any message that is the
+daily driver (`ServerSettings.AutoTier`, not saved). The effort dropdown's first row is "Auto" too (`Efforts.Auto`,
+"auto" in `server.effort`), "Picked with the model" under it; closed it says "Auto (High)" once a level was picked,
+in a slot as wide as "Auto (Extra high)" (it was a fixed 112, as wide as "Extra high"). On Auto, `EffortInUse` is
+the picked level (`ServerSettings.AutoEffort`, not saved), medium before one is, the nearest the model takes as
+always. The effort's default stays medium: a fresh install is on Kilo's free model, where Auto effort would add an
+evaluation to every message with no model to choose. switch_model with no model, which was "Sloperator's own
+pick", is Auto.
+
+**The evaluation** (`AgentSession.EvaluateAsync`, `AutoPick`): when a message starts a run (not a Compact, not a
+message sent during a run) and Auto has something to pick (`AutoToPick`: the model on Auto with two of the three
+differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
+run's session: a side task on the evaluation model at low effort (the nearest it takes), with `read_file`,
+`list_directory`, `index_folder`, `web_search` and `fetch_page` only, 12 replies at most. It is told the three models
+(evaluation for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which
+model it ran on (another reads it all anew at full price, so it switches only when the task needs it), the agent's
+last reply (for "yes, do it") and the message, and answers in four fields, `model:`, `effort:`, `why:` and `found:`,
+read plain or in Markdown, a model also by its name (`AutoPick.Read`). It runs in a session of its own made for the
+model in use, so its replies count in the chat's cost by the evaluation model, and its calls ask the user's OK as
+any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
+the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
+session is made for it, and what it found goes with the message (`UserInput.Context`, before the user's words:
+"[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
+found: …"), so the picked model needn't look again. The pick holds until the next message's evaluation. The
+command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
+
+**How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
+"the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
+(`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
+evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output. Up to a
+dearer model of the three than the one in use (evaluation, then daily, then complex: the user's own order, no
+prices compared) the run asks first, on a card over the message box (`AutoSwitchQuestion`): "Switch to
+claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,
+"Switches in 7 s" and a bar running down; no answer in 10 s takes Auto's pick, Stop ends it with the run. The card
+says "Wants claude-opus-5-5 at High" meanwhile, and "(you stayed off claude-opus-5-5)" after Stay. Down or the same
+goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
+
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
 `console.anthropic.com`, `claude.ai`, or just `claude`) and an Anthropic API key, Sloperator speaks Anthropic's own
@@ -2844,7 +2903,9 @@ as the model's prices (`ToolContext.SetPrices`). The panel's fields follow price
 **side_task** (`SideTaskTool`, the user 2026-11-02: "temporary job that stays out of the chat's context";
 "can be used for anything, folder or script summary etc"): the model hands a self-contained job (task, prompt,
 output) to itself in a conversation of its own, `AgentSession.RunSideTaskAsync` through
-`ToolContext.SideTask`: the same server and model, a system prompt saying it is a side task that doesn't
+`ToolContext.SideTask`: the same server and model (or another model of the server, `SideTaskModel`, with an effort
+and a step limit of its own: the user, 2026-11-09, "side tasks should be able to run in any model", for Auto's
+evaluation; the side_task tool itself still runs on the chat's model), a system prompt saying it is a side task that doesn't
 see the main conversation, which waits for it, and the run's tools but side_task, reset_context and
 capture_result. It never runs beside the chat: the call waits until it ends (an answer without calls, or
 50 replies at most). Output is off by default: the call then returns only "The side task is done. It

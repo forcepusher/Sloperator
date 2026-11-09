@@ -43,6 +43,40 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
         set => Agent.Approval = (ApprovalMode)Math.Clamp(value, 0, ApprovalModes.Length - 1);
     }
 
+    // ---- Auto model ----------------------------------------------------------------------
+
+    /// <summary>The models the server in use lists, for the line beside each of the three saying which model its words find there.</summary>
+    public IReadOnlyList<string> ServerModels { get; init; } = [];
+
+    /// <summary>The three models the model dropdown's Auto picks from (see <see cref="AutoModels"/>), as words or names.</summary>
+    public string EvaluationModel
+    {
+        get => Settings.Server.Auto.Evaluation;
+        set { Settings.Server.Auto.Evaluation = value.Trim(); OnPropertyChanged(nameof(EvaluationFound)); }
+    }
+
+    /// <inheritdoc cref="EvaluationModel"/>
+    public string DailyModel
+    {
+        get => Settings.Server.Auto.Daily;
+        set { Settings.Server.Auto.Daily = value.Trim(); OnPropertyChanged(nameof(DailyFound)); }
+    }
+
+    /// <inheritdoc cref="EvaluationModel"/>
+    public string ComplexModel
+    {
+        get => Settings.Server.Auto.Complex;
+        set { Settings.Server.Auto.Complex = value.Trim(); OnPropertyChanged(nameof(ComplexFound)); }
+    }
+
+    public string EvaluationFound => FoundHere(EvaluationModel);
+    public string DailyFound => FoundHere(DailyModel);
+    public string ComplexFound => FoundHere(ComplexModel);
+
+    /// <summary>"claude-haiku-5-5 here", or that the server has none such; nothing when the server's models aren't known.</summary>
+    private string FoundHere(string words) => ServerModels.Count == 0 ? ""
+        : Core.Llm.ModelChoice.Named(words, ServerModels) is { } id ? $"{id} here" : "None here: Sloperator picks";
+
     // ---- Text recognition --------------------------------------------------------------
 
     /// <summary>The languages Windows reads the screen's text in, for find_text; null where the OS has no text recognition.</summary>

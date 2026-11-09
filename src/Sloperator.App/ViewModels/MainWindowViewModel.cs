@@ -18,7 +18,12 @@ public enum ServerState { Unknown, Checking, Connected, Failed }
 /// <summary>A level in the effort dropdown ("low" to "max"), shown as "Medium".</summary>
 public sealed record EffortOption(string Level)
 {
-    public override string ToString() => Efforts.Label(Level);
+    public string Label => Efforts.Label(Level);
+
+    /// <summary>The dropdown's Auto, which says what it does under its word.</summary>
+    public bool IsAuto => Level == Efforts.Auto;
+
+    public override string ToString() => Label;
 }
 
 public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserver
@@ -758,37 +763,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         try
         {
             var server = _settings.Server;
-            // The check and the load on one connection: a new one is a round trip more before LM Studio starts loading.
-            using (var probeHttp = LlmHttp.Create(TimeSpan.FromMinutes(10)))
-            {
-                // The server may offer other models than at the last check: the picked one back, or the one in use gone.
-                var probe = Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count > 0 ? await ProbeServerAsync(quiet: true, ct, probeHttp) : null;
-                // Said with Continue by the catch below, which also gives back what was sent meanwhile:
-                // returning here left those messages above the box for good.
-                if (Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count == 0 || string.IsNullOrWhiteSpace(server.ModelInUse))
-                    throw new InvalidOperationException("Enter your model server's address and pick a model at the top first, then press Continue.");
-                // LM Studio loads models on first use; do that now so we know the real context size.
-                // What the check just said of the model isn't asked again. Not into a chat opened
-                // since: the run is then one ending for the chat left. Not of a server the check
-                // couldn't reach: each of its lookups waited out a refused connection (2 s on
-                // Windows) and the chat said nothing for 16 s; the first request now says it.
-                var facts = probe is { Reachable: false, KeyRefused: false } ? default : await ServerProbe.EnsureLoadedAsync(probeHttp, server,
-                    () => Dispatcher.UIThread.Post(() => { if (!_runDetached) AddNotice("Loading the model on the server…", isError: false); }), ct,
-                    note => Dispatcher.UIThread.Post(() => { if (!_runDetached) AddNotice(note, isError: false); }),
-                    known: probe is not null && probe.Model == server.ModelInUse ? probe.Facts : null);
-                if (facts.Context is { } context)
-                {
-                    server.SetDetectedContext(context);
-                    _modelNotLoaded = false;
-                    OnContextChanged();
-                    // Ollama and llama-server start models with 4k unless told otherwise; the run
-                    // then resets after every step, or fails as too long. Not for a size near 32k
-                    // (LM Studio's 32000 is 31k), which works.
-                    if (context < ServerProbe.MinimumContext * 3 / 4 && !facts.Hosted && !_runDetached)
-                        AddNotice($"The server runs {server.ModelInUse} with a {context / 1024}k context, and Sloperator needs about {ServerProbe.MinimumContext / 1024}k: " +
-                                  "its instructions and tools alone take about 9k tokens, and each screenshot about 3k. Load the model with a larger context on the server.", isError: false);
-                }
-            }
+            var probe = await PrepareModelAsync();
             if (!_mcpConnect.IsCompleted)
             {
                 if (!_runDetached) AddNotice("Starting the MCP servers…", isError: false);
@@ -798,14 +773,38 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // Named now, not at the first save: what capture_result takes goes into the chat's folder.
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
-            var backend = BackendConnection.Create(_http, server);
-            await backend.Client.SpeaksMessagesAsync(ct);
-            backend.Client.Spending = _spent;
-            var session = _session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
-                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
-                setPrices: KeepPricesFromAgent, plan: Plan);
+            var runInput = input;
+            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it.
+            if (input is not null && AutoToPick(probe) is var (set, pickModel, pickEffort))
+            {
+                var tier = server.AutoTier;
+                var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort);
+                if (pick.Problem is null)
+                    server.AutoEffort = pick.Effort ?? server.AutoEffort;
+                // Up to a dearer model of the three, the user says (the mockups' third design); down or the same goes ahead.
+                var kept = false;
+                if (pick.Problem is null && pickModel && pick.Tier > tier && set[pick.Tier].Id != set[tier].Id)
+                {
+                    var wanted = set[pick.Tier].Id;
+                    var wantedEffort = server.EffortOnAuto ? Efforts.Nearest(server.AutoEffort ?? Efforts.Default, set[pick.Tier].Efforts)
+                        : Efforts.Nearest(server.Effort, set[pick.Tier].Efforts);
+                    ShowAutoWants(pick, wanted, wantedEffort);
+                    kept = !await AskSwitchAsync(wanted, wantedEffort, set[tier].Id, ct);
+                }
+                if (pick.Problem is null && !kept)
+                    server.AutoTier = pick.Tier;
+                if (server.AutoTier != tier)
+                    await PrepareModelAsync();
+                OnModelShownChanged();
+                OnEffortShownChanged();
+                ShowAutoPick(pick, server.ModelInUse, server.EffortInUse, kept ? set[pick.Tier].Id : null);
+                if (pick.Notes is { } notes)
+                    runInput = input with { Context = input.Context is { } context ? $"{notes}\n\n{context}" : notes };
+            }
+
+            var backend = await ConnectAsync();
+            var session = _session = NewSession(backend);
             session.PriceLookup = PriceLookupFor(backend.Client.BaseUrl, backend.Options.Model);
-            session.UserTyping = TypingHere;
             // Taken now: another model can be picked at the top while the run goes on.
             var runKey = ImagesKey(server);
             var imagesKey = session.SeesImages ? runKey : null;
@@ -818,7 +817,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _tick.Start();
             delivered = true;
             _unread = null;
-            await Task.Run(() => input is null ? session.CompactAsync(this, ct) : session.RunAsync(input, this, ct), CancellationToken.None);
+            await Task.Run(() => runInput is null ? session.CompactAsync(this, ct) : session.RunAsync(runInput, this, ct), CancellationToken.None);
             // A server error may have revealed the real context size; keep it for the next run.
             // Not for another server or model picked meanwhile (by the user, or the agent's switch_model).
             if (ImagesKey(server) == runKey)
@@ -911,6 +910,69 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         foreach (var message in late)
             MoveIntoChat(message);
         return UserInput.Join(late);
+
+        // The server checked and the model to use loaded, as the run starts and again for a model Auto picked.
+        async Task<ProbeResult?> PrepareModelAsync()
+        {
+            var server = _settings.Server;
+            // The check and the load on one connection: a new one is a round trip more before LM Studio starts loading.
+            using var probeHttp = LlmHttp.Create(TimeSpan.FromMinutes(10));
+            // The server may offer other models than at the last check: the picked one back, or the one in use gone.
+            var probe = Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count > 0 ? await ProbeServerAsync(quiet: true, ct, probeHttp) : null;
+            // Said with Continue by the catch below, which also gives back what was sent meanwhile:
+            // returning here left those messages above the box for good.
+            if (Core.Llm.ServerAddress.Candidates(server.BaseUrl).Count == 0 || string.IsNullOrWhiteSpace(server.ModelInUse))
+                throw new InvalidOperationException("Enter your model server's address and pick a model at the top first, then press Continue.");
+            // LM Studio loads models on first use; do that now so we know the real context size.
+            // What the check just said of the model isn't asked again. Not into a chat opened
+            // since: the run is then one ending for the chat left. Not of a server the check
+            // couldn't reach: each of its lookups waited out a refused connection (2 s on
+            // Windows) and the chat said nothing for 16 s; the first request now says it.
+            var facts = probe is { Reachable: false, KeyRefused: false } ? default : await ServerProbe.EnsureLoadedAsync(probeHttp, server,
+                () => Dispatcher.UIThread.Post(() => { if (!_runDetached) AddNotice("Loading the model on the server…", isError: false); }), ct,
+                note => Dispatcher.UIThread.Post(() => { if (!_runDetached) AddNotice(note, isError: false); }),
+                known: probe is not null && probe.Model == server.ModelInUse ? probe.Facts : null);
+            if (facts.Context is { } context)
+            {
+                server.SetDetectedContext(context);
+                _modelNotLoaded = false;
+                OnContextChanged();
+                // Ollama and llama-server start models with 4k unless told otherwise; the run
+                // then resets after every step, or fails as too long. Not for a size near 32k
+                // (LM Studio's 32000 is 31k), which works.
+                if (context < ServerProbe.MinimumContext * 3 / 4 && !facts.Hosted && !_runDetached)
+                    AddNotice($"The server runs {server.ModelInUse} with a {context / 1024}k context, and Sloperator needs about {ServerProbe.MinimumContext / 1024}k: " +
+                              "its instructions and tools alone take about 9k tokens, and each screenshot about 3k. Load the model with a larger context on the server.", isError: false);
+            }
+            return probe;
+        }
+
+        // A client for the server and the model in use, its replies counted in the chat's cost.
+        async Task<BackendConnection> ConnectAsync()
+        {
+            var backend = BackendConnection.Create(_http, _settings.Server);
+            await backend.Client.SpeaksMessagesAsync(ct);
+            backend.Client.Spending = _spent;
+            return backend;
+        }
+
+        AgentSession NewSession(BackendConnection backend)
+        {
+            var session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
+                _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
+                setPrices: KeepPricesFromAgent, plan: Plan);
+            session.UserTyping = TypingHere;
+            return session;
+        }
+
+        // Auto's evaluation, on a session of its own for the model in use: the run's then starts on what it picked.
+        async Task<AutoPick> EvaluateAsync(BackendConnection backend, UserInput message, AutoModelSet set, bool pickModel, bool pickEffort)
+        {
+            var judge = NewSession(backend);
+            var progress = ShowAutoPicking(set.Evaluation.Id);
+            var tier = _settings.Server.AutoTier;
+            return await Task.Run(() => judge.EvaluateAsync(message, set, pickModel, pickEffort, tier, progress, this, ct), CancellationToken.None);
+        }
     }
 
     /// <summary>

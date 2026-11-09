@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Once the agent has answered, the task's tool calls and thinking fold under one card that says how long it
   worked, how many tool calls it made and which tools; **Show steps** unfolds them. Chats opened from History
   open folded.
+- **Auto** is the first row of the model and effort dropdowns, each on its own. Before each message the
+  evaluation model takes a short look at the task (reading files, never changing them) and picks the model
+  and effort for it; a card in the chat says what it picked, why, and what it found, which the picked model
+  gets with your message. Before moving up to a dearer model it asks: **Switch** or stay, Switch after 10 seconds.
+- **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
+  Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
+- Side tasks can run on another model of the server than the chat's.
 
 ### Changed
 - A new chat starts with about 2,600 fewer tokens: the video and ComfyUI tools' long how-tos moved into

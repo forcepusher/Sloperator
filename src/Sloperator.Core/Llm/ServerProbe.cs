@@ -15,9 +15,11 @@ namespace Sloperator.Core.Llm;
 /// <param name="ContextHosted"><paramref name="LoadedContext"/> is the most a hosted service takes for the model, not a size a server runs it with (see <see cref="ModelFacts.Hosted"/>).</param>
 /// <param name="KeyRefused">The server answered, but turned the API key down (see <see cref="KeyRefusedException"/>); <paramref name="Message"/> says what to change.</param>
 /// <param name="Efforts">The effort levels <paramref name="Model"/> takes (see <see cref="ModelInfo.Efforts"/>); empty when it takes none or nothing says.</param>
-/// <param name="PickedAs">For a model chosen here, how it was chosen (<see cref="ModelChoice.Why"/>).</param>
+/// <param name="PickedAs">For a model chosen here, how it was chosen (<see cref="ModelChoice.Why"/>, or which of the user's three Auto models it is).</param>
+/// <param name="Auto">On Auto, the user's three models on this server (<see cref="AutoModelSet"/>); null otherwise.</param>
 public sealed record ProbeResult(bool Reachable, IReadOnlyList<string> Models, int? LoadedContext, bool? Vision, string Message, bool? Loaded = null, string? BaseUrl = null,
-    string? Model = null, bool AutoPicked = false, string? ModelDetails = null, bool ContextHosted = false, bool KeyRefused = false, IReadOnlyList<string>? Efforts = null, string? PickedAs = null)
+    string? Model = null, bool AutoPicked = false, string? ModelDetails = null, bool ContextHosted = false, bool KeyRefused = false, IReadOnlyList<string>? Efforts = null, string? PickedAs = null,
+    AutoModelSet? Auto = null)
 {
     /// <summary>What the server said of <see cref="Model"/>, as <see cref="ServerProbe.TryContextAsync"/> gives it; null when it wasn't reached.</summary>
     public ModelFacts? Facts => Reachable && Model is not null ? new ModelFacts(LoadedContext, Loaded, Vision, ContextHosted) : null;
@@ -83,16 +85,24 @@ public static partial class ServerProbe
             // Kilo's free models carry no benchmark score, and their sizes don't tell how they click,
             // so with none picked the one Sloperator was tested with comes first there, unless a key
             // opens Claude models, which the auto-pick prefers (see ModelChoice.OffersClaude).
-            found.Model = (server.Model.Length == 0 && KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model) && !ModelChoice.OffersClaude(catalog)
+            var standIn = (KiloGateway.Is(candidates[i]) && catalog.Any(m => m.Id == KiloGateway.Model) && !ModelChoice.OffersClaude(catalog)
                 ? KiloGateway.Model
-                : ModelChoice.Choose(server.Model, catalog)) ?? "";
+                : ModelChoice.Choose("", catalog));
+            IReadOnlyList<string> EffortsOf(string id) =>
+                OpenAiChatClient.EffortsTaken(candidates[i], id) ?? catalog.FirstOrDefault(m => m.Id == id)?.Efforts ?? Efforts.Levels;
+            // On Auto (model or effort), the user's three models here, the stand-in where their words fit none; on a model Auto, the one it uses now.
+            var set = server.ModelOnAuto || server.EffortOnAuto ? AutoModelSet.Resolve(server.Auto, catalog, standIn, EffortsOf) : null;
+            found.Model = (!server.ModelOnAuto ? ModelChoice.Choose(server.Model, catalog) : set is not null ? set[server.AutoTier].Id : standIn) ?? "";
             var auto = found.Model.Length > 0 && !ModelChoice.IsSameModel(found.Model, server.Model);
             var facts = await TryContextAsync(http, found, ct, models).ConfigureAwait(false);
             return new ProbeResult(true, catalog.Where(m => m.Chat).Select(m => m.Id).ToList(), facts.Context, facts.Vision,
                 models.Count == 0 ? "Connected, but the server lists no models." : "Connected.", facts.Loaded, candidates[i],
                 found.Model.Length > 0 ? found.Model : null, auto, auto ? ModelChoice.Describe(catalog.First(m => m.Id == found.Model)) : null, facts.Hosted,
-                Efforts: OpenAiChatClient.EffortsTaken(candidates[i], found.Model) ?? catalog.FirstOrDefault(m => m.Id == found.Model)?.Efforts ?? Efforts.Levels,
-                PickedAs: auto ? ModelChoice.Why(catalog.First(m => m.Id == found.Model), catalog) : null);
+                Efforts: EffortsOf(found.Model),
+                PickedAs: !auto ? null
+                    : server.ModelOnAuto && set?[server.AutoTier] is { Named: true } ? AutoModelSet.Why(server.AutoTier)
+                    : ModelChoice.Why(catalog.First(m => m.Id == found.Model), catalog),
+                Auto: set);
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)
