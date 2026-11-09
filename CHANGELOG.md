@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Work in a folder a repository's .gitignore leaves out (a scratch folder, another project kept there) no longer has the agent
+  told to index the whole repository and read its notes.
 - "Worked for" no longer counts the time a call waited for your OK.
 - Screen readers name every text box, dropdown and slider, such as the server address, API key, message box and
   **Tool call approval**, rather than calling them "edit" or "combo box".

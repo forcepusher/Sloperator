@@ -4069,7 +4069,9 @@ solution or an engine's project (Unity, Unreal, Godot), or else with a package o
 (`package.json`, `Cargo.toml`, a `.csproj`…); never the home folder or a drive, and not one of
 fewer than 25 files, which is read faster than indexed (one the model is making), nor Sloperator's own
 SloperatorData folder (run from a checkout, a download into `SloperatorData\scratch` had the model told to index the
-Sloperator repository, 2026-10-26). Once per project in
+Sloperator repository, 2026-10-26), nor a folder the repository's .gitignore leaves out (`FolderWalk.IgnoredIn`): a
+test folder in Sloperator's own ignored `.dev` had every task there told to index all of Sloperator and given its
+CLAUDE.md, which the model then talked about (2026-11-10). Once per project in
 a chat, and again after a context reset, which drops the overview: the app starts a session for
 every message, so the note looks back over the chat for the projects already indexed and the notes
 already given (until 2026-10-23 it came again with every message, and the model indexed again). A
