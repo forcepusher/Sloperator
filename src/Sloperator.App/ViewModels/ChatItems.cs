@@ -657,7 +657,7 @@ public sealed partial class WorkFold : ObservableObject
         {
             took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
             calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
-            _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null),
+            _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null) is { } pick ? Unbroken(pick) : null,
         }.OfType<string>().DefaultIfEmpty("Thoughts"));
         foreach (var line in _lines)
             line.JoinFold(this, whole: true);
@@ -667,6 +667,12 @@ public sealed partial class WorkFold : ObservableObject
 
     /// <summary>"Worked for 3 min 12 s · 4 tool calls".</summary>
     public string Title { get; }
+
+    /// <summary>
+    /// Auto's pick held together, so a narrow chat wraps the title before it: it broke between "at" and the
+    /// effort, and with only the spaces held, inside the model's name ("anthropic/claude-" over "haiku-5.5 at Low").
+    /// </summary>
+    public static string Unbroken(string pick) => pick.Replace(' ', (char)0xA0).Replace("-", "-" + (char)0x2060).Replace("/", "/" + (char)0x2060);
 
     /// <summary>The tools the run called, each once, in the order it first called them.</summary>
     public IReadOnlyList<string> Tools { get; }

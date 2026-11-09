@@ -23,11 +23,11 @@ public static class AgentSetup
     /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
     /// <param name="setPrices">Keeps a model's prices (the app's Cost estimates), for set_api_pricing; null for no such tool.</param>
     /// <param name="plan">The chat's plan so far (see <see cref="ToolContext.Plan"/>).</param>
-    /// <param name="sidePanel">Whether the prompt says what the window's side panel shows (the app's; the command line has none).</param>
+    /// <param name="showPanel">Opens the window's side panel, for show_panel (see <see cref="ToolContext.ShowPanel"/>); the prompt then says what it shows. Null where there is none (the command line).</param>
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
         object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
-        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null, bool sidePanel = false)
+        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null, Func<string, string?, Task<string?>>? showPanel = null)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);
@@ -58,6 +58,7 @@ public static class AgentSetup
             ModelServer = modelServer,
             // The run's server, and its model where the call names none.
             SetPrices = setPrices is null ? null : p => setPrices(p.With(backend.Client.BaseUrl, backend.Options.Model)),
+            ShowPanel = showPanel,
         };
 
         // A model that can't see gets no screen tools, nor does an OS without desktop control, nor
@@ -75,12 +76,12 @@ public static class AgentSetup
 
         // The MCP tools are a snapshot: the tool list stays the same for the whole run, unless the
         // agent sets up a server itself (mcp_servers), whose tools then join it.
-        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ListModelsTool(), new SwitchModelTool(), new SetEffortTool()]), .. (setPrices is null ? (Tool[])[] : [new SetApiPricingTool()]), .. mcp.Tools], includeIndex: folderIndex,
+        var registry = ToolRegistry.CreateDefault(includeScreenTools: screens is not null, extra: [new McpServersTool(), .. (modelServer is null ? (Tool[])[] : [new ListModelsTool(), new SwitchModelTool(), new SetEffortTool()]), .. (setPrices is null ? (Tool[])[] : [new SetApiPricingTool()]), .. (showPanel is null ? (Tool[])[] : [new ShowPanelTool()]), .. mcp.Tools], includeIndex: folderIndex,
             includeControl: agent.Controls, includeFindText: agent.EnableTextRecognition);
         mcpSetup.Registry = registry;
         string Prompt() => SystemPrompt.Build(platform.Name, screens, ctx.WorkingDirectory, agent.CustomInstructions, mcp.Connected, webSearch: true, paths.ToolsDir, paths.ScratchDir,
             folderIndex, control: agent.Controls, modelServer: modelServer is not null, findText: agent.EnableTextRecognition, madeDirectory: MadeDirectory(), text: agent.SystemPrompt,
-            dataDirectory: sidePanel ? paths.DataDir : null);
+            dataDirectory: showPanel is not null ? paths.DataDir : null);
         var session = new AgentSession(backend.Client, backend.Options, registry, ctx, Prompt(), history, backend.ContextTokens);
         // A server the agent adds or removes: the prompt then lists the servers as the next
         // message's will, in the same request whose tools change anyway.

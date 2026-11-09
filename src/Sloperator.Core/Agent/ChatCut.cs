@@ -71,11 +71,14 @@ public static class ChatCut
         history.Add(ChatMessage.User(UndoneNote));
     }
 
-    /// <summary>How the message's words begin in the conversation: what the model read first, or for files alone, the first file's line.</summary>
+    /// <summary>
+    /// How the message is found in the conversation: by the user's words, which a chat saved when Sloperator's words
+    /// came before them has too; else for files, the first file's line; else by Sloperator's words alone.
+    /// </summary>
     private static string Key(UserInput input) =>
-        UserInput.Tidy(input.ModelText) is { Length: > 0 } text ? text
+        UserInput.Tidy(input.Text) is { Length: > 0 } text ? text
         : input.Files.Count > 0 ? $"- {input.Files[0]} ("
-        : "";
+        : UserInput.Tidy(input.ModelText);
 
     /// <summary>Tools that only look, wait or point: what they did needs no undoing.</summary>
     private static readonly HashSet<string> OnlyLook =

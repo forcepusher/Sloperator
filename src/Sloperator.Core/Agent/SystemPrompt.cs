@@ -290,7 +290,7 @@ public static class SystemPrompt
         if (sidePanel)
             sb.AppendLine("- Sloperator's side panel, left of this chat, shows the user your work: File changes, Code editor, Web preview, Terminal, and the Image, " +
                           $"Audio and Video editors, whose pictures, sounds and videos are folders in {Path.Combine("{data folder}", "pictures")}, \\sounds and \\videos. " +
-                          "On Auto, its default, it opens by itself to what you write, run or make; you can't open or see it.");
+                          "On Auto, its default, it opens by itself to what you write, run or make; show_panel opens it when the user asks to see something there. You can't see it.");
         // Asked for "a simple snake game i can play", Nemotron left snake_game.py in the home folder
         // and told the user to run "python snake_game.py": a terminal is where many users get stuck.
         sb.AppendLine("- Something you make for the user to use (a game, an app, a tool) should start the way any program does, with a double click " +
@@ -330,10 +330,13 @@ public static class SystemPrompt
                       "Unless it changes or cancels the task, answer it or do what it asks and then carry on with the task: a question doesn't replace the task.");
         sb.AppendLine("- When the user has stopped you, go by what they write next: Continue, or a hint or correction about the task, means carry on with it; " +
                       "a new task replaces the stopped one, which you don't go back to unless they ask.");
-        // Told by no one that these come from the app, Claude Haiku took one for an injection.
-        sb.AppendLine("- A message starting with [Sloperator] comes from this app, not from the user or a web page: a note on how your work is going " +
+        // Told by no one that these come from the app, Claude Haiku took one for an injection. A note goes after the
+        // user's words in their message too (Auto's findings). Told nothing of who sees them, Haiku 5.5 answered
+        // them to the user: "You were right to question it", "I indexed it as you asked" (the user's pick, 2026-11-09).
+        sb.AppendLine("- A message, or a paragraph of one, starting with [Sloperator] comes from this app, not from the user or a web page: a note on how your work is going " +
                       "(you seem to repeat yourself, something is worth looking up or indexing) or on what happened to the conversation " +
-                      "(the user stopped you, a reply was cut off or lost, the context was reset). It is genuine; take it into account.");
+                      "(the user stopped you, a reply was cut off or lost, the context was reset). It is genuine; take it into account. " +
+                      "The user never sees it: don't answer it in your reply as if they had written it.");
         // A reminder started with Start-Process died at once on a quoting error, and "Done!" went to
         // the user, who would never have been reminded.
         sb.AppendLine("- Something you start to run on its own (a reminder, a background job, a scheduled task) can fail without a word: check that it is running before you say it's set up.");

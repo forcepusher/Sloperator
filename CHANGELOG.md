@@ -35,8 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
 - Side tasks can run on another model of the server than the chat's.
+- Ask the agent to show you something in a side panel ("show it in the Web preview") and it opens that panel with
+  the page, file or folder in it.
 
 ### Changed
+- What Sloperator tells the agent with your message (what Auto found, a side panel pick, text you selected in the
+  chat) now comes after your words, so the agent no longer takes your message for one of Sloperator's.
+- The agent no longer answers Sloperator's notes to it, which you never see, as if you had written them.
 - Web search results tell the agent that their snippets can be out of date, so it opens the page before it states a
   version, a date or a price.
 - **Stop** appears left of the blob as a task starts, so **Send** and the blob stay where they are instead of moving
@@ -74,6 +79,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A click whose effect shows a little way off, such as a counter above the button, is no longer reported to the agent
+  as a miss.
+- A chat opened from **History** shows how full its context is in the top bar at once, as it did when you left it,
+  not only once the next task starts.
+- In a narrow chat, a folded card's title wraps before the model Auto picked, not inside its name or before its effort.
+- **Web preview** shows a page that sets no background of its own on white, as a browser does, rather than its
+  black text on the panel's dark grey.
+- A model that OpenRouter's provider turns down no longer blames your API key: the message says what the provider
+  said, such as the model not being available in your region.
 - **File changes** says it lists the files the agent writes or edits, not what its commands change: a file a command
   deleted never showed, under a line that promised every change.
 - The Image editor no longer says "The version shown says nothing of how it was made" before a picture is picked.

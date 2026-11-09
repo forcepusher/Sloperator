@@ -172,6 +172,12 @@ public sealed class ToolContext
     /// <summary>Keeps a model's prices, for set_api_pricing (the app's Cost estimates); null where they can't be kept.</summary>
     public Action<ModelPrices>? SetPrices { get; init; }
 
+    /// <summary>
+    /// Opens a panel of the app's side panel by its name, to a page, file or folder (null: as it opens), for show_panel;
+    /// gives back why it couldn't, null when it did. Null where there is no side panel.
+    /// </summary>
+    public Func<string, string?, Task<string?>>? ShowPanel { get; init; }
+
     /// <summary>The servers this chat is logged in to over SSH (the ssh tool, and the file tools with host); null when SSH is off.</summary>
     public Ssh.SshHosts? Ssh { get; init; }
 

@@ -1550,7 +1550,9 @@ call and no thinking (a model loaded, a plain answer) isn't folded and keeps its
 Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
 card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
 nothing in sight said which model had answered). It is read back from the card's line (`PickedIn`), so a chat
-opened from History says it too; a card stopped while it picked has none.
+opened from History says it too; a card stopped while it picked has none. The pick is held together
+(`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
+it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
@@ -1877,7 +1879,7 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
   scrolled meanwhile; only when the box would cover the selection's end does it move, just enough to
   show it (`MainWindow.HoldChatForQuote`). Higher up the chat never moved: a ScrollViewer keeps its
   offset when its view gets shorter.
-- Sent, the model is told it before the user's words, in `UserInput.Context` with whatever an open
+- Sent, the model is told it after the user's words, in `UserInput.Context` with whatever an open
   panel says: `[The user selected this in the chat, which is what they refer to:` and the text, cut at
   `BoxPicks.MaxChars` as a pick is (`MainWindowViewModel.WithQuote`). The card goes with the message
   (`UserInput.Cards`, a `SidePanelCard` with no path, kept in the saved chat) and shows first in its
@@ -2360,7 +2362,11 @@ that answers. An API key, if your server needs one, goes next to the address (th
 shows it). A server that answers but turns the key down (none given, a wrong one, an account out
 of credits: HTTP 401, 402, 403) says so, with the server's own words and what to change, rather
 than "Can't reach the server" and its JSON: a wrong OpenRouter key showed only `Chat request
-failed (401): {"error":{"message":"User not found.","code":401}}`. Nothing answering on LM
+failed (401): {"error":{"message":"User not found.","code":401}}`. A gateway's error carries what the
+provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes after its own words
+(`ErrorText`); a 403 with it is the provider's refusal, not the key's: "The model's provider turned the
+request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
+another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
 1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
@@ -2710,7 +2716,7 @@ read plain or in Markdown, a model also by its name (`AutoPick.Read`). It runs i
 model in use, so its replies count in the chat's cost by the evaluation model, and its calls ask the user's OK as
 any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
-session is made for it, and what it found goes with the message (`UserInput.Context`, before the user's words:
+session is made for it, and what it found goes with the message (`UserInput.Context`, after the user's words and any other context:
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
 found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
 looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The pick holds until the next
@@ -3253,7 +3259,9 @@ token position N after N for sequence 0 with 512 new tokens" about once a second
 picture's tokens share one position, and the line is harmless.
 
 During a run the top bar shows how full the context is ("35k of 100k used"; its tooltip says where
-the reset comes), and a reply that hasn't started yet counts how long Sloperator has been waiting for
+the reset comes). A chat opened from History shows it at once, by its last reply's tokens (`ChatEntry.Tokens`, of the
+model in use's context size), as the bar said it when the chat was left: it showed only the cost until the next
+run's first step (2026-11-10); a chat saved before replies kept their tokens still does. A reply that hasn't started yet counts how long Sloperator has been waiting for
 it: a server reading a long prompt sends nothing for minutes. Before that, while the request is
 still on its way, it shows how much of it has gone out ("Sending to the server… 1.2 of 3.4 MB"):
 each step sends every screenshot still in the context, and over a VPN at 15 to 30 KB/s that took
@@ -3467,13 +3475,32 @@ keyboard, find_text, web search, model switching), with words in braces where th
 chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
 `{made folder}`, `{data folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
 
-**The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(sidePanel:
-true)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
+**The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
+…)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
-`\pictures`, `\sounds` and `\videos`, and that on Auto it opens by itself to what the agent writes, runs or makes,
-which the agent can neither open nor see. About 80 tokens. Without it, asked to show a page "in the Web preview
+`\pictures`, `\sounds` and `\videos`, that on Auto it opens by itself to what the agent writes, runs or makes, that
+show_panel opens it when the user asks to see something there, and that the agent can't see it. About 90 tokens. Without it, asked to show a page "in the Web preview
 panel", Sonnet 5.5 searched for how, then said it couldn't (the panel had opened by itself), and asked about "my
 Sloperator sounds" it searched the whole home folder for them.
+
+**Sloperator's notes** to the model start with [Sloperator], as a message of their own or a paragraph of the user's
+(the line on them: "A message, or a paragraph of one, starting with [Sloperator] comes from this app…"). What goes
+with a message (`UserInput.Context`: Auto's findings, a panel's pick, text selected in the chat) comes after the
+user's words and files, a blank line between (`UserInput.ModelText`; the user's pick, 2026-11-09). It came first, a
+line break before the words, and Haiku 5.5 thought "The app's message has a [Sloperator] prefix, so I'm treating it
+as genuine" of the whole message, the user's task included. Undo finds a message by the user's own words
+(`ChatCut.Key`), so a chat saved with the old order is still found. The line also says the user never sees the notes:
+after notes that a click missed and that a repository wanted indexing, Haiku told the user "You were right to question
+it" and "I also indexed the repository as you asked" (2026-11-09).
+
+**show_panel** (`ShowPanelTool`, in the app only; `ToolContext.ShowPanel` is `MainWindowViewModel.ShowPanelForAgent`)
+opens a panel by its name in the dropdown, with a page, file or folder in it: a page in the Web preview, a file in the
+Code editor or File inspector (a folder in the Code editor), a picture's, sound's or video's folder in its editor.
+Under Auto, Auto shows it as it shows a panel for the agent's work and stays picked; with None or another panel picked,
+it opens as one picked by hand, in place of the panel open. A file a panel doesn't open (a .txt in the Web preview)
+is refused with why. About 150 tokens with its schema. Asked to "show it in the Web preview" with the panel closed,
+Haiku 5.5 had opened the page in Edge and said it couldn't open Sloperator's panel (2026-11-10); with the tool it called
+show_panel once and the page opened beside the chat, with the panel on None and on Auto.
 `SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
 instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
 `{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model
@@ -3779,7 +3806,12 @@ layouts each, 73 trials) DeepSeek hit 22 with the look and 17 without, most miss
 
 After each click Sloperator also compares the screen just before it with the screen after it. When
 nothing changed near the click and nothing big changed anywhere (a dialog opening), the click almost
-certainly missed, and the result says so and tells the model to zoom in and click again. With the
+certainly missed, and the result says so and tells the model to zoom in and click again (`ClickCheck`). Near is 6
+changed pixels within 60 px; big is 0.1% of the screen (some 2,300 pixels at 1920x1200); between the two, 40 changed
+pixels within 150 px count too, a digit's worth (the user's pick, 2026-11-09): a page's counter over the button Haiku
+5.5 clicked went from 0 to 1 some 70 px off, every click was told it missed, and the run's end asked again, so
+Haiku told the user the warnings were wrong. A caret's blink (about 20 pixels) still doesn't count. The click
+benchmark can't show this ring: its scenes change only where a click hits. With the
 fresh look, on the scenes where clicks missed (a dense table, half-covered buttons, an ultrawide
 screen) 4 of 9 misses were fixed within two more clicks with the note, 0 of 8 without it. A red ring
 drawn at the click added nothing to the note, nor did a prompt rule about aiming carefully or
@@ -4716,7 +4748,8 @@ day, as an Auto panel to come will be the live view of the model's work; the cod
 exe, WebView2 being Windows' own Edge runtime: the published exe grew 0.24 MB (28,141,496 to 28,384,893 bytes
 against develop 4d0fd59, no trim warnings), and the trimmed exe ran the panel as the Debug build did. Its profile (cookies, cache, local storage) is kept in
 SloperatorData\webview (`AppPaths.WebViewDir`, set as WebView2's user data folder in `EnvironmentRequested`), so the app
-stays portable.
+stays portable. Under the page is white, as in a browser (`NativeWebView.Background`): the web view took the panel's
+dark background, and a page that sets none of its own showed its black text on #161616 (2026-11-10).
 
 **Ways in.** Open file in its bar (a picker of .html and .htm, in the shown page's folder), a page dropped on
 the panel (`Drop`: the first web page of the files; other files go with the next message), and **Open in

@@ -24,8 +24,10 @@ public partial class WebPreviewPanel : UserControl
     /// The web view: WebView2 on Windows (Avalonia's first choice there). Without WebView2 the panel says
     /// where to get it and hides the view, whatever the web view falls back on (the old Edge's on Windows 10
     /// runs none of what the panel asks of WebView2).
+    /// White under the page, as a browser's: it took the panel's dark one, and a page that sets no
+    /// background of its own showed its black text on it (2026-11-10).
     /// </summary>
-    private readonly NativeWebView _web = new();
+    private readonly NativeWebView _web = new() { Background = Avalonia.Media.Brushes.White };
 
     private WebPreviewViewModel? _vm;
 

@@ -130,7 +130,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     [ObservableProperty]
     private string _setupText = "";
 
-    /// <summary>How full the model's context is, next to the server status: "35k of 100k used". Empty until a run's first step.</summary>
+    /// <summary>
+    /// How full the model's context is, next to the server status: "35k of 100k used". A chat opened from History
+    /// shows its last reply's count; a new one, and one saved before replies kept their counts, are empty until a run's first step.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasContextUsage), nameof(CostShown))]
     private string _contextUsage = "";
@@ -800,7 +803,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                 OnEffortShownChanged();
                 ShowAutoPick(pick, server.ModelInUse, server.EffortInUse, kept ? set[pick.Tier].Id : null);
                 if (pick.Notes is { } notes)
-                    runInput = input with { Context = input.Context is { } context ? $"{notes}\n\n{context}" : notes };
+                    runInput = input with { Context = input.Context is { } context ? $"{context}\n\n{notes}" : notes };
             }
 
             var backend = await ConnectAsync();
@@ -969,7 +972,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         {
             var session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
-                setPrices: KeepPricesFromAgent, plan: Plan, sidePanel: true);
+                setPrices: KeepPricesFromAgent, plan: Plan, showPanel: ShowPanelForAgent);
             session.UserTyping = TypingHere;
             return session;
         }
