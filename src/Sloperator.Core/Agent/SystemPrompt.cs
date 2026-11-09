@@ -247,6 +247,9 @@ public static class SystemPrompt
             sb.AppendLine("- When you don't need to look at the screen in between, make several tool calls in one reply (for example click a field and type, or press a few keys in a row). You get one screenshot after the last of them, so to check exactly what one action did, do it on its own.");
         }
         sb.AppendLine("- Keep each tool call short: write long files in parts of at most about 100 lines (write_file, then write_file with append=true for each next part).");
+        // Asked to add a line to a README, Haiku 5.5 ran Add-Content: File changes showed nothing, and Undo couldn't put it back (2026-11-10).
+        sb.AppendLine("- Make and change files with write_file and edit_file, not shell commands (Set-Content, Add-Content, > or sed): " +
+                      "the user sees those changes and can undo them. A command is for many files at once, or a file a program makes.");
         sb.AppendLine("- For work on another computer (a server, a VM), use ssh, copy, and read_file, write_file, edit_file and list_directory with host set; " +
                       "don't run ssh or scp through run_shell (ssh with new_login is the test of a fresh login).");
         // A budget workbook took qwen3.8 24 minutes through Excel's COM interface from PowerShell.

@@ -3499,6 +3499,12 @@ keyboard, find_text, web search, model switching), with words in braces where th
 chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
 `{made folder}`, `{data folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
 
+**Files through the file tools**: "Make and change files with write_file and edit_file, not shell commands (Set-Content,
+Add-Content, > or sed): the user sees those changes and can undo them. A command is for many files at once, or a file a
+program makes." Asked to add a line to a README, Haiku 5.5 ran Add-Content: File changes showed nothing and Undo couldn't
+put it back. Five small edits on Haiku through the command line (2026-11-10): without the line 4 of 5 went through the
+file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
+
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)

@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- The agent makes and changes files with its file tools rather than shell commands, so the changes show in
+  **File changes** and Undo can put them back.
 - Command output reaches the agent without the spaces PowerShell pads table rows with, so listings cost fewer tokens.
 - What Sloperator tells the agent with your message (what Auto found, a side panel pick, text you selected in the
   chat) now comes after your words, so the agent no longer takes your message for one of Sloperator's.
