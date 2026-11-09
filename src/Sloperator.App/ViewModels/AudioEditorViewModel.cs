@@ -67,6 +67,7 @@ public sealed partial class AudioItem(string folder) : MediaFolderItem(folder)
     }
 }
 
+
 /// <summary>
 /// The Audio editor panel, beside the chat, a sibling of the Image editor for sounds: the sounds in
 /// SloperatorData\sounds (a folder each, its versions the sound files in it), the picked one's waveform big
@@ -74,73 +75,33 @@ public sealed partial class AudioItem(string folder) : MediaFolderItem(folder)
 /// comfyui tool, saving each result into the sound's folder; Cut, Keep only, Fade in, Fade out, Louder and
 /// Quieter (<see cref="SoundEdit"/>) are done here at once, each a new version, so the earlier ones stay
 /// (the user's pick of three mockups, 2026-11-08). A click on a sound or a version picks it into the
-/// chat's box; a stretch dragged over the waveform picks that stretch, which the edits then work on.
+/// chat's box; a stretch dragged over the waveform picks that stretch, which the edits then work on. What it
+/// shares with the Image editor is <see cref="MediaEditorViewModel{TItem}"/>'s.
 /// </summary>
-public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
+public sealed partial class AudioEditorViewModel : MediaEditorViewModel<AudioItem>
 {
-    private readonly MainWindowViewModel? _chat;
     private readonly PreviewServices _previews;
-
-    /// <summary>Where the sounds are: SloperatorData\sounds.</summary>
-    public string Root { get; }
-
-    /// <summary>Where pictures of picked stretches go for the message: the chat's pasted files.</summary>
-    private readonly string _picksDir;
-
-    /// <summary>A run or an edit writes a version in, and the list follows once the writing rests.</summary>
-    private readonly Debounce _read;
-
-    private readonly FileSystemWatcher? _watcher;
-    private readonly BoxPicks _box;
 
     /// <param name="chat">The chat the panel is beside, where picks go and its messages are sent; null in tests.</param>
     public AudioEditorViewModel(MainWindowViewModel? chat, PreviewServices previews, string root, string picksDir)
+        : base(chat, root, picksDir, SoundFolder.Folders, "sound")
     {
-        _chat = chat;
         _previews = previews;
-        Root = root;
-        _picksDir = picksDir;
-        _read = new Debounce(TimeSpan.FromMilliseconds(250), Refresh);
-        _box = new BoxPicks(chat, OnTakenOff);
-        try { Directory.CreateDirectory(Root); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
-        _watcher = FolderWatch.Start(Root, (_, _) => Dispatcher.UIThread.Post(_read.Restart), () => Dispatcher.UIThread.Post(_read.Restart));
         Refresh();
     }
 
     // ---- the sounds ---------------------------------------------------------------------------------
 
-    public ObservableCollection<AudioItem> Sounds { get; } = [];
-
-    public bool HasSounds => Sounds.Count > 0;
-
-    /// <summary>The sound shown big; null with none.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelected), nameof(Title), nameof(EmptyText), nameof(MakeAgainTip))]
-    [NotifyCanExecuteChangedFor(nameof(MakeAgainCommand))]
-    private AudioItem? _selected;
-
-    public bool HasSelected => Selected is not null;
-
-    /// <summary>What the bar says: the sound and the version shown, else how the panel is used.</summary>
-    public string Title => Selected is not { } s ? "Click a sound or a version to ask about it, or drag over a stretch of it to edit that stretch."
+    public override string Title => Selected is not { } s ? "Click a sound or a version to ask about it, or drag over a stretch of it to edit that stretch."
         : Shown is { } v ? $"{s.Name} · version {v.Number} of {s.Versions.Count}" : $"{s.Name} · not made yet";
 
     /// <summary>What the waveform's room says with no sound to show.</summary>
-    public string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it is, and the agent makes it here."
+    public override string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it is, and the agent makes it here."
         : Shown is not null ? _unreadable ? "Nothing on this PC can play this sound." : "Loading…"
-        : HasSounds ? "Pick a sound" : "No sounds yet. New sound starts one; say in the chat what it is.";
+        : HasItems ? "Pick a sound" : "No sounds yet. New sound starts one; say in the chat what it is.";
 
     /// <summary>The version shown can't be read: said in its place.</summary>
     private bool _unreadable;
-
-    /// <summary>The versions of the sound shown, oldest first.</summary>
-    public ObservableCollection<VersionItem> Versions { get; } = [];
-
-    /// <summary>The version whose waveform is shown; null before the sound has one.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid))]
-    private VersionItem? _shown;
 
     /// <summary>The version shown, read: its waveform, playhead and stretch picked, and its player.</summary>
     [ObservableProperty]
@@ -149,24 +110,9 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     public bool HasSound => Sound is not null;
 
-    /// <summary>How the version shown was made, as its file says (ComfyUI's workflow); null when it doesn't.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
-    private MediaRecipe? _recipe;
+    protected override AudioItem NewItem(string folder) => new(folder);
 
-    public bool HasRecipe => Recipe is not null;
-
-    /// <inheritdoc cref="ImageEditorViewModel.MadeUnsaid"/>
-    public bool MadeUnsaid => Shown is not null && Recipe is null;
-
-    partial void OnSelectedChanged(AudioItem? value)
-    {
-        Versions.Clear();
-        if (value is not null)
-            foreach (var (path, i) in value.Versions.Select((p, i) => (p, i)))
-                Versions.Add(new VersionItem(i + 1, path));
-        ShowVersion(Versions.LastOrDefault());
-    }
+    protected override void OnVersionsRead(AudioItem item) => item.LoadPeaks(_previews.Decoder);
 
     /// <summary>
     /// The stretch to pick again on the version an edit makes, when it is as long as the one edited (a
@@ -178,7 +124,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
     /// A version into the waveform's room, read off the window's thread, its Prompt metadata beside it. The
     /// waveform shown stays (stopped) until the next is read, so an edit doesn't blink the room empty.
     /// </summary>
-    private void ShowVersion(VersionItem? version)
+    protected override void ShowVersion(VersionItem? version)
     {
         foreach (var v in Versions)
             v.IsShown = ReferenceEquals(v, version);
@@ -204,7 +150,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
             var recipe = MediaRecipe.Read(path);
             Dispatcher.UIThread.Post(() =>
             {
-                if (_closed || Shown?.Path != path)
+                if (Closed || Shown?.Path != path)
                 {
                     sound.Dispose();
                     return;
@@ -247,94 +193,6 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
         if (e.PropertyName == nameof(InspectorSoundViewModel.Range))
             OnEditsChanged();
     }
-
-    /// <summary>
-    /// The sound in <paramref name="folder"/> shown, its newest version (Auto, as the agent makes one),
-    /// without picking it: only a click on it picks it, for the box.
-    /// </summary>
-    public void Show(string folder)
-    {
-        Refresh();
-        if (Sounds.FirstOrDefault(s => string.Equals(s.Folder, Path.TrimEndingDirectorySeparator(folder), StringComparison.OrdinalIgnoreCase)) is { } sound
-            && !ReferenceEquals(sound, Selected))
-            Selected = sound;
-    }
-
-    /// <summary>The sounds folder read again: new sounds in the list, new versions under the one shown (the newest then shown, as a run or an edit makes it).</summary>
-    public void Refresh()
-    {
-        if (_closed)
-            return;
-        MediaFolderItem.Sync(Sounds, SoundFolder.All(Root), folder => new AudioItem(folder), SoundFolder.Versions,
-            gone: gone =>
-            {
-                if (ReferenceEquals(gone, Selected))
-                    Selected = null;
-            },
-            changed: item =>
-            {
-                item.LoadPeaks(_previews.Decoder);
-                if (ReferenceEquals(item, Selected))
-                    NewVersions(item);
-            });
-        OnPropertyChanged(nameof(HasSounds));
-        OnPropertyChanged(nameof(EmptyText));
-        // The sound picked may have been made meanwhile.
-        OnPropertyChanged(nameof(MakeAgainTip));
-        MakeAgainCommand.NotifyCanExecuteChanged();
-    }
-
-    /// <summary>The sound shown got versions: they join the strip, and the newest is shown.</summary>
-    private void NewVersions(AudioItem item)
-    {
-        var known = Versions.Select(v => v.Path).ToList();
-        if (!item.Versions.Take(known.Count).SequenceEqual(known))
-        {
-            OnSelectedChanged(item);
-            return;
-        }
-        foreach (var path in item.Versions.Skip(known.Count))
-            Versions.Add(new VersionItem(Versions.Count + 1, path));
-        ShowVersion(Versions[^1]);
-        OnPropertyChanged(nameof(Title));
-    }
-
-    // ---- the bar's buttons ------------------------------------------------------------------------
-
-    /// <summary>New sound: an empty folder, picked, so what the user says next is what it is.</summary>
-    [RelayCommand]
-    private void NewSound()
-    {
-        string folder;
-        try { folder = SoundFolder.New(Root); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _chat?.AddNotice($"The new sound's folder could not be made: {ex.Message}", isError: true, ex);
-            return;
-        }
-        Refresh();
-        if (Sounds.FirstOrDefault(s => s.Folder == folder) is { } item)
-        {
-            Selected = item;
-            PickSound();
-        }
-    }
-
-    /// <summary>Make again: a new version of the sound picked, made as it was (the panel's own message, as the Image editor's is).</summary>
-    [RelayCommand(CanExecute = nameof(CanMakeAgain))]
-    private void MakeAgain()
-    {
-        if (Selected is not { IsMade: true })
-            return;
-        // Picked now if it wasn't: the message is about it.
-        if (_pick is null)
-            PickSound();
-        _chat?.SendFromSidePanel("Make this sound again as a new version.", withPicks: true);
-    }
-
-    private bool CanMakeAgain() => Selected is { IsMade: true };
-
-    public string MakeAgainTip => CanMakeAgain() ? "Make a new version of it, as it was made" : "Pick a sound that has been made first";
 
     // ---- the edits ----------------------------------------------------------------------------------
 
@@ -423,7 +281,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
                 Dispatcher.UIThread.Post(() =>
                 {
                     _editing = false;
-                    if (_closed)
+                    if (Closed)
                         return;
                     if (range is { } r && kind is SoundEditKind.FadeIn or SoundEditKind.FadeOut or SoundEditKind.Volume)
                         _carry = (r.From, r.To, edited.After);
@@ -438,7 +296,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
                 {
                     _editing = false;
                     OnEditsChanged();
-                    _chat?.AddNotice($"The edit could not be saved: {ex.Message}", isError: ex is not SoundEditException, ex);
+                    Chat?.AddNotice($"The edit could not be saved: {ex.Message}", isError: ex is not SoundEditException, ex);
                 });
             }
         });
@@ -451,21 +309,10 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     private Picked? _pick;
 
-    /// <summary>Raised when what was picked leaves the box (sent, unpicked, taken off), so the view clears its marks.</summary>
-    public event Action? Unpicked;
-
-    /// <summary>A click on a sound in the list or on a version: it is shown, and picked.</summary>
-    public void Pick(AudioItem sound, VersionItem? version = null)
-    {
-        if (!ReferenceEquals(Selected, sound))
-            Selected = sound;
-        if (version is not null && !ReferenceEquals(version, Shown))
-            ShowVersion(version);
-        PickSound();
-    }
+    protected override bool HasPick => _pick is not null;
 
     /// <summary>The sound selected, as the version shown (or the folder of one not made yet), into the box.</summary>
-    private void PickSound()
+    protected override void PickWhole()
     {
         if (Selected is not { } sound)
             return;
@@ -474,7 +321,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
             shown.Range = null;
         var file = Shown?.Path ?? sound.Folder;
         _pick = new Picked(sound, Shown, file);
-        _box.Put([(file, Shown is { } v ? $"Version {v.Number} · {sound.Name}" : $"New · {sound.Name}")]);
+        Box.Put([(file, Shown is { } v ? $"Version {v.Number} · {sound.Name}" : $"New · {sound.Name}")]);
     }
 
     /// <summary>
@@ -491,7 +338,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
                 Unpick();
             return;
         }
-        var dir = _picksDir;
+        var dir = PicksDir;
         Task.Run(() =>
         {
             try
@@ -506,19 +353,19 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
                 Dispatcher.UIThread.Post(() =>
                 {
                     // Another stretch picked meanwhile, or another version shown: it isn't wanted.
-                    if (_closed || !ReferenceEquals(Sound, sound) || sound.Range != r)
+                    if (Closed || !ReferenceEquals(Sound, sound) || sound.Range != r)
                     {
                         PastedFiles.TryDelete(file);
                         return;
                     }
                     DropFile();
                     _pick = new Picked(item, version, file, r, told);
-                    _box.Put([(file, $"{SoundRange.Label(r.From, r.To)} of version {version.Number} · {item.Name}")]);
+                    Box.Put([(file, $"{SoundRange.Label(r.From, r.To)} of version {version.Number} · {item.Name}")]);
                 });
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                Dispatcher.UIThread.Post(() => _chat?.AddNotice($"The stretch picked could not be saved: {ex.Message}", isError: true, ex));
+                Dispatcher.UIThread.Post(() => Chat?.AddNotice($"The stretch picked could not be saved: {ex.Message}", isError: true, ex));
             }
         });
     }
@@ -539,20 +386,19 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
         if (_pick is null)
             return false;
         DropFile();
-        _box.Put([]);
-        Unpicked?.Invoke();
+        Box.Put([]);
+        RaiseUnpicked();
         return true;
     }
 
-    /// <summary>The pick's card taken off the box (its ×): it is no longer picked here either.</summary>
-    private void OnTakenOff()
+    protected override void OnTakenOff()
     {
         if (_pick is null)
             return;
         DropFile();
         if (Sound is { HasRange: true } sound)
             sound.Range = null;
-        Unpicked?.Invoke();
+        RaiseUnpicked();
     }
 
     /// <summary>
@@ -560,7 +406,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
     /// sound's folder and versions, how to edit it (edit_sound) and how to make the next one there (the comfyui
     /// tool's save_to), or for a stretch, where it is to the sample and how it sounds there, with a picture of it.
     /// </summary>
-    public (string Via, string Context)? About(IReadOnlyList<string> files)
+    public override (string Via, string Context)? About(IReadOnlyList<string> files)
     {
         if (_pick is not { } pick || !files.Contains(pick.File, StringComparer.OrdinalIgnoreCase))
             return null;
@@ -591,46 +437,20 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
     }
 
     /// <summary>The message went with the pick: it is no longer picked (a stretch's picture went with it, and stays).</summary>
-    public void Sent()
+    public override void Sent()
     {
         if (_pick is null)
             return;
         _pick = null;
         if (Sound is { HasRange: true } sound)
             sound.Range = null;
-        Unpicked?.Invoke();
+        RaiseUnpicked();
     }
 
-    /// <summary>Sound files dropped on the panel go into a new sound as its first versions.</summary>
-    public bool Drop(IReadOnlyList<string> paths)
-    {
-        var sounds = paths.Where(p => File.Exists(p) && SoundFolder.IsSound(p)).ToList();
-        if (sounds.Count == 0)
-            return false;
-        try
-        {
-            var folder = SoundFolder.New(Root);
-            foreach (var p in sounds)
-                File.Copy(p, Path.Combine(folder, Path.GetFileName(p)));
-            Refresh();
-            if (Sounds.FirstOrDefault(i => i.Folder == folder) is { } item)
-                Selected = item;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _chat?.AddNotice($"The sounds could not be added: {ex.Message}", isError: true, ex);
-        }
-        return true;
-    }
 
-    private bool _closed;
-
-    public void Dispose()
+    public override void Dispose()
     {
-        _closed = true;
-        _read.Stop();
-        _watcher?.Dispose();
-        _box.Dispose();
+        base.Dispose();
         DropFile();
         DropSound();
         Edited = null;

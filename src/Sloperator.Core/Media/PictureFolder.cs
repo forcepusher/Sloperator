@@ -12,7 +12,7 @@ namespace Sloperator.Core.Media;
 public static class PictureFolder
 {
     /// <summary>PNG, JPEG and WebP, what ComfyUI saves.</summary>
-    private static readonly MediaFolders Folders = new("Untitled picture", ".png", ".jpg", ".jpeg", ".webp");
+    public static readonly MediaFolders Folders = new("Untitled picture", ".png", ".jpg", ".jpeg", ".webp");
 
     /// <summary>A file that is a version of a picture: a PNG, JPEG or WebP, what ComfyUI saves.</summary>
     public static bool IsPicture(string path) => Folders.IsVersionFile(path);

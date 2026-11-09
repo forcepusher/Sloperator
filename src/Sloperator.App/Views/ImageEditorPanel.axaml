@@ -38,7 +38,7 @@
             <TextBlock Text="Make again" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
-        <Button DockPanel.Dock="Right" Classes="ghost" Margin="12,0,0,0" Command="{Binding NewPictureCommand}"
+        <Button DockPanel.Dock="Right" Classes="ghost" Margin="12,0,0,0" Command="{Binding NewCommand}"
                 ToolTip.Tip="Start a picture: say in the chat what it shows" AutomationProperties.Name="New picture">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <PathIcon Width="14" Height="14" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
@@ -53,8 +53,8 @@
     <Grid ColumnDefinitions="180,4,*,4,260">
       <!-- The pictures, the one changed last first: its newest version small, its name, how many versions. -->
       <Panel Grid.Column="0">
-        <TextBlock Classes="muted" IsVisible="{Binding !HasPictures}" Text="No pictures yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        <ListBox x:Name="List" Classes="files pictures" ItemsSource="{Binding Pictures}" SelectedItem="{Binding Selected}"
+        <TextBlock Classes="muted" IsVisible="{Binding !HasItems}" Text="No pictures yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <ListBox x:Name="List" Classes="files pictures" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Pictures">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:PictureItem">

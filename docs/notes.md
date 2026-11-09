@@ -655,7 +655,9 @@ audio editor panel, since we already have video and image editor panels"; of thr
 with hand edits, and several sound lines mixed to one file, they picked the second on 2026-11-08). Its sounds are
 folders in SloperatorData\sounds (`AppPaths.SoundsDir`), and a sound's **versions** are the sound files in its folder,
 oldest first by when they were written (`SoundFolder`, as `PictureFolder`: both read their folders through
-`MediaFolders`, and both lists follow them through `MediaFolderItem.Sync`): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
+`MediaFolders`, and both panels are a `MediaEditorViewModel`, which keeps the list, the versions strip, New, Make
+again, picking and dropped files once; a version's look, what of it is picked and what the model is told are each
+panel's own): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
 File inspector's sounds. The agent makes a version with the comfyui tool's `save_to` the sound's folder; an edit
 writes one there. A `FileSystemWatcher` reads the folder again 250 ms after writing rests.
 

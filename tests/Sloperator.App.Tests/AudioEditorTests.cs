@@ -58,10 +58,10 @@ public sealed class AudioEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new AudioEditorViewModel(null, Previews(), Root, Picks);
-            Assert.False(vm.HasSounds);
+            Assert.False(vm.HasItems);
             Assert.Contains("No sounds yet", vm.EmptyText);
-            vm.NewSoundCommand.Execute(null);
-            var sound = Assert.Single(vm.Sounds);
+            vm.NewCommand.Execute(null);
+            var sound = Assert.Single(vm.Items);
             Assert.Same(sound, vm.Selected);
             Assert.Equal("Untitled sound · not made yet", vm.Title);
             var (via, context) = vm.About([sound.Folder])!.Value;
@@ -83,7 +83,7 @@ public sealed class AudioEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new AudioEditorViewModel(null, Previews(), Root, Picks);
-            var sound = Assert.Single(vm.Sounds);
+            var sound = Assert.Single(vm.Items);
             Assert.Equal("2 versions", sound.Count);
             vm.Pick(sound);
             Assert.True(vm.Versions[1].IsShown);
@@ -113,7 +113,7 @@ public sealed class AudioEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new AudioEditorViewModel(null, Previews(), Root, Picks);
-            vm.Pick(vm.Sounds[0]);
+            vm.Pick(vm.Items[0]);
             Wait(() => vm.HasSound);
             // The whole sound: louder works on all of it, a cut needs a stretch.
             Assert.False(vm.CutCommand.CanExecute(null));
@@ -146,7 +146,7 @@ public sealed class AudioEditorTests : IDisposable
             Wait(() => vm.Versions.Count == 4 && vm.Sound?.Path == vm.Versions[3].Path);
             Assert.Equal(1.5, vm.Sound!.Length, 2);
             Assert.False(vm.Sound.HasRange);
-            Assert.Equal("4 versions", vm.Sounds[0].Count);
+            Assert.Equal("4 versions", vm.Items[0].Count);
             return 0;
         });
     }

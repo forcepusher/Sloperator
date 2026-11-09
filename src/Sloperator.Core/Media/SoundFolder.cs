@@ -9,7 +9,7 @@ namespace Sloperator.Core.Media;
 public static class SoundFolder
 {
     /// <summary>The sound files the File inspector plays, ComfyUI's MP3, FLAC and Opus among them.</summary>
-    private static readonly MediaFolders Folders = new("Untitled sound", ".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac");
+    public static readonly MediaFolders Folders = new("Untitled sound", ".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac");
 
     /// <summary>A file that is a version of a sound.</summary>
     public static bool IsSound(string path) => Folders.IsVersionFile(path);

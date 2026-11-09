@@ -1,8 +1,6 @@
-using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Documents;
 using Sloperator.Core.Media;
@@ -65,67 +63,25 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 /// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
 /// picture's folder, so a redo is a new version and the earlier ones stay. A click on a picture or a
 /// version picks it into the chat's box; a box dragged over the big picture picks that part, with a mask
-/// of it, for the agent to redraw only that part (sloperator/redraw_area).
+/// of it, for the agent to redraw only that part (sloperator/redraw_area). What it shares with the Audio
+/// editor is <see cref="MediaEditorViewModel{TItem}"/>'s.
 /// </summary>
-public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
+public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureItem>
 {
-    private readonly MainWindowViewModel? _chat;
-
-    /// <summary>Where the pictures are: SloperatorData\pictures.</summary>
-    public string Root { get; }
-
-    /// <summary>Where pictures of marked parts and their masks go for the message: the chat's pasted files.</summary>
-    private readonly string _picksDir;
-
-    /// <summary>A run copies its picture in, and the list follows once the writing rests.</summary>
-    private readonly Debounce _read;
-
-    private readonly FileSystemWatcher? _watcher;
-    private readonly BoxPicks _box;
-
     /// <param name="chat">The chat the panel is beside, where picks go and its messages are sent; null in tests.</param>
     public ImageEditorViewModel(MainWindowViewModel? chat, string root, string picksDir)
+        : base(chat, root, picksDir, PictureFolder.Folders, "picture")
     {
-        _chat = chat;
-        Root = root;
-        _picksDir = picksDir;
-        _read = new Debounce(TimeSpan.FromMilliseconds(250), Refresh);
-        _box = new BoxPicks(chat, OnTakenOff);
-        try { Directory.CreateDirectory(Root); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
-        _watcher = FolderWatch.Start(Root, (_, _) => Dispatcher.UIThread.Post(_read.Restart), () => Dispatcher.UIThread.Post(_read.Restart));
         Refresh();
     }
 
     // ---- the pictures -------------------------------------------------------------------------------
 
-    public ObservableCollection<PictureItem> Pictures { get; } = [];
-
-    public bool HasPictures => Pictures.Count > 0;
-
-    /// <summary>The picture shown big; null with none.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelected), nameof(Title), nameof(EmptyText), nameof(MakeAgainTip))]
-    [NotifyCanExecuteChangedFor(nameof(MakeAgainCommand))]
-    private PictureItem? _selected;
-
-    public bool HasSelected => Selected is not null;
-
-    /// <summary>What the bar says: the picture and the version shown, else how the panel is used.</summary>
-    public string Title => Selected is not { } p ? "Click a picture or a version to ask about it, or drag over a part of it to redraw that part."
+    public override string Title => Selected is not { } p ? "Click a picture or a version to ask about it, or drag over a part of it to redraw that part."
         : Shown is { } v ? $"{p.Name} · version {v.Number} of {p.Versions.Count}" : $"{p.Name} · not made yet";
 
-    /// <summary>What the big view says with no version to show.</summary>
-    public string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it shows, and the agent makes it here."
-        : HasPictures ? "Pick a picture" : "No pictures yet. New picture starts one; say in the chat what it shows.";
-
-    /// <summary>The versions of the picture shown, oldest first.</summary>
-    public ObservableCollection<VersionItem> Versions { get; } = [];
-
-    /// <summary>The version in the big view; null before the picture has one.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPicture), nameof(MadeUnsaid))]
-    private VersionItem? _shown;
+    public override string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it shows, and the agent makes it here."
+        : HasItems ? "Pick a picture" : "No pictures yet. New picture starts one; say in the chat what it shows.";
 
     /// <summary>The version shown, decoded.</summary>
     [ObservableProperty]
@@ -134,18 +90,10 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     public bool HasPicture => Picture is not null && Shown is not null;
 
+    protected override void ShownChanged() => OnPropertyChanged(nameof(HasPicture));
+
     /// <summary>The version's size in pixels.</summary>
     private (int Width, int Height) _size;
-
-    /// <summary>How the version shown was made, as its file says (ComfyUI's prompt, the settings); null when it doesn't.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
-    private MediaRecipe? _recipe;
-
-    public bool HasRecipe => Recipe is not null;
-
-    /// <summary>A version is shown and says nothing of how it was made: said in the Prompt metadata column (with none shown, it said so of no version).</summary>
-    public bool MadeUnsaid => Shown is not null && Recipe is null;
 
     /// <summary>The zoom of the big view (1 fits it).</summary>
     [ObservableProperty]
@@ -155,17 +103,14 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     [ObservableProperty]
     private DocumentArea? _mark;
 
-    partial void OnSelectedChanged(PictureItem? value)
-    {
-        Versions.Clear();
-        if (value is not null)
-            foreach (var (path, i) in value.Versions.Select((p, i) => (p, i)))
-                Versions.Add(new VersionItem(i + 1, path));
-        ShowVersion(Versions.LastOrDefault());
-    }
+    protected override PictureItem NewItem(string folder) => new(folder);
+
+    protected override void OnGone(PictureItem item) => item.Thumbnail?.Dispose();
+
+    protected override void OnVersionsRead(PictureItem item) => item.LoadThumbnail();
 
     /// <summary>A version into the big view, its Prompt metadata beside it.</summary>
-    private void ShowVersion(VersionItem? version)
+    protected override void ShowVersion(VersionItem? version)
     {
         foreach (var v in Versions)
             v.IsShown = ReferenceEquals(v, version);
@@ -187,7 +132,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
             var recipe = MediaRecipe.Read(path);
             Dispatcher.UIThread.Post(() =>
             {
-                if (_closed || Shown?.Path != path)
+                if (Closed || Shown?.Path != path)
                 {
                     bitmap?.Dispose();
                     return;
@@ -199,95 +144,6 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         });
     }
 
-    /// <summary>
-    /// The picture in <paramref name="folder"/> shown, its newest version big (Auto, as the agent makes
-    /// one), without picking it: only a click on it picks it, for the box.
-    /// </summary>
-    public void Show(string folder)
-    {
-        Refresh();
-        if (Pictures.FirstOrDefault(p => string.Equals(p.Folder, Path.TrimEndingDirectorySeparator(folder), StringComparison.OrdinalIgnoreCase)) is { } picture
-            && !ReferenceEquals(picture, Selected))
-            Selected = picture;
-    }
-
-    /// <summary>The pictures folder read again: new pictures in the list, new versions under the one shown (the newest then shown, as the agent's run makes it).</summary>
-    public void Refresh()
-    {
-        if (_closed)
-            return;
-        MediaFolderItem.Sync(Pictures, PictureFolder.All(Root), folder => new PictureItem(folder), PictureFolder.Versions,
-            gone: gone =>
-            {
-                if (ReferenceEquals(gone, Selected))
-                    Selected = null;
-                gone.Thumbnail?.Dispose();
-            },
-            changed: item =>
-            {
-                item.LoadThumbnail();
-                if (ReferenceEquals(item, Selected))
-                    NewVersions(item);
-            });
-        OnPropertyChanged(nameof(HasPictures));
-        OnPropertyChanged(nameof(EmptyText));
-        // The picture picked may have been made meanwhile.
-        OnPropertyChanged(nameof(MakeAgainTip));
-        MakeAgainCommand.NotifyCanExecuteChanged();
-    }
-
-    /// <summary>The picture shown got versions: they join the strip, and the newest is shown.</summary>
-    private void NewVersions(PictureItem item)
-    {
-        var known = Versions.Select(v => v.Path).ToList();
-        if (!item.Versions.Take(known.Count).SequenceEqual(known))
-        {
-            OnSelectedChanged(item);
-            return;
-        }
-        foreach (var path in item.Versions.Skip(known.Count))
-            Versions.Add(new VersionItem(Versions.Count + 1, path));
-        ShowVersion(Versions[^1]);
-        OnPropertyChanged(nameof(Title));
-    }
-
-    // ---- the bar's buttons ------------------------------------------------------------------------
-
-    /// <summary>New picture: an empty folder, picked, so what the user says next is what it shows.</summary>
-    [RelayCommand]
-    private void NewPicture()
-    {
-        string folder;
-        try { folder = PictureFolder.New(Root); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _chat?.AddNotice($"The new picture's folder could not be made: {ex.Message}", isError: true, ex);
-            return;
-        }
-        Refresh();
-        if (Pictures.FirstOrDefault(p => p.Folder == folder) is { } item)
-        {
-            Selected = item;
-            PickPicture();
-        }
-    }
-
-    /// <summary>Make again: a new version of the picture picked, made as it was (the panel's own message, as Make the video is).</summary>
-    [RelayCommand(CanExecute = nameof(CanMakeAgain))]
-    private void MakeAgain()
-    {
-        if (Selected is not { IsMade: true })
-            return;
-        // Picked now if it wasn't: the message is about it.
-        if (_pick is null)
-            PickPicture();
-        _chat?.SendFromSidePanel("Make this picture again as a new version.", withPicks: true);
-    }
-
-    private bool CanMakeAgain() => Selected is { IsMade: true };
-
-    public string MakeAgainTip => CanMakeAgain() ? "Make a new version of it, as it was made" : "Pick a picture that has been made first";
-
     // ---- what is picked, into the chat's box ------------------------------------------------------
 
     /// <summary>What is picked: the picture (its version shown, or none yet), or a part of the version with its mask.</summary>
@@ -295,21 +151,10 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
 
     private Picked? _pick;
 
-    /// <summary>Raised when what was picked leaves the box (sent, unpicked, taken off), so the view clears its marks.</summary>
-    public event Action? Unpicked;
-
-    /// <summary>A click on a picture in the list or on a version: it is shown, and picked.</summary>
-    public void Pick(PictureItem picture, VersionItem? version = null)
-    {
-        if (!ReferenceEquals(Selected, picture))
-            Selected = picture;
-        if (version is not null && !ReferenceEquals(version, Shown))
-            ShowVersion(version);
-        PickPicture();
-    }
+    protected override bool HasPick => _pick is not null;
 
     /// <summary>The picture selected, as the version shown (or the folder of one not made yet), into the box.</summary>
-    private void PickPicture()
+    protected override void PickWhole()
     {
         if (Selected is not { } picture)
             return;
@@ -317,7 +162,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         DropFiles();
         var file = Shown?.Path ?? picture.Folder;
         _pick = new Picked(picture, Shown, file);
-        _box.Put([(file, Shown is { } v ? $"Version {v.Number} · {picture.Name}" : $"New · {picture.Name}")]);
+        Box.Put([(file, Shown is { } v ? $"Version {v.Number} · {picture.Name}" : $"New · {picture.Name}")]);
     }
 
     /// <summary>
@@ -329,14 +174,14 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     {
         if (area is null)
         {
-            PickPicture();
+            PickWhole();
             return;
         }
         if (Selected is not { } picture || Shown is not { } version || _size.Width == 0)
             return;
         Mark = area;
         var (width, height) = _size;
-        var dir = _picksDir;
+        var dir = PicksDir;
         Task.Run(() =>
         {
             try
@@ -347,7 +192,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
                 PictureFolder.SaveMask(area, pixels.Width, pixels.Height, mask);
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (_closed || !Equals(Mark, area) || !ReferenceEquals(Shown, version))
+                    if (Closed || !Equals(Mark, area) || !ReferenceEquals(Shown, version))
                     {
                         PastedFiles.TryDelete(crop);
                         PastedFiles.TryDelete(mask);
@@ -355,12 +200,12 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
                     }
                     DropFiles();
                     _pick = new Picked(picture, version, crop, mask, area.Place(pixels.Width, pixels.Height, "pixels"));
-                    _box.Put([(crop, $"Area of version {version.Number} · {picture.Name}")]);
+                    Box.Put([(crop, $"Area of version {version.Number} · {picture.Name}")]);
                 });
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                Dispatcher.UIThread.Post(() => _chat?.AddNotice($"The marked part could not be saved: {ex.Message}", isError: true, ex));
+                Dispatcher.UIThread.Post(() => Chat?.AddNotice($"The marked part could not be saved: {ex.Message}", isError: true, ex));
             }
         });
     }
@@ -383,19 +228,18 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
         if (_pick is null)
             return false;
         DropFiles();
-        _box.Put([]);
-        Unpicked?.Invoke();
+        Box.Put([]);
+        RaiseUnpicked();
         return true;
     }
 
-    /// <summary>The pick's card taken off the box (its ×): it is no longer picked here either.</summary>
-    private void OnTakenOff()
+    protected override void OnTakenOff()
     {
         if (_pick is null)
             return;
         DropFiles();
         Mark = null;
-        Unpicked?.Invoke();
+        RaiseUnpicked();
     }
 
     /// <summary>
@@ -403,7 +247,7 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     /// picture's folder and versions, and how to make the next one there (the comfyui tool's save_to), or for a
     /// part, the picture, the box in its pixels and the mask, with how to redraw only that part.
     /// </summary>
-    public (string Via, string Context)? About(IReadOnlyList<string> files)
+    public override (string Via, string Context)? About(IReadOnlyList<string> files)
     {
         if (_pick is not { } pick || !files.Contains(pick.File, StringComparer.OrdinalIgnoreCase))
             return null;
@@ -431,48 +275,21 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     }
 
     /// <summary>The message went with the pick: it is no longer picked (its files went with it, and stay).</summary>
-    public void Sent()
+    public override void Sent()
     {
         if (_pick is null)
             return;
         _pick = null;
         Mark = null;
-        Unpicked?.Invoke();
+        RaiseUnpicked();
     }
 
-    /// <summary>Pictures dropped on the panel go into a new picture as its first versions.</summary>
-    public bool Drop(IReadOnlyList<string> paths)
+    public override void Dispose()
     {
-        var pictures = paths.Where(p => File.Exists(p) && PictureFolder.IsPicture(p)).ToList();
-        if (pictures.Count == 0)
-            return false;
-        try
-        {
-            var folder = PictureFolder.New(Root);
-            foreach (var p in pictures)
-                File.Copy(p, Path.Combine(folder, Path.GetFileName(p)));
-            Refresh();
-            if (Pictures.FirstOrDefault(i => i.Folder == folder) is { } item)
-                Selected = item;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _chat?.AddNotice($"The pictures could not be added: {ex.Message}", isError: true, ex);
-        }
-        return true;
-    }
-
-    private bool _closed;
-
-    public void Dispose()
-    {
-        _closed = true;
-        _read.Stop();
-        _watcher?.Dispose();
-        _box.Dispose();
+        base.Dispose();
         DropFiles();
         Picture?.Dispose();
-        foreach (var picture in Pictures)
+        foreach (var picture in Items)
             picture.Thumbnail?.Dispose();
     }
 }
