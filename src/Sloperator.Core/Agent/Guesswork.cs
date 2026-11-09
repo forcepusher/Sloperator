@@ -94,6 +94,15 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         "[Sloperator] The error says a name doesn't exist here. Names change between versions, and yours may be from another one: " +
         "look up the right one for the version in use with web_search (then fetch_page with find= the name) instead of trying other names.";
 
+    /// <summary>
+    /// A program that isn't a command here ("python : The term 'python' is not recognized"): not a name from another
+    /// version, as <see cref="NameNote"/> said of it (Haiku 5.5 on a PC with no Python, 2026-11-09), but a program that
+    /// isn't installed or isn't on the PATH.
+    /// </summary>
+    internal static string ProgramNote(string name) =>
+        $"[Sloperator] {name} isn't a command here: it isn't installed, or isn't on the PATH. Look for where it is installed, " +
+        "or look up how to get it (web_search), and ask the user before you install anything.";
+
     internal static string TriesNote(int failed) =>
         $"[Sloperator] {failed} tries have failed since you last looked anything up. Unless you know exactly why this one failed, " +
         "search for the error or for how this is done in the version you are working with (web_search, then fetch_page) " +
@@ -264,7 +273,9 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         var signature = Signature(line);
         var count = _seen[signature] = _seen.GetValueOrDefault(signature) + 1;
         var failed = Failed(count);
-        if (failed is null && count == 1 && NamesWhatIsNotThere(line))
+        if (failed is null && count == 1 && ProgramMissing().Match(line) is { Success: true } missing && !Cmdlet().IsMatch(missing.Groups["name"].Value))
+            failed = ProgramNote(missing.Groups["name"].Value);
+        else if (failed is null && count == 1 && NamesWhatIsNotThere(line))
             failed = NameNote;
         // The first script or command that fails in a task, before anything was looked up: in the
         // Blender runs the first script was written from memory, and more failed before a search.
@@ -404,6 +415,10 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
 
     [GeneratedRegex(@"^(?<name>[\w-]+)(\.exe)? : The term '\k<name>(\.exe)?' is not recognized", RegexOptions.IgnoreCase)]
     private static partial Regex ProgramMissing();
+
+    // A PowerShell command's Verb-Noun name (Get-Thing), where a program's is lower case (python, yt-dlp, docker-compose).
+    [GeneratedRegex(@"^[A-Z][a-z]+-[A-Z]")]
+    private static partial Regex Cmdlet();
 
     [GeneratedRegex(@"^([A-Za-z_]\w*\.)*[A-Z]\w*(Error|Exception)\b")]
     private static partial Regex Raised();

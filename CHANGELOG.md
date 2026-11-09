@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- When a program the agent runs isn't installed, it is told so, and to ask you before installing, rather than that
+  names change between versions.
 - A chat opened from **History** knows how full its context is from the server's own count, rather than an estimate,
   so the context is compacted at the right time.
 - The agent is no longer told it is going in circles when it clicks or presses the same thing on purpose and the

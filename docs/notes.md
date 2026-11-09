@@ -5172,7 +5172,10 @@ presses for it at more points than errors:
   5.5's script read "sample.txt" from the process's folder, "Could not find file 'C:\Users\user\sample.txt'", and was
   sent to search the web before its next try, 9 November 2026; a bare name such as 'ffmpeg' can be a program that
   isn't installed, and still counts), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
-  install it). They use up no note either. After an exit code the output is what the command printed, so the
+  install it). Its note says the program isn't installed or isn't on the PATH, to find where it is or look up how
+  to get it, asking before installing (`Guesswork.ProgramNote`): it got the note on names from another version, which
+  Haiku 5.5 was given for `python` on a PC with no Python (2026-11-09). A PowerShell command's Verb-Noun name
+  (`Get-Thing`) still gets that one. They use up no note either. After an exit code the output is what the command printed, so the
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that
   looks something up gets no note for what failed beside it.
