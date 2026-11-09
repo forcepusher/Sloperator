@@ -15,7 +15,7 @@ internal sealed class SheetFormula
 {
     private readonly Func<string, Cell> _cell;
     private readonly string _text;
-    private int _at;
+    private int _at, _depth;
 
     /// <summary>What a cell holds, for a formula that refers to it: a number, text (or TRUE/FALSE), or a formula with no value here.</summary>
     internal readonly record struct Cell(double? Number, bool Text = false, bool Error = false)
@@ -88,7 +88,7 @@ internal sealed class SheetFormula
             f.Space();
             return f._at == f._text.Length && double.IsFinite(value) ? value : null;
         }
-        catch (FormatException)
+        catch (Exception ex) when (ex is FormatException or ArgumentException or ArithmeticException)
         {
             return null;
         }
@@ -122,7 +122,20 @@ internal sealed class SheetFormula
         }
     }
 
-    private double Unary() => Take('-') ? -Unary() : Take('+') ? Unary() : Atom();
+    /// <summary>Every bracket, function and sign within another goes through here: past 200 deep no formula a person writes, and the stack would run out.</summary>
+    private double Unary()
+    {
+        if (++_depth > 200)
+            throw new FormatException("too deep");
+        try
+        {
+            return Take('-') ? -Unary() : Take('+') ? Unary() : Atom();
+        }
+        finally
+        {
+            _depth--;
+        }
+    }
 
     private double Atom()
     {
@@ -188,9 +201,18 @@ internal sealed class SheetFormula
             "MAX" => values.Count == 0 ? 0 : values.Max(),
             "COUNT" => values.Count,
             "ROUND" when args.Count is 1 or 2 && !double.IsNaN(args[0]) && (args.Count == 1 || !double.IsNaN(args[1])) =>
-                Math.Round(args[0], (int)(args.Count == 2 ? args[1] : 0), MidpointRounding.AwayFromZero),
+                Round(args[0], args.Count == 2 ? (int)args[1] : 0),
             _ => throw new FormatException("function"),
         };
+    }
+
+    /// <summary>Excel's ROUND: halves away from zero, and a negative count of digits rounds to tens, hundreds…</summary>
+    private static double Round(double value, int digits)
+    {
+        if (digits >= 0)
+            return Math.Round(value, Math.Min(digits, 15), MidpointRounding.AwayFromZero);
+        var scale = Math.Pow(10, Math.Min(-digits, 300));
+        return Math.Round(value / scale, MidpointRounding.AwayFromZero) * scale;
     }
 
     /// <summary>A cell's number for arithmetic: an empty cell is 0, text can't be added.</summary>

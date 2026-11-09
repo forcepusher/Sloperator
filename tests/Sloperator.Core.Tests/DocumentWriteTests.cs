@@ -600,6 +600,9 @@ public class DocumentWriteTests : IDisposable
     [InlineData("-A1+$B$1", 1.0)]
     [InlineData("SUM(A1:B1, 10)", 15.0)]
     [InlineData("MAX(A1:B1)-MIN(A1:B1)+COUNT(A1:B1)", 3.0)]
+    [InlineData("ROUND(1234.5, -2)", 1200.0)] // to hundreds: Math.Round refuses a negative count of digits
+    [InlineData("ROUND(2.5)", 3.0)]
+    [InlineData("((((((1))))))", 1.0)]
     [InlineData("A1/C1", null)]       // an empty cell is 0: a division by zero
     [InlineData("A1+T1", null)]       // text
     [InlineData("A1 > 1", null)]      // a comparison isn't worked out here
@@ -615,6 +618,14 @@ public class DocumentWriteTests : IDisposable
             _ => SheetFormula.Cell.Empty,
         };
         Assert.Equal(value, SheetFormula.Value(formula, Read));
+    }
+
+    [Fact]
+    public void A_formula_nested_thousands_deep_has_no_value_rather_than_overflowing_the_stack()
+    {
+        Assert.Null(SheetFormula.Value(new string('(', 50_000) + "1" + new string(')', 50_000), _ => SheetFormula.Cell.Empty));
+        Assert.Null(SheetFormula.Value(new string('-', 50_000) + "1", _ => SheetFormula.Cell.Empty));
+        Assert.Null(SheetFormula.Value(string.Concat(Enumerable.Repeat("SUM(", 50_000)) + "1" + new string(')', 50_000), _ => SheetFormula.Cell.Empty));
     }
 
     [Fact]
