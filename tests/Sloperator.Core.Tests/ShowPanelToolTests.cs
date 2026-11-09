@@ -8,7 +8,7 @@ namespace Sloperator.Core.Tests;
 /// <summary>The agent opening the app's side panel to what the user asks to see there (show_panel).</summary>
 public sealed class ShowPanelToolTests
 {
-    private static ToolContext Context(Func<string, string?, Task<string?>>? show) =>
+    private static ToolContext Context(Func<string, string?, Task<PanelShown>>? show) =>
         new() { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath(), ShowPanel = show };
 
     private static Task<ToolResult> Run(ToolContext ctx, string panel, string? path = null)
@@ -27,7 +27,7 @@ public sealed class ShowPanelToolTests
         try
         {
             var shown = new List<(string Panel, string? Path)>();
-            var ctx = Context((panel, path) => { shown.Add((panel, path)); return Task.FromResult<string?>(null); });
+            var ctx = Context((panel, path) => { shown.Add((panel, path)); return Task.FromResult(new PanelShown()); });
 
             var result = await Run(ctx, "web preview", page);
             Assert.False(result.IsError);
@@ -36,6 +36,10 @@ public sealed class ShowPanelToolTests
             Assert.Equal(("Web preview", page), Assert.Single(shown));
 
             Assert.Equal("The Terminal is open beside the chat.", (await Run(ctx, "Terminal")).Text);
+
+            // What the panel does with it goes after, such as a page reloading as it changes.
+            var reloads = Context((_, _) => Task.FromResult(new PanelShown(Note: "It reloads the page by itself.")));
+            Assert.Equal($"The Web preview beside the chat shows {page}. It reloads the page by itself.", (await Run(reloads, "Web preview", page)).Text);
         }
         finally
         {
@@ -46,7 +50,7 @@ public sealed class ShowPanelToolTests
     [Fact]
     public async Task A_panel_or_file_that_isnt_there_and_a_refusal_are_said()
     {
-        var ctx = Context((_, _) => Task.FromResult<string?>("The Web preview doesn't show notes.txt."));
+        var ctx = Context((_, _) => Task.FromResult(new PanelShown("The Web preview doesn't show notes.txt.")));
         var unknown = await Run(ctx, "Preview");
         Assert.True(unknown.IsError);
         Assert.Contains("There is no panel \"Preview\". The panels: Web preview, Code editor", unknown.Text);

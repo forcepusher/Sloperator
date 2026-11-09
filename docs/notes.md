@@ -2743,7 +2743,9 @@ session is made for it, and what it found goes with the message (`UserInput.Cont
 found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
 looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The request asks for what was read
 "as it stands there", "no guesses about what you didn't open": Haiku told the agent a parameter's default it had misread,
-and the agent corrected it to the user (2026-11-10). The pick holds until the next
+and the agent corrected it to the user (2026-11-10). It then wrote "I did not open any files, so I can't confirm the
+page's markup" under what the chat had said, so the request also says "not what you didn't open or can't tell, nor
+what the chat already says". The pick holds until the next
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
 evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
@@ -3428,7 +3430,9 @@ wildcard, or a word like on/to/with/in/for, unless a separator comes after that 
 begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are: what follows ": "
 (an SSH command, a search, keys), anything in quotes (typed text), relative paths, a bare root, web
 addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
-only once it changed a file, so the first cards (a list, a read) would still show whole paths.
+only once it changed a file, so the first cards (a list, a read) would still show whole paths. What a running card
+says it is doing at its top right goes through it too: Auto's card said "Read C:\Repos\…\proj\index.html" there and cut its
+own line to "claude-haiku-5-5 pi…" in a narrow chat (2026-11-10).
 
 How the call ended in how long stays at the card's top right, without the clock time it had before
 it ("Done in 1.2 s"; the time it began to run is the tooltip): too many times in the chat, the user
@@ -3533,7 +3537,12 @@ Under Auto, Auto shows it as it shows a panel for the agent's work and stays pic
 it opens as one picked by hand, in place of the panel open. A file a panel doesn't open (a .txt in the Web preview)
 is refused with why. About 150 tokens with its schema. Asked to "show it in the Web preview" with the panel closed,
 Haiku 5.5 had opened the page in Edge and said it couldn't open Sloperator's panel (2026-11-10); with the tool it called
-show_panel once and the page opened beside the chat, with the panel on None and on Auto.
+show_panel once and the page opened beside the chat, with the panel on None and on Auto. Told only that the panel showed
+the page, it said after each change that it couldn't see the panel, and to reload the page there if it still showed the
+old one; it had reloaded already. While the Web preview follows the agent (Watch, or Auto showing it) the result, and the
+panel's note with each message, say it reloads the page as the files in its folder change (`PanelShown.Note`,
+`WebPreviewViewModel.ReloadsNote`). Asked to capture "Web preview" to check, capture_result says Sloperator's own windows
+and side panel are left out of captures, rather than that no window has that title.
 `SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
 instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
 `{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model

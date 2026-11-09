@@ -495,7 +495,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     public string StatusText => State switch
     {
         ToolItemState.AwaitingApproval => "Waiting for your OK",
-        ToolItemState.Running => Progress.Length > 0 ? Progress : RunningText,
+        ToolItemState.Running => Progress.Length > 0 ? ToolLine.Short(Progress) : RunningText,
         ToolItemState.Done => Took is { } took ? $"Done in {ChatTimes.Duration(took)}" : "Done",
         ToolItemState.Error => Took is { } took ? $"Failed after {ChatTimes.Duration(took)}" : "Failed",
         ToolItemState.Denied => "Declined",

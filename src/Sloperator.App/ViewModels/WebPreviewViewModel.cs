@@ -187,7 +187,13 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
     public bool ByAuto { get; }
 
     /// <summary>The agent's page opens and reloads as its files change: Watch, or Auto showing the panel.</summary>
-    private bool Following => Watch || ByAuto;
+    public bool Following => Watch || ByAuto;
+
+    /// <summary>
+    /// What the agent is told of a page shown while the panel follows (<see cref="Following"/>): unsure, Haiku 5.5 told
+    /// the user after each change to reload the page there if it still showed the old one (2026-11-10).
+    /// </summary>
+    public const string ReloadsNote = "It reloads the page by itself as the files in its folder change, so it shows each change as it is made.";
 
     /// <summary>What the Watch button shows: on under Auto, else Watch; set by its click.</summary>
     public bool WatchShown
@@ -468,6 +474,8 @@ public sealed partial class WebPreviewViewModel : ObservableObject, IFilePanel
         if (Path is not { } path)
             return null;
         var opening = $"[The Web preview panel is open beside the chat, showing the web page {path} in a browser (WebView2), served from the folder {Folder} at https://{PreviewPage.Host}/. ";
+        if (Following)
+            opening += ReloadsNote + " ";
         if (_area is { } area && files.Contains(area.Picture, StringComparer.OrdinalIgnoreCase))
             return ($"Web preview · {FileName} · area",
                 $"{opening}{area.Told}. The picture {area.Picture} attached below is that area, cut from it, which is what they refer to.]");

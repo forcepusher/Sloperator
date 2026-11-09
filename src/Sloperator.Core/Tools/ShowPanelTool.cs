@@ -41,8 +41,17 @@ public sealed class ShowPanelTool : Tool
             if (!File.Exists(path) && !Directory.Exists(path))
                 return ToolResult.Error($"{path} isn't there.");
         }
-        return await show(panel, path).ConfigureAwait(false) is { } problem
-            ? ToolResult.Error(problem)
-            : new ToolResult(path is null ? $"The {panel} is open beside the chat." : $"The {panel} beside the chat shows {path}.");
+        var shown = await show(panel, path).ConfigureAwait(false);
+        if (shown.Problem is { } problem)
+            return ToolResult.Error(problem);
+        var text = path is null ? $"The {panel} is open beside the chat." : $"The {panel} beside the chat shows {path}.";
+        return new ToolResult(shown.Note is { } note ? $"{text} {note}" : text);
     }
 }
+
+/// <summary>
+/// What opening a side panel came to (<see cref="ToolContext.ShowPanel"/>): why it couldn't, or else what the
+/// panel does with what it shows, such as a page reloading as its files change. Told only that it opened, Haiku 5.5
+/// said after each change it couldn't see the Web preview, and to reload the page there if it hadn't (2026-11-10).
+/// </summary>
+public readonly record struct PanelShown(string? Problem = null, string? Note = null);

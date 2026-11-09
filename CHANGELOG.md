@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- The agent no longer tells you to reload a page in **Web preview** after changing it: it is told the panel reloads
+  the page by itself as its files change.
+- An agent trying to capture Sloperator's own side panel is told it can't see it, rather than that no such window
+  is open.
+- Auto's card shows the file it is reading by name, as other cards do, rather than a whole path that cut its own line.
+- Auto's notes to the agent no longer say what it didn't open, or repeat what the chat already says.
 - The API key's tooltip names the SloperatorData folder it is saved in, not the old Data folder.
 - The agent no longer waits for a change to a screen that already changed (a window that had opened), which could
   keep a task waiting until you skipped it.

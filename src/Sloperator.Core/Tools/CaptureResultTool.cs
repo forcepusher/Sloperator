@@ -207,6 +207,11 @@ public sealed partial class CaptureResultTool : Tool
         var windows = ctx.Platform.Screen.GetWindows();
         var found = windows.FirstOrDefault(w => w.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } exact ? exact
             : windows.FirstOrDefault(w => w.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
+        // Haiku 5.5 tried to capture "Web preview" to check a page it had shown there (2026-11-10).
+        if (found.Title is null && (title.Contains("Sloperator", StringComparison.OrdinalIgnoreCase) ||
+                                    ShowPanelTool.Panels.Contains(title.Trim(), StringComparer.OrdinalIgnoreCase)))
+            throw new ToolArgumentException($"\"{title}\" isn't another program's window: Sloperator's own windows and side panel are left out of " +
+                                            "captures and screenshots, so you can't see them; the user does.");
         if (found.Title is null)
             throw new ToolArgumentException(windows.Count == 0
                 ? $"No window's title has \"{title}\" in it: no windows of other programs are open on the screen."
