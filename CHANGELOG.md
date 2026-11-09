@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A command that fails on a file or folder that isn't there no longer sends the agent to search the web before its
+  next try: no page knows your files.
 - A model named in plain words no longer takes a size for its version: "gpt" on OpenRouter found gpt-oss-120b, read as
   version 120, rather than the newest GPT.
 - Wait and key cards write their seconds as the rest of the chat does, "Wait 60 s" rather than "Wait 60s".

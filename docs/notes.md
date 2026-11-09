@@ -5087,8 +5087,11 @@ presses for it at more points than errors:
   plan to check something ("let's check the signature of FadeIn in moviepy 2.x") is no web search:
   the model makes that check on the PC, as qwen3.8 did with the installed moviepy.
 - Only failures a page could answer count (`Guesswork.Answerable`): not Sloperator's own tools failing
-  (bad arguments, a file that isn't there), a command that ran out of time, or a command line's own slip,
-  though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
+  (bad arguments, a file that isn't there), a command that ran out of time, a command line's own slip, or a
+  file or folder at a path that isn't there, as .NET, Python, Node and the shells say it (`PathMissing`: Sonnet
+  5.5's script read "sample.txt" from the process's folder, "Could not find file 'C:\Users\user\sample.txt'", and was
+  sent to search the web before its next try, 9 November 2026; a bare name such as 'ffmpeg' can be a program that
+  isn't installed, and still counts), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
   install it). They use up no note either. After an exit code the output is what the command printed, so the
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that

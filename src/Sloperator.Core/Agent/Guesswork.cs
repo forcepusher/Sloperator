@@ -389,7 +389,16 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     internal static bool Answerable(Tool? tool, string line) =>
         tool is ShellTool or SshTool or McpTool or ComfyTool or VideoEditorTool &&
         !line.StartsWith("Timed out after", StringComparison.Ordinal) &&
-        (!ShellSlip().IsMatch(line) || ProgramMissing().IsMatch(line));
+        (!ShellSlip().IsMatch(line) || ProgramMissing().IsMatch(line)) &&
+        !PathMissing().IsMatch(line);
+
+    // A file or folder at a path that isn't there, as .NET, Python, Node and the shells say it: a page knows
+    // nothing of the user's files. Sonnet 5.5's script read "sample.txt" from the process's folder ("Exception
+    // calling "ReadAllText" … Could not find file 'C:\Users\user\sample.txt'") and was told to search the web
+    // before its next try. A bare name ('ffmpeg') can be a program that isn't installed, and still counts.
+    [GeneratedRegex(@"(could not find (file|a part of the path)|cannot find path|no such file or directory|ENOENT\b)[^'""]*['""][^'""]*[\\/.][^'""]*['""]",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PathMissing();
 
     [GeneratedRegex(@"^(?<name>[\w-]+)(\.exe)? : The term '\k<name>(\.exe)?' is not recognized", RegexOptions.IgnoreCase)]
     private static partial Regex ProgramMissing();
