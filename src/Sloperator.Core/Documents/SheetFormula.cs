@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 
 namespace Sloperator.Core.Documents;
 
@@ -23,6 +24,59 @@ internal sealed class SheetFormula
     }
 
     private SheetFormula(string text, Func<string, Cell> cell) => (_text, _cell) = (text, cell);
+
+    private static readonly XNamespace S = XlsxWriter.S;
+
+    /// <summary>The most formulas waiting on one another while one is worked out.</summary>
+    private const int MaxDepth = 200;
+
+    /// <summary>
+    /// Writes the value of each formula of a sheet's <paramref name="cells"/> that can be worked out here, in place of
+    /// the one it had. A formula that can't keeps its own (Excel's last), and those that use it are left alone too.
+    /// </summary>
+    public static void WriteValues(IEnumerable<XElement> cells)
+    {
+        var byReference = new Dictionary<string, XElement>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in cells)
+            if ((string?)c.Attribute("r") is { } r)
+                byReference[r] = c;
+        var values = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
+        var working = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        double? Of(string reference, XElement f)
+        {
+            if (values.TryGetValue(reference, out var known))
+                return known;
+            // A shared formula is written out only in its first cell, an array formula fills others: Excel's to work out.
+            if (f.Attribute("t") is not null || f.Value.Trim().Length == 0)
+                return values[reference] = null;
+            // A loop, or a chain of formulas too long to follow here (each the one under it, thousands deep, would
+            // overflow the stack): no value from here, not kept, as the cell may be worked out from nearer by.
+            if (working.Count >= MaxDepth || !working.Add(reference))
+                return null;
+            var value = Value(f.Value, Read);
+            working.Remove(reference);
+            return values[reference] = value;
+        }
+        Cell Read(string reference)
+        {
+            if (!byReference.TryGetValue(reference, out var c))
+                return Cell.Empty;
+            if (c.Element(S + "f") is { } f)
+                return Of(reference, f) is { } worked ? new(worked) : new(null, Error: true);
+            return (string?)c.Attribute("t") is null or "n" && double.TryParse((string?)c.Element(S + "v"), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)
+                ? new(n)
+                : c.Element(S + "v") is null && c.Element(S + "is") is null ? Cell.Empty : new(null, Text: true);
+        }
+        foreach (var (reference, c) in byReference)
+        {
+            if (c.Element(S + "f") is not { } f || Of(reference, f) is not { } value)
+                continue;
+            c.Elements(S + "v").Remove();
+            if ((string?)c.Attribute("t") is "str" or "e" or "b")
+                c.Attribute("t")!.Remove();
+            f.AddAfterSelf(new XElement(S + "v", value.ToString("R", CultureInfo.InvariantCulture)));
+        }
+    }
 
     /// <summary>The value of <paramref name="formula"/> (its text after =), its cells read by <paramref name="cell"/> ("C7"); null where it can't be worked out here.</summary>
     public static double? Value(string formula, Func<string, Cell> cell)

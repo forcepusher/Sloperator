@@ -110,7 +110,9 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
   formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value"): a total showed as
   an empty cell there (2026-11-10). Anything else (another sheet's cell, text, other functions, a division by zero, a
-  loop) has none, as before.
+  loop) has none, as before. An edit (`SheetEdit`) works them out again on every sheet, so a total over a number
+  changed shows its new value; one that can't be worked out here keeps Excel's last, and so do those that use it. A
+  chain of formulas over 200 deep is left to Excel (`SheetFormula.MaxDepth`): followed from the top, 5,000 would overflow the stack.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide.

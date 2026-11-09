@@ -126,12 +126,23 @@ internal static partial class SheetEdit
         // total, kept in the file, and read_file showed it too.
         var others = !formulas && rows.Count == 0 && changes.Count > 0 && sheets.Any(s => parts.Get(s.Part).Descendants(S + "f").Any());
         if (formulas || rows.Count > 0 || others)
+        {
             Recalculate(parts);
+            // Plain formulas get their new values here, for what shows the file without working them out.
+            foreach (var sheet in sheets)
+            {
+                var xml = parts.Get(sheet.Part);
+                if (!xml.Descendants(S + "f").Any())
+                    continue;
+                SheetFormula.WriteValues(xml.Descendants(S + "c"));
+                parts.Changed(sheet.Part);
+            }
+        }
         if (changes.Count > 0)
             done.Add("set " + string.Join("; ", changes.GroupBy(c => c.Sheet.Name).Select(g => $"{string.Join(", ", g.Select(c => c.Cell))} on sheet \"{g.Key}\"")));
         var said = string.Join(", then ", done);
         return char.ToUpperInvariant(said[0]) + said[1..] + (formulas || rows.Count > 0 || others
-            ? ". Excel works the formulas out when it opens the file; until then read_file shows the values they had."
+            ? ". Plain formulas were worked out here; Excel works out the rest when it opens the file, and until then read_file shows the values they had."
             : ".");
     }
 

@@ -79,8 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
-- A workbook the agent writes shows its totals and other plain formulas in the File inspector and Windows' preview,
-  rather than empty cells until Excel opens it.
+- A workbook the agent writes or edits shows its totals and other plain formulas in the File inspector and Windows' preview,
+  rather than empty cells or old totals until Excel opens it.
 - When a program the agent runs isn't installed, it is told so, and to ask you before installing, rather than that
   names change between versions.
 - A chat opened from **History** knows how full its context is from the server's own count, rather than an estimate,

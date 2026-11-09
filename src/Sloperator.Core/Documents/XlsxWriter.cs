@@ -81,7 +81,7 @@ internal static partial class XlsxWriter
         if (sheets.Count == 0)
             sheets.Add(new Sheet("Sheet1"));
         foreach (var sheet in sheets)
-            WorkOut(sheet);
+            SheetFormula.WriteValues(sheet.Rows.Values.SelectMany(r => r.Values));
         // Asked for amounts in dollars, Kilo's free Nemotron wrote plain numbers and then took the
         // workbook apart to add the format by hand, twice, though the tool said how; said here, it
         // comes when it is needed.
@@ -112,40 +112,6 @@ internal static partial class XlsxWriter
         package.Add("xl/styles.xml", styles.Document(), "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml");
         package.AddCoreProperties(sheets[0].Name);
         return package.Build();
-    }
-
-    /// <summary>
-    /// The formulas' values where they can be worked out here (see <see cref="SheetFormula"/>), written beside them
-    /// for what shows a file without working its formulas out; Excel still works them all out on opening.
-    /// </summary>
-    private static void WorkOut(Sheet sheet)
-    {
-        var cells = sheet.Rows.Values.SelectMany(r => r.Values).ToDictionary(c => (string)c.Attribute("r")!);
-        var values = new Dictionary<string, double?>();
-        var working = new HashSet<string>();
-        double? Of(string reference, string formula)
-        {
-            if (values.TryGetValue(reference, out var known))
-                return known;
-            if (!working.Add(reference))
-                return null; // a formula that refers back to itself
-            var value = SheetFormula.Value(formula, Read);
-            working.Remove(reference);
-            return values[reference] = value;
-        }
-        SheetFormula.Cell Read(string reference)
-        {
-            if (!cells.TryGetValue(reference, out var cell))
-                return SheetFormula.Cell.Empty;
-            if (cell.Element(S + "f") is { } f)
-                return Of(reference, f.Value) is { } worked ? new(worked) : new(null, Error: true);
-            return cell.Attribute("t") is null && double.TryParse((string?)cell.Element(S + "v"), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)
-                ? new(n)
-                : new(null, Text: true);
-        }
-        foreach (var (reference, cell) in cells)
-            if (cell.Element(S + "f") is { } f && Of(reference, f.Value) is { } value)
-                cell.Add(new XElement(S + "v", value.ToString("R", CultureInfo.InvariantCulture)));
     }
 
     /// <summary>A paragraph's lines, each with its spans.</summary>

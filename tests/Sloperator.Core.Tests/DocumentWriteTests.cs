@@ -577,6 +577,23 @@ public class DocumentWriteTests : IDisposable
         Assert.DoesNotMatch(@"E4 =Sheet2!A1 → \d", text);
     }
 
+    [Fact]
+    public void A_long_chain_of_formulas_or_a_loop_leaves_values_out_rather_than_overflowing()
+    {
+        XNamespace s = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        // Each the one under it, 5,000 deep, the last a number: followed from the top it would overflow the stack.
+        var cells = Enumerable.Range(1, 5000).Select(i => new XElement(s + "c", new XAttribute("r", $"A{i}"),
+            i < 5000 ? new XElement(s + "f", $"A{i + 1}+1") : new XElement(s + "v", "1"))).ToList();
+        cells.Add(new XElement(s + "c", new XAttribute("r", "B1"), new XElement(s + "f", "B2*2")));
+        cells.Add(new XElement(s + "c", new XAttribute("r", "B2"), new XElement(s + "f", "B1/2"), new XElement(s + "v", "7")));
+        SheetFormula.WriteValues(cells);
+        Assert.Null(cells[0].Element(s + "v"));
+        Assert.Equal("2", (string?)cells[4998].Element(s + "v"));
+        // A loop keeps what it had.
+        Assert.Null(cells[^2].Element(s + "v"));
+        Assert.Equal("7", (string?)cells[^1].Element(s + "v"));
+    }
+
     [Theory]
     [InlineData("1+2*3", 7.0)]
     [InlineData("(1+2)*3", 9.0)]
@@ -643,9 +660,11 @@ public class DocumentWriteTests : IDisposable
         var result = await Edit("budget.xlsx", "", "B3 900");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("Excel works the formulas out when it opens the file", result.Text);
-        using var check = ZipFile.OpenRead(path);
-        Assert.Equal("1", (string?)XDocument.Load(check.GetEntry("xl/workbook.xml")!.Open()).Descendants(s + "calcPr").Single().Attribute("fullCalcOnLoad"));
+        Assert.Contains("Excel works out the rest when it opens the file", result.Text);
+        using (var check = ZipFile.OpenRead(path))
+            Assert.Equal("1", (string?)XDocument.Load(check.GetEntry("xl/workbook.xml")!.Open()).Descendants(s + "calcPr").Single().Attribute("fullCalcOnLoad"));
+        // The total's new value is worked out here too, for what shows the file without Excel.
+        Assert.Contains("B4 =SUM(B2:B3) → 2100", await Read("budget.xlsx"));
     }
 
     [Fact]
