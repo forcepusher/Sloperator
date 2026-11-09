@@ -6,9 +6,9 @@ namespace Sloperator.Core.Tools;
 /// Notices a click that changed nothing on screen, which almost always means it missed its target
 /// (a menu a few pixels lower, a tab next to the spot). Without this the result reads like a
 /// success, and the model clicks the same spot again and again. The screen is compared before and
-/// after the click (without the mouse cursor); a change near the click, or a big one anywhere
-/// (a dialog opening), counts as a reaction. Small changes elsewhere (a clock, a blinking caret,
-/// the hover highlight under the old mouse position) don't.
+/// after the click (without the mouse cursor); a change near the click, one the size of a digit a little
+/// further, or a big one anywhere (a dialog opening), counts as a reaction. Small changes elsewhere (a clock,
+/// a blinking caret, the hover highlight under the old mouse position) don't.
 /// </summary>
 internal sealed class ClickCheck
 {
@@ -17,6 +17,16 @@ internal sealed class ClickCheck
 
     /// <summary>Changed pixels near the click that count as a reaction (a checkbox tick, a caret).</summary>
     private const int NearPixels = 6;
+
+    /// <summary>
+    /// The ring past <see cref="NearRadius"/> where a change the size of a digit counts: a page's counter over the
+    /// button clicked went from 0 to 1 some 70 px from the click, far under a big change's share, and each click
+    /// was told it missed (Haiku 5.5, 2026-11-09).
+    /// </summary>
+    private const int MidRadius = 150;
+
+    /// <summary>Changed pixels in that ring that count as a reaction: a large digit is hundreds, a caret's blink about 20.</summary>
+    private const int MidPixels = 40;
 
     /// <summary>Changed share of the screen elsewhere that counts as a reaction (about 55x50 px on 2560x1080).</summary>
     private const double FarShare = 0.001;
@@ -77,10 +87,10 @@ internal sealed class ClickCheck
             return true;
         var (cx, cy) = (click.X - _screen.X, click.Y - _screen.Y);
         var (ox, oy) = (_oldCursor.X - _screen.X, _oldCursor.Y - _screen.Y);
-        const int r2 = NearRadius * NearRadius;
+        const int r2 = NearRadius * NearRadius, m2 = MidRadius * MidRadius;
         var hover2 = 2 * r2; // the old hover highlight can be a bit bigger than the click's surroundings
         var farLimit = (long)(after.Width * (long)after.Height * FarShare);
-        long near = 0, far = 0;
+        long near = 0, mid = 0, far = 0;
         var a = _before.Bgra;
         var b = after.Bgra;
         for (var y = 0; y < after.Height; y++)
@@ -93,11 +103,12 @@ internal sealed class ClickCheck
                 var i = row + x * 4;
                 if (!Changed(a, b, i))
                     continue;
-                if ((x - cx) * (x - cx) + dyc <= r2)
+                var dc = (x - cx) * (x - cx) + dyc;
+                if (dc <= r2)
                 {
                     if (++near >= NearPixels) return true;
                 }
-                else if ((x - ox) * (x - ox) + dyo > hover2 && ++far >= farLimit)
+                else if ((x - ox) * (x - ox) + dyo > hover2 && ((dc <= m2 && ++mid >= MidPixels) || ++far >= farLimit))
                     return true;
             }
         }

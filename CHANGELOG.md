@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- What Sloperator tells the agent with your message (what Auto found, a side panel pick, text you selected in the
+  chat) now comes after your words, so the agent no longer takes your message for one of Sloperator's.
+- The agent no longer answers Sloperator's notes to it, which you never see, as if you had written them.
 - Web search results tell the agent that their snippets can be out of date, so it opens the page before it states a
   version, a date or a price.
 - **Stop** appears left of the blob as a task starts, so **Send** and the blob stay where they are instead of moving
@@ -76,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A click whose effect shows a little way off, such as a counter above the button, is no longer reported to the agent
+  as a miss.
 - A chat opened from **History** shows how full its context is in the top bar at once, as it did when you left it,
   not only once the next task starts.
 - In a narrow chat, a folded card's title wraps before the model Auto picked, not inside its name or before its effort.

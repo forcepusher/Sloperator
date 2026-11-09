@@ -142,6 +142,31 @@ public class ToolTests
     }
 
     [Fact]
+    public async Task A_digit_changing_a_little_way_from_the_click_counts_as_a_reaction()
+    {
+        // A 1920x1200 screen, where a big change elsewhere is some 2,300 pixels. The click on a page's button at
+        // (960, 700); its counter over it, about 70 px up, goes from 0 to 1: a few hundred pixels.
+        const int w = 1920, h = 1200;
+        var platform = new FakePlatform { ScreenBounds = new ScreenRect(0, 0, w, h), Desktop = new RawImage(w, h, new byte[w * h * 4]) };
+        var ctx = Ctx(platform, settings: new AgentSettings { ScreenshotMaxHeight = 1200 });
+        void Flip(int x0, int y0, int width, int height)
+        {
+            for (var y = y0; y < y0 + height; y++)
+                for (var x = x0; x < x0 + width; x++)
+                    platform.Desktop!.Bgra[(y * w + x) * 4] ^= 255;
+        }
+        Task<ToolResult> Click() => new MouseClickTool().ExecuteAsync(new JsonObject { ["x"] = 960, ["y"] = 700 }, ctx, CancellationToken.None);
+
+        platform.OnClick = _ => Flip(950, 610, 20, 25);
+        Assert.DoesNotContain("Nothing on screen changed", (await Click()).Text);
+        // A caret blinking as far off is no reaction, nor is the same digit further away.
+        platform.OnClick = _ => Flip(1060, 700, 1, 18);
+        Assert.Contains("Nothing on screen changed", (await Click()).Text);
+        platform.OnClick = _ => Flip(950, 400, 20, 25);
+        Assert.Contains("Nothing on screen changed", (await Click()).Text);
+    }
+
+    [Fact]
     public void Small_screens_are_not_upscaled()
     {
         var space = new ScreenSpace(new ScreenRect(0, 0, 1024, 768), (1600, 900));

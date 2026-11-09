@@ -20,7 +20,7 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
     public string? Via { get; init; }
 
     /// <summary>
-    /// What the model is told with it, before the user's words, and the chat doesn't show: where it
+    /// What the model is told with it, after the user's words and files, and the chat doesn't show: where it
     /// was written and what it is about (the video and the piece picked in the Video editor panel).
     /// </summary>
     public string? Context { get; init; }
@@ -56,8 +56,12 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
         return text[start..];
     }
 
-    /// <summary>The words as the model reads them: the context first, when there is one.</summary>
-    internal string ModelText => Context is null ? Text : Text.Trim().Length == 0 ? Context : $"{Context}\n{Text}";
+    /// <summary>
+    /// The words as the model reads them: the user's first, then the context, after a blank line. The context came
+    /// first, a line break before the user's words, and Haiku 5.5 read the whole message as "the app's message",
+    /// wondering whether to trust it (the user's pick, 2026-11-09).
+    /// </summary>
+    internal string ModelText => Context is null ? Text : Text.Trim().Length == 0 ? Context : $"{Tidy(Text)}\n\n{Context}";
 
     /// <summary>How many attached pictures the model sees in one message; the others it opens with read_file.</summary>
     private const int MaxShown = 6;
@@ -72,7 +76,8 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
     {
         if (Files.Count == 0)
             return new ChatMessage { Role = ChatRole.User, Content = ModelText, FromUser = true, Sent = [.. Ids] };
-        var list = new StringBuilder(Tidy(ModelText));
+        // The user's words and files, then what Sloperator tells the model with them.
+        var list = new StringBuilder(Tidy(Text));
         if (list.Length > 0)
             list.Append("\n\n");
         list.Append($"[The user attached {What(Files)}:]");
@@ -97,6 +102,8 @@ public sealed record UserInput(string Text, IReadOnlyList<string> Files)
                 list.Append(Describe(file));
             list.Append(')');
         }
+        if (Context is { } context)
+            list.Append("\n\n").Append(context);
         return pictures.Count == 0
             ? new ChatMessage { Role = ChatRole.User, Content = list.ToString(), FromUser = true, Sent = [.. Ids] }
             : new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText(list.ToString()), .. pictures], FromUser = true, Sent = [.. Ids] };

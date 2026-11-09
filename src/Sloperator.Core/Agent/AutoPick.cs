@@ -146,7 +146,7 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     private static partial Regex FieldStart();
 
     /// <summary>
-    /// What the picked model is told with the message, before the user's words: who looked, and what it
+    /// What the picked model is told with the message, after the user's words: who looked, and what it
     /// found. Null when it found nothing.
     /// </summary>
     public string? Notes => Found.Length == 0 ? null

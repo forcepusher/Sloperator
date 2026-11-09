@@ -803,7 +803,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                 OnEffortShownChanged();
                 ShowAutoPick(pick, server.ModelInUse, server.EffortInUse, kept ? set[pick.Tier].Id : null);
                 if (pick.Notes is { } notes)
-                    runInput = input with { Context = input.Context is { } context ? $"{notes}\n\n{context}" : notes };
+                    runInput = input with { Context = input.Context is { } context ? $"{context}\n\n{notes}" : notes };
             }
 
             var backend = await ConnectAsync();

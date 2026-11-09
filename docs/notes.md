@@ -1879,7 +1879,7 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
   scrolled meanwhile; only when the box would cover the selection's end does it move, just enough to
   show it (`MainWindow.HoldChatForQuote`). Higher up the chat never moved: a ScrollViewer keeps its
   offset when its view gets shorter.
-- Sent, the model is told it before the user's words, in `UserInput.Context` with whatever an open
+- Sent, the model is told it after the user's words, in `UserInput.Context` with whatever an open
   panel says: `[The user selected this in the chat, which is what they refer to:` and the text, cut at
   `BoxPicks.MaxChars` as a pick is (`MainWindowViewModel.WithQuote`). The card goes with the message
   (`UserInput.Cards`, a `SidePanelCard` with no path, kept in the saved chat) and shows first in its
@@ -2716,7 +2716,7 @@ read plain or in Markdown, a model also by its name (`AutoPick.Read`). It runs i
 model in use, so its replies count in the chat's cost by the evaluation model, and its calls ask the user's OK as
 any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
-session is made for it, and what it found goes with the message (`UserInput.Context`, before the user's words:
+session is made for it, and what it found goes with the message (`UserInput.Context`, after the user's words and any other context:
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
 found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
 looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The pick holds until the next
@@ -3483,6 +3483,16 @@ show_panel opens it when the user asks to see something there, and that the agen
 panel", Sonnet 5.5 searched for how, then said it couldn't (the panel had opened by itself), and asked about "my
 Sloperator sounds" it searched the whole home folder for them.
 
+**Sloperator's notes** to the model start with [Sloperator], as a message of their own or a paragraph of the user's
+(the line on them: "A message, or a paragraph of one, starting with [Sloperator] comes from this app…"). What goes
+with a message (`UserInput.Context`: Auto's findings, a panel's pick, text selected in the chat) comes after the
+user's words and files, a blank line between (`UserInput.ModelText`; the user's pick, 2026-11-09). It came first, a
+line break before the words, and Haiku 5.5 thought "The app's message has a [Sloperator] prefix, so I'm treating it
+as genuine" of the whole message, the user's task included. Undo finds a message by the user's own words
+(`ChatCut.Key`), so a chat saved with the old order is still found. The line also says the user never sees the notes:
+after notes that a click missed and that a repository wanted indexing, Haiku told the user "You were right to question
+it" and "I also indexed the repository as you asked" (2026-11-09).
+
 **show_panel** (`ShowPanelTool`, in the app only; `ToolContext.ShowPanel` is `MainWindowViewModel.ShowPanelForAgent`)
 opens a panel by its name in the dropdown, with a page, file or folder in it: a page in the Web preview, a file in the
 Code editor or File inspector (a folder in the Code editor), a picture's, sound's or video's folder in its editor.
@@ -3796,7 +3806,12 @@ layouts each, 73 trials) DeepSeek hit 22 with the look and 17 without, most miss
 
 After each click Sloperator also compares the screen just before it with the screen after it. When
 nothing changed near the click and nothing big changed anywhere (a dialog opening), the click almost
-certainly missed, and the result says so and tells the model to zoom in and click again. With the
+certainly missed, and the result says so and tells the model to zoom in and click again (`ClickCheck`). Near is 6
+changed pixels within 60 px; big is 0.1% of the screen (some 2,300 pixels at 1920x1200); between the two, 40 changed
+pixels within 150 px count too, a digit's worth (the user's pick, 2026-11-09): a page's counter over the button Haiku
+5.5 clicked went from 0 to 1 some 70 px off, every click was told it missed, and the run's end asked again, so
+Haiku told the user the warnings were wrong. A caret's blink (about 20 pixels) still doesn't count. The click
+benchmark can't show this ring: its scenes change only where a click hits. With the
 fresh look, on the scenes where clicks missed (a dense table, half-covered buttons, an ultrawide
 screen) 4 of 9 misses were fixed within two more clicks with the note, 0 of 8 without it. A red ring
 drawn at the click added nothing to the note, nor did a prompt rule about aiming carefully or

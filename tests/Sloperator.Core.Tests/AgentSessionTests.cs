@@ -1380,10 +1380,31 @@ public class AgentSessionTests
     public void A_message_from_the_video_editor_window_tells_the_model_what_it_is_about()
     {
         var input = new UserInput("make him smile") { Via = "Video editor · Keeper · shot 2", Context = "[From the Video editor window, about shot s2.]" };
-        Assert.Equal("[From the Video editor window, about shot s2.]\nmake him smile", input.ToMessage(seesImages: true).Content);
+        // The user's words first, then what Sloperator tells the model with them.
+        Assert.Equal("make him smile\n\n[From the Video editor window, about shot s2.]", input.ToMessage(seesImages: true).Content);
         Assert.Same(input, UserInput.Join([input])); // alone, as it is
         var joined = UserInput.Join([new UserInput("and quicker"), input]);
-        Assert.Equal("and quicker\n\n[From the Video editor window, about shot s2.]\nmake him smile", joined.Text);
+        Assert.Equal("and quicker\n\nmake him smile\n\n[From the Video editor window, about shot s2.]", joined.Text);
+    }
+
+    [Fact]
+    public void A_messages_files_come_with_its_words_before_what_sloperator_tells_the_model()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"context-order-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(file, "hi");
+        try
+        {
+            var input = new UserInput("fix this", [file]) { Context = "[Sloperator] Before you started, a model took a first look." };
+            var text = input.ToMessage(seesImages: false).Content!;
+            Assert.StartsWith("fix this\n\n[The user attached this file:]\n- " + file, text);
+            Assert.EndsWith("\n\n[Sloperator] Before you started, a model took a first look.", text);
+            // Files alone: the list, then the note.
+            Assert.StartsWith("[The user attached this file:]", (input with { Text = "" }).ToMessage(seesImages: false).Content);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
     }
 
     [Theory]
