@@ -537,7 +537,7 @@
             <!-- The model picked, or Auto with the one it uses now: "Auto (claude-sonnet-5-5)". -->
             <ComboBox.SelectionBoxItemTemplate>
               <DataTemplate x:DataType="x:String">
-                <TextBlock Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).ModelBoxText}" />
+                <TextBlock Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).ModelBoxText}" TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
           </views:ModelDropdown>
@@ -1215,7 +1215,8 @@
               <!-- The logo blob, as tall as Send and 8 from it; it dances while a prompt runs.
                    Not with the intro, which has the logo already, nor with a plan, whose bar it walks. -->
               <views:PartyBlob Dancing="{Binding IsBusy}" IsVisible="{Binding ShowsSendBlob}" Width="32" Height="32" VerticalAlignment="Bottom" />
-              <Button Classes="primary" Content="Send" Command="{Binding SendCommand}" />
+              <!-- Sent from here or with Enter, the chat follows its end again, to the message. -->
+              <Button Classes="primary" Content="Send" Command="{Binding SendCommand}" Click="OnSendClick" />
               <Button Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" />
             </StackPanel>
           </Grid>

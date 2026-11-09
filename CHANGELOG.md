@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- **Send** brings the chat to its end, as Enter does: the message you sent was out of sight when you had scrolled
+  up to read.
+- A long model name in the model dropdown ends in … when it doesn't fit, rather than cut in the middle of a letter.
 - Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide
   screens: screenshots now fit the size the server takes, and the task carries on.
 - A server that speaks Anthropic's own format is recognised by its answers, whatever its address.

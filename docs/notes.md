@@ -1559,7 +1559,8 @@ call_0 gave the next run's calls an old card's id, and they ran on it, folded ou
 
 Show steps doesn't let the chat follow its end, which it does while the user is at the bottom: the
 steps unfolding under the card would push the card up out of sight. The card stays where it is, and the
-chat follows again once scrolled back to the end (`MainWindow.OnFoldClick`).
+chat follows again once scrolled back to the end (`MainWindow.OnFoldClick`), or once a message is sent, with
+Enter or Send (`OnSendClick`): sent with Send after Show steps, the message went in out of sight (2026-11-09).
 
 **Undo message and everything below** (the user, 2026-10-29) is the right-click menu of a message of
 the user's: in the chat's one right-click menu (`MainWindow.OnChatMenu`, which opens before the
