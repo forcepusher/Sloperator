@@ -64,7 +64,7 @@ public sealed class WorkFoldTests
 
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
-        Assert.Equal("Worked for 24 s · 1 tool call · claude-sonnet-5-5 at High", auto.Card!.Title);
+        Assert.Equal("Worked for 24 s · 1 tool call · " + WorkFold.Unbroken("claude-sonnet-5-5 at High"), auto.Card!.Title); // held together for the wrap
         Assert.Equal(["read_file"], auto.Card.Tools);
         Assert.Equal("claude-haiku-5-5", new ToolCallItem("auto-3", "Auto", "claude-haiku-5-5: the evaluation failed") { State = ToolItemState.Error }.AutoPicked);
         Assert.Equal("claude-haiku-5-5 at Low", new ToolCallItem("auto-4", "Auto", "claude-haiku-5-5 at Low") { State = ToolItemState.Done }.AutoPicked);

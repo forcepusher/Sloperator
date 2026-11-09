@@ -1550,7 +1550,9 @@ call and no thinking (a model loaded, a plain answer) isn't folded and keeps its
 Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
 card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
 nothing in sight said which model had answered). It is read back from the card's line (`PickedIn`), so a chat
-opened from History says it too; a card stopped while it picked has none.
+opened from History says it too; a card stopped while it picked has none. The pick is held together
+(`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
+it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
