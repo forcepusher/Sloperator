@@ -75,8 +75,10 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         if (pickEffort)
             text.Append("effort: low, medium, high, xhigh or max\n");
         text.Append("why: one short sentence on what the task is and why that fits\n")
-            .Append("found: what you learnt looking around that the agent should know (which files, where things are, what to watch out for), " +
-                    "a few short lines; nothing if you looked at nothing");
+            // Haiku 5.5 told the agent a parameter's default it had misread, which the agent then corrected to the user
+            // (2026-11-10): the agent goes by these notes.
+            .Append("found: what you read or saw that the agent should know (which files, where things are, what to watch out for), " +
+                    "as it stands there, a few short lines; no guesses about what you didn't open; nothing if you looked at nothing");
         return text.ToString();
     }
 
