@@ -10,21 +10,8 @@ using Sloperator.Core.Media;
 namespace Sloperator.App.ViewModels;
 
 /// <summary>A picture in the Image editor panel's list: its folder, its name, and a small copy of its newest version.</summary>
-public sealed partial class PictureItem(string folder) : ObservableObject
+public sealed partial class PictureItem(string folder) : MediaFolderItem(folder)
 {
-    public string Folder { get; } = folder;
-    public string Name => Path.GetFileName(Folder);
-
-    /// <summary>Its versions, oldest first.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Count), nameof(IsMade))]
-    private IReadOnlyList<string> _versions = [];
-
-    public bool IsMade => Versions.Count > 0;
-
-    /// <summary>"3 versions", "1 version", "not made yet".</summary>
-    public string Count => Versions.Count switch { 0 => "not made yet", 1 => "1 version", var n => $"{n} versions" };
-
     /// <summary>Its newest version, 160 wide; null before it has one.</summary>
     [ObservableProperty]
     private Bitmap? _thumbnail;
@@ -55,8 +42,6 @@ public sealed partial class PictureItem(string folder) : ObservableObject
             }
         });
     }
-
-    public override string ToString() => Name;
 }
 
 /// <summary>A version of the picture shown: its number from 1, and whether it is the one in the big view.</summary>
@@ -228,30 +213,19 @@ public sealed partial class ImageEditorViewModel : ObservableObject, ISidePanel
     {
         if (_closed)
             return;
-        var folders = PictureFolder.All(Root);
-        foreach (var gone in Pictures.Where(p => !folders.Contains(p.Folder, StringComparer.OrdinalIgnoreCase)).ToList())
-        {
-            if (ReferenceEquals(gone, Selected))
-                Selected = null;
-            Pictures.Remove(gone);
-            gone.Thumbnail?.Dispose();
-        }
-        for (var i = 0; i < folders.Count; i++)
-        {
-            var item = Pictures.FirstOrDefault(p => string.Equals(p.Folder, folders[i], StringComparison.OrdinalIgnoreCase));
-            if (item is null)
-                Pictures.Insert(Math.Min(i, Pictures.Count), item = new PictureItem(folders[i]));
-            else if (Pictures.IndexOf(item) != i)
-                Pictures.Move(Pictures.IndexOf(item), Math.Min(i, Pictures.Count - 1));
-            var versions = PictureFolder.Versions(item.Folder);
-            if (!versions.SequenceEqual(item.Versions))
+        MediaFolderItem.Sync(Pictures, PictureFolder.All(Root), folder => new PictureItem(folder), PictureFolder.Versions,
+            gone: gone =>
             {
-                item.Versions = versions;
+                if (ReferenceEquals(gone, Selected))
+                    Selected = null;
+                gone.Thumbnail?.Dispose();
+            },
+            changed: item =>
+            {
                 item.LoadThumbnail();
                 if (ReferenceEquals(item, Selected))
                     NewVersions(item);
-            }
-        }
+            });
         OnPropertyChanged(nameof(HasPictures));
         OnPropertyChanged(nameof(EmptyText));
         // The picture picked may have been made meanwhile.

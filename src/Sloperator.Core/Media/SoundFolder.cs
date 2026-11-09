@@ -9,54 +9,19 @@ namespace Sloperator.Core.Media;
 public static class SoundFolder
 {
     /// <summary>The sound files the File inspector plays, ComfyUI's MP3, FLAC and Opus among them.</summary>
-    private static readonly string[] Types = [".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac"];
+    private static readonly MediaFolders Folders = new("Untitled sound", ".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac");
 
     /// <summary>A file that is a version of a sound.</summary>
-    public static bool IsSound(string path) => Types.Contains(Path.GetExtension(path).ToLowerInvariant());
+    public static bool IsSound(string path) => Folders.IsVersionFile(path);
 
     /// <summary>A sound folder's versions: its sound files, oldest first (by when they were written, then by name).</summary>
-    public static IReadOnlyList<string> Versions(string folder)
-    {
-        try
-        {
-            return Directory.EnumerateFiles(folder)
-                .Where(IsSound)
-                .OrderBy(File.GetLastWriteTimeUtc).ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
+    public static IReadOnlyList<string> Versions(string folder) => Folders.Versions(folder);
 
     /// <summary>The sounds in <paramref name="root"/>, a folder each, the one changed last first.</summary>
-    public static IReadOnlyList<string> All(string root)
-    {
-        try
-        {
-            if (!Directory.Exists(root))
-                return [];
-            return Directory.EnumerateDirectories(root)
-                .OrderByDescending(d => Versions(d) is { Count: > 0 } v ? File.GetLastWriteTimeUtc(v[^1]) : Directory.GetCreationTimeUtc(d))
-                .ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
+    public static IReadOnlyList<string> All(string root) => Folders.All(root);
 
     /// <summary>A new sound's folder, made: "Untitled sound", "Untitled sound 2" when that is taken.</summary>
-    public static string New(string root)
-    {
-        Directory.CreateDirectory(root);
-        var folder = Path.Combine(root, "Untitled sound");
-        for (var n = 2; Directory.Exists(folder); n++)
-            folder = Path.Combine(root, $"Untitled sound {n}");
-        Directory.CreateDirectory(folder);
-        return folder;
-    }
+    public static string New(string root) => Folders.New(root);
 
     /// <summary>Whether <paramref name="file"/> is a version of a sound of <paramref name="root"/>: in a folder right in it.</summary>
     public static bool IsVersion(string file, string? root)

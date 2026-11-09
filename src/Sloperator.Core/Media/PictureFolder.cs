@@ -11,54 +11,20 @@ namespace Sloperator.Core.Media;
 /// </summary>
 public static class PictureFolder
 {
-    private static readonly string[] Types = [".png", ".jpg", ".jpeg", ".webp"];
+    /// <summary>PNG, JPEG and WebP, what ComfyUI saves.</summary>
+    private static readonly MediaFolders Folders = new("Untitled picture", ".png", ".jpg", ".jpeg", ".webp");
 
     /// <summary>A file that is a version of a picture: a PNG, JPEG or WebP, what ComfyUI saves.</summary>
-    public static bool IsPicture(string path) => Types.Contains(Path.GetExtension(path).ToLowerInvariant());
+    public static bool IsPicture(string path) => Folders.IsVersionFile(path);
 
     /// <summary>A picture folder's versions: its picture files, oldest first (by when they were written, then by name).</summary>
-    public static IReadOnlyList<string> Versions(string folder)
-    {
-        try
-        {
-            return Directory.EnumerateFiles(folder)
-                .Where(IsPicture)
-                .OrderBy(File.GetLastWriteTimeUtc).ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
+    public static IReadOnlyList<string> Versions(string folder) => Folders.Versions(folder);
 
     /// <summary>The pictures in <paramref name="root"/>, a folder each, the one changed last first.</summary>
-    public static IReadOnlyList<string> All(string root)
-    {
-        try
-        {
-            if (!Directory.Exists(root))
-                return [];
-            return Directory.EnumerateDirectories(root)
-                .OrderByDescending(d => Versions(d) is { Count: > 0 } v ? File.GetLastWriteTimeUtc(v[^1]) : Directory.GetCreationTimeUtc(d))
-                .ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return [];
-        }
-    }
+    public static IReadOnlyList<string> All(string root) => Folders.All(root);
 
     /// <summary>A new picture's folder, made: "Untitled picture", "Untitled picture 2" when that is taken.</summary>
-    public static string New(string root)
-    {
-        Directory.CreateDirectory(root);
-        var folder = Path.Combine(root, "Untitled picture");
-        for (var n = 2; Directory.Exists(folder); n++)
-            folder = Path.Combine(root, $"Untitled picture {n}");
-        Directory.CreateDirectory(folder);
-        return folder;
-    }
+    public static string New(string root) => Folders.New(root);
 
     /// <summary>
     /// The mask of <paramref name="area"/> on a picture <paramref name="width"/> by <paramref name="height"/>, saved
