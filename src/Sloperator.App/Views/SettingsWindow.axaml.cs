@@ -16,9 +16,11 @@ public partial class SettingsWindow : Window
         if (DataContext is SettingsViewModel { HasMcpError: true })
         {
             Tabs.SelectedIndex = 1;
+            // The error under the box in sight too: brought to the box alone, it stayed below the window's edge.
             Dispatcher.UIThread.Post(() =>
             {
                 McpBox.BringIntoView();
+                McpErrorText.BringIntoView();
                 McpBox.Focus();
             }, DispatcherPriority.Loaded);
             return;

@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Saving **MCP servers** text that isn't valid JSON shows why in plain words, with the line and character, and scrolls
+  the message into sight.
 - **History** names a chat that starts with a long path by the path's last folder or file, so the rows tell apart.
 - After the context is compacted, the chat says how big the context is now, not a size that read as the handoff note's.
 - A request the server turns down says why in plain words, rather than showing the server's raw JSON.

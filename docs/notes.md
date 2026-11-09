@@ -5368,6 +5368,10 @@ it is the same format Claude Desktop, LM Studio and Cursor use, and it is kept i
 }
 ```
 
+Text that isn't a server list isn't saved: Save goes to the box and says under it what is wrong, the error brought into
+sight with the box (it stayed under the window's edge), in words and with where (`McpConfig.NotJson`: "This is not valid
+JSON (line 1, character 44): a { or [ is never closed.", where .NET's own words were shown, 2026-11-10).
+
 Servers with a `command` are started with Sloperator (and stopped with it); `env` and `cwd` are passed
 on. Servers with a `url` are connected to over Streamable HTTP, or the older SSE protocol when the
 server only speaks that (`"type": "sse"` forces it). `"disabled": true` keeps an entry without using
