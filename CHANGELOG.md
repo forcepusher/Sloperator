@@ -37,8 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Side tasks can run on another model of the server than the chat's.
 
 ### Changed
-- The agent is no longer told it is time to look things up right after a command that worked, only after a try
-  it says didn't give what was wanted.
 - **Stop** appears left of the blob as a task starts, so **Send** and the blob stay where they are instead of moving
   left and back with every task.
 - **Cost estimates**: pick a model's row in the table to see and type its prices, not only the model in use's. On Auto,
@@ -57,8 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   short chats don't pay for a lookup and a task isn't held up by one.
 - The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
   for programs and scripts being run, no longer for commands that only look around or read files.
-- The agent is asked to look things up far less often: not after commands that only read, at most once
-  for each of your messages when nothing failed, and not for errors a web page can't answer.
+- The agent is asked to look things up far less often: never right after a command that worked, at most once for
+  each of your messages after a try it says didn't give what was wanted, and not for errors a web page can't
+  answer, such as a file that isn't there.
 - **Going in circles** is only said when the same steps repeat three times in a row. Opening a menu again
   for another item, or zooming in on the same spot, no longer counts.
 - `Get-Content` in the agent's commands reads UTF-8 by default. A file in the PC's old code page needs
@@ -76,8 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **File changes** says it lists the files the agent writes or edits, not what its commands change: a file a command
   deleted never showed, under a line that promised every change.
 - The Image editor no longer says "The version shown says nothing of how it was made" before a picture is picked.
-- A command that fails on a file or folder that isn't there no longer sends the agent to search the web before its
-  next try: no page knows your files.
 - A model named in plain words no longer takes a size for its version: "gpt" on OpenRouter found gpt-oss-120b, read as
   version 120, rather than the newest GPT.
 - Wait and key cards write their seconds as the rest of the chat does, "Wait 60 s" rather than "Wait 60s".
