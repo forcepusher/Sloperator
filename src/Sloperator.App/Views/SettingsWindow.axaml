@@ -50,16 +50,21 @@
             <TextBlock Classes="h2" Text="Auto model" />
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="With the model on Auto, the evaluation model looks at each message first and picks one of these three, and the effort when that is on Auto too. A name finds the newest model the server lists that fits it." />
-            <Grid Classes="form" ColumnDefinitions="160,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+            <!-- What each finds on the server in a column of its own width, cut with … (whole in its tooltip): as wide as
+                 the longest, the boxes grew and shrank under the typing as it changed. -->
+            <Grid Classes="form" ColumnDefinitions="160,*,212" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
               <TextBlock Classes="label" Text="Evaluation model" />
               <TextBox Grid.Column="1" Text="{Binding EvaluationModel}" PlaceholderText="Sloperator's own pick" AutomationProperties.Name="Evaluation model" />
-              <TextBlock Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding EvaluationFound}" />
+              <TextBlock Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding EvaluationFound}"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding EvaluationFound}" />
               <TextBlock Grid.Row="1" Classes="label" Text="Daily driver model" />
               <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DailyModel}" PlaceholderText="Sloperator's own pick" AutomationProperties.Name="Daily driver model" />
-              <TextBlock Grid.Row="1" Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding DailyFound}" />
+              <TextBlock Grid.Row="1" Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding DailyFound}"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DailyFound}" />
               <TextBlock Grid.Row="2" Classes="label" Text="Complex task model" />
               <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ComplexModel}" PlaceholderText="Sloperator's own pick" AutomationProperties.Name="Complex task model" />
-              <TextBlock Grid.Row="2" Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding ComplexFound}" />
+              <TextBlock Grid.Row="2" Grid.Column="2" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding ComplexFound}"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ComplexFound}" />
             </Grid>
 
             <TextBlock Classes="h2" Text="Notifications" />

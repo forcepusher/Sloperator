@@ -654,7 +654,8 @@ Image editor and the Video editor: the Image editor for sounds, with edits done 
 audio editor panel, since we already have video and image editor panels"; of three mockups, versions only, versions
 with hand edits, and several sound lines mixed to one file, they picked the second on 2026-11-08). Its sounds are
 folders in SloperatorData\sounds (`AppPaths.SoundsDir`), and a sound's **versions** are the sound files in its folder,
-oldest first by when they were written (`SoundFolder`, as `PictureFolder`): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
+oldest first by when they were written (`SoundFolder`, as `PictureFolder`: both read their folders through
+`MediaFolders`, and both lists follow them through `MediaFolderItem.Sync`): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
 File inspector's sounds. The agent makes a version with the comfyui tool's `save_to` the sound's folder; an edit
 writes one there. A `FileSystemWatcher` reads the folder again 250 ms after writing rests.
 
@@ -1544,6 +1545,10 @@ words with no tool call after them, and any line after it), with its thinking fo
 it ended with, with Continue; and every message of the user's, so one sent during the run ends one fold
 and the rest of the run makes another (timed from its first line to the message). A stretch with no tool
 call and no thinking (a model loaded, a plain answer) isn't folded and keeps its "Worked for" line.
+Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
+card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
+nothing in sight said which model had answered). It is read back from the card's line (`PickedIn`), so a chat
+opened from History says it too; a card stopped while it picked has none.
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
@@ -1559,7 +1564,8 @@ call_0 gave the next run's calls an old card's id, and they ran on it, folded ou
 
 Show steps doesn't let the chat follow its end, which it does while the user is at the bottom: the
 steps unfolding under the card would push the card up out of sight. The card stays where it is, and the
-chat follows again once scrolled back to the end (`MainWindow.OnFoldClick`).
+chat follows again once scrolled back to the end (`MainWindow.OnFoldClick`), or once a message is sent, with
+Enter or Send (`OnSendClick`): sent with Send after Show steps, the message went in out of sight (2026-11-09).
 
 **Undo message and everything below** (the user, 2026-10-29) is the right-click menu of a message of
 the user's: in the chat's one right-click menu (`MainWindow.OnChatMenu`, which opens before the
@@ -1736,7 +1742,18 @@ tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 until the next message. Side tasks don't get the tool: their steps are not the chat's.
 
 Its calls have no cards, as the bar shows them, and a reply that only made one leaves no line in the
-chat. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
+chat.
+
+**A plan left behind its work** (the user's pick, 2026-11-09): Sonnet 5.5 set four steps, wrote the module, the tests
+and the README, ran the tests and answered, all without moving the plan, and the bar said "Module", the first, for good
+(in accent, as a plan the run stopped short of). When a run ends with its plan short of the end and a call other than
+plan since the plan last moved, the model is asked once where the plan stands (`AgentSession.PlanBehindAsync`):
+aside, as one request of the conversation, its tools and `PlanBehindNote` ("Call plan with now set to where the work
+stands … write nothing: your answer above stands"); only the plan calls of its reply run, and neither the note nor
+the reply joins the conversation or the chat, so the answer stays the run's last word, and what the run folds under
+(a reply to a note in the chat would have been the one kept, and the answer folded away). A line after the answer
+says so ("The plan was left at step 1 of 4; asked the model where it stands: all done."). A plan set and then put to
+the user ("does this suit you?") has no call after it, and stays. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
 last `now` lost that call, and the bar stopped a step short.
 
 `PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
@@ -2613,7 +2630,8 @@ model is its name as the server lists it, or in words: those whose name holds th
 however written, so "opus 5.5" is `claude-opus-5-5` (and OpenRouter's `anthropic/claude-opus-5.5`),
 "haiku" any Haiku, but "opus 5" not Opus 5.5, a version being one word (5.5) and a date or size not
 part of it; failing that, a part of the name as written. Of several, the same for every model and
-server: the highest version the name gives (its first number that isn't a date), then the strongest
+server: the highest version the name gives (its first number that isn't a date or a size: "gpt" found
+`openai/gpt-oss-120b` as version 120 until 9 November 2026), then the strongest
 by the agent-model ranking on what the names tell, then the shortest name (an alias rather than a
 dated one); the result names the others, to switch again by name (the user, 3 November 2026: "haiku 5.5", "opus
 5.5", or even "haiku" or "opus" should work; before, a name that fitted several changed nothing). The
@@ -2665,8 +2683,10 @@ stands for `server.model` empty, what "no model picked" always was), with "Picks
 it and no pin; it stays first whatever is pinned (`InsertModel`). Closed, it says the model Auto uses now in
 brackets, "Auto (claude-sonnet-5-5)", as the Side panel's Auto names its panel; before any message that is the
 daily driver (`ServerSettings.AutoTier`, not saved). The effort dropdown's first row is "Auto" too (`Efforts.Auto`,
-"auto" in `server.effort`), "Picked with the model" under it; closed it says "Auto (High)" once a level was picked,
-in a slot as wide as "Auto (Extra high)" (it was a fixed 112, as wide as "Extra high"). On Auto, `EffortInUse` is
+"auto" in `server.effort`), "Picked with the model" under it; closed it says the level in use, "Auto (High)", and
+"Auto (Medium)" before a message picked one, as the model dropdown says the daily driver then (it said plain "Auto"
+beside "Auto (claude-sonnet-5-5)"; "Auto" alone is left for a model that takes no effort), in a slot as wide as "Auto (Extra high)" on Auto and as "Extra high" otherwise (`EffortBoxSlot`; it was a fixed 112, as
+wide as "Extra high", then Auto's widest in every mode, 57 px of the model dropdown beside it at 125%). On Auto, `EffortInUse` is
 the picked level (`ServerSettings.AutoEffort`, not saved), medium before one is, the nearest the model takes as
 always. The effort's default stays medium: a fresh install is on Kilo's free model, where Auto effort would add an
 evaluation to every message with no model to choose. switch_model with no model, which was "Sloperator's own
@@ -2686,13 +2706,19 @@ any side task's. A server's failure or an answer with no pick leaves the model a
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
 session is made for it, and what it found goes with the message (`UserInput.Context`, before the user's words:
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
-found: …"), so the picked model needn't look again. The pick holds until the next message's evaluation. The
+found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
+looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The pick holds until the next
+message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
+daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
+evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
+Stopped (it read "Running…" for good: the run's end, which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
 (`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
-evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output. Up to a
+evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output, open, under
+"What it found", its Markdown shown as a reply's (`ToolCallItem.FoundText`; a tool's output is code, in the mono font). Up to a
 dearer model of the three than the one in use (evaluation, then daily, then complex: the user's own order, no
 prices compared) the run asks first, on a card over the message box (`AutoSwitchQuestion`): "Switch to
 claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,
@@ -3430,7 +3456,15 @@ prints the traceback and exits with 0.
 `SystemPrompt.Text` writes Sloperator's own prompt for the tools a run has (screen or not, mouse and
 keyboard, find_text, web search, model switching), with words in braces where things change from chat to
 chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
-`{made folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
+`{made folder}`, `{data folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
+
+**The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(sidePanel:
+true)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
+Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
+`\pictures`, `\sounds` and `\videos`, and that on Auto it opens by itself to what the agent writes, runs or makes,
+which the agent can neither open nor see. About 80 tokens. Without it, asked to show a page "in the Web preview
+panel", Sonnet 5.5 searched for how, then said it couldn't (the panel had opened by itself), and asked about "my
+Sloperator sounds" it searched the whole home folder for them.
 `SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
 instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
 `{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model
@@ -5079,8 +5113,11 @@ presses for it at more points than errors:
   plan to check something ("let's check the signature of FadeIn in moviepy 2.x") is no web search:
   the model makes that check on the PC, as qwen3.8 did with the installed moviepy.
 - Only failures a page could answer count (`Guesswork.Answerable`): not Sloperator's own tools failing
-  (bad arguments, a file that isn't there), a command that ran out of time, or a command line's own slip,
-  though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
+  (bad arguments, a file that isn't there), a command that ran out of time, a command line's own slip, or a
+  file or folder at a path that isn't there, as .NET, Python, Node and the shells say it (`PathMissing`: Sonnet
+  5.5's script read "sample.txt" from the process's folder, "Could not find file 'C:\Users\user\sample.txt'", and was
+  sent to search the web before its next try, 9 November 2026; a bare name such as 'ffmpeg' can be a program that
+  isn't installed, and still counts), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
   install it). They use up no note either. After an exit code the output is what the command printed, so the
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that

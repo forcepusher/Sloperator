@@ -100,6 +100,23 @@ public sealed partial class MainWindowViewModel
         ShowCost();
         Plan = null;
         PlanFailed = false;
+        ForgetAutoPick();
+    }
+
+    /// <summary>
+    /// The next chat starts where a first message does: Auto on the daily driver, its effort not picked yet.
+    /// A pick held into the next chat, a new one's ordinary task on the daily driver asked to "switch" up from
+    /// the evaluation model the last chat's question ran on.
+    /// </summary>
+    private void ForgetAutoPick()
+    {
+        var server = _settings.Server;
+        var moved = server.AutoTier != Core.Settings.AutoTier.Daily;
+        (server.AutoTier, server.AutoEffort) = (Core.Settings.AutoTier.Daily, null);
+        OnEffortShownChanged();
+        // The daily driver's name, context and levels, as for a model picked at the top.
+        if (moved && server.ModelOnAuto)
+            _ = ProbeServerAsync(quiet: true, CancellationToken.None);
     }
 
     private void OpenChat(PastChat row)

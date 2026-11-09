@@ -11,23 +11,10 @@ using Sloperator.Core.Platform;
 namespace Sloperator.App.ViewModels;
 
 /// <summary>A sound in the Audio editor panel's list: its folder, its name, and the shape of its newest version.</summary>
-public sealed partial class AudioItem(string folder) : ObservableObject
+public sealed partial class AudioItem(string folder) : MediaFolderItem(folder)
 {
     /// <summary>How many columns the list's small waveform has.</summary>
     public const int ThumbColumns = 160;
-
-    public string Folder { get; } = folder;
-    public string Name => Path.GetFileName(Folder);
-
-    /// <summary>Its versions, oldest first.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Count), nameof(IsMade))]
-    private IReadOnlyList<string> _versions = [];
-
-    public bool IsMade => Versions.Count > 0;
-
-    /// <summary>"3 versions", "1 version", "not made yet".</summary>
-    public string Count => Versions.Count switch { 0 => "not made yet", 1 => "1 version", var n => $"{n} versions" };
 
     /// <summary>Its newest version's waveform, each column's lowest and highest (as loud as the drawing allows); null before it has one.</summary>
     [ObservableProperty]
@@ -78,8 +65,6 @@ public sealed partial class AudioItem(string folder) : ObservableObject
             }
         });
     }
-
-    public override string ToString() => Name;
 }
 
 /// <summary>
@@ -154,7 +139,7 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>The version whose waveform is shown; null before the sound has one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid))]
     private VersionItem? _shown;
 
     /// <summary>The version shown, read: its waveform, playhead and stretch picked, and its player.</summary>
@@ -166,10 +151,13 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>How the version shown was made, as its file says (ComfyUI's workflow); null when it doesn't.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe))]
+    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
     private MediaRecipe? _recipe;
 
     public bool HasRecipe => Recipe is not null;
+
+    /// <inheritdoc cref="ImageEditorViewModel.MadeUnsaid"/>
+    public bool MadeUnsaid => Shown is not null && Recipe is null;
 
     partial void OnSelectedChanged(AudioItem? value)
     {
@@ -277,29 +265,18 @@ public sealed partial class AudioEditorViewModel : ObservableObject, ISidePanel
     {
         if (_closed)
             return;
-        var folders = SoundFolder.All(Root);
-        foreach (var gone in Sounds.Where(s => !folders.Contains(s.Folder, StringComparer.OrdinalIgnoreCase)).ToList())
-        {
-            if (ReferenceEquals(gone, Selected))
-                Selected = null;
-            Sounds.Remove(gone);
-        }
-        for (var i = 0; i < folders.Count; i++)
-        {
-            var item = Sounds.FirstOrDefault(s => string.Equals(s.Folder, folders[i], StringComparison.OrdinalIgnoreCase));
-            if (item is null)
-                Sounds.Insert(Math.Min(i, Sounds.Count), item = new AudioItem(folders[i]));
-            else if (Sounds.IndexOf(item) != i)
-                Sounds.Move(Sounds.IndexOf(item), Math.Min(i, Sounds.Count - 1));
-            var versions = SoundFolder.Versions(item.Folder);
-            if (!versions.SequenceEqual(item.Versions))
+        MediaFolderItem.Sync(Sounds, SoundFolder.All(Root), folder => new AudioItem(folder), SoundFolder.Versions,
+            gone: gone =>
             {
-                item.Versions = versions;
+                if (ReferenceEquals(gone, Selected))
+                    Selected = null;
+            },
+            changed: item =>
+            {
                 item.LoadPeaks(_previews.Decoder);
                 if (ReferenceEquals(item, Selected))
                     NewVersions(item);
-            }
-        }
+            });
         OnPropertyChanged(nameof(HasSounds));
         OnPropertyChanged(nameof(EmptyText));
         // The sound picked may have been made meanwhile.

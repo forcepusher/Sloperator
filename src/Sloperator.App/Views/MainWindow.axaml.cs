@@ -606,6 +606,12 @@ public partial class MainWindow : Window
             Vm.SendCommand.Execute(null);
     }
 
+    /// <summary>
+    /// Send pressed (its command sends after this): the chat follows its end again, as with Enter. Read back
+    /// with Show steps, the chat stayed where it was and the message went in out of sight.
+    /// </summary>
+    private void OnSendClick(object? sender, RoutedEventArgs e) => _stickToBottom = true;
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

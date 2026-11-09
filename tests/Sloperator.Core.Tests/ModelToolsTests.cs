@@ -173,6 +173,15 @@ public sealed class ModelToolsTests
     }
 
     [Fact]
+    public void A_size_in_a_name_is_no_version()
+    {
+        // "gpt" in Settings' Auto model found openai/gpt-oss-120b, its 120b read as version 120.
+        string[] openRouter = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "openai/gpt-5.6-luna", "openai/gpt-6-luna", "openai/gpt-6.1-sol"];
+        Assert.Equal("openai/gpt-6.1-sol", ModelChoice.Named("gpt", openRouter));
+        Assert.Equal("gemma-4-31b-it", ModelChoice.Named("gemma", ["gemma-4-12b-it", "gemma-4-31b-it", "gemma-3-270m"]));
+    }
+
+    [Fact]
     public async Task Nothing_changes_when_the_server_does_not_answer_or_refuses_the_key()
     {
         var bar = new TopBar();

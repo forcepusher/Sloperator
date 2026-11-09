@@ -135,7 +135,7 @@ public sealed class ToolCardLayoutTests
     public void A_wait_going_on_has_Skip_wait_on_its_card_until_it_is_over(string tool)
     {
         var ended = 0;
-        var item = new ToolCallItem("1", tool, "Wait 60s") { EndsWait = () => ended++ };
+        var item = new ToolCallItem("1", tool, "Wait 60 s") { EndsWait = () => ended++ };
         HeadlessApp.Run(() => Shown(item, card =>
         {
             var button = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
@@ -159,7 +159,7 @@ public sealed class ToolCardLayoutTests
         var height = (ToolCallItem item) => HeadlessApp.Run(() => Shown(item, card => card.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card")).Bounds.Height));
         var (going, status, button) = HeadlessApp.Run(() =>
         {
-            var item = new ToolCallItem("1", "wait", "Wait 60s") { EndsWait = () => { } };
+            var item = new ToolCallItem("1", "wait", "Wait 60 s") { EndsWait = () => { } };
             return Shown(item, card =>
             {
                 var skip = card.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "Skip wait");
@@ -169,7 +169,7 @@ public sealed class ToolCardLayoutTests
                         skip.TranslatePoint(new Point(0, skip.Bounds.Height / 2), card)!.Value.Y);
             });
         });
-        Assert.Equal(height(new ToolCallItem("1", "wait", "Wait 60s") { State = ToolItemState.Done }), going);
+        Assert.Equal(height(new ToolCallItem("1", "wait", "Wait 60 s") { State = ToolItemState.Done }), going);
         Assert.InRange(button - status, -1, 1);
     }
 
@@ -177,8 +177,8 @@ public sealed class ToolCardLayoutTests
     public void Only_a_wait_going_on_can_be_ended()
     {
         Assert.False(new ToolCallItem("1", "run_shell", "Run: dir") { EndsWait = () => { } }.CanEndWait);
-        Assert.False(new ToolCallItem("1", "wait", "Wait 60s") { EndsWait = () => { }, State = ToolItemState.AwaitingApproval }.CanEndWait);
-        Assert.False(new ToolCallItem("1", "wait", "Wait 60s").CanEndWait); // read back from a saved chat
+        Assert.False(new ToolCallItem("1", "wait", "Wait 60 s") { EndsWait = () => { }, State = ToolItemState.AwaitingApproval }.CanEndWait);
+        Assert.False(new ToolCallItem("1", "wait", "Wait 60 s").CanEndWait); // read back from a saved chat
     }
 
     private static T Shown<T>(ToolCallItem item, Func<Control, T> read)

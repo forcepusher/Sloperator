@@ -401,6 +401,9 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>The Output foldout's header: "What it found" on Auto's card.</summary>
     public string OutputHeader => IsAuto && !IsError ? "What it found" : "Output";
 
+    /// <summary>On Auto's card once it picked: the model and effort the run used, "claude-haiku-5-5 at Low"; else null.</summary>
+    public string? AutoPicked => IsAuto && State is ToolItemState.Done or ToolItemState.Error ? MainWindowViewModel.PickedIn(Summary) : null;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
     private string _summary = summary;
@@ -435,8 +438,11 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     private ToolItemState _state = ToolItemState.Running;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasResult))]
+    [NotifyPropertyChangedFor(nameof(HasResult), nameof(FoundText))]
     private string _resultText = "";
+
+    /// <summary>What Auto's card found, shown as Markdown; null on any other card, whose output is shown as it is (and not parsed for nothing).</summary>
+    public string? FoundText => IsAuto ? ResultText : null;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasScreenshot), nameof(HasOpenScreenshot), nameof(HasFoldedScreenshot))]
@@ -643,13 +649,15 @@ public sealed partial class WorkFold : ObservableObject
     {
         _lines = [.. lines];
         _kept = [.. kept];
-        // Auto's card is no call of the model's.
+        // Auto's card is no call of the model's; folded away, its pick is said here (the user's pick, 2026-11-09):
+        // nothing else in sight said which model had answered.
         var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto).ToList();
         Tools = calls.Select(c => c.Name).Distinct().ToList();
         Title = string.Join(" · ", new[]
         {
             took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
             calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
+            _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null),
         }.OfType<string>().DefaultIfEmpty("Thoughts"));
         foreach (var line in _lines)
             line.JoinFold(this, whole: true);

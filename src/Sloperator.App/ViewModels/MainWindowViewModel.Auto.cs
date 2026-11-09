@@ -76,16 +76,12 @@ public sealed partial class MainWindowViewModel
         return text => observer.OnToolProgress(card, text);
     }
 
-    /// <summary>
-    /// What Auto's evaluation picked, on its card: the model and effort the run starts with, why, and what it
-    /// found (the picked model gets that with the message); or why it picked nothing, and what the run uses.
-    /// </summary>
     /// <summary>The evaluation's pick on its card while the user is asked whether to move up to it.</summary>
     private void ShowAutoWants(AutoPick pick, string model, string? effort)
     {
         if (_autoCard is not { } card)
             return;
-        var line = $"Wants {(effort is null ? model : $"{model} at {Efforts.Label(effort)}")}" + (pick.Why.Length > 0 ? $" · {pick.Why}" : "");
+        var line = $"Wants {(effort is null ? model : $"{model} at {Efforts.Label(effort)}")}" + (pick.Why.Length > 0 ? $"{Because}{pick.Why}" : "");
         Dispatcher.UIThread.Post(() =>
         {
             if (Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == card.Id) is { } item)
@@ -96,16 +92,37 @@ public sealed partial class MainWindowViewModel
         });
     }
 
+    // How the card's line goes on after the model it picked (ShowAutoPick), for PickedIn to read back.
+    private const string StayedOff = " (you stayed off ", Failed = ": the evaluation failed", Because = " · ";
+
+    /// <summary>
+    /// The model and effort an Auto card's line says the run used ("claude-opus-5-5 at High" of "claude-opus-5-5 at High
+    /// (you stayed off claude-fable-5-1) · A refactor"), for the folded card that hides it; read from the line, so a chat
+    /// opened from History has it too.
+    /// </summary>
+    internal static string PickedIn(string line)
+    {
+        var end = line.IndexOf(Because, StringComparison.Ordinal) is >= 0 and var because ? because : line.Length;
+        foreach (var after in (string[])[Failed, StayedOff])
+            if (line.IndexOf(after, StringComparison.Ordinal) is >= 0 and var at && at < end)
+                end = at;
+        return line[..end];
+    }
+
+    /// <summary>
+    /// What Auto's evaluation picked, on its card: the model and effort the run starts with, why, and what it
+    /// found (the picked model gets that with the message); or why it picked nothing, and what the run uses.
+    /// </summary>
     /// <param name="declined">The dearer model Auto picked and the user stayed off; null when none was.</param>
     private void ShowAutoPick(AutoPick pick, string model, string? effort, string? declined = null)
     {
         if (_autoCard is not { } card)
             return;
         _autoCard = null;
-        var at = (effort is null ? model : $"{model} at {Efforts.Label(effort)}") + (declined is null ? "" : $" (you stayed off {declined})");
-        var line = pick.Problem is not null ? $"{at}: the evaluation failed" : pick.Why.Length > 0 ? $"{at} · {pick.Why}" : at;
+        var at = (effort is null ? model : $"{model} at {Efforts.Label(effort)}") + (declined is null ? "" : $"{StayedOff}{declined})");
+        var line = pick.Problem is not null ? $"{at}{Failed}" : pick.Why.Length > 0 ? $"{at}{Because}{pick.Why}" : at;
         var output = pick.Problem is not null ? $"{pick.By} couldn't pick: {pick.Problem}"
-            : pick.Found.Length > 0 ? $"{pick.Found}\n\nLooked by {pick.By}. These notes go to {model} with your message." : "";
+            : pick.Found.Length > 0 ? $"{pick.Found}\n\nFound by {pick.By}. These notes go to {model} with your message." : "";
         IAgentObserver observer = this;
         // The line, then the end: both are posted, in this order, after the start.
         Dispatcher.UIThread.Post(() =>

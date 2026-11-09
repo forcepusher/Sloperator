@@ -320,6 +320,10 @@ public class GuessworkTests
     [InlineData("test-stack.ps1 : A positional parameter cannot be found that accepts argument '{{.Status}}'.", false)]
     [InlineData("c=sqlite3.connect : The term 'c=sqlite3.connect' is not recognized as the name of a cmdlet, function, script file, or operable program.", false)]
     [InlineData("Unexpected token 'version' in expression or statement.", false)]
+    [InlineData("Exception calling \"ReadAllText\" with \"1\" argument(s): \"Could not find file 'C:\\Users\\user\\sample.txt'.\"", false)]
+    [InlineData("FileNotFoundError: [Errno 2] No such file or directory: 'data/input.csv'", false)]
+    [InlineData("Error: ENOENT: no such file or directory, open 'C:\\site\\index.html'", false)]
+    [InlineData("FileNotFoundError: [Errno 2] No such file or directory: 'ffmpeg'", true)]
     public void Only_failures_a_page_could_answer_count(string line, bool answerable) =>
         Assert.Equal(answerable, Guesswork.Answerable(Shell, line));
 

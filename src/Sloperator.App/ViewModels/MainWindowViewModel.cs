@@ -841,7 +841,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             var stopped = StoppedText();
-            if (!_runDetached) AddStopNotice(stopped, isError: false, delivered ? null : input);
+            if (!_runDetached)
+            {
+                // Stopped before the agent's run (during Auto's evaluation): its card, after the lines already on their way.
+                _autoCard = null;
+                PostTimed(StopRunningCards);
+                AddStopNotice(stopped, isError: false, delivered ? null : input);
+            }
         }
         catch (Exception ex)
         {
@@ -849,6 +855,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // server that doesn't answer), so Continue tries the message again.
             if (!_runDetached)
             {
+                _autoCard = null;
+                PostTimed(StopRunningCards);
                 AddStopNotice(ex.Message, isError: true, delivered ? null : input, ex);
                 NotifyUser(FirstLine($"Stopped by an error: {ex.Message}"));
             }
@@ -960,7 +968,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         {
             var session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
-                setPrices: KeepPricesFromAgent, plan: Plan);
+                setPrices: KeepPricesFromAgent, plan: Plan, sidePanel: true);
             session.UserTyping = TypingHere;
             return session;
         }

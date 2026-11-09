@@ -146,7 +146,7 @@
           <TextBlock Text="Prompt metadata" FontWeight="SemiBold" VerticalAlignment="Center" />
         </Border>
         <Panel>
-          <TextBlock Classes="muted" IsVisible="{Binding !HasRecipe}" Text="The version shown says nothing of how it was made" HorizontalAlignment="Center"
+          <TextBlock Classes="muted" IsVisible="{Binding MadeUnsaid}" Text="The version shown says nothing of how it was made" HorizontalAlignment="Center"
                      VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="200" />
           <ScrollViewer IsVisible="{Binding HasRecipe}" HorizontalScrollBarVisibility="Disabled">
             <views:RecipeView DataContext="{Binding Recipe}" Margin="16,12,16,16" />

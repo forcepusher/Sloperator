@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it sets up a server that only works with its program open, and knows how to start that program in later tasks.
 - **Plan bar** above the message box: for work of several steps the agent keeps a plan with the new
   `plan` tool, a point per step with one word, what the step does on hover, and the party blob walking
-  from point to point. It shows when the agent waits for you and which step a failure stopped on.
+  from point to point. It shows when the agent waits for you and which step a failure stopped on. When its work
+  ran ahead of the plan, the agent is asked once to bring it up to date as it finishes.
 - While the agent has the mouse and keyboard, a tag on the yellow frame says **Pause/Break stops me**.
 - The model dropdown has a search box when its models don't fit in the list, and a pin on each row that
   keeps your favourite models at the top.
@@ -24,17 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   you change it. Words in braces, like `{date}` and `{screens}`, are filled in for each chat. **Reset to default**
   brings Sloperator's own back.
 - Once the agent has answered, the task's tool calls and thinking fold under one card that says how long it
-  worked, how many tool calls it made and which tools; **Show steps** unfolds them. Chats opened from History
-  open folded.
+  worked, how many tool calls it made and which tools, and on Auto which model it used; **Show steps** unfolds
+  them. Chats opened from History open folded.
 - **Auto** is the first row of the model and effort dropdowns, each on its own. Before each message the
   evaluation model takes a short look at the task (reading files, never changing them) and picks the model
   and effort for it; a card in the chat says what it picked, why, and what it found, which the picked model
   gets with your message. Before moving up to a dearer model it asks: **Switch** or stay, Switch after 10 seconds.
+  Each new chat starts on the daily driver.
 - **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
 - Side tasks can run on another model of the server than the chat's.
 
 ### Changed
+- The agent knows what Sloperator's side panel shows and where the Image, Audio and Video editors keep their
+  files, so "show it in the Web preview" or "edit my rain sound" no longer sends it searching.
 - A new chat starts with about 2,600 fewer tokens: the video and ComfyUI tools' long how-tos moved into
   guides the agent reads the first time it uses them in a chat.
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it
@@ -63,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- The Image editor no longer says "The version shown says nothing of how it was made" before a picture is picked.
+- A command that fails on a file or folder that isn't there no longer sends the agent to search the web before its
+  next try: no page knows your files.
+- A model named in plain words no longer takes a size for its version: "gpt" on OpenRouter found gpt-oss-120b, read as
+  version 120, rather than the newest GPT.
+- Wait and key cards write their seconds as the rest of the chat does, "Wait 60 s" rather than "Wait 60s".
+- **Send** brings the chat to its end, as Enter does: the message you sent was out of sight when you had scrolled
+  up to read.
+- A long model name in the model dropdown ends in … when it doesn't fit, rather than cut in the middle of a letter.
 - Claude through OpenRouter, Kilo and other gateways no longer stops at the 21st screenshot on very wide
   screens: screenshots now fit the size the server takes, and the task carries on.
 - A server that speaks Anthropic's own format is recognised by its answers, whatever its address.

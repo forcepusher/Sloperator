@@ -491,15 +491,15 @@
         <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Model" Margin="0,0,8,0" />
         <DockPanel Grid.Row="1" Grid.Column="1">
           <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), or Auto with the level it
-               uses ("Auto (High)"), in a slot as wide as "Auto (Extra high)" needs; greyed out for a model whose
-               server lists no effort for it. -->
+               uses ("Auto (High)"), in a slot as wide as the widest of its mode needs ("Extra high", or on Auto "Auto
+               (Extra high)"); greyed out for a model whose server lists no effort for it. -->
           <ComboBox x:Name="EffortBox" DockPanel.Dock="Right" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
                     Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
                     AutomationProperties.Name="Effort">
             <ComboBox.SelectionBoxItemTemplate>
               <DataTemplate x:DataType="vm:EffortOption">
                 <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxText}"
-                                Slot="{x:Static vm:MainWindowViewModel.EffortBoxSlot}" VerticalAlignment="Center" />
+                                Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxSlot}" VerticalAlignment="Center" />
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
             <ComboBox.ItemTemplate>
@@ -537,7 +537,7 @@
             <!-- The model picked, or Auto with the one it uses now: "Auto (claude-sonnet-5-5)". -->
             <ComboBox.SelectionBoxItemTemplate>
               <DataTemplate x:DataType="x:String">
-                <TextBlock Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).ModelBoxText}" />
+                <TextBlock Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).ModelBoxText}" TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
           </views:ModelDropdown>
@@ -862,9 +862,13 @@
                     <views:SelectableText Text="{Binding Input}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>
 
-                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09). -->
+                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09): notes for
+                       people, in the model's Markdown as a reply's are shown, where a tool's output is code. -->
                   <Expander IsVisible="{Binding HasResult}" Header="{Binding OutputHeader}" IsExpanded="{Binding IsAuto, Mode=OneTime}" Padding="8,4" HorizontalAlignment="Stretch">
-                    <views:SelectableText Text="{Binding ResultText}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                    <Panel>
+                      <views:SelectableText Text="{Binding ResultText}" IsVisible="{Binding !IsAuto}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
+                      <views:SelectableText views:MarkdownText.Source="{Binding FoundText}" IsVisible="{Binding IsAuto}" TextWrapping="Wrap" Margin="-8,-4" Padding="8,4" />
+                    </Panel>
                   </Expander>
                 </StackPanel>
               </Border>
@@ -1215,7 +1219,8 @@
               <!-- The logo blob, as tall as Send and 8 from it; it dances while a prompt runs.
                    Not with the intro, which has the logo already, nor with a plan, whose bar it walks. -->
               <views:PartyBlob Dancing="{Binding IsBusy}" IsVisible="{Binding ShowsSendBlob}" Width="32" Height="32" VerticalAlignment="Bottom" />
-              <Button Classes="primary" Content="Send" Command="{Binding SendCommand}" />
+              <!-- Sent from here or with Enter, the chat follows its end again, to the message. -->
+              <Button Classes="primary" Content="Send" Command="{Binding SendCommand}" Click="OnSendClick" />
               <Button Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" />
             </StackPanel>
           </Grid>

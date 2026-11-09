@@ -194,11 +194,27 @@ public static partial class ModelChoice
         return Strongest(newest.Select(FromName))?.Id ?? newest[0];
     }
 
-    /// <summary>The first number in the name that isn't a date (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0 for none.</summary>
-    private static Version VersionOf(string name) =>
-        Words(name).Where(w => char.IsDigit(w[0]) && w.Split('.')[0].Length <= 4)
-            .Select(w => Version.TryParse(w.Contains('.') ? w : w + ".0", out var v) ? v : null)
-            .FirstOrDefault(v => v is not null) ?? new Version(0, 0);
+    /// <summary>
+    /// The first number in the name that isn't a date or a size (claude-3-5-haiku-20241022: 3.5, gemma-4-12b-it: 4); 0
+    /// for none. On OpenRouter, "gpt" in Settings' Auto model found openai/gpt-oss-120b, its 120b read as version 120.
+    /// </summary>
+    private static Version VersionOf(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        foreach (Match word in Word().Matches(lower))
+        {
+            var w = word.Value.Replace('-', '.').Replace('_', '.');
+            if (!char.IsDigit(w[0]) || w.Split('.')[0].Length > 4 || Size().IsMatch(lower, word.Index + word.Length))
+                continue;
+            if (Version.TryParse(w.Contains('.') ? w : w + ".0", out var version))
+                return version;
+        }
+        return new Version(0, 0);
+    }
+
+    // A number's size letter right after it: 120b, 270m, 32k.
+    [GeneratedRegex(@"\G[bmk](?![a-z])")]
+    private static partial Regex Size();
 
     private static bool HasRun(List<string> words, List<string> run)
     {

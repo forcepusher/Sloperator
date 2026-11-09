@@ -1796,11 +1796,15 @@ public class AgentSessionTests
     public void Sloperators_own_prompt_is_its_text_with_the_words_in_braces_filled_in()
     {
         ScreenSpace[] screens = [new ScreenSpace(new ScreenRect(0, 0, 2560, 1440), (1280, 720))];
-        var text = SystemPrompt.Text(screen: true, webSearch: true, toolsDirectory: true, scratchDirectory: true, madeDirectory: true);
+        var text = SystemPrompt.Text(screen: true, webSearch: true, toolsDirectory: true, scratchDirectory: true, madeDirectory: true, sidePanel: true);
         Assert.All(SystemPrompt.Markers, marker => Assert.Contains(marker, text));
-        Assert.Equal(SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m"),
-            SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m", text: text));
+        Assert.Equal(SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m", dataDirectory: @"D:\d"),
+            SystemPrompt.Build("Test OS", screens, "C:\\", "Hi", webSearch: true, toolsDirectory: @"D:\t", scratchDirectory: @"D:\s", madeDirectory: @"D:\m", text: text, dataDirectory: @"D:\d"));
         Assert.Contains(@"(such as D:\m\Hello world)", SystemPrompt.Build("Test OS", null, "C:\\", "", madeDirectory: @"D:\m"));
+        // The side panel's line, with where its editors keep their files, only where there is a panel (not the command line's).
+        Assert.Contains(@"folders in D:\d\pictures, \sounds and \videos", SystemPrompt.Build("Test OS", null, "C:\\", "", dataDirectory: @"D:\d"));
+        Assert.DoesNotContain("side panel", SystemPrompt.Build("Test OS", null, "C:\\", ""));
+        Assert.Contains("{data folder}", AgentSetup.DefaultPrompt(new AgentSettings()));
 
         // What Settings shows: the app's run with the user's settings, the screen's lines as they turned them.
         var agent = new AgentSettings();

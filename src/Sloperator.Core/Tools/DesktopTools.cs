@@ -537,7 +537,7 @@ public sealed class PressKeysTool : DesktopActionTool
     public override string Describe(JsonObject args)
     {
         var repeat = GetNumber(args, "repeat") is > 1 and var r ? $" x{r}" : "";
-        var hold = GetNumber(args, "hold_seconds") is > 0 and var h ? $", held {h}s" : "";
+        var hold = GetNumber(args, "hold_seconds") is > 0 and var h ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $", held {h} s") : "";
         var sequence = (GetStringList(args, "sequence") ?? []).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         return sequence.Count > 0
             ? $"Keys: {string.Join(", ", sequence)}{repeat}{hold}"
@@ -700,7 +700,7 @@ public sealed class WaitTool : WaitToolBase
     public override JsonObject Parameters => Schema(
         ("seconds", Num($"Seconds to wait, at most {MaxSeconds}"), true),
         ("screenshot_on_end", Bool("Take a screenshot when the wait ends (default false)"), false));
-    public override string Describe(JsonObject args) => $"Wait {GetNumber(args, "seconds")}s";
+    public override string Describe(JsonObject args) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Wait {GetNumber(args, "seconds")} s");
 
     public override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -729,7 +729,7 @@ public sealed class WaitUntilChangeTool : WaitToolBase
     public override JsonObject Parameters => Schema(
         ("seconds", Num("The longest to wait; without it, it waits until something changes"), false));
     public override string Describe(JsonObject args) =>
-        GetNumber(args, "seconds") is { } seconds ? $"Wait up to {seconds}s for the screen to change" : "Wait for the screen to change";
+        GetNumber(args, "seconds") is { } seconds ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Wait up to {seconds} s for the screen to change") : "Wait for the screen to change";
 
     public override async Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {

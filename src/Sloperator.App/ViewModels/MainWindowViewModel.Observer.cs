@@ -290,6 +290,19 @@ public sealed partial class MainWindowViewModel
         _failureLogged = true;
     }
 
+    /// <summary>
+    /// A call cut short by the stop says so (it used to read "Declined", as if the user had said no to it), as
+    /// does Auto's card when the run stopped during the evaluation, before the agent's: it read "Running…" for good.
+    /// </summary>
+    private void StopRunningCards(DateTime at)
+    {
+        foreach (var t in Items.OfType<ToolCallItem>().Where(t => t.State is ToolItemState.Running or ToolItemState.AwaitingApproval))
+        {
+            if (t.State == ToolItemState.Running) t.Ended = at;
+            t.State = ToolItemState.Stopped;
+        }
+    }
+
     void IAgentObserver.OnFinished(AgentStopReason reason, string? detail) => Finished(reason, detail, null);
 
     void IAgentObserver.OnFinished(AgentStopReason reason, string? detail, Exception error) => Finished(reason, detail, error);
@@ -306,12 +319,7 @@ public sealed partial class MainWindowViewModel
             var stopped = StoppedText();
             if (_runDetached) return;
             FinishCurrent(at);
-            // A call cut short by the stop says so; it used to read "Declined", as if the user had said no to it.
-            foreach (var t in Items.OfType<ToolCallItem>().Where(t => t.State is ToolItemState.Running or ToolItemState.AwaitingApproval))
-            {
-                if (t.State == ToolItemState.Running) t.Ended = at;
-                t.State = ToolItemState.Stopped;
-            }
+            StopRunningCards(at);
 
             switch (reason)
             {
