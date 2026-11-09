@@ -597,8 +597,11 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
 
     // ---- git: staging, unstaging, discarding ------------------------------------------------------------
 
-    /// <summary>Where the diff would be, with nothing to show.</summary>
-    public string EmptyText => "Files the agent changes in this chat show here as it works.";
+    /// <summary>
+    /// Where the diff would be, with nothing to show. It said "Files the agent changes", and a file a command deleted
+    /// or appended to never came: only write_file and edit_file are listed (the user's call, 2026-10-26).
+    /// </summary>
+    public string EmptyText => "Files the agent writes or edits in this chat show here.\nWhat its commands change doesn't.";
 
     /// <summary>
     /// What the action bar's Stage, Unstage and Discard act on: the picked lines, file by file (their
