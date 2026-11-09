@@ -138,6 +138,7 @@ they want), so write them well.
   workflow, to the name of an installed one (action=models lists them; words work too, "z image
   turbo", "my pony workflow", matched against what ComfyUI has installed). Leave it out otherwise:
   the best installed one is used.
+- A storyboard the person gives you is theirs: keep to it, and change only what doesn't work.
 - Change only what was asked for, and keep the rest as it is: a made piece whose settings change
   has to be made again. "seed" set to a new number makes another version with the same settings.
 - Make pieces in the order they need each other: references, then frames made from them, then the

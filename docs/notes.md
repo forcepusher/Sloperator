@@ -2978,6 +2978,13 @@ rest of comfyui's (workflows, a picture to follow or change, video and sound, mo
 context reset brings it back). That took video to 0.68k and comfyui to 0.95k (its parameters are
 0.72k of it): 2.3k less, 13.3k in all with the 34 tools of 2026-11-09.
 
+The prompt's ComfyUI and video lines (0.29k and 0.10k) then repeated those guides, and the user
+had them cut (2026-11-09): each names its tool, ComfyUI's that it needs no MCP server (the rule on a
+program's official tools would send the model looking for one) and to give the files' full paths;
+what only the prompt said went into the guides (the makers' guides for what no template does, custom
+node packs, where a run's files stay, a storyboard the user gives is theirs). The prompt went from
+3.4k to 3.1k, 13.0k in all.
+
 ### Pictures a request
 Some servers take fewer pictures in one request than a run keeps. munito's gateway
 (`https://api.munito.ai/inference/v1`, measured 28 October 2026) takes 8, counted over all the
