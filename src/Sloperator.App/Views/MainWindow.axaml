@@ -221,7 +221,7 @@
             <PathIcon DockPanel.Dock="Right" Data="{Binding SoundIcon}" Width="14" Height="14" Margin="8,0,0,0" Foreground="{StaticResource BbMuted}" VerticalAlignment="Center"
                       ToolTip.Tip="Click to watch with sound" />
             <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText}" VerticalAlignment="Center" Margin="8,0,0,0" />
-            <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" Margin="8,-8,0,-8" VerticalAlignment="Center" />
+            <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" AutomationProperties.Name="Position" Margin="8,-8,0,-8" VerticalAlignment="Center" />
           </DockPanel>
           <views:PreviewFooter />
         </StackPanel>
@@ -238,7 +238,7 @@
             <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding TimeText}" VerticalAlignment="Center" Margin="8,0,0,0" />
             <Panel Height="56" Margin="12,0,0,0">
               <Image Source="{Binding Waveform}" Stretch="Fill" RenderOptions.BitmapInterpolationMode="MediumQuality" />
-              <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" VerticalAlignment="Center" Opacity="0.85" />
+              <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" AutomationProperties.Name="Position" VerticalAlignment="Center" Opacity="0.85" />
             </Panel>
           </DockPanel>
           <views:PreviewFooter />
@@ -472,10 +472,10 @@
             </Button.Flyout>
           </Button>
           <!-- No least width: one wider than the narrowest chat's column was laid out over the "Server" label. -->
-          <TextBox Text="{Binding ServerAddress}" PlaceholderText="http://localhost:1234/v1" />
+          <TextBox Text="{Binding ServerAddress}" AutomationProperties.Name="Server address" PlaceholderText="http://localhost:1234/v1" />
         </DockPanel>
         <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="API key" Margin="16,0,8,0" />
-        <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding ApiKey}" PasswordChar="•" RevealPassword="{Binding ShowApiKey}" MinWidth="120"
+        <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding ApiKey}" AutomationProperties.Name="API key" PasswordChar="•" RevealPassword="{Binding ShowApiKey}" MinWidth="120"
                  PlaceholderText="Optional"
                  ToolTip.Tip="Saved in plain text in the Data folder." />
         <ToggleButton Grid.Row="0" Grid.Column="4" Classes="ghost icon" IsChecked="{Binding ShowApiKey}" Margin="8,0,0,0"
@@ -547,11 +547,11 @@
           <CheckBox DockPanel.Dock="Right" Content="Auto" IsChecked="{Binding AutoContext}" Margin="8,0,0,0" MinWidth="0" />
           <!-- As wide as the size in it ("64k", "not loaded"); its number in the middle as a button's
                word (with 5 over and under it was a pixel low at 100%). -->
-          <TextBox x:Name="ContextBox" DockPanel.Dock="Right" Text="{Binding ContextInput, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding !AutoContext}"
+          <TextBox x:Name="ContextBox" AutomationProperties.Name="Context size in tokens" DockPanel.Dock="Right" Text="{Binding ContextInput, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding !AutoContext}"
                    MinWidth="48" Padding="12,0" TextAlignment="Right" VerticalAlignment="Stretch" VerticalContentAlignment="Center" />
           <!-- Fluent's slider is 50px tall with the track in its middle: stretched over the 32px row
                plus these margins, the track sits on the row's centre line. -->
-          <Slider Minimum="0" Maximum="{Binding ContextMaxIndex}" Value="{Binding ContextIndex}" TickFrequency="1" IsSnapToTickEnabled="True"
+          <Slider Minimum="0" Maximum="{Binding ContextMaxIndex}" AutomationProperties.Name="Context size" Value="{Binding ContextIndex}" TickFrequency="1" IsSnapToTickEnabled="True"
                   IsEnabled="{Binding !AutoContext}" VerticalAlignment="Stretch" Margin="0,-9,8,-9" MinWidth="60" />
         </DockPanel>
       </Grid>
@@ -1212,7 +1212,7 @@
                         Data="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" />
             </views:MenuButton>
             <!-- During a run Send stays: a message then goes to the agent before its next step. -->
-            <TextBox x:Name="InputBox" Grid.Row="1" Grid.Column="1" Classes="composer" Text="{Binding Input}" AcceptsReturn="True" TextWrapping="Wrap"
+            <TextBox x:Name="InputBox" AutomationProperties.Name="Message" Grid.Row="1" Grid.Column="1" Classes="composer" Text="{Binding Input}" AcceptsReturn="True" TextWrapping="Wrap"
                      MaxHeight="200" VerticalContentAlignment="Center"
                      PlaceholderText="{Binding InputHint}" />
             <!-- Stop comes in on the left, beside the words, so the blob and Send stay where they are: at the right end,

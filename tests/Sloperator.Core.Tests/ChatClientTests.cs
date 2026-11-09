@@ -465,6 +465,10 @@ public class ChatClientTests
         server.Failures.Enqueue((System.Net.HttpStatusCode.Forbidden, """{"error":{"message":"Key limit exceeded","code":403}}"""));
         Assert.Contains("the API key may be wrong", (await Assert.ThrowsAsync<KeyRefusedException>(Send)).Message);
 
+        // Any other failure in the server's words, not its JSON.
+        server.Failures.Enqueue((System.Net.HttpStatusCode.NotFound, """{"error":{"message":"No endpoints found that support image input","code":404}}"""));
+        Assert.Equal("Chat request failed (404): No endpoints found that support image input", (await Assert.ThrowsAsync<LlmException>(Send)).Message);
+
         // OpenAI wants a key for its model list too: the server answered, so it isn't "Can't reach the server".
         var noKey = await ServerProbe.CheckAsync(new HttpClient(new KeyServer()), new Sloperator.Core.Settings.ServerSettings { BaseUrl = "api.example.com/v1" }, CancellationToken.None);
         Assert.False(noKey.Reachable);

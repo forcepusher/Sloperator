@@ -47,6 +47,18 @@ public class GuessworkTests
     }
 
     [Fact]
+    public void A_program_that_isnt_a_command_here_is_said_to_be_missing_not_misnamed()
+    {
+        // Haiku 5.5 on a PC with no Python (2026-11-09) was told names change between versions.
+        var guesswork = new Guesswork();
+        var note = guesswork.Check(Shell, ToolResult.Error("Exit code 1\npython : The term 'python' is not recognized as the name of a cmdlet, function, script file, or operable program."));
+        Assert.Equal(Guesswork.ProgramNote("python"), note);
+        Assert.StartsWith("[Sloperator] python isn't a command here: it isn't installed, or isn't on the PATH.", note);
+        // A cmdlet's misspelt or newer name is still a name to look up.
+        Assert.Equal(Guesswork.NameNote, new Guesswork().Check(Shell, ToolResult.Error("Exit code 1\nGet-Thing : The term 'Get-Thing' is not recognized as the name of a cmdlet, function, script file, or operable program.")));
+    }
+
+    [Fact]
     public void Other_errors_get_a_note_from_the_third_failure_since_the_last_look_up()
     {
         var guesswork = new Guesswork();

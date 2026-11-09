@@ -30,6 +30,19 @@ public class ChatStoreTests : IDisposable
         Assert.Equal(blocks.ToJsonString(), loaded.ToJsonString());
     }
 
+    /// <summary>A chat opened again measures its context by the server's count of the last reply, as the chat did (see <see cref="Agent.AgentSession.TokensInUse"/>).</summary>
+    [Fact]
+    public void A_replys_token_counts_are_saved_with_the_chat()
+    {
+        var store = new ChatStore(_dir);
+        var reply = new ChatMessage { Role = ChatRole.Assistant, Content = "Done.", PromptTokens = 90_000, CompletionTokens = 50, CachedTokens = 80_000, CacheWriteTokens = 9_000 };
+        var chat = new SavedChat { Id = ChatStore.NewId(), Title = "Count", Updated = DateTime.UtcNow, History = ChatStore.ForSaving([ChatMessage.User("Count"), reply]) };
+        store.Save(chat);
+
+        var loaded = store.Load(chat.Id)!.History[1];
+        Assert.Equal((90_000, 50, 80_000, 9_000), (loaded.PromptTokens, loaded.CompletionTokens, loaded.CachedTokens, loaded.CacheWriteTokens));
+    }
+
     /// <summary>Claude's signed thinking as gateways send it (see <see cref="ChatMessage.ReasoningDetails"/> and <see cref="ChatMessage.ThinkingBlocks"/>), and a Responses API's encrypted reasoning (<see cref="ChatMessage.ReasoningItems"/>), are kept too.</summary>
     [Fact]
     public void Signed_thinking_from_a_gateway_is_saved_with_the_chat()

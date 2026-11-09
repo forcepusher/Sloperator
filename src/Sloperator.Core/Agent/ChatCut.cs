@@ -80,9 +80,13 @@ public static class ChatCut
         : input.Files.Count > 0 ? $"- {input.Files[0]} ("
         : UserInput.Tidy(input.ModelText);
 
-    /// <summary>Tools that only look, wait or point: what they did needs no undoing.</summary>
+    /// <summary>
+    /// Tools that only look, wait or point, or change nothing outside Sloperator's own window (its plan, its side
+    /// panel, its model list): what they did needs no undoing.
+    /// </summary>
     private static readonly HashSet<string> OnlyLook =
-        ["screenshot", "zoom", "capture_result", "find_text", "read_file", "list_directory", "index_folder", "diff", "web_search", "fetch_page", "wait", "wait_until_change", "mouse_move"];
+        ["screenshot", "zoom", "capture_result", "find_text", "read_file", "list_directory", "index_folder", "diff", "web_search", "fetch_page", "wait", "wait_until_change", "mouse_move",
+         "plan", "show_panel", "list_models"];
 
     /// <summary>The tools whose changes File changes keeps, to put back.</summary>
     private static readonly HashSet<string> Kept = ["write_file", "edit_file"];

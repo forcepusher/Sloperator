@@ -97,7 +97,9 @@ public sealed class FileChanges
             first = _order.FirstOrDefault();
         if (first is null)
             return null;
-        var root = Projects.ProjectRoot.Find(first)?.Root;
+        // A repository whose .gitignore leaves the file's folder out isn't its project (a folder kept in Sloperator's .dev
+        // opened all of Sloperator in the Code editor).
+        var root = Projects.ProjectRoot.Find(first) is { } found && !Projects.FolderWalk.IgnoredIn(found.Root, Path.GetDirectoryName(first)!) ? found.Root : null;
         var made = Path.TrimEndingDirectorySeparator(madeDirectory) + Path.DirectorySeparatorChar;
         if (first.StartsWith(made, StringComparison.OrdinalIgnoreCase))
         {

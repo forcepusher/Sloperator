@@ -106,7 +106,13 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
 - `.xlsx`: each heading starts a sheet named after it, and tables fill it with their header row bold
   and frozen. A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
   become values shown that way; a formula under amounts of money shows money. Excel works the
-  formulas out on opening.
+  formulas out on opening. Plain ones are written with their value too (`SheetFormula`: numbers, cells of the
+  sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
+  formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value"): a total showed as
+  an empty cell there (2026-11-10). Anything else (another sheet's cell, text, other functions, a division by zero, a
+  loop) has none, as before. An edit (`SheetEdit`) works them out again on every sheet, so a total over a number
+  changed shows its new value; one that can't be worked out here keeps Excel's last, and so do those that use it. A
+  chain of formulas over 200 deep is left to Excel (`SheetFormula.MaxDepth`): followed from the top, 5,000 would overflow the stack.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide.
@@ -1532,7 +1538,9 @@ the step over it has the time; a wait for your OK doesn't count), and a notice w
 its line too. A call that runs past a few seconds counts its time like the wait for the model does,
 and the line a task ended with says under it how long the whole task took ("Worked for 25 min 13 s"),
 or, once the task's work is folded (below), its card does.
-The times are saved with the chat; a chat saved before they were kept shows none.
+The times are saved with the chat; a chat saved before they were kept shows none. The time waiting for the user's
+OK on a call (Tool call approval) isn't work and isn't counted (`MainWindowViewModel._waitedForOk`): a Get-Date
+allowed after 25 s said "Worked for 28 s" (2026-11-10), now 8 s.
 
 ### Folded work
 Once a run is over, its work folds under one card where it began (the user, 2026-11-08: "Fold all work
@@ -1610,7 +1618,9 @@ go back and is said. What else changes things isn't kept and can't be undone: ru
 ComfyUI and video jobs, MCP tools, write_file and edit_file on an SSH host, and clicks and typing in
 other programs. The chat says which of those ran in the part undone ("Not undone, as Sloperator
 doesn't keep what they change: run_shell ×2 and mouse_click."), with the files put back and any that
-couldn't be; nothing when only looking tools ran. A chat saved before turns has none on its messages,
+couldn't be; nothing when only looking tools ran, nor for Auto's card or the tools that change only
+Sloperator's own window (plan, show_panel, list_models): it said "Not undone…: Auto and run_shell" (2026-11-10). A
+chat saved before turns has none on its messages,
 so its files stay as they are, and the chat says so if write_file or edit_file ran.
 
 ## Scrollbars
@@ -1889,6 +1899,11 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
   reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
 ## One look for every control
+Every control a person can type in, pick from or drag has a name for screen readers and UI Automation
+(`AutomationProperties.Name`, the words of the label beside it): the server address, API key, context size, the
+message box ("Message"), the players' Position sliders, and in Settings the instructions box, Tool call approval
+and MCP servers had none (2026-11-10), so a screen reader said "edit" or "combo box" alone.
+
 Every window and side panel draws its controls from the styles in App.axaml, one a kind, not
 sizes set on each control (the user, 2026-10-30, after drift was found in turn: text boxes with
 different focus rules, popups anchored differently, Servers' brushes, text off centre, History and
@@ -2366,7 +2381,9 @@ failed (401): {"error":{"message":"User not found.","code":401}}`. A gateway's e
 provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes after its own words
 (`ErrorText`); a 403 with it is the provider's refusal, not the key's: "The model's provider turned the
 request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
-another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Nothing answering on LM
+another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Any other failed
+request says the server's words too, not its JSON ("Chat request failed (404): No endpoints found that support image
+input"), as the Messages route already did. Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
 1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
@@ -3022,7 +3039,10 @@ Each reply's own numbers are kept too, in `tokens` on its line in the chat's fil
 written, output; 2026-11-07, the user's pick after reading the chats of 3 and 4 November). The sum says how much was written to the
 cache, not when: that a pause of over 5 minutes wrote the whole context again could only be estimated from the
 times of the steps (one such pause at 300k on Sonnet 5.5, $0.75). They are for reading afterwards, shown nowhere, and
-go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply.
+go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply. The
+conversation in the file keeps the server's counts on its replies too (`ChatStore.ForSaving`, since 2026-11-10): a chat
+opened again measured its context by an estimate until its next reply (`AgentSession.TokensInUse`), which decides when
+the context is reset.
 
 Prices are typed per million tokens for a model on its server, the one in use or a row picked (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.
@@ -4053,7 +4073,10 @@ solution or an engine's project (Unity, Unreal, Godot), or else with a package o
 (`package.json`, `Cargo.toml`, a `.csproj`…); never the home folder or a drive, and not one of
 fewer than 25 files, which is read faster than indexed (one the model is making), nor Sloperator's own
 SloperatorData folder (run from a checkout, a download into `SloperatorData\scratch` had the model told to index the
-Sloperator repository, 2026-10-26). Once per project in
+Sloperator repository, 2026-10-26), nor a folder the repository's .gitignore leaves out (`FolderWalk.IgnoredIn`): a
+test folder in Sloperator's own ignored `.dev` had every task there told to index all of Sloperator and given its
+CLAUDE.md, which the model then talked about (2026-11-10); the Code editor opens such a file's own folder too, not the
+whole repository (`FileChanges.Project`). Once per project in
 a chat, and again after a context reset, which drops the overview: the app starts a session for
 every message, so the note looks back over the chat for the projects already indexed and the notes
 already given (until 2026-10-23 it came again with every message, and the model indexed again). A
@@ -5169,7 +5192,10 @@ presses for it at more points than errors:
   5.5's script read "sample.txt" from the process's folder, "Could not find file 'C:\Users\user\sample.txt'", and was
   sent to search the web before its next try, 9 November 2026; a bare name such as 'ffmpeg' can be a program that
   isn't installed, and still counts), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
-  install it). They use up no note either. After an exit code the output is what the command printed, so the
+  install it). Its note says the program isn't installed or isn't on the PATH, to find where it is or look up how
+  to get it, asking before installing (`Guesswork.ProgramNote`): it got the note on names from another version, which
+  Haiku 5.5 was given for `python` on a PC with no Python (2026-11-09). A PowerShell command's Verb-Noun name
+  (`Get-Thing`) still gets that one. They use up no note either. After an exit code the output is what the command printed, so the
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that
   looks something up gets no note for what failed beside it.
@@ -5186,7 +5212,10 @@ look", mostly after edits made through the shell, and the Unity CLI note stays.
 once for those rounds. Screenshots, zooms and waits don't count. It used to count one call three times among the last twelve,
 and all 44 notes in those chats were wrong: 36 a Unity menu opened with the same two clicks for a different item
 each time, 6 a zoom on the same spot after each action, 2 the Play button; the model never reacted to one. Played
-through the new rule: none. "The screen has not changed" is as it was.
+through the new rule: none. "The screen has not changed" is as it was. One call made three times that left a new
+screen each time is stepping, not going round (`LoopDetector.Stepping`): asked to click a page's "Click me" a few
+times, Qwen 3.8 was told after the third that it was repeating itself (2026-11-10). A screen seen before in those three
+(a box ticked, unticked, ticked) and a call that shows no screen (a command) still count.
 
 Measured with qwen3.8 on the Blender 5.2 task made from the command line instead (`blender -b`,
 one run each): before, it thought "let me do a quick web search… Actually, let me think about what

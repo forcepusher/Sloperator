@@ -180,6 +180,28 @@ internal sealed class FolderWalk
             Add("build output", "build");
         return found;
     }
+
+    /// <summary>
+    /// Whether <paramref name="folder"/>, or a folder above it under <paramref name="root"/>, is one the
+    /// .gitignore files from <paramref name="root"/> down leave out: work there isn't on the project's own files.
+    /// </summary>
+    internal static bool IgnoredIn(string root, string folder)
+    {
+        var relative = Path.GetRelativePath(root, folder).Replace('\\', '/');
+        if (relative is "." || relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            return false;
+        var rules = new List<IgnoreFile>();
+        var at = "";
+        foreach (var name in relative.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (IgnoreFile.Read(Path.Combine(root, at, ".gitignore"), at) is { } here)
+                rules.Add(here);
+            at = at.Length == 0 ? name : at + "/" + name;
+            if (IgnoreFile.Ignored(rules, at, isDir: true))
+                return true;
+        }
+        return false;
+    }
 }
 
 /// <summary>One .gitignore file's rules, for the paths under its folder.</summary>

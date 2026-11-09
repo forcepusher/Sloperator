@@ -361,6 +361,11 @@ public sealed class ChatStore(string dir)
             ToolCallId = m.ToolCallId,
             FromUser = m.FromUser,
             Sent = m.Sent?.ToList(),
+            // The server's count, so a chat opened again measures its context by it, not by an estimate.
+            PromptTokens = m.PromptTokens,
+            CompletionTokens = m.CompletionTokens,
+            CachedTokens = m.CachedTokens,
+            CacheWriteTokens = m.CacheWriteTokens,
         }).ToList();
         AgentSession.RepairDanglingToolCalls(copy);
         return copy;

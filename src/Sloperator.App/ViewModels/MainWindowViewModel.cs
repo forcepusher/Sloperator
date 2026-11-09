@@ -682,6 +682,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     /// <summary>When the run in progress started: from the message that started it, for how long the run took.</summary>
     private DateTime _runStarted;
 
+    /// <summary>How long the run in progress has waited for the user's OK on its calls, in ticks, which isn't work: "Worked for 28 s" counted 25 s of waiting.</summary>
+    private long _waitedForOk;
+
     /// <summary>The message the run in progress started with, until the model has it.</summary>
     private UserInput? _unread;
 
@@ -744,6 +747,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     private async Task<UserInput?> RunAsync(UserInput? input)
     {
         _runStarted = DateTime.UtcNow;
+        Interlocked.Exchange(ref _waitedForOk, 0);
         _runDetached = false;
         IsBusy = true;
         HideContinue();

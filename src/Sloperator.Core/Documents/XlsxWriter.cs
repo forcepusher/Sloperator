@@ -80,6 +80,8 @@ internal static partial class XlsxWriter
         }
         if (sheets.Count == 0)
             sheets.Add(new Sheet("Sheet1"));
+        foreach (var sheet in sheets)
+            SheetFormula.WriteValues(sheet.Rows.Values.SelectMany(r => r.Values));
         // Asked for amounts in dollars, Kilo's free Nemotron wrote plain numbers and then took the
         // workbook apart to add the format by hand, twice, though the tool said how; said here, it
         // comes when it is needed.
@@ -103,7 +105,7 @@ internal static partial class XlsxWriter
             new XAttribute(XNamespace.Xmlns + "r", OfficePackage.R),
             new XElement(S + "bookViews", new XElement(S + "workbookView")),
             workbookSheets,
-            // Formulas have no values yet: Excel works them all out when it opens the file.
+            // Excel works every formula out again when it opens the file, those with a value here too.
             new XElement(S + "calcPr", new XAttribute("calcId", 191029), new XAttribute("fullCalcOnLoad", 1)))),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml");
         package.AddRelationships("xl/workbook.xml", rels);

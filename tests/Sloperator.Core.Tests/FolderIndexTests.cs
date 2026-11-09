@@ -595,6 +595,14 @@ public class FolderIndexTests : IDisposable
         Assert.Null(new ProjectNudge().Check(new ShellTool(), new JsonObject { ["command"] = $"cd \"{Path.GetDirectoryName(download)}\"; Expand-Archive pg.zip" }.ToJsonString(), ok, bbCtx));
         Assert.NotNull(new ProjectNudge().Check(read, Args(Path.Combine(own, "src", "File1.cs")), ok, bbCtx));
 
+        // Nor is a folder the repository's .gitignore leaves out, such as another project kept in it.
+        Write("bbrepo/.gitignore", "/.dev/\n");
+        var kept = Write("bbrepo/.dev/tests/todo/todo.ps1", "'todo'");
+        Assert.Null(new ProjectNudge().Check(read, Args(kept), ok, ctx));
+        Assert.True(FolderWalk.IgnoredIn(own, Path.Combine(own, ".dev", "tests")));
+        Assert.False(FolderWalk.IgnoredIn(own, Path.Combine(own, "src")));
+        Assert.NotNull(new ProjectNudge().Check(read, Args(Path.Combine(own, "src", "File2.cs")), ok, ctx));
+
         // A small project is read faster than indexed; a file in no project is no matter.
         Directory.CreateDirectory(Path.Combine(_dir, "small", ".git"));
         Write("small/main.py", "print(1)");

@@ -139,8 +139,11 @@ internal sealed partial class ProjectNudge
             if (_indexed.Any(i => Under(full, i)) || InOwnData(full, ctx))
                 continue;
             var dir = Directory.Exists(full) ? full : Path.GetDirectoryName(full) ?? full;
+            // A folder the repository's .gitignore leaves out holds no work on the project: a scratch or build folder
+            // in it, or another project kept there (a test folder in Sloperator's own .dev had every task told to index
+            // all of Sloperator and given its CLAUDE.md, 2026-11-10).
             if (!_projects.TryGetValue(dir, out var project))
-                _projects[dir] = project = ProjectRoot.Find(dir);
+                _projects[dir] = project = ProjectRoot.Find(dir) is { } found && !FolderWalk.IgnoredIn(found.Root, dir) ? found : null;
             if (project is not var (root, why) || _said.Contains(root) || _indexed.Any(i => Under(root, i)))
                 continue;
             _said.Add(root);

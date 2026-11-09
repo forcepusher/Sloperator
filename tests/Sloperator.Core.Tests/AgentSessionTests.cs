@@ -839,6 +839,27 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public void Loop_detector_takes_the_same_click_leaving_a_new_screen_each_time_as_stepping()
+    {
+        // A counter's button clicked on purpose (Qwen, 2026-11-10): 1, 2, 3 on the page, no note.
+        var counter = new LoopDetector();
+        Assert.All(Enumerable.Range(1, 6), i => Assert.Null(counter.Check(ClickAt(863, 636), new ToolResult("Clicked.", [(byte)i]))));
+
+        // A box ticked, unticked and ticked again goes round: told.
+        var toggle = new LoopDetector();
+        Assert.Null(toggle.Check(ClickAt(40, 40), new ToolResult("Clicked.", [1])));
+        Assert.Null(toggle.Check(ClickAt(40, 40), new ToolResult("Clicked.", [2])));
+        Assert.Contains("3 times", toggle.Check(ClickAt(40, 40), new ToolResult("Clicked.", [1])));
+
+        // A command, which shows no screen, still counts.
+        var shell = new LoopDetector();
+        var run = new ToolCall { Id = "r", Name = "run_shell", Arguments = """{"command":"dir"}""" };
+        Assert.Null(shell.Check(run, new ToolResult("a")));
+        Assert.Null(shell.Check(run, new ToolResult("b")));
+        Assert.Contains("3 times", shell.Check(run, new ToolResult("c")));
+    }
+
+    [Fact]
     public void Loop_detector_warns_on_rounds_of_steps_repeated_in_a_row_once_for_three()
     {
         var loops = new LoopDetector();

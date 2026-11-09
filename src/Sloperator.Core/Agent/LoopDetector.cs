@@ -30,6 +30,10 @@ internal sealed class LoopDetector
         { "screenshot", "zoom", "wait", "wait_until_change", "capture_result" };
 
     private readonly List<string> _recent = [];
+
+    /// <summary>The screen each of <see cref="_recent"/> left, by its hash; null for a call that showed none.</summary>
+    private readonly List<string?> _screens = [];
+
     private byte[]? _lastScreen;
     private int _unchanged;
 
@@ -41,15 +45,20 @@ internal sealed class LoopDetector
         if (!Passive.Contains(call.Name))
         {
             _recent.Add(call.Name + " " + call.Arguments.Replace(" ", ""));
+            _screens.Add(result.Image is { } shot ? Convert.ToHexString(SHA256.HashData(shot)) : null);
             if (_recent.Count > LongestRound * Rounds)
+            {
                 _recent.RemoveAt(0);
-            if (RepeatedRound() is { } steps)
+                _screens.RemoveAt(0);
+            }
+            if (RepeatedRound() is { } steps && !(steps == 1 && Stepping()))
             {
                 notes.Add(steps == 1
                     ? $"Note: you made exactly this call {Rounds} times in a row. If it is not getting you closer, stop repeating it and try a different approach."
                     : $"Note: you repeated the same {steps} calls {Rounds} times in a row. If they are not getting you closer, stop repeating them and try a different approach.");
                 // Said once for these rounds: the next note takes three more.
                 _recent.Clear();
+                _screens.Clear();
             }
         }
 
@@ -64,6 +73,17 @@ internal sealed class LoopDetector
         }
 
         return notes.Count > 0 ? string.Join("\n", notes) : null;
+    }
+
+    /// <summary>
+    /// Whether the call repeated left a new screen each time: a counter's button clicked three times, Down pressed
+    /// through a list, a page turned. Asked to click "Click me" a few times, Qwen 3.8 was told after the third that it
+    /// was repeating itself (2026-11-10). A screen it left before (a box ticked, then not) is going round.
+    /// </summary>
+    private bool Stepping()
+    {
+        var last = _screens.TakeLast(Rounds).ToList();
+        return last.Count == Rounds && last.All(s => s is not null) && last.Distinct().Count() == Rounds;
     }
 
     /// <summary>How many steps go round when the latest ones repeat <see cref="Rounds"/> times in a row, or null.</summary>
