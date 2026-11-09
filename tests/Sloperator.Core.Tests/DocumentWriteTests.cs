@@ -553,6 +553,54 @@ public class DocumentWriteTests : IDisposable
     }
 
     [Fact]
+    public async Task A_workbooks_plain_formulas_are_written_with_their_values()
+    {
+        // A total showed as an empty cell in Windows' preview and the File inspector (2026-11-10): written without a value.
+        await Write("sales.xlsx", """
+            | Region | Q1 | Q2 | Total | Share |
+            |---|---|---|---|---|
+            | North | $12,000.00 | $15,500.00 | =B2+C2 | =ROUND(D2/D5*100, 1) |
+            | South | $9,800.00 | $11,200.00 | =B3+C3 | =D3/0 |
+            | West | 14300 | n/a | =B4+C4 | =Sheet2!A1 |
+            | Total | =SUM(B2:B4) | =SUM(C2:C4) | =SUM(D2:D3) | =AVERAGE(B2:C3) - (1 - 1) |
+            """);
+        var text = await Read("sales.xlsx");
+        // A formula's number shows as its column's last typed number does: none in D, none in C after "n/a".
+        Assert.Contains("D2 =B2+C2 → 27500", text);
+        Assert.Contains("C5 =SUM(C2:C4) → 26700", text); // text in a range is left out
+        Assert.Contains("E2 =ROUND(D2/D5*100, 1) → 56.7", text);
+        Assert.Contains("E5 =AVERAGE(B2:C3) - (1 - 1) → 12125", text);
+        Assert.Contains("D5 =SUM(D2:D3) → 48500", text);
+        // No value where it can't be worked out here: text added, a division by zero, another sheet's cell.
+        Assert.DoesNotMatch(@"D4 =B4\+C4 → \d", text);
+        Assert.DoesNotMatch(@"E3 =D3/0 → \d", text);
+        Assert.DoesNotMatch(@"E4 =Sheet2!A1 → \d", text);
+    }
+
+    [Theory]
+    [InlineData("1+2*3", 7.0)]
+    [InlineData("(1+2)*3", 9.0)]
+    [InlineData("-A1+$B$1", 1.0)]
+    [InlineData("SUM(A1:B1, 10)", 15.0)]
+    [InlineData("MAX(A1:B1)-MIN(A1:B1)+COUNT(A1:B1)", 3.0)]
+    [InlineData("A1/C1", null)]       // an empty cell is 0: a division by zero
+    [InlineData("A1+T1", null)]       // text
+    [InlineData("A1 > 1", null)]      // a comparison isn't worked out here
+    [InlineData("VLOOKUP(A1, A1:B1, 2)", null)]
+    [InlineData("A1+", null)]
+    public void A_plain_formula_is_worked_out(string formula, double? value)
+    {
+        SheetFormula.Cell Read(string cell) => cell switch
+        {
+            "A1" => new(2),
+            "B1" => new(3),
+            "T1" => new(null, Text: true),
+            _ => SheetFormula.Cell.Empty,
+        };
+        Assert.Equal(value, SheetFormula.Value(formula, Read));
+    }
+
+    [Fact]
     public async Task Cells_are_set_as_read_file_shows_them_and_a_stale_read_is_refused()
     {
         await Write("budget.xlsx", "# Budget\n\n| Item | Cost |\n|---|---|\n| Rent | 1200 |\n| Food | 850 |\n| Total | =SUM(B2:B3) |");

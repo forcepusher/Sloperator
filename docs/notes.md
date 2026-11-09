@@ -106,7 +106,11 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
 - `.xlsx`: each heading starts a sheet named after it, and tables fill it with their header row bold
   and frozen. A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
   become values shown that way; a formula under amounts of money shows money. Excel works the
-  formulas out on opening.
+  formulas out on opening. Plain ones are written with their value too (`SheetFormula`: numbers, cells of the
+  sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
+  formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value"): a total showed as
+  an empty cell there (2026-11-10). Anything else (another sheet's cell, text, other functions, a division by zero, a
+  loop) has none, as before.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide.
