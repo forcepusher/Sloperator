@@ -25,8 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   you change it. Words in braces, like `{date}` and `{screens}`, are filled in for each chat. **Reset to default**
   brings Sloperator's own back.
 - Once the agent has answered, the task's tool calls and thinking fold under one card that says how long it
-  worked, how many tool calls it made and which tools; **Show steps** unfolds them. Chats opened from History
-  open folded.
+  worked, how many tool calls it made and which tools, and on Auto which model it used; **Show steps** unfolds
+  them. Chats opened from History open folded.
 - **Auto** is the first row of the model and effort dropdowns, each on its own. Before each message the
   evaluation model takes a short look at the task (reading files, never changing them) and picks the model
   and effort for it; a card in the chat says what it picked, why, and what it found, which the picked model

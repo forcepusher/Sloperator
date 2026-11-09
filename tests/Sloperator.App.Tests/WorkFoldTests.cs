@@ -53,6 +53,26 @@ public sealed class WorkFoldTests
     }
 
     [Fact]
+    public void The_card_says_which_model_Auto_picked_once_its_card_is_folded_away()
+    {
+        // Auto's card is no tool call, and its pick, folded away, is said on the card: nothing else said who answered.
+        var auto = new ToolCallItem("auto-1", "Auto",
+            "claude-sonnet-5-5 at High (you stayed off claude-opus-5-5) · A change across the settings code.") { At = T0.AddSeconds(1), State = ToolItemState.Done };
+        var reply = Step(5, "Done.");
+        reply.RunTook = TimeSpan.FromSeconds(24);
+        ChatItemViewModel[] chat = [Message("Move the settings into a view model", 0), auto, Call("read_file", 3), reply];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.Equal("Worked for 24 s · 1 tool call · claude-sonnet-5-5 at High", auto.Card!.Title);
+        Assert.Equal(["read_file"], auto.Card.Tools);
+        Assert.Equal("claude-haiku-5-5", new ToolCallItem("auto-3", "Auto", "claude-haiku-5-5: the evaluation failed") { State = ToolItemState.Error }.AutoPicked);
+        Assert.Equal("claude-haiku-5-5 at Low", new ToolCallItem("auto-4", "Auto", "claude-haiku-5-5 at Low") { State = ToolItemState.Done }.AutoPicked);
+        // Stopped while it picked: no pick to say.
+        Assert.Null(new ToolCallItem("auto-2", "Auto", "claude-haiku-5-5 picks the model for this message…") { State = ToolItemState.Stopped }.AutoPicked);
+    }
+
+    [Fact]
     public void A_message_sent_during_a_run_stays_and_each_stretch_folds_on_its_own()
     {
         var first = Call("screenshot", 2);

@@ -1545,6 +1545,10 @@ words with no tool call after them, and any line after it), with its thinking fo
 it ended with, with Continue; and every message of the user's, so one sent during the run ends one fold
 and the rest of the run makes another (timed from its first line to the message). A stretch with no tool
 call and no thinking (a model loaded, a plain answer) isn't folded and keeps its "Worked for" line.
+Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
+card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
+nothing in sight said which model had answered). It is read back from the card's line (`PickedIn`), so a chat
+opened from History says it too; a card stopped while it picked has none.
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
