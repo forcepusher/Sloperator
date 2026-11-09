@@ -6018,7 +6018,9 @@ versions (EV certificates no longer skip it, Microsoft, 2026).
   host-window handling, Pause/Break, and what Windows itself has in place of a library: video and
   sound (Media Foundation), PDF pages, text recognition, notifications, file previews and signature
   checks (COM and WinRT called through their vtables, `ComAbi`). Only referenced when building on Windows.
-- `src/Sloperator.Cli`: headless runner for trying tasks and models.
+- `src/Sloperator.Cli`: headless runner for trying tasks and models; its options are in `Program.cs`'s first lines and
+  `--help`. A first word that starts with `--` and isn't an option is refused, not sent: "--help" went to the model as
+  a task, which answered it (2026-11-10).
 - `src/Sloperator.App`: Avalonia 12 UI with CommunityToolkit.Mvvm.
 - `tests/Sloperator.Core.Tests`: xUnit tests (unit tests plus opt-in server integration tests).
 - `tests/Sloperator.App.Tests`: the app's windows laid out headless (the chat, lists, players, Settings).

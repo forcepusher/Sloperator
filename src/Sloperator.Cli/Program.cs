@@ -6,7 +6,8 @@ using Sloperator.Core.Settings;
 using Sloperator.Core.Tools;
 
 // Usage: sloperator-cli [--root DIR] [--url URL] [--model ID] [--effort LEVEL] [--yes] [--save-shots DIR] [--full-results] [--attach FILE]... [--then TEXT]... [--no-index] "task"
-//   --root        portable folder (default: SLOPERATOR_HOME, else .dev/ when run from the repository, else the exe folder);
+//   --help        this line
+//   --root       portable folder (default: SLOPERATOR_HOME, else .dev/ when run from the repository, else the exe folder);
 //                 its SloperatorData/mcp.json lists the MCP servers to start, as in the app
 //   --url/--model override the server address and model saved in SloperatorData/settings.json; with no model, or one the
 //                 server doesn't offer, the cheapest of the strongest models it offers is used
@@ -48,9 +49,24 @@ var followUps = new Queue<string>();
 while (Take("--then") is { } later)
     followUps.Enqueue(later);
 var task = string.Join(' ', argsList);
+const string Usage = "Usage: sloperator-cli [--root DIR] [--url URL] [--model ID] [--effort LEVEL] [--yes] [--save-shots DIR] [--full-results] " +
+                     "[--attach FILE]... [--then TEXT]... [--no-index] \"task\"";
+// "--help" was taken for a task and sent to the model, which answered it (2026-11-10).
+if (argsList is ["--help" or "-h" or "-?" or "/?"])
+{
+    Console.WriteLine(Usage);
+    return 0;
+}
+// An option misspelt ("--modle") is not the start of a task.
+if (argsList is [{ } first, ..] && first.StartsWith("--", StringComparison.Ordinal))
+{
+    string[] valued = ["--root", "--save-shots", "--url", "--model", "--effort", "--attach", "--then"];
+    Console.Error.WriteLine((valued.Contains(first) ? $"{first} needs a value after it." : $"There is no option {first}.") + "\n" + Usage);
+    return 2;
+}
 if (string.IsNullOrWhiteSpace(task))
 {
-    Console.Error.WriteLine("Usage: sloperator-cli [--root DIR] [--url URL] [--model ID] [--effort LEVEL] [--yes] [--save-shots DIR] [--attach FILE]... [--then TEXT]... [--no-index] \"task\"");
+    Console.Error.WriteLine(Usage);
     return 2;
 }
 if (attached.FirstOrDefault(f => !File.Exists(f) && !Directory.Exists(f)) is { } missing)
