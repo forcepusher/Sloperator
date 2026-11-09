@@ -5928,8 +5928,10 @@ What the runs showed and what changed:
   wait (three minutes); it then ended at once when the screen already differed from the screenshot
   the model decided on. Since 2026-11-02 waiting is two tools, as the user asked: `wait` (a set
   time, no screenshot unless `screenshot_on_end`) and `wait_until_change`, which waits until a change
-  unless given `seconds` (the taskbar clock ticking counts, so about a minute at most), compares only with
-  the screen as it starts and always screenshots at the end. A message that comes while the model
+  unless given `seconds`, compares only with the screen as it starts and always screenshots at the end. The
+  taskbar clock's minute is too small a change to end it (`ClickCheck.Differ`): right after starting Notepad,
+  Qwen 3.8 called it to see the window already open and waited out the task's 15 minutes (2026-11-10), so its
+  description says a change before the wait doesn't count and a screenshot shows the screen as it is. A message that comes while the model
   decides to wait is again seen only at the next change or when the wait runs out.
   Measured on 2026-11-02 against 1.3.0 (away, haggle, support; scores new / 1.3.0): Qwen 20/21,
   13/13, 12/12 / 19/21, 13/13, 12/12 in 29, 28, 24 steps / 36, 34, 28; Haiku 21/21, 12/13, 12/12 on

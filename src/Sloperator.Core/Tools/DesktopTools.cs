@@ -724,8 +724,11 @@ public sealed class WaitUntilChangeTool : WaitToolBase
     private static readonly TimeSpan Poll = TimeSpan.FromSeconds(1);
 
     public override string Name => "wait_until_change";
+    // Right after starting Notepad, Qwen 3.8 called it to see the window that had already opened, and waited
+    // out the task's 15 minutes (2026-11-10): a change before the wait doesn't end it.
     public override string Description =>
-        "Wait until something on the screen changes (a reply arrives in a chat, a window or page finishes loading), then take a screenshot.";
+        "Wait until something on the screen changes from how it is when the wait starts (a reply arrives in a chat, a window or page finishes loading), " +
+        "then take a screenshot. What already changed doesn't count: to see the screen as it is, take a screenshot.";
     public override JsonObject Parameters => Schema(
         ("seconds", Num("The longest to wait; without it, it waits until something changes"), false));
     public override string Describe(JsonObject args) =>
