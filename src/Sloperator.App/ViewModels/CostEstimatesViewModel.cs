@@ -343,7 +343,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
             + " Chats saved before costs were kept aren't counted.";
         TopChats.Clear();
         foreach (var p in priced.OrderByDescending(p => p.Total.Amount).Take(5))
-            TopChats.Add(new ChatCostRow(p.Chat.Title, p.Chat.Updated.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture), p.Total.Shown));
+            TopChats.Add(new ChatCostRow(ChatStore.TitleFrom(p.Chat.Title), p.Chat.Updated.ToLocalTime().ToString("d MMM", CultureInfo.CurrentCulture), p.Total.Shown));
         HasTopChats = TopChats.Count > 0;
     }
 
