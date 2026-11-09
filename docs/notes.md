@@ -2907,7 +2907,9 @@ The Cost estimates side panel (`CostEstimatesViewModel`, the user 2026-11-02, in
 fields first put in Settings > Advanced) shows the same total big, a row per model (replies, tokens,
 cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
 served (and, with typed input and cached prices, what that saved), the price fields of the model in
-use (saved as typed), and every saved chat's total with the five dearest, in the currency of the newest
+use (saved as typed) or of the row picked in the table (a list: picked, the row's model's prices show, under "Prices of a
+model this chat used", until another model is picked at the top; on Auto the evaluation model's replies could be
+priced only by picking it by hand, the user's pick of 2026-11-09), and every saved chat's total with the five dearest, in the currency of the newest
 chat with a cost. That last part
 reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History
 list reads titles: no chat is loaded whole. Chats saved before the spending was kept, or with it
@@ -3011,7 +3013,7 @@ cache, not when: that a pause of over 5 minutes wrote the whole context again co
 times of the steps (one such pause at 300k on Sonnet 5.5, $0.75). They are for reading afterwards, shown nowhere, and
 go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply.
 
-Prices are typed per million tokens for the model in use on the server in use (`cost.prices` in
+Prices are typed per million tokens for a model on its server, the one in use or a row picked (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.
 The server's cost wins over typed prices (the user, 2026-11-02): they count only for a model whose
 server says none. A chat with models in two currencies, or one with no price and no cost, shows no

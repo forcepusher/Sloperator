@@ -78,6 +78,32 @@ public sealed class CostEstimatesTests
     }
 
     [Fact]
+    public void A_row_picked_in_the_table_takes_its_own_prices()
+    {
+        // On Auto the evaluation model answers too, and is never the model in use when the panel is looked at.
+        const string Api = "https://api.anthropic.com/v1";
+        var spent = new Spending();
+        spent.Add(Api, "claude-sonnet-5-5", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        spent.Add(Api, "claude-haiku-5-5", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });
+        var settings = new CostSettings();
+        var vm = new CostEstimatesViewModel(null, () => spent, () => settings, () => (Api, "claude-sonnet-5-5"), () => [], settings.Set);
+
+        Assert.Equal("claude-sonnet-5-5", vm.PricedRow!.Model);
+        Assert.Equal("Prices of the model in use", vm.PricesTitle);
+        Assert.Contains("pick its row", vm.TotalNote);
+
+        vm.PricedRow = vm.Models.Single(m => m.Model == "claude-haiku-5-5");
+        Assert.Equal("claude-haiku-5-5 on api.anthropic.com", vm.PricesFor);
+        Assert.Equal("Prices of a model this chat used", vm.PricesTitle);
+        vm.InputPrice = "1";
+        Assert.Equal(1m, settings.For(Api, "claude-haiku-5-5")!.Input);
+        Assert.Null(settings.For(Api, "claude-sonnet-5-5"));
+        // The table is read again after each reply: the row stays picked.
+        Assert.Equal("claude-haiku-5-5", vm.PricedRow!.Model);
+        Assert.Equal("~$1.00+", vm.Total);
+    }
+
+    [Fact]
     public void A_missing_cache_price_shows_on_the_model_and_the_total()
     {
         var spent = new Spending();

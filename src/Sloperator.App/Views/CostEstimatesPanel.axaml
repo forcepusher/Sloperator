@@ -21,6 +21,14 @@
       <Setter Property="BorderThickness" Value="0,0,0,1" />
       <Setter Property="Padding" Value="0,6" />
     </Style>
+    <!-- The models' rows as the header row lays them out: no padding of a list's own. -->
+    <Style Selector="ListBox.costs">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.costs ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
   </UserControl.Styles>
 
   <DockPanel>
@@ -52,8 +60,11 @@
               <TextBlock Grid.Column="6" Classes="label figure" Text="Cost" />
             </Grid>
           </Border>
-          <ItemsControl ItemsSource="{Binding Models}">
-            <ItemsControl.ItemTemplate>
+          <!-- A row picked shows its prices below (the model in use's by default): on Auto, the evaluation model's
+               replies could be priced only by picking it at the top. -->
+          <ListBox Classes="costs" ItemsSource="{Binding Models}" SelectedItem="{Binding PricedRow}" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                   AutomationProperties.Name="Models this chat used">
+            <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelCostRow">
                 <Border Classes="row">
                   <Grid ColumnDefinitions="*,64,72,88,88,72,88">
@@ -72,12 +83,12 @@
                   </Grid>
                 </Border>
               </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+            </ListBox.ItemTemplate>
+          </ListBox>
         </StackPanel>
 
-        <!-- The prices of the model in use, for servers that don't report a reply's cost. -->
-        <TextBlock Classes="h2" Text="Prices of the model in use" Margin="0,20,0,4" />
+        <!-- The prices of the model in use, or of the row picked above, for servers that don't report a reply's cost. -->
+        <TextBlock Classes="h2" Text="{Binding PricesTitle}" Margin="0,20,0,4" />
         <!-- Look up prices: the agent searches the web for them in the chat, and its answer fills the fields. -->
         <DockPanel>
           <Button DockPanel.Dock="Right" Classes="ghost" Content="Look up prices" Command="{Binding LookUpPricesCommand}" IsEnabled="{Binding CanLookUp}"
