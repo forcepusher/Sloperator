@@ -130,7 +130,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
     [ObservableProperty]
     private string _setupText = "";
 
-    /// <summary>How full the model's context is, next to the server status: "35k of 100k used". Empty until a run's first step.</summary>
+    /// <summary>
+    /// How full the model's context is, next to the server status: "35k of 100k used". A chat opened from History
+    /// shows its last reply's count; a new one, and one saved before replies kept their counts, are empty until a run's first step.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasContextUsage), nameof(CostShown))]
     private string _contextUsage = "";

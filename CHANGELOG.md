@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A chat opened from **History** shows how full its context is in the top bar at once, as it did when you left it,
+  not only once the next task starts.
 - In a narrow chat, a folded card's title wraps before the model Auto picked, not inside its name or before its effort.
 - **Web preview** shows a page that sets no background of its own on white, as a browser does, rather than its
   black text on the panel's dark grey.

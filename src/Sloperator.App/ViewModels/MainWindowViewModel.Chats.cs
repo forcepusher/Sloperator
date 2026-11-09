@@ -146,7 +146,11 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ChatTitle));
         _history = chat.History;
         _spent = chat.Spent ?? new();
-        ShowCost();
+        // How full its context is, by its last reply's tokens, as the bar said it when the chat was left.
+        if (chat.Entries.LastOrDefault(e => e.Tokens is not null)?.Tokens is { } last)
+            ShowContextUsage((last.New + last.Read + last.Written + last.Output, _settings.Server.ContextSize, 0));
+        else
+            ShowCost();
         Plan = chat.Plan;
         _pictures = new(_chats.NextPictureNumber(chat.Id));
         UseChanges(FileChanges.Load(ChangesFile(chat.Id)), chat.Folder, Core.Tools.CommandLog.Load(CommandsFile(chat.Id)));

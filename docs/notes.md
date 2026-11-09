@@ -3259,7 +3259,9 @@ token position N after N for sequence 0 with 512 new tokens" about once a second
 picture's tokens share one position, and the line is harmless.
 
 During a run the top bar shows how full the context is ("35k of 100k used"; its tooltip says where
-the reset comes), and a reply that hasn't started yet counts how long Sloperator has been waiting for
+the reset comes). A chat opened from History shows it at once, by its last reply's tokens (`ChatEntry.Tokens`, of the
+model in use's context size), as the bar said it when the chat was left: it showed only the cost until the next
+run's first step (2026-11-10); a chat saved before replies kept their tokens still does. A reply that hasn't started yet counts how long Sloperator has been waiting for
 it: a server reading a long prompt sends nothing for minutes. Before that, while the request is
 still on its way, it shows how much of it has gone out ("Sending to the server… 1.2 of 3.4 MB"):
 each step sends every screenshot still in the context, and over a VPN at 15 to 30 KB/s that took
