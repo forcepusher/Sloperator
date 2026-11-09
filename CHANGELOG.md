@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- The Image editor no longer says "The version shown says nothing of how it was made" before a picture is picked.
 - A command that fails on a file or folder that isn't there no longer sends the agent to search the web before its
   next try: no page knows your files.
 - A model named in plain words no longer takes a size for its version: "gpt" on OpenRouter found gpt-oss-120b, read as
