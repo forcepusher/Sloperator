@@ -2717,7 +2717,8 @@ looked at nothing, since the message is self-contained", Haiku 5.5) goes as no n
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
 evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
-Stopped (it read "Running…" for good: the run's end, which stops the cards, never came). The
+Stopped and "claude-haiku-5-5 was picking the model for this message" (it read "Running…" for good: the run's end,
+which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,

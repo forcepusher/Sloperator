@@ -845,7 +845,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             if (!_runDetached)
             {
                 // Stopped before the agent's run (during Auto's evaluation): its card, after the lines already on their way.
-                _autoCard = null;
+                EndAutoPicking();
                 PostTimed(StopRunningCards);
                 AddStopNotice(stopped, isError: false, delivered ? null : input);
             }
@@ -856,7 +856,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // server that doesn't answer), so Continue tries the message again.
             if (!_runDetached)
             {
-                _autoCard = null;
+                EndAutoPicking();
                 PostTimed(StopRunningCards);
                 AddStopNotice(ex.Message, isError: true, delivered ? null : input, ex);
                 NotifyUser(FirstLine($"Stopped by an error: {ex.Message}"));
