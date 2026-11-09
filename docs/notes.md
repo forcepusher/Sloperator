@@ -5101,8 +5101,11 @@ presses for it at more points than errors:
 - After ten minutes of runs with nothing looked up (three at least, and only time in a run: not
   while the user is away between messages), or four runs however quick (probing how Blender 5.2 sets
   a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of
-  time), the run's result says it is time to look things up, once for each message of the user's
-  and at least four runs after the last time. A run is a command, a script, an MCP call that changes
+  time), the next try the model calls wrong (a reply saying it "still doesn't" work, with a DoubtNote said before)
+  gets "time to look things up", once for each message of the user's and at least four runs after the last time.
+  Until 9 November 2026 a run that worked got it too: Qwen 3.8's tests had all passed when it was told to look
+  things up; the user picked dropping that, knowing Blender-style loops whose scripts run fine but make the wrong
+  scene lose the note unless the model says so. A run is a command, a script, an MCP call that changes
   something, a ComfyUI job or a piece of a video; a file written or edited is no run for this (it
   still counts as a try for the rest), and neither is a command that only reads, which is no try at
   all (`ReadOnlyCommand`: a list of what reads, so a program it doesn't know stays a run; `TerminalWork` is

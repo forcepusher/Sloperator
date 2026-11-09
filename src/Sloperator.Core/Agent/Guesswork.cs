@@ -116,7 +116,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     internal static string CheckNote(TimeSpan worked, int tries) =>
         $"[Sloperator] Time to look things up: {tries} tries{(worked.TotalMinutes >= 1 ? $" and {(int)worked.TotalMinutes} minute{((int)worked.TotalMinutes == 1 ? "" : "s")}" : "")} since anything was last looked up. " +
         "Search the web for guidance on what you are doing now (the official documentation, the makers' guides and examples, " +
-        "for the version in use) before your next try: a better way is often one search away, even when things seem to work.";
+        "for the version in use) before your next try: a better way is often one search away.";
 
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
     private readonly Dictionary<string, int> _seen = [];
@@ -189,7 +189,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         if (_tried && SaysItFailed(text))
         {
             _tried = false;
-            _pending = Failed() ?? (_lookedUp || _firstSaid ? null : DoubtNote);
+            _pending = Failed() ?? (_lookedUp || _firstSaid ? (CheckDue() ? CheckNote(_worked, _triesSince) : null) : DoubtNote);
             _firstSaid |= _pending == DoubtNote;
         }
         if (!_asked && _calls - _lookedUpAt >= SearchGap && QuestionIn(text) is not null)
@@ -251,10 +251,12 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         // A call the user declined failed for no lack of knowledge.
         if (result.Text == AgentSession.DeclinedText)
             return pending;
+        // No note after a run that worked: Qwen 3.8's tests had all passed when it was told it was time to look things up
+        // (the user's pick, 2026-11-09). That note waits for a try the model says didn't work (Read).
         if (ErrorLine(result, ErrorsInText(tool)) is not { } line)
         {
             _tried = isTry;
-            return pending ?? (isRun && CheckDue() ? CheckNote(_worked, _triesSince) : null);
+            return pending;
         }
         if (!Answerable(tool, line))
             return pending;
@@ -283,9 +285,9 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     }
 
     /// <summary>
-    /// Whether this run gets <see cref="CheckNote"/>: ten minutes of runs, or <see cref="CheckBurst"/> quick
-    /// ones, with nothing looked up; once for each message of the user's, and <see cref="CheckBurst"/> runs
-    /// after the last time.
+    /// Whether a try the model says didn't work gets <see cref="CheckNote"/>: after ten minutes of runs, or
+    /// <see cref="CheckBurst"/> quick ones, with nothing looked up; once for each message of the user's, and
+    /// <see cref="CheckBurst"/> runs after the last time. Never after a run that worked (the user's pick, 2026-11-09).
     /// </summary>
     private bool CheckDue()
     {

@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Side tasks can run on another model of the server than the chat's.
 
 ### Changed
+- The agent is no longer told it is time to look things up right after a command that worked, only after a try
+  it says didn't give what was wanted.
 - **Stop** appears left of the blob as a task starts, so **Send** and the blob stay where they are instead of moving
   left and back with every task.
 - **Cost estimates**: pick a model's row in the table to see and type its prices, not only the model in use's. On Auto,
