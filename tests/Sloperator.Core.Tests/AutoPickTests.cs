@@ -63,6 +63,7 @@ public class AutoPickTests
     [InlineData("model: complex\neffort: high\nwhy: A refactor across 14 files.\nfound:\n- Settings live in SettingsWindow.axaml.cs\n- 3 tests", AutoTier.Complex, "high")]
     [InlineData("**Model:** daily\n**Effort:** Extra high\n**Why:** Writing code.\n**Found:** nothing", AutoTier.Daily, "xhigh")]
     [InlineData("model: claude-haiku-5-5\neffort: low\nwhy: A question.\nfound: none", AutoTier.Evaluation, "low")]
+    [InlineData("model: evaluation\neffort: low\nwhy: A greeting.\nfound: nothing; I looked at nothing, since the message is self-contained.", AutoTier.Evaluation, "low")]
     public void The_answer_is_read_however_it_is_written(string answer, AutoTier tier, string effort)
     {
         var pick = AutoPick.Read(answer, Set(Anthropic), pickModel: true, pickEffort: true, AutoTier.Daily, "claude-haiku-5-5")!;
@@ -76,6 +77,13 @@ public class AutoPickTests
         }
         else
             Assert.Null(pick.Notes);
+    }
+
+    [Fact]
+    public void A_found_field_that_starts_with_none_of_is_still_a_note()
+    {
+        var pick = AutoPick.Read("model: daily\nwhy: Tests.\nfound: None of the tests cover -Json.", Set(Anthropic), true, false, AutoTier.Daily, "h")!;
+        Assert.Equal("None of the tests cover -Json.", pick.Found);
     }
 
     [Fact]

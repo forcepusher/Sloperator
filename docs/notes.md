@@ -2666,8 +2666,9 @@ stands for `server.model` empty, what "no model picked" always was), with "Picks
 it and no pin; it stays first whatever is pinned (`InsertModel`). Closed, it says the model Auto uses now in
 brackets, "Auto (claude-sonnet-5-5)", as the Side panel's Auto names its panel; before any message that is the
 daily driver (`ServerSettings.AutoTier`, not saved). The effort dropdown's first row is "Auto" too (`Efforts.Auto`,
-"auto" in `server.effort`), "Picked with the model" under it; closed it says "Auto (High)" once a level was picked,
-in a slot as wide as "Auto (Extra high)" (it was a fixed 112, as wide as "Extra high"). On Auto, `EffortInUse` is
+"auto" in `server.effort`), "Picked with the model" under it; closed it says the level in use, "Auto (High)", and
+"Auto (Medium)" before a message picked one, as the model dropdown says the daily driver then (it said plain "Auto"
+beside "Auto (claude-sonnet-5-5)"; "Auto" alone is left for a model that takes no effort), in a slot as wide as "Auto (Extra high)" (it was a fixed 112, as wide as "Extra high"). On Auto, `EffortInUse` is
 the picked level (`ServerSettings.AutoEffort`, not saved), medium before one is, the nearest the model takes as
 always. The effort's default stays medium: a fresh install is on Kilo's free model, where Auto effort would add an
 evaluation to every message with no model to choose. switch_model with no model, which was "Sloperator's own
@@ -2687,7 +2688,12 @@ any side task's. A server's failure or an answer with no pick leaves the model a
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
 session is made for it, and what it found goes with the message (`UserInput.Context`, before the user's words:
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
-found: …"), so the picked model needn't look again. The pick holds until the next message's evaluation. The
+found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
+looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The pick holds until the next
+message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
+daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
+evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
+Stopped (it read "Running…" for good: the run's end, which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,

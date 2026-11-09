@@ -93,9 +93,13 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         return new AutoPick(tier ?? before, effort, fields.GetValueOrDefault("why") ?? "", Nothing(fields.GetValueOrDefault("found")), by);
     }
 
-    /// <summary>"nothing" (or "none", "-") as the found field says it: no notes.</summary>
+    /// <summary>
+    /// "nothing" (or "none", "-") as the found field says it, alone or with why after it: no notes. Haiku 5.5 wrote
+    /// "nothing; I looked at nothing, since the message is self-contained", which went to the agent as what it found.
+    /// "None of the tests cover it" is a note.
+    /// </summary>
     private static string Nothing(string? found) =>
-        found is null || Regex.IsMatch(found.Trim(), @"^(?:nothing|none|n/?a|-+)\.?$", RegexOptions.IgnoreCase) ? "" : found.Trim();
+        found is null || Regex.IsMatch(found.Trim(), @"^(?:nothing|none|n/?a|-+)(?:$|\s*[.;:,(—–-])", RegexOptions.IgnoreCase) ? "" : found.Trim();
 
     /// <summary>The answer's fields by their names; a field's text runs to the next field.</summary>
     private static Dictionary<string, string> Fields(string answer)

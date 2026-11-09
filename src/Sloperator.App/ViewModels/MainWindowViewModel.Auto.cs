@@ -76,10 +76,6 @@ public sealed partial class MainWindowViewModel
         return text => observer.OnToolProgress(card, text);
     }
 
-    /// <summary>
-    /// What Auto's evaluation picked, on its card: the model and effort the run starts with, why, and what it
-    /// found (the picked model gets that with the message); or why it picked nothing, and what the run uses.
-    /// </summary>
     /// <summary>The evaluation's pick on its card while the user is asked whether to move up to it.</summary>
     private void ShowAutoWants(AutoPick pick, string model, string? effort)
     {
@@ -96,6 +92,10 @@ public sealed partial class MainWindowViewModel
         });
     }
 
+    /// <summary>
+    /// What Auto's evaluation picked, on its card: the model and effort the run starts with, why, and what it
+    /// found (the picked model gets that with the message); or why it picked nothing, and what the run uses.
+    /// </summary>
     /// <param name="declined">The dearer model Auto picked and the user stayed off; null when none was.</param>
     private void ShowAutoPick(AutoPick pick, string model, string? effort, string? declined = null)
     {
@@ -105,7 +105,7 @@ public sealed partial class MainWindowViewModel
         var at = (effort is null ? model : $"{model} at {Efforts.Label(effort)}") + (declined is null ? "" : $" (you stayed off {declined})");
         var line = pick.Problem is not null ? $"{at}: the evaluation failed" : pick.Why.Length > 0 ? $"{at} · {pick.Why}" : at;
         var output = pick.Problem is not null ? $"{pick.By} couldn't pick: {pick.Problem}"
-            : pick.Found.Length > 0 ? $"{pick.Found}\n\nLooked by {pick.By}. These notes go to {model} with your message." : "";
+            : pick.Found.Length > 0 ? $"{pick.Found}\n\nFound by {pick.By}. These notes go to {model} with your message." : "";
         IAgentObserver observer = this;
         // The line, then the end: both are posted, in this order, after the start.
         Dispatcher.UIThread.Post(() =>

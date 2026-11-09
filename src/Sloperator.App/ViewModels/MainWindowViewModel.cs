@@ -841,7 +841,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             var stopped = StoppedText();
-            if (!_runDetached) AddStopNotice(stopped, isError: false, delivered ? null : input);
+            if (!_runDetached)
+            {
+                // Stopped before the agent's run (during Auto's evaluation): its card, after the lines already on their way.
+                _autoCard = null;
+                PostTimed(StopRunningCards);
+                AddStopNotice(stopped, isError: false, delivered ? null : input);
+            }
         }
         catch (Exception ex)
         {
@@ -849,6 +855,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // server that doesn't answer), so Continue tries the message again.
             if (!_runDetached)
             {
+                _autoCard = null;
+                PostTimed(StopRunningCards);
                 AddStopNotice(ex.Message, isError: true, delivered ? null : input, ex);
                 NotifyUser(FirstLine($"Stopped by an error: {ex.Message}"));
             }

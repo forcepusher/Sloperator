@@ -324,9 +324,13 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         }
     }
 
-    /// <summary>What the closed effort dropdown says: the level, or on Auto the one it uses now in brackets, "Auto (High)".</summary>
+    /// <summary>
+    /// What the closed effort dropdown says: the level, or on Auto the one it uses now in brackets, "Auto (High)";
+    /// before a message picked one, the level it starts at ("Auto (Medium)"), as the model dropdown says the daily
+    /// driver. Plain "Auto" for a model that takes none.
+    /// </summary>
     public string EffortBoxText => !_settings.Server.EffortOnAuto ? Efforts.Label(_settings.Server.EffortInUse ?? _settings.Server.Effort)
-        : _settings.Server.AutoEffort is not null && _settings.Server.EffortInUse is { } inUse ? $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(inUse)})"
+        : _settings.Server.EffortInUse is { } inUse ? $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(inUse)})"
         : Efforts.Label(Efforts.Auto);
 
     /// <summary>The words the effort dropdown is as wide as, whatever it says: "Auto (Extra high)" the widest.</summary>
