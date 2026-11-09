@@ -1296,6 +1296,12 @@ public class ToolTests
         one.Add(new string('x', 200_000));
         Assert.True(one.ToString().Length < 5_000, $"{one.ToString().Length} characters");
         Assert.Contains("characters of this line left out", one.ToString());
+
+        // A table's padding to the console's width goes; Markdown's two spaces at a line's end stay.
+        var table = new ShellTool.OutputCapture(30_000);
+        table.Add("d-----        12/7/2019   4:31 PM                4K" + new string(' ', 65));
+        table.Add("A line that breaks here  ");
+        Assert.Equal("d-----        12/7/2019   4:31 PM                4K\nA line that breaks here  \n", table.ToString());
     }
 
     [Fact]

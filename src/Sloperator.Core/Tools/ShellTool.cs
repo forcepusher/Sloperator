@@ -157,6 +157,9 @@ public sealed partial class ShellTool : Tool
     internal sealed class OutputCapture(int max)
     {
         private const int MaxLine = 4_000;
+
+        /// <summary>Spaces at a line's end from which they are taken for padding and left out.</summary>
+        private const int PaddingSpaces = 8;
         private readonly int _headMax = max / 4, _tailMax = max - max / 4;
         private readonly StringBuilder _head = new();
         private readonly Queue<string> _tail = new();
@@ -164,6 +167,10 @@ public sealed partial class ShellTool : Tool
 
         public void Add(string line)
         {
+            // PowerShell pads a table's lines to the console's width: Get-ChildItem's rows ended in 60 spaces each. A
+            // few at a line's end (Markdown's line break, a diff's whitespace change) are kept.
+            if (line.Length - line.TrimEnd(' ').Length >= PaddingSpaces)
+                line = line.TrimEnd(' ');
             if (line.Length > MaxLine)
                 line = line[..(MaxLine / 2)] + $" [... {line.Length - MaxLine:N0} characters of this line left out ...] " + line[^(MaxLine / 2)..];
             if (_tail.Count == 0 && _head.Length + line.Length + 1 <= _headMax)

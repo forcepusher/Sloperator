@@ -4860,8 +4860,10 @@ starting a WebView2 of its own, so that one is neither written down nor said (`C
 **Terminal** in the Side panel dropdown (`TerminalViewModel`, `TerminalPanel`; least 600) shows the commands
 the agent runs, live (the user's request through the coordinator, 2026-11-01): run_shell on this PC and ssh
 on a server. Read-only: a command's input is closed (run_shell) or answered by the agent (ssh's input), so
-nothing is typed here. Lines show without the spaces they end with (the model still gets them as printed): PowerShell
+nothing is typed here. Lines show without the spaces they end with: PowerShell
 pads a table's lines to the console's width, and with Wrap on each wrapped to a blank line under it (2026-11-10).
+The model gets them without such padding either (`ShellTool.OutputCapture`: 8 spaces or more at a line's end;
+Get-ChildItem's rows ended in some 60 each), while a few (Markdown's line break, a diff's whitespace) stay.
 
 **Where the lines come from.** The tools had no way to hand their output on as it came; now `ToolContext.Commands`
 (a `CommandLog`, one per chat, made with File changes' list in `UseChanges` and given to the session by
