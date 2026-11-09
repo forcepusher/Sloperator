@@ -2685,7 +2685,8 @@ brackets, "Auto (claude-sonnet-5-5)", as the Side panel's Auto names its panel; 
 daily driver (`ServerSettings.AutoTier`, not saved). The effort dropdown's first row is "Auto" too (`Efforts.Auto`,
 "auto" in `server.effort`), "Picked with the model" under it; closed it says the level in use, "Auto (High)", and
 "Auto (Medium)" before a message picked one, as the model dropdown says the daily driver then (it said plain "Auto"
-beside "Auto (claude-sonnet-5-5)"; "Auto" alone is left for a model that takes no effort), in a slot as wide as "Auto (Extra high)" (it was a fixed 112, as wide as "Extra high"). On Auto, `EffortInUse` is
+beside "Auto (claude-sonnet-5-5)"; "Auto" alone is left for a model that takes no effort), in a slot as wide as "Auto (Extra high)" on Auto and as "Extra high" otherwise (`EffortBoxSlot`; it was a fixed 112, as
+wide as "Extra high", then Auto's widest in every mode, 57 px of the model dropdown beside it at 125%). On Auto, `EffortInUse` is
 the picked level (`ServerSettings.AutoEffort`, not saved), medium before one is, the nearest the model takes as
 always. The effort's default stays medium: a fresh install is on Kilo's free model, where Auto effort would add an
 evaluation to every message with no model to choose. switch_model with no model, which was "Sloperator's own

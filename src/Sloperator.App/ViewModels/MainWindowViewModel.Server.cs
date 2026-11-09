@@ -333,13 +333,21 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         : _settings.Server.EffortInUse is { } inUse ? $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(inUse)})"
         : Efforts.Label(Efforts.Auto);
 
-    /// <summary>The words the effort dropdown is as wide as, whatever it says: "Auto (Extra high)" the widest.</summary>
-    public static IReadOnlyList<string> EffortBoxSlot { get; } =
-        [.. Efforts.Levels.Select(Efforts.Label), .. Efforts.Levels.Select(l => $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(l)})")];
+    /// <summary>
+    /// The words the effort dropdown is as wide as, whatever it says in the mode picked: the levels ("Extra high" the
+    /// widest), or on Auto the levels in brackets ("Auto (Extra high)"), so a level picked from message to message
+    /// doesn't move it. Always as wide as Auto's widest, it took 57 px (at 125%) of the model dropdown beside it in every mode.
+    /// </summary>
+    public IReadOnlyList<string> EffortBoxSlot => _settings.Server.EffortOnAuto ? AutoEffortSlot : LevelSlot;
+
+    private static readonly IReadOnlyList<string> LevelSlot = [.. Efforts.Levels.Select(Efforts.Label)];
+
+    private static readonly IReadOnlyList<string> AutoEffortSlot = [.. Efforts.Levels.Select(l => $"{Efforts.Label(Efforts.Auto)} ({Efforts.Label(l)})")];
 
     private void OnEffortShownChanged()
     {
         OnPropertyChanged(nameof(EffortBoxText));
+        OnPropertyChanged(nameof(EffortBoxSlot));
         OnPropertyChanged(nameof(EffortToolTip));
     }
 

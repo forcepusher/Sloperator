@@ -491,15 +491,15 @@
         <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Model" Margin="0,0,8,0" />
         <DockPanel Grid.Row="1" Grid.Column="1">
           <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), or Auto with the level it
-               uses ("Auto (High)"), in a slot as wide as "Auto (Extra high)" needs; greyed out for a model whose
-               server lists no effort for it. -->
+               uses ("Auto (High)"), in a slot as wide as the widest of its mode needs ("Extra high", or on Auto "Auto
+               (Extra high)"); greyed out for a model whose server lists no effort for it. -->
           <ComboBox x:Name="EffortBox" DockPanel.Dock="Right" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
                     Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
                     AutomationProperties.Name="Effort">
             <ComboBox.SelectionBoxItemTemplate>
               <DataTemplate x:DataType="vm:EffortOption">
                 <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxText}"
-                                Slot="{x:Static vm:MainWindowViewModel.EffortBoxSlot}" VerticalAlignment="Center" />
+                                Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxSlot}" VerticalAlignment="Center" />
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
             <ComboBox.ItemTemplate>
