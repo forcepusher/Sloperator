@@ -1710,9 +1710,11 @@ The chat box's hint (`MainWindowViewModel.InputHint`) keeps to one line at MinWi
 beside Send, which takes 40 of its width in every chat after the first message: "Type a task, paste
 a screenshot or drop files (Shift+Enter: new line)" has 15 px to spare at 100% and 13 at 125% (the
 user, 2026-10-30: "Describe a task, … drop files… (Shift+Enter for a new line)" wrapped "new line)",
-measured without the blob on the start screen); the busy one, with Stop too, about 36.
+measured without the blob on the start screen); the busy one, with Stop too, about 36. Stop comes in left of the blob, the
+buttons laid out from the right end, so Send and the blob never move (the user's pick, 2026-11-09: at the right end, Stop
+pushed both left as a run started and back as it ended).
 
-Left of Send and Stop, 32 px like the buttons and 8 px from Send, `PartyBlob` (Views/PartyBlob.cs)
+Between Stop (while busy) and Send, 32 px like the buttons and 8 px from Send, `PartyBlob` (Views/PartyBlob.cs)
 shows the logo (Assets/sloperator.png) still, and the blobs.gg party blob (Assets/partyblob.gif: 128 px,
 20 frames, 16 KB) dancing while `IsBusy`, the whole run, so it dances until Stop or the reply ends.
 A loop is one beat at 120 BPM, the most common music tempo (the user, 2026-10-28): exactly 0.5 s,
