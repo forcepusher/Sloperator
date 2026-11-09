@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A model named in plain words no longer takes a size for its version: "gpt" on OpenRouter found gpt-oss-120b, read as
+  version 120, rather than the newest GPT.
 - Wait and key cards write their seconds as the rest of the chat does, "Wait 60 s" rather than "Wait 60s".
 - **Send** brings the chat to its end, as Enter does: the message you sent was out of sight when you had scrolled
   up to read.
