@@ -198,7 +198,6 @@ public sealed class VideoEditorTool : Tool
                  string.Join("; ", taken.Select(t => $"{t.From} as \"{t.To}\"")) + ", the name from has for it now. Keep the user's pictures as they are, and make the references from them.\n";
     }
 
-    /// <summary>The storyboard changes a frame or shot call gives with it: a new prompt, seed, length.</summary>
     /// <summary>
     /// Whether a frame or shot call's changes go into the storyboard: to a piece of that kind, or a
     /// new one it says what is in. A frame call with a shot's id added a frame, renamed, that the call
@@ -212,6 +211,7 @@ public sealed class VideoEditorTool : Tool
         return known || !other && GetString(args, "prompt")?.Trim() is { Length: > 0 };
     }
 
+    /// <summary>The storyboard changes a frame or shot call gives with it: a new prompt, seed, length.</summary>
     private static JsonObject? Changes(JsonObject args, string action)
     {
         if (GetString(args, "id")?.Trim() is not { Length: > 0 } id || action is not ("frame" or "shot"))
