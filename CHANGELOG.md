@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Side tasks can run on another model of the server than the chat's.
 
 ### Changed
+- **Stop** appears left of the blob as a task starts, so **Send** and the blob stay where they are instead of moving
+  left and back with every task.
 - **Cost estimates**: pick a model's row in the table to see and type its prices, not only the model in use's. On Auto,
   the replies of the model that picks for each message can now be priced too.
 - The agent knows what Sloperator's side panel shows and where the Image, Audio and Video editors keep their
