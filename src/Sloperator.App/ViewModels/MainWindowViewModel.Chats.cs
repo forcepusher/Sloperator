@@ -141,7 +141,7 @@ public sealed partial class MainWindowViewModel
         }
         LeaveChat(save: true);
         _chatId = chat.Id;
-        _chatTitle = chat.Title;
+        _chatTitle = ChatStore.TitleFrom(chat.Title); // a long path cut, in a chat saved before titles were
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(ChatTitle));
         _history = chat.History;

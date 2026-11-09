@@ -8,7 +8,8 @@ namespace Sloperator.App.ViewModels;
 public sealed partial class PastChat(ChatHeader header, Action<PastChat> open, Action<PastChat> delete) : ObservableObject
 {
     public string Id { get; } = header.Id;
-    public string Title { get; } = header.Title;
+    /// <summary>The chat's title, a long path in it cut as a new chat's is: chats saved before keep theirs whole in the file.</summary>
+    public string Title { get; } = ChatStore.TitleFrom(header.Title);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(When))]
