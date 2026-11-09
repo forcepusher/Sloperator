@@ -146,6 +146,9 @@ public class ModelChoiceTests
     [InlineData("claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-5.5,anthropic/claude-sonnet-4.5")]
     [InlineData("anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4-5", "anthropic/claude-sonnet-4-5-20250929,anthropic/claude-sonnet-4-5")]
     [InlineData("claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4-5-20250929", "anthropic/claude-sonnet-4-5,anthropic/claude-sonnet-4-5-20250929")]
+    // OpenRouter's million-token tag in Anthropic's format (9 November 2026), both ways.
+    [InlineData("anthropic/claude-haiku-5.5[1m]", "anthropic/claude-haiku-5.5", "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5")]
+    [InlineData("anthropic/claude-haiku-5.5", "anthropic/claude-haiku-5.5[1m]", "anthropic/claude-sonnet-5.5[1m],anthropic/claude-haiku-5.5[1m]")]
     public async Task A_picked_model_goes_by_the_name_the_server_lists_it_by(string picked, string listed, string list)
     {
         var probe = await Probe(new() { ["/v1/models"] = Ids(list.Split(',')) }, picked);
@@ -162,6 +165,9 @@ public class ModelChoiceTests
     // A free model isn't the same as the one that costs money.
     [InlineData("nvidia/nemotron-3.5-super-vl:free", "nvidia/nemotron-3.5-super-vl")]
     [InlineData("nvidia/nemotron-3.5-super-vl", "nvidia/nemotron-3.5-super-vl:free")]
+    // Only a tag at the end is left out.
+    [InlineData("anthropic/claude-haiku-5.5[1m]", "anthropic/claude-haiku-5")]
+    [InlineData("anthropic/claude-haiku-5.5[1m]", "anthropic/claude-haiku-5.5:free")]
     public async Task Another_model_with_a_name_like_the_one_picked_only_stands_in_for_it(string picked, string listed)
     {
         var probe = await Probe(new() { ["/v1/models"] = Ids([listed]) }, picked);

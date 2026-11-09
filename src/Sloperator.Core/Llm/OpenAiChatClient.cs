@@ -286,8 +286,9 @@ public sealed partial class OpenAiChatClient
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, _baseUrl + "/models");
         Authorize(req);
-        // Anthropic takes a key as a bearer token, but no list without this; other servers don't mind.
-        req.Headers.Add("anthropic-version", AnthropicMessages.Version);
+        // Asked plainly, without anthropic-version: Anthropic's refusal names that header, and its
+        // list is then asked for with it. Asked with it, OpenRouter answers in Anthropic's format,
+        // without prices or what each model takes, and was then sent requests its /messages refused.
         using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
         var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         // A server having a bad moment says nothing of what it speaks.

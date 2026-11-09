@@ -43,6 +43,8 @@ public sealed partial class OpenAiChatClient
     /// that format wants. Live, 8 November 2026: no key is 401 "x-api-key header is required", a
     /// wrong one 401 "invalid x-api-key", a right one as a bearer token 400 "anthropic-version:
     /// header is required"; proxyapi.ru's <c>/anthropic/v1</c> lists the models for a bearer token.
+    /// OpenRouter answers in this format only when asked with <c>anthropic-version</c>, which the
+    /// question leaves out (see <see cref="ListModelEntriesAsync"/>).
     /// </summary>
     internal static bool IsClaudeAnswer(string body)
     {

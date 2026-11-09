@@ -62,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The model you picked stays picked when you switch to a server that writes its name differently, such as
   `anthropic/claude-sonnet-5-5` on proxyapi.ru and `anthropic/claude-sonnet-5.5` on OpenRouter. Sloperator no
   longer says the server doesn't offer it until you pick it again.
+- On OpenRouter, the model you picked is used again (Claude Haiku 5.5 was swapped for Sonnet 5.5 "[1m]"), and
+  messages no longer fail with "Invalid Anthropic Messages API request".
 - **Stop** always takes a click, even while the agent has the mouse and keyboard: clicks on Sloperator's
   own windows are never locked, your mouse stays free while the agent only presses keys, and it waits
   5 seconds instead of one before it takes the pointer from Sloperator's window.
