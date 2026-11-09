@@ -23,10 +23,11 @@ public static class AgentSetup
     /// <param name="commands">The chat's commands and their output (see <see cref="ToolContext.Commands"/>).</param>
     /// <param name="setPrices">Keeps a model's prices (the app's Cost estimates), for set_api_pricing; null for no such tool.</param>
     /// <param name="plan">The chat's plan so far (see <see cref="ToolContext.Plan"/>).</param>
+    /// <param name="sidePanel">Whether the prompt says what the window's side panel shows (the app's; the command line has none).</param>
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
         object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
-        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null)
+        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null, bool sidePanel = false)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);
@@ -78,7 +79,8 @@ public static class AgentSetup
             includeControl: agent.Controls, includeFindText: agent.EnableTextRecognition);
         mcpSetup.Registry = registry;
         string Prompt() => SystemPrompt.Build(platform.Name, screens, ctx.WorkingDirectory, agent.CustomInstructions, mcp.Connected, webSearch: true, paths.ToolsDir, paths.ScratchDir,
-            folderIndex, control: agent.Controls, modelServer: modelServer is not null, findText: agent.EnableTextRecognition, madeDirectory: MadeDirectory(), text: agent.SystemPrompt);
+            folderIndex, control: agent.Controls, modelServer: modelServer is not null, findText: agent.EnableTextRecognition, madeDirectory: MadeDirectory(), text: agent.SystemPrompt,
+            dataDirectory: sidePanel ? paths.DataDir : null);
         var session = new AgentSession(backend.Client, backend.Options, registry, ctx, Prompt(), history, backend.ContextTokens);
         // A server the agent adds or removes: the prompt then lists the servers as the next
         // message's will, in the same request whose tools change anyway.
@@ -101,7 +103,7 @@ public static class AgentSetup
     /// </summary>
     public static string DefaultPrompt(AgentSettings agent) =>
         SystemPrompt.Text(screen: agent.EnableScreenshots, webSearch: true, toolsDirectory: true, scratchDirectory: true, folderIndex: true,
-            control: agent.Controls, modelServer: true, findText: agent.EnableTextRecognition, madeDirectory: true);
+            control: agent.Controls, modelServer: true, findText: agent.EnableTextRecognition, madeDirectory: true, sidePanel: true);
 
     /// <summary>The longest side screenshots go at: what a Claude model sees where its server speaks Messages, and what the server said it takes, if it refused larger ones.</summary>
     private static int? LongestScreenshot(BackendConnection backend)

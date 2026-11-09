@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Side tasks can run on another model of the server than the chat's.
 
 ### Changed
+- The agent knows what Sloperator's side panel shows and where the Image, Audio and Video editors keep their
+  files, so "show it in the Web preview" or "edit my rain sound" no longer sends it searching.
 - A new chat starts with about 2,600 fewer tokens: the video and ComfyUI tools' long how-tos moved into
   guides the agent reads the first time it uses them in a chat.
 - When a task isn't straightforward, the agent shows its plan and asks whether it suits you before it

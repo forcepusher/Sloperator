@@ -18,13 +18,16 @@ public static class SystemPrompt
     /// <param name="control">Whether the mouse and keyboard tools are in the tool list along with the screen's (the user can turn them off in Settings).</param>
     /// <param name="modelServer">Whether list_models, switch_model and set_effort are in the tool list.</param>
     /// <param name="text">The user's own prompt from Settings, its <see cref="Markers"/> filled in here; null or blank for Sloperator's (<see cref="Text"/>).</param>
+    /// <param name="dataDirectory">Sloperator's SloperatorData, where its editors keep their pictures, sounds and videos, for the line on the side panel; null to leave it out (the command line has no panel).</param>
     public static string Build(string platformName, IReadOnlyList<ScreenSpace>? screens, string workingDirectory, string customInstructions,
         IReadOnlyList<McpServerStatus>? mcpServers = null, bool webSearch = false, string? toolsDirectory = null, string? scratchDirectory = null,
-        bool folderIndex = true, bool control = true, bool modelServer = false, bool findText = true, string? madeDirectory = null, string? text = null)
+        bool folderIndex = true, bool control = true, bool modelServer = false, bool findText = true, string? madeDirectory = null, string? text = null,
+        string? dataDirectory = null)
     {
         var screen = screens is { Count: > 0 } ? screens[0] : null;
         if (string.IsNullOrWhiteSpace(text))
-            text = Text(screen is not null, webSearch, toolsDirectory is not null, scratchDirectory is not null, folderIndex, control, modelServer, findText, madeDirectory is not null);
+            text = Text(screen is not null, webSearch, toolsDirectory is not null, scratchDirectory is not null, folderIndex, control, modelServer, findText, madeDirectory is not null,
+                dataDirectory is not null);
         return Fill(text, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["{os}"] = platformName,
@@ -36,6 +39,7 @@ public static class SystemPrompt
             ["{tools folder}"] = toolsDirectory ?? "",
             ["{scratch folder}"] = scratchDirectory ?? "",
             ["{made folder}"] = madeDirectory ?? "",
+            ["{data folder}"] = dataDirectory ?? "",
             ["{mcp servers}"] = McpServers(mcpServers),
             ["{instructions}"] = string.IsNullOrWhiteSpace(customInstructions) ? "" :
                 Environment.NewLine + "Additional instructions from the user:" + Environment.NewLine + customInstructions.Trim(),
@@ -49,7 +53,7 @@ public static class SystemPrompt
     /// instructions of the user's, a model that can't see).
     /// </summary>
     public static readonly IReadOnlyList<string> Markers =
-        ["{os}", "{date}", "{home folder}", "{screens}", "{tools folder}", "{scratch folder}", "{made folder}", "{mcp servers}", "{instructions}"];
+        ["{os}", "{date}", "{home folder}", "{screens}", "{tools folder}", "{scratch folder}", "{made folder}", "{data folder}", "{mcp servers}", "{instructions}"];
 
     private static readonly Regex MarkerPattern = new(string.Join("|", Markers.Select(Regex.Escape)), RegexOptions.IgnoreCase);
 
@@ -134,9 +138,10 @@ public static class SystemPrompt
     /// <param name="toolsDirectory">Whether the prompt says where portable tools go (<c>{tools folder}</c>).</param>
     /// <param name="scratchDirectory">Whether it says where helper files go (<c>{scratch folder}</c>).</param>
     /// <param name="madeDirectory">Whether it says where what the agent makes goes (<c>{made folder}</c>).</param>
+    /// <param name="sidePanel">Whether it says what Sloperator's side panel shows, and where its editors keep their files (<c>{data folder}</c>).</param>
     /// <remarks>The other parameters are <see cref="Build"/>'s.</remarks>
     public static string Text(bool screen, bool webSearch = false, bool toolsDirectory = false, bool scratchDirectory = false,
-        bool folderIndex = true, bool control = true, bool modelServer = false, bool findText = true, bool madeDirectory = false)
+        bool folderIndex = true, bool control = true, bool modelServer = false, bool findText = true, bool madeDirectory = false, bool sidePanel = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are Sloperator, an AI agent that operates the user's computer to get their tasks done.");
@@ -279,6 +284,13 @@ public static class SystemPrompt
             sb.AppendLine("- What you make for the user (a document, a picture, a program, a game, a new project) goes in a folder of its own in {made folder} " +
                           $"(such as {Path.Combine("{made folder}", "Hello world")}) when they name no place, unless it belongs in a folder or project they are working in. " +
                           "Give its full path in your answer.");
+        // Asked to show a page "in the Web preview panel", Sonnet 5.5 searched Sloperator's code for how, then said it
+        // couldn't (the panel had opened by itself); asked about "my Sloperator sounds", it searched the whole home
+        // folder for them (2026-11-09). The user's pick: one line on the panel and where its editors keep their files.
+        if (sidePanel)
+            sb.AppendLine("- Sloperator's side panel, left of this chat, shows the user your work: File changes, Code editor, Web preview, Terminal, and the Image, " +
+                          $"Audio and Video editors, whose pictures, sounds and videos are folders in {Path.Combine("{data folder}", "pictures")}, \\sounds and \\videos. " +
+                          "On Auto, its default, it opens by itself to what you write, run or make; you can't open or see it.");
         // Asked for "a simple snake game i can play", Nemotron left snake_game.py in the home folder
         // and told the user to run "python snake_game.py": a terminal is where many users get stuck.
         sb.AppendLine("- Something you make for the user to use (a game, an app, a tool) should start the way any program does, with a double click " +

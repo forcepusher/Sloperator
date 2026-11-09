@@ -968,7 +968,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         {
             var session = AgentSetup.Create(backend, _platform, _settings.Agent, _paths, _mcp, _ssh, history,
                 _windows.UserComposing, _windows.DesktopTurn, desktopSeat: this, changes: Changes, modelServer: this, chatDirectory: _chats.PicturesOf(_chatId), commands: Commands,
-                setPrices: KeepPricesFromAgent, plan: Plan);
+                setPrices: KeepPricesFromAgent, plan: Plan, sidePanel: true);
             session.UserTyping = TypingHere;
             return session;
         }
