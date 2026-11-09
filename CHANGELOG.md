@@ -85,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The **Terminal** panel no longer shows a table's rows a blank line apart when Wrap is on.
 - Saving **MCP servers** text that isn't valid JSON shows why in plain words, with the line and character, and scrolls
   the message into sight.
-- **History** names a chat that starts with a long path by the path's last folder or file, so the rows tell apart.
+- **History** and **Cost estimates** name a chat that starts with a long path by the path's last folder or file, so
+  the rows tell apart.
 - After the context is compacted, the chat says how big the context is now, not a size that read as the handoff note's.
 - A request the server turns down says why in plain words, rather than showing the server's raw JSON.
 - Undoing a message no longer lists Auto's look, the plan or a side panel opened among what couldn't be undone.
@@ -98,14 +99,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than empty cells or old totals until Excel opens it.
 - When a program the agent runs isn't installed, it is told so, and to ask you before installing, rather than that
   names change between versions.
-- A chat opened from **History** knows how full its context is from the server's own count, rather than an estimate,
-  so the context is compacted at the right time.
 - The agent is no longer told it is going in circles when it clicks or presses the same thing on purpose and the
   screen moves on each time, such as a counter's button or Down through a list.
 - A click whose effect shows a little way off, such as a counter above the button, is no longer reported to the agent
   as a miss.
 - A chat opened from **History** shows how full its context is in the top bar at once, as it did when you left it,
-  not only once the next task starts.
+  and measures it by the server's own count rather than an estimate, so the context is compacted at the right time.
 - In a narrow chat, a folded card's title wraps before the model Auto picked, not inside its name or before its effort.
 - **Web preview** shows a page that sets no background of its own on white, as a browser does, rather than its
   black text on the panel's dark grey.
