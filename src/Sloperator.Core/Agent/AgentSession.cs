@@ -786,6 +786,7 @@ public sealed partial class AgentSession(
         var was = $"The plan was left at step {before.At + 1} of {before.Steps.Count}; asked the model where it stands";
         observer.OnNotice(toolContext.Plan switch
         {
+            null => $"{was}: it took the plan away.",
             { Finished: true } => $"{was}: all done.",
             { } now when !ReferenceEquals(now, before) => $"{was}: step {now.At + 1}, \"{now.Steps[now.At].Word}\".",
             _ => $"{was}: it left it there.",
