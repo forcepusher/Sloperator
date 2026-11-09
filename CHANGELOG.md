@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- The **Terminal** panel no longer shows a table's rows a blank line apart when Wrap is on.
 - Saving **MCP servers** text that isn't valid JSON shows why in plain words, with the line and character, and scrolls
   the message into sight.
 - **History** names a chat that starts with a long path by the path's last folder or file, so the rows tell apart.
