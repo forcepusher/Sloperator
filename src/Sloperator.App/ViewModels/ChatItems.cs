@@ -672,7 +672,7 @@ public sealed partial class WorkFold : ObservableObject
     /// Auto's pick held together, so a narrow chat wraps the title before it: it broke between "at" and the
     /// effort, and with only the spaces held, inside the model's name ("anthropic/claude-" over "haiku-5.5 at Low").
     /// </summary>
-    internal static string Unbroken(string pick) => pick.Replace(" ", " ").Replace("-", "-⁠").Replace("/", "/⁠");
+    public static string Unbroken(string pick) => pick.Replace(' ', (char)0xA0).Replace("-", "-" + (char)0x2060).Replace("/", "/" + (char)0x2060);
 
     /// <summary>The tools the run called, each once, in the order it first called them.</summary>
     public IReadOnlyList<string> Tools { get; }
