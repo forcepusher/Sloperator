@@ -206,6 +206,13 @@ public class CodeEditorFilesTests : IDisposable
         Assert.Equal(Path.Combine(_root, "game"), changes.Project());
         // Watch goes to the file of the last call, numbered so a new call tells from one followed already.
         Assert.Equal((Path.GetFullPath(other), 2), changes.LastChange);
+
+        // A folder the repository's .gitignore leaves out isn't the repository's work: the file's own folder.
+        Make("game/.gitignore", "scratch/\n");
+        var kept = Make("game/scratch/todo/todo.ps1", "'x'\n");
+        var scratch = new FileChanges();
+        await Written(scratch, (kept, "'y'\n"));
+        Assert.Equal(Path.GetDirectoryName(Path.GetFullPath(kept)), scratch.Project());
     }
 
     [Fact]
