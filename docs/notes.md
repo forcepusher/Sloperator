@@ -655,7 +655,9 @@ audio editor panel, since we already have video and image editor panels"; of thr
 with hand edits, and several sound lines mixed to one file, they picked the second on 2026-11-08). Its sounds are
 folders in SloperatorData\sounds (`AppPaths.SoundsDir`), and a sound's **versions** are the sound files in its folder,
 oldest first by when they were written (`SoundFolder`, as `PictureFolder`: both read their folders through
-`MediaFolders`, and both lists follow them through `MediaFolderItem.Sync`): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
+`MediaFolders`, and both panels are a `MediaEditorViewModel`, which keeps the list, the versions strip, New, Make
+again, picking and dropped files once; a version's look, what of it is picked and what the model is told are each
+panel's own): WAV, MP3, FLAC, OGG, Opus, M4A, AAC, the
 File inspector's sounds. The agent makes a version with the comfyui tool's `save_to` the sound's folder; an edit
 writes one there. A `FileSystemWatcher` reads the folder again 250 ms after writing rests.
 
@@ -1710,9 +1712,11 @@ The chat box's hint (`MainWindowViewModel.InputHint`) keeps to one line at MinWi
 beside Send, which takes 40 of its width in every chat after the first message: "Type a task, paste
 a screenshot or drop files (Shift+Enter: new line)" has 15 px to spare at 100% and 13 at 125% (the
 user, 2026-10-30: "Describe a task, … drop files… (Shift+Enter for a new line)" wrapped "new line)",
-measured without the blob on the start screen); the busy one, with Stop too, about 36.
+measured without the blob on the start screen); the busy one, with Stop too, about 36. Stop comes in left of the blob, the
+buttons laid out from the right end, so Send and the blob never move (the user's pick, 2026-11-09: at the right end, Stop
+pushed both left as a run started and back as it ended).
 
-Left of Send and Stop, 32 px like the buttons and 8 px from Send, `PartyBlob` (Views/PartyBlob.cs)
+Between Stop (while busy) and Send, 32 px like the buttons and 8 px from Send, `PartyBlob` (Views/PartyBlob.cs)
 shows the logo (Assets/sloperator.png) still, and the blobs.gg party blob (Assets/partyblob.gif: 128 px,
 20 frames, 16 KB) dancing while `IsBusy`, the whole run, so it dances until Stop or the reply ends.
 A loop is one beat at 120 BPM, the most common music tempo (the user, 2026-10-28): exactly 0.5 s,
@@ -2693,8 +2697,10 @@ evaluation to every message with no model to choose. switch_model with no model,
 pick", is Auto.
 
 **The evaluation** (`AgentSession.EvaluateAsync`, `AutoPick`): when a message starts a run (not a Compact, not a
-message sent during a run) and Auto has something to pick (`AutoToPick`: the model on Auto with two of the three
-differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
+message sent during a run, not a short reply in a chat under way: five words or fewer with no file, pick or panel
+context, "yes, go on", `AutoPick.IsShortReply`, which goes on with the model and effort in use, the user's pick of
+2026-11-09, as each took 2 to 7 s and a request) and Auto has something to pick (`AutoToPick`: the model on Auto with
+two of the three differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
 run's session: a side task on the evaluation model at low effort (the nearest it takes), with `read_file`,
 `list_directory`, `index_folder`, `web_search` and `fetch_page` only, 12 replies at most. It is told the three models
 (evaluation for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which
@@ -2711,7 +2717,8 @@ looked at nothing, since the message is self-contained", Haiku 5.5) goes as no n
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
 evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
-Stopped (it read "Running…" for good: the run's end, which stops the cards, never came). The
+Stopped and "claude-haiku-5-5 was picking the model for this message" (it read "Running…" for good: the run's end,
+which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
@@ -2905,7 +2912,9 @@ The Cost estimates side panel (`CostEstimatesViewModel`, the user 2026-11-02, in
 fields first put in Settings > Advanced) shows the same total big, a row per model (replies, tokens,
 cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
 served (and, with typed input and cached prices, what that saved), the price fields of the model in
-use (saved as typed), and every saved chat's total with the five dearest, in the currency of the newest
+use (saved as typed) or of the row picked in the table (a list: picked, the row's model's prices show, under "Prices of a
+model this chat used", until another model is picked at the top; on Auto the evaluation model's replies could be
+priced only by picking it by hand, the user's pick of 2026-11-09), and every saved chat's total with the five dearest, in the currency of the newest
 chat with a cost. That last part
 reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History
 list reads titles: no chat is loaded whole. Chats saved before the spending was kept, or with it
@@ -3009,7 +3018,7 @@ cache, not when: that a pause of over 5 minutes wrote the whole context again co
 times of the steps (one such pause at 300k on Sonnet 5.5, $0.75). They are for reading afterwards, shown nowhere, and
 go no further than the file; the file's cap on lines still holds them, while `spent` counts every reply.
 
-Prices are typed per million tokens for the model in use on the server in use (`cost.prices` in
+Prices are typed per million tokens for a model on its server, the one in use or a row picked (`cost.prices` in
 settings.json, a model and address each), in any currency; empty cache prices are the input price.
 The server's cost wins over typed prices (the user, 2026-11-02): they count only for a model whose
 server says none. A chat with models in two currencies, or one with no price and no cost, shows no
@@ -5052,6 +5061,12 @@ inputs of the modifier), qwen3.8 failed 11 and 6 scripts in two runs before the 
 (see Unstable connections), and searched only after the 7th and the 4th failure; with them it failed
 4 and 3, searched after the second, and finished in 6.4 minutes on average instead of 7.7.
 
+A search's results end with one line, when they have snippets (`WebSearchTool.SnippetsMayBeOld`): the snippets come
+from the search engine's index and can be out of date, so open the page before stating a version, a date or a price
+(the user's pick, 2026-11-09, about 30 tokens a search). Asked for 7-Zip's newest version in the desktop check,
+Haiku 5.5 wrote 26.05 from the snippets of 7-zip.org and two trackers where the page said 26.06; with the line it
+read 7-zip.org and wrote 26.06.
+
 Errors weren't enough. Asked to make a character follow a video's motion with LTX, a run tried
 workflows for two hours: nothing failed, the videos just didn't move as asked, and the job was done
 right after the user said to look for guidance and it read LTX's motion control guide. So Sloperator
@@ -5095,8 +5110,11 @@ presses for it at more points than errors:
 - After ten minutes of runs with nothing looked up (three at least, and only time in a run: not
   while the user is away between messages), or four runs however quick (probing how Blender 5.2 sets
   a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of
-  time), the run's result says it is time to look things up, once for each message of the user's
-  and at least four runs after the last time. A run is a command, a script, an MCP call that changes
+  time), the next try the model calls wrong (a reply saying it "still doesn't" work, with a DoubtNote said before)
+  gets "time to look things up", once for each message of the user's and at least four runs after the last time.
+  Until 9 November 2026 a run that worked got it too: Qwen 3.8's tests had all passed when it was told to look
+  things up; the user picked dropping that, knowing Blender-style loops whose scripts run fine but make the wrong
+  scene lose the note unless the model says so. A run is a command, a script, an MCP call that changes
   something, a ComfyUI job or a piece of a video; a file written or edited is no run for this (it
   still counts as a try for the rest), and neither is a command that only reads, which is no try at
   all (`ReadOnlyCommand`: a list of what reads, so a program it doesn't know stays a run; `TerminalWork` is

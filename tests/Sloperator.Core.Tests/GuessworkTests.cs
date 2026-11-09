@@ -459,77 +459,49 @@ public class GuessworkTests
     }
 
     [Fact]
-    public void Ten_minutes_of_runs_with_nothing_looked_up_makes_the_next_run_say_to_look()
+    public void Runs_that_worked_never_say_it_is_time_to_look()
     {
+        // Qwen 3.8's tests had all passed when it was told it was time to look things up (the user's pick, 2026-11-09).
         var now = new DateTime(2026, 10, 21, 3, 0, 0, DateTimeKind.Utc);
         var guesswork = new Guesswork(() => now);
         guesswork.StartRun("Make the bunny dance like in dance.mp4");
         var ran = new ToolResult("Exit code 0\nqueued");
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < 3 * Guesswork.CheckBurst; i++)
         {
             now += TimeSpan.FromMinutes(4);
             Assert.Null(guesswork.Check(Shell, ran));
         }
-        now += TimeSpan.FromMinutes(3);
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromMinutes(11), 3), guesswork.Check(Shell, ran));
-        Assert.Null(guesswork.Check(new ReadFileTool(), new ToolResult("text"))); // only runs say it
-        now += TimeSpan.FromMinutes(1);
-        Assert.Null(guesswork.Check(Write, Wrote)); // nor do edits
-        // Said once for a message of the user's, however many runs follow.
+        guesswork.Heard("Go on");
         for (var i = 0; i < Guesswork.CheckBurst; i++)
             Assert.Null(guesswork.Check(Shell, ran));
-        guesswork.Heard("Go on");
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromMinutes(12), 8), guesswork.Check(Shell, ran));
-
-        // A look-up starts the clock again, and so does reading the installed version's own API.
-        Assert.Null(guesswork.Check(new FetchPageTool(), new ToolResult("# Motion control")));
-        guesswork.Heard("And with music?");
-        now += TimeSpan.FromMinutes(5);
-        Assert.Null(guesswork.Check(Shell, ran));
-        now += TimeSpan.FromMinutes(4);
-        Assert.Null(guesswork.Check(Shell, ran));
-        Assert.Null(guesswork.Check(Shell, new ToolResult("Exit code 0\n(self, duration: float, initial_color: list = None)"),
-            """{"command":"python -c \"import inspect; from moviepy.video.fx import FadeIn; print(inspect.signature(FadeIn.__init__))\""}"""));
-        now += TimeSpan.FromMinutes(2);
-        Assert.Null(guesswork.Check(Shell, ran));
-
-        // Time between runs, while the user is away, isn't time spent trying.
-        now += TimeSpan.FromHours(3);
-        guesswork.StartRun("Now make it longer");
-        now += TimeSpan.FromMinutes(1);
-        Assert.Null(guesswork.Check(Shell, ran));
-        Assert.Null(guesswork.Check(Shell, ran));
     }
 
     [Fact]
-    public void Four_quick_runs_with_nothing_looked_up_make_it_time_to_look_too()
+    public void A_try_the_model_calls_wrong_after_runs_with_nothing_looked_up_says_it_is_time_to_look()
     {
         var now = new DateTime(2026, 10, 21, 8, 34, 0, DateTimeKind.Utc);
         var guesswork = new Guesswork(() => now);
         guesswork.StartRun("Make scatter.blend with Blender 5.2");
         var probed = new ToolResult("Exit code 0\nprobing");
-        for (var i = 1; i < Guesswork.CheckBurst; i++)
+        for (var i = 0; i < Guesswork.CheckBurst; i++)
         {
             now += TimeSpan.FromSeconds(20);
             Assert.Null(guesswork.Check(Shell, probed));
             // Edits between the runs are the work, not tries to count.
             Assert.Null(guesswork.Check(new EditFileTool(), new ToolResult("Edited scatter.py")));
         }
-        now += TimeSpan.FromSeconds(20);
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromSeconds(80), 4), guesswork.Check(Shell, probed));
+        // The first try it calls wrong, before anything was looked up, says so; the next, with runs enough since, that it is time to look.
+        guesswork.Read(Reply("The cubes are still missing."), [Shell]);
+        Assert.Equal(Guesswork.DoubtNote, guesswork.Check(Shell, probed));
+        guesswork.Read(Reply("The scatter still doesn't work."), [Shell]);
+        Assert.StartsWith("[Sloperator] Time to look things up: 5 tries", guesswork.Check(Shell, probed));
         Assert.StartsWith("[Sloperator] Time to look things up: 4 tries and 1 minute since", Guesswork.CheckNote(TimeSpan.FromSeconds(80), 4));
-        // Not again for this message, however many runs follow: the model has heard it.
-        for (var i = 0; i < 2 * Guesswork.CheckBurst; i++)
-            Assert.Null(guesswork.Check(Shell, probed));
-        // The user's next message opens it again, at least four runs on, and not at its first run if it is sooner.
-        guesswork.Heard("Keep going");
-        Assert.Equal(Guesswork.CheckNote(TimeSpan.FromSeconds(80), 13), guesswork.Check(Shell, probed));
+        // A look-up starts the count again.
+        Assert.Null(guesswork.Check(new WebSearchTool(), new ToolResult("1. Geometry nodes")));
         guesswork.Heard("And now the camera");
         Assert.Null(guesswork.Check(Shell, probed));
-        Assert.Null(guesswork.Check(new WebSearchTool(), new ToolResult("1. Geometry nodes")));
-        for (var i = 1; i < Guesswork.CheckBurst; i++)
-            Assert.Null(guesswork.Check(Shell, probed));
-        Assert.NotNull(guesswork.Check(Shell, probed));
+        guesswork.Read(Reply("The camera still doesn't move."), [Shell]);
+        Assert.Null(guesswork.Check(Shell, probed));
     }
 
     [Fact]

@@ -36,6 +36,15 @@ public sealed class WebSearchTool : Tool
         return new ToolResult(Format(hits));
     }
 
+    /// <summary>
+    /// What the search engine's index says can be weeks old: asked for 7-Zip's newest version, Haiku 5.5 took 26.05 from
+    /// the snippets of 7-zip.org and two trackers, where the page itself said 26.06 (2026-11-09). The results end with a
+    /// line saying so, when there are snippets to take (the user's pick, about 30 tokens a search).
+    /// </summary>
+    internal const string SnippetsMayBeOld =
+        "Snippets come from the search engine's index and can be out of date: open the page with fetch_page before you state a version, " +
+        "a date, a price or another fact that changes.";
+
     internal static string Format(IReadOnlyList<SearchHit> hits)
     {
         var sb = new StringBuilder();
@@ -47,6 +56,8 @@ public sealed class WebSearchTool : Tool
             if (h.Snippet.Length > 0)
                 sb.Append("   ").AppendLine(h.Snippet.Clip(300));
         }
+        if (hits.Any(h => h.Snippet.Length > 0))
+            sb.AppendLine().Append(SnippetsMayBeOld);
         return sb.ToString().TrimEnd();
     }
 }

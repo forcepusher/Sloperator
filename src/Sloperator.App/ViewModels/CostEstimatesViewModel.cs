@@ -11,7 +11,13 @@ using Sloperator.Core.Tools;
 namespace Sloperator.App.ViewModels;
 
 /// <summary>A model the chat used, as the Cost estimates panel lists it: its tokens and what they cost.</summary>
-public sealed record ModelCostRow(string Model, string Server, string Replies, string Input, string CacheRead, string CacheWrite, string Output, string Cost, string Source);
+/// <param name="BaseUrl">The server's address, for picking the row's prices.</param>
+public sealed record ModelCostRow(string Model, string Server, string Replies, string Input, string CacheRead, string CacheWrite, string Output, string Cost, string Source,
+    string BaseUrl = "")
+{
+    /// <summary>The model: what its row is called, to a screen reader too.</summary>
+    public override string ToString() => Model;
+}
 
 /// <summary>A saved chat in the panel's most expensive list.</summary>
 public sealed record ChatCostRow(string Title, string When, string Cost);
@@ -75,6 +81,8 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
     private void OnChatChanged(object? sender, PropertyChangedEventArgs e)
     {
         // Another model or server picked at the top: its prices in the fields.
+        if (e.PropertyName == nameof(MainWindowViewModel.SelectedModel))
+            _picked = null;
         if (e.PropertyName is nameof(MainWindowViewModel.SelectedModel) or nameof(MainWindowViewModel.ServerStatusText))
             ShowPrices();
         if (e.PropertyName == nameof(MainWindowViewModel.IsBusy) && _chat is { IsBusy: false })
@@ -99,7 +107,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
                 cost is { } each ? Spending.Format(each.Amount, each.Currency, each.Estimate, each.CacheMissing) : "–",
                 count.Costed > 0 ? count.Costed < count.Replies ? "Reported by the server for some replies" : "Reported by the server"
                 : cost is { CacheMissing: true } ? "From your prices, cache prices missing"
-                : cost is not null ? "From your prices" : "No reported cost or prices"));
+                : cost is not null ? "From your prices" : "No reported cost or prices", count.BaseUrl));
         }
         HasModels = Models.Count > 0;
 
@@ -107,7 +115,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         Total = total?.Shown ?? (HasModels ? "Not known" : Spending.Format(0, "$", false));
         var priced = models.Where(m => Spending.CostOf(m, settings) is not null).ToList();
         TotalNote = !HasModels ? "Nothing sent yet in this chat."
-            : total is null ? "A model here has no reported cost and no prices: type its prices below while it is the model in use."
+            : total is null ? "A model here has no reported cost and no prices: pick its row and type its prices below."
             : ((priced.All(m => m.Costed > 0 && m.Costed == m.Replies) ? "As the server reported it, reply by reply."
                 : priced.Any(m => m.Costed > 0) ? "Partly as the server reported it, partly estimated from your prices (~)."
                 : "Estimated from your prices (~).") + " " + total.Note).TrimEnd();
@@ -130,7 +138,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
         return $", saving {Spending.Format(amount, saved[0].Key, estimate: true)}";
     }
 
-    // ---- prices of the model in use ---------------------------------------------------------
+    // ---- prices of the model in use, or of a row picked ---------------------------------------
 
     private ModelPrices _prices = new();
 
@@ -138,11 +146,50 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
     [ObservableProperty]
     private string _pricesFor = "";
 
+    /// <summary>"Prices of the model in use", or of another the chat used, picked in the table.</summary>
+    [ObservableProperty]
+    private string _pricesTitle = InUseTitle;
+
+    private const string InUseTitle = "Prices of the model in use";
+
     public bool HasPricedModel => _prices.Model.Length > 0;
+
+    /// <summary>
+    /// The row picked in the table, whose model's prices the fields show; null for the model in use until another
+    /// model is picked at the top. On Auto, the evaluation model's replies could be priced only by picking it by hand
+    /// (the user's pick, 2026-11-09).
+    /// </summary>
+    private (string BaseUrl, string Model)? _picked;
+
+    private ModelCostRow? _pricedRow;
+
+    /// <summary>The table's row whose prices the fields show: the one picked, else the model in use's, if it has one.</summary>
+    public ModelCostRow? PricedRow
+    {
+        get => _pricedRow;
+        set
+        {
+            if (value is null || ReferenceEquals(value, _pricedRow))
+                return;
+            _picked = (value.BaseUrl, value.Model);
+            ShowPrices();
+        }
+    }
+
+    private static bool IsRowOf(ModelCostRow row, string url, string model) =>
+        row.Model == model && OpenAiChatClient.NormalizeBaseUrl(row.BaseUrl) == OpenAiChatClient.NormalizeBaseUrl(url);
 
     private void ShowPrices()
     {
-        var (url, model) = _priced();
+        var inUse = _priced();
+        // A row picked that this chat no longer has (another chat): back to the model in use.
+        if (_picked is var (pickedUrl, pickedModel) && !Models.Any(m => IsRowOf(m, pickedUrl, pickedModel)))
+            _picked = null;
+        var (url, model) = _picked ?? inUse;
+        _pricedRow = Models.FirstOrDefault(m => IsRowOf(m, url, model));
+        OnPropertyChanged(nameof(PricedRow));
+        PricesTitle = _picked is null || (_picked.Value.Model == inUse.Model && OpenAiChatClient.NormalizeBaseUrl(_picked.Value.BaseUrl) == OpenAiChatClient.NormalizeBaseUrl(inUse.BaseUrl))
+            ? InUseTitle : "Prices of a model this chat used";
         // The fields are being typed in: left alone, unless set_api_pricing kept others meanwhile.
         if (_prices.Model == model && OpenAiChatClient.NormalizeBaseUrl(_prices.BaseUrl) == OpenAiChatClient.NormalizeBaseUrl(url) && Same(_settings().For(url, model), _prices))
             return;

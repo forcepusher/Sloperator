@@ -55,10 +55,10 @@ public sealed class ImageEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new ImageEditorViewModel(null, Root, Picks);
-            Assert.False(vm.HasPictures);
+            Assert.False(vm.HasItems);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
-            vm.NewPictureCommand.Execute(null);
-            var picture = Assert.Single(vm.Pictures);
+            vm.NewCommand.Execute(null);
+            var picture = Assert.Single(vm.Items);
             Assert.Same(picture, vm.Selected);
             Assert.Equal("Untitled picture · not made yet", vm.Title);
             var (via, context) = vm.About([picture.Folder])!.Value;
@@ -79,7 +79,7 @@ public sealed class ImageEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new ImageEditorViewModel(null, Root, Picks);
-            var picture = Assert.Single(vm.Pictures);
+            var picture = Assert.Single(vm.Items);
             Assert.Equal("2 versions", picture.Count);
             vm.Pick(picture);
             Assert.Equal(2, vm.Versions.Count);
@@ -118,7 +118,7 @@ public sealed class ImageEditorTests : IDisposable
         HeadlessApp.Run(() =>
         {
             using var vm = new ImageEditorViewModel(null, Root, Picks);
-            vm.Pick(vm.Pictures[0]);
+            vm.Pick(vm.Items[0]);
             Wait(() => vm.HasPicture);
             vm.PickArea(new DocumentArea(0.5, 0, 1, 0.5));
             Wait(() => vm.About(Directory.Exists(Picks) ? Directory.GetFiles(Picks) : []) is not null);

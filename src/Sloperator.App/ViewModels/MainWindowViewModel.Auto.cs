@@ -64,6 +64,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>The name on the evaluation's card.</summary>
     internal const string AutoCardName = "Auto";
 
+    /// <summary>The card's line while the evaluation goes on, after the evaluation model's name.</summary>
+    private const string Picking = " picks the model for this message…";
+
     /// <summary>
     /// Shows that Auto's evaluation by <paramref name="by"/> has started: a card in the chat, its calls lines
     /// of progress on it. Returns where those lines go.
@@ -72,8 +75,21 @@ public sealed partial class MainWindowViewModel
     {
         var card = _autoCard = new ToolCall { Id = "auto-" + Guid.NewGuid().ToString("N")[..8], Name = AutoCardName, Arguments = "{}" };
         IAgentObserver observer = this;
-        observer.OnToolStarted(card, $"{by} picks the model for this message…");
+        observer.OnToolStarted(card, by + Picking);
         return text => observer.OnToolProgress(card, text);
+    }
+
+    /// <summary>The run stopped during the evaluation: its card says it was picking, where "picks the model for this message…" read as still going.</summary>
+    private void EndAutoPicking()
+    {
+        if (_autoCard is not { } card)
+            return;
+        _autoCard = null;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == card.Id) is { } item && item.Summary.EndsWith(Picking, StringComparison.Ordinal))
+                item.Summary = item.Summary[..^Picking.Length] + " was picking the model for this message";
+        });
     }
 
     /// <summary>The evaluation's pick on its card while the user is asked whether to move up to it.</summary>

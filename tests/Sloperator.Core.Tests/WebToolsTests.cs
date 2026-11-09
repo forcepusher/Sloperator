@@ -58,6 +58,17 @@ public class WebToolsTests
     }
 
     [Fact]
+    public void Results_with_snippets_say_they_can_be_out_of_date()
+    {
+        // Haiku 5.5 took 7-Zip's version from the snippets, a release behind what 7-zip.org said.
+        var withSnippets = WebSearchTool.Format([new SearchHit("7-Zip", "https://www.7-zip.org/", "Download 7-Zip 26.05 (2026-10-21) for Windows x64")]);
+        Assert.EndsWith(WebSearchTool.SnippetsMayBeOld, withSnippets);
+        Assert.Contains("26.05", withSnippets);
+        // No snippet, nothing to take from it.
+        Assert.DoesNotContain("out of date", WebSearchTool.Format([new SearchHit("7-Zip", "https://www.7-zip.org/", "")]));
+    }
+
+    [Fact]
     public void Bing_tracking_links_lead_to_the_page()
     {
         // u=a1 + base64url of the address.

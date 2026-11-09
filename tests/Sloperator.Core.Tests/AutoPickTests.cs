@@ -80,6 +80,18 @@ public class AutoPickTests
     }
 
     [Fact]
+    public void A_short_reply_in_a_chat_under_way_goes_on_without_a_look()
+    {
+        Assert.True(AutoPick.IsShortReply(new UserInput("yes, go on"), chatUnderWay: true));
+        Assert.True(AutoPick.IsShortReply(new UserInput("Thanks! That works now."), chatUnderWay: true));
+        // A first message, however short; a longer one; one with a file or a panel's pick: looked at.
+        Assert.False(AutoPick.IsShortReply(new UserInput("Fix the login bug"), chatUnderWay: false));
+        Assert.False(AutoPick.IsShortReply(new UserInput("Now move the settings code into a view model"), chatUnderWay: true));
+        Assert.False(AutoPick.IsShortReply(new UserInput("look at this", [@"C:\shot.png"]), chatUnderWay: true));
+        Assert.False(AutoPick.IsShortReply(new UserInput("redo this bit") { Context = "Audio editor · rain" }, chatUnderWay: true));
+    }
+
+    [Fact]
     public void A_found_field_that_starts_with_none_of_is_still_a_note()
     {
         var pick = AutoPick.Read("model: daily\nwhy: Tests.\nfound: None of the tests cover -Json.", Set(Anthropic), true, false, AutoTier.Daily, "h")!;

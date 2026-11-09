@@ -774,8 +774,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
             var runInput = input;
-            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it.
-            if (input is not null && AutoToPick(probe) is var (set, pickModel, pickEffort))
+            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it;
+            // a short reply in the chat goes on with the model in use.
+            if (input is not null && !AutoPick.IsShortReply(input, history.Count > 0) && AutoToPick(probe) is var (set, pickModel, pickEffort))
             {
                 var tier = server.AutoTier;
                 var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort);
@@ -844,7 +845,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             if (!_runDetached)
             {
                 // Stopped before the agent's run (during Auto's evaluation): its card, after the lines already on their way.
-                _autoCard = null;
+                EndAutoPicking();
                 PostTimed(StopRunningCards);
                 AddStopNotice(stopped, isError: false, delivered ? null : input);
             }
@@ -855,7 +856,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // server that doesn't answer), so Continue tries the message again.
             if (!_runDetached)
             {
-                _autoCard = null;
+                EndAutoPicking();
                 PostTimed(StopRunningCards);
                 AddStopNotice(ex.Message, isError: true, delivered ? null : input, ex);
                 NotifyUser(FirstLine($"Stopped by an error: {ex.Message}"));
