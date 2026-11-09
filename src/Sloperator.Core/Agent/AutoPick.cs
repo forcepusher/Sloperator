@@ -78,8 +78,8 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
             // Haiku 5.5 told the agent a parameter's default it had misread, which the agent then corrected to the user
             // (2026-11-10): the agent goes by these notes. It then wrote "I did not open any files, so I can't confirm the
             // page's markup" under what the chat had said, which told the agent nothing.
-            .Append("found: what you read or saw that the agent should know (which files, where things are, what to watch out for), " +
-                    "as it stands there, a few short lines; not what you didn't open or can't tell, nor what the chat already says; " +
+            .Append("found: facts the agent should know about what you read or saw (which files, where things are, what to watch out for), " +
+                    "as they stand there, in a few short lines; nothing about yourself, such as what you did or didn't open, and nothing the chat already says; " +
                     "nothing if you looked at nothing");
         return text.ToString();
     }

@@ -2742,10 +2742,11 @@ session is made for it, and what it found goes with the message (`UserInput.Cont
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
 found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
 looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The request asks for what was read
-"as it stands there", "no guesses about what you didn't open": Haiku told the agent a parameter's default it had misread,
-and the agent corrected it to the user (2026-11-10). It then wrote "I did not open any files, so I can't confirm the
-page's markup" under what the chat had said, so the request also says "not what you didn't open or can't tell, nor
-what the chat already says". The pick holds until the next
+"as they stand there": Haiku told the agent a parameter's default it had misread, and the agent corrected it to the
+user (2026-11-10). Then, told "no guesses about what you didn't open", and again told "not what you didn't open",
+it wrote "I did not open any files, so I can't confirm the page's markup" under what the chat had said. Asked for
+"facts ... nothing about yourself, such as what you did or didn't open, and nothing the chat already says", its notes
+were facts alone 3 times in 3 (a new page, a script's option, a question about a README). The pick holds until the next
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
 evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
