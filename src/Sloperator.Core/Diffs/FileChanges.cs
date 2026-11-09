@@ -30,8 +30,11 @@ public sealed class FileChanges
         public static readonly Content Absent = new(false, null);
     }
 
-    /// <summary>What a file held before its first change in a turn; the first is what it held before the agent changed it at all.</summary>
-    private sealed record Version(int Turn, Content Content);
+    /// <summary>
+    /// What a file held before its first change in a turn; the first is what it held before the agent changed it at all.
+    /// <paramref name="At"/> is when it was read (null in a list kept before it was kept).
+    /// </summary>
+    private sealed record Version(int Turn, Content Content, DateTime? At = null);
 
     private readonly Lock _gate = new();
     private readonly Dictionary<string, List<Version>> _versions = new(StringComparer.OrdinalIgnoreCase);
@@ -148,7 +151,8 @@ public sealed class FileChanges
 
         // A list kept before there were turns has the first version alone, as turn 0.
         static Version Read(JsonObject v) => new(v["turn"]?.GetValue<int>() ?? 0, new Content(v["exists"]?.GetValue<bool>() ?? false, v["text"]?.GetValue<string>(),
-            v["bytes"]?.GetValue<string>() is { } bytes ? Convert.FromBase64String(bytes) : null));
+            v["bytes"]?.GetValue<string>() is { } bytes ? Convert.FromBase64String(bytes) : null),
+            v["at"] is JsonValue at && at.TryGetValue<DateTime>(out var when) ? when : null);
     }
 
     private void Save()
@@ -186,6 +190,7 @@ public sealed class FileChanges
             ["text"] = v.Content.Text,
             ["bytes"] = v.Content.Bytes is { } bytes ? Convert.ToBase64String(bytes) : null,
             ["turn"] = v.Turn,
+            ["at"] = v.At,
         };
     }
 
@@ -285,11 +290,11 @@ public sealed class FileChanges
         {
             if (!_versions.TryGetValue(path, out var versions))
             {
-                _versions[path] = [new Version(turn, now)];
+                _versions[path] = [new Version(turn, now, DateTime.UtcNow)];
                 _order.Add(path);
             }
             else if (versions[^1].Turn != turn)
-                versions.Add(new Version(turn, now));
+                versions.Add(new Version(turn, now, DateTime.UtcNow));
         }
     }
 
@@ -457,9 +462,18 @@ public sealed class FileChanges
                 continue;
             }
             Content? before;
+            DateTime? at;
             lock (_gate)
-                before = _versions.TryGetValue(path, out var versions) ? versions[0].Content : null;
+                (before, at) = _versions.TryGetValue(path, out var versions) ? (versions[0].Content, versions[0].At) : (null, null);
             var (index, head, now) = (FromGit(read.Index, path), FromGit(read.Head, path), Read(path));
+            // The last commit differs from the file before the agent's change, but no commit has changed the file since the
+            // agent began (or ever, a file git doesn't track): the difference was there already, changes not committed then.
+            // Shown as committed, they read backwards (2026-11-10: a script's option the chat before had added, uncommitted,
+            // under "Committed" as taken out). A list kept before the time was kept goes by whether any commit changed it.
+            if (before is not null && (head.Exists != before.Exists || head.Text != before.Text) &&
+                await GitChanges.LastCommitAsync(read.Root, read.Path, ct).ConfigureAwait(false) is var committed &&
+                (committed is null || at is { } began && committed < new DateTimeOffset(began.ToUniversalTime()).AddSeconds(-1)))
+                before = null;
             var disk = GitChanges.OnDisk(path);
             var utf8 = (Index: read.Index is null || GitChanges.Lines(read.Index) is not null, Head: read.Head is null || GitChanges.Lines(read.Head) is not null,
                 Disk: disk is not null && GitChanges.Lines(disk) is not null);

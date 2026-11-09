@@ -4355,7 +4355,10 @@ row drawn under the last. `FileChanges.DiffAsync` takes the files of the full di
 (`:path`) and HEAD (`HEAD:path`), read as bytes (`GitDiff.RunBytesAsync`) so a byte order mark and
 line endings stay as they are. A file then becomes up to three files, each with a `GitFile` naming its
 section: Committed, what the file held before the agent's first change against HEAD (what of the
-agent's change is committed; left out when Sloperator didn't know it before); Staged (index letter set),
+agent's change is committed; left out when Sloperator didn't know it before, and when no commit has changed the file
+since the agent began, by git's time of its last commit against when the first version was read, `Version.At`, kept
+with the list: a file changed and not committed before the agent began showed that difference under Committed, read
+backwards as taken out, and a file git doesn't track as deleted, 2026-11-10); Staged (index letter set),
 HEAD against the index; Unstaged (work-tree letter set, untracked too), the index against the file on
 disk as read_file reads it. All diffed by `LineDiff`, so a hunk's new-side numbers are the staged
 file's or the file's on disk. Not text, or a Word file: a binary entry where git's letters say it

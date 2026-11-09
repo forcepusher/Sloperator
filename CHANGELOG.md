@@ -82,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- **File changes** no longer lists changes made before the agent began, and not committed, under Committed as
+  taken out, nor a file git doesn't track as deleted there.
 - The agent no longer tells you to reload a page in **Web preview** after changing it: it is told the panel reloads
   the page by itself as its files change.
 - An agent trying to capture Sloperator's own side panel is told it can't see it, rather than that no such window
