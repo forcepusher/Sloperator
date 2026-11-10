@@ -1815,6 +1815,13 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public void The_prompt_keeps_the_agent_off_the_users_own_windows()
+    {
+        // Stop-Process -Name mspaint closed every Paint window to close the one the agent had opened.
+        Assert.Contains("Close only windows you opened", SystemPrompt.Build("Test OS", null, "C:\\", ""));
+    }
+
+    [Fact]
     public void The_users_own_prompt_is_sent_with_its_words_in_braces_filled_in()
     {
         // Settings' System prompt: the user's text for every model, with what changes from chat to chat filled in.

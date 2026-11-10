@@ -3552,6 +3552,12 @@ program makes." Asked to add a line to a README, Haiku 5.5 ran Add-Content: File
 put it back. Five small edits on Haiku through the command line (2026-11-10): without the line 4 of 5 went through the
 file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
 
+**Closing only its own windows**: "Close only windows you opened, from the window itself (or by the process id you
+started): Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all."
+qwen3.8 closed Word, opened by mistake for WordPad, with `Get-Process winword | Stop-Process -Force`, and Paint with
+`Stop-Process -Name mspaint` (2 of the release checks' runs, 2026-10-30 and 2026-11-10): every window of the program,
+the user's own too, without asking to save them.
+
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
@@ -3655,7 +3661,11 @@ game, a chart), run or opened if it isn't showing, cropped to the work, the whol
 is the point (the same line for every model). The user's measure: a boss who says "send me screenshots
 of what you've done", and for a change "what it was before and how it looks after". The capture is
 fresh, without the pointer, at the screen's own resolution; a window is cut to its DWM frame (no
-invisible borders) and the screen it is mostly on, a box maps like a click's x/y. A window another
+invisible borders) and the screen it is mostly on, a box maps like a click's x/y. The window is the
+first whose title is the name given, else has it in it, else whose program the name has as a word
+(`ScreenWindow.Program`, the exe's name: "File Explorer" finds explorer's window titled "rename", where
+qwen3.8 was told no window has it, 2026-11-10); titles are matched and listed as they read, without
+characters that show as nothing (Edge's has a zero-width space in "Microsoft Edge"). A window another
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
 moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the

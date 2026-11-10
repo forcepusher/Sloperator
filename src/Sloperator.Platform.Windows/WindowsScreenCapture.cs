@@ -49,13 +49,15 @@ internal sealed class WindowsScreenCapture : IScreenCapture
         EnsurePhysicalPixels();
         var windows = new List<ScreenWindow>();
         var process = (uint)Environment.ProcessId;
+        var programs = new Dictionary<uint, string?>();
         var title = new char[512];
         EnumWindows((w, _) =>
         {
             if (!IsWindowVisible(w) || IsIconic(w) || GetWindow(w, GW_OWNER) != 0) return true;
             if ((GetWindowLongPtr(w, GWL_EXSTYLE) & (nint)WS_EX_TOOLWINDOW) != 0) return true;
             if (DwmGetWindowAttribute(w, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
-            if (GetWindowThreadProcessId(w, out var owner) != 0 && owner == process) return true;
+            var owner = 0u;
+            if (GetWindowThreadProcessId(w, out owner) != 0 && owner == process) return true;
             int length;
             fixed (char* p = title)
                 length = GetWindowText(w, p, title.Length);
@@ -63,10 +65,28 @@ internal sealed class WindowsScreenCapture : IScreenCapture
             // The frame as it shows: GetWindowRect counts Windows 10's invisible resize borders, some 7 px on three sides.
             if (DwmGetWindowAttribute(w, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT r, Marshal.SizeOf<RECT>()) != 0 && !GetWindowRect(w, out r)) return true;
             if (r.Right > r.Left && r.Bottom > r.Top)
-                windows.Add(new ScreenWindow(new string(title, 0, length), new ScreenRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top), w));
+            {
+                if (!programs.TryGetValue(owner, out var program))
+                    programs[owner] = program = ProgramOf(owner);
+                windows.Add(new ScreenWindow(new string(title, 0, length), new ScreenRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top), w, program));
+            }
             return true;
         }, 0);
         return windows;
+    }
+
+    /// <summary>The name of process <paramref name="pid"/>'s exe without .exe, or null once it is gone.</summary>
+    private static string? ProgramOf(uint pid)
+    {
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+            return p.ProcessName;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>
