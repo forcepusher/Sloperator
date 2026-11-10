@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- The agent can add text at the end of a Word document without naming the paragraph it goes after.
 - The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
   document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
 - A series of key presses the agent makes can type text between them, such as Ctrl+A, the new name and Enter to

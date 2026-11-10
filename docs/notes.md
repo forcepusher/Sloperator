@@ -139,6 +139,9 @@ lines before or after the rows go before or after the table as paragraphs, when 
 (`TextEdit.RowsAndText`), and rows given with fewer kept, or none with an empty new text, take the others out (the
 table with its last row, `RemoveRows`). Asked to end a report with a line under its table, Haiku gave the last row and that row with
 the line after it, was told the text wasn't there, and rewrote document.xml through PowerShell again (2026-11-10).
+An empty old text adds the new text at the end of a Word document, before the empty paragraphs and section settings
+that close it, looking as its last plain paragraph (`TextEdit.AppendToBody`): Haiku tried that first, and was told to
+give the paragraph it goes after.
 In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses

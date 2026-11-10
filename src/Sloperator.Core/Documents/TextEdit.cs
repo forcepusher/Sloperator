@@ -351,6 +351,26 @@ internal static partial class TextEdit
     /// Paragraphs for <paramref name="text"/> by <paramref name="table"/>, one a line ("# " a heading), looking as the
     /// body's last plain paragraph before it does: not a heading's look, as a table often has its heading over it.
     /// </summary>
+    /// <summary>
+    /// Adds <paramref name="text"/> at the end of a Word document's body, before its section settings and any empty
+    /// paragraphs that close it, as paragraphs looking as its last plain one does: Haiku 5.5 gave an empty old_text to
+    /// add a closing line, and was told to give the paragraph it goes after (2026-11-10).
+    /// </summary>
+    public static void AppendToBody(XDocument document, string text)
+    {
+        var body = document.Root?.Element(W + "body") ?? throw new InvalidOperationException("The document has no body to add to.");
+        var blocks = body.Elements().Where(e => e.Name != W + "sectPr").ToList();
+        var end = blocks.Count;
+        while (end > 0 && blocks[end - 1].Name == W + "p" && blocks[end - 1].Descendants(W + "t").All(t => t.Value.Length == 0))
+            end--;
+        var before = end < blocks.Count ? blocks[end] : body.Element(W + "sectPr");
+        var made = Paragraphs(before ?? body.Elements().LastOrDefault() ?? body, text);
+        if (before is not null)
+            before.AddBeforeSelf(made);
+        else
+            body.Add(made);
+    }
+
     private static IEnumerable<XElement> Paragraphs(XElement table, string text)
     {
         static bool Heading(XElement p) => p.Element(W + "pPr")?.Element(W + "pStyle")?.Attribute(W + "val")?.Value is { } style

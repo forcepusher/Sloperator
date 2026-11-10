@@ -556,6 +556,27 @@ public class DocumentWriteTests : IDisposable
     }
 
     [Fact]
+    public async Task An_empty_old_text_adds_to_the_end_of_a_word_document()
+    {
+        // As Haiku 5.5 tried to add a closing line: before the empty paragraph and the section settings that end the body.
+        var path = WordFile("end.docx", """
+            <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Report</w:t></w:r></w:p>
+            <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:i/></w:rPr><w:t>All is well.</w:t></w:r></w:p>
+            <w:p/>
+            """);
+        var result = await Edit("end.docx", "", "End of report.\n## Next steps");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("at the end of the document", result.Text);
+        var paragraphs = Body(path).Elements(W + "p").ToList();
+        Assert.Equal(["Report", "All is well.", "End of report.", "Next steps", ""], paragraphs.Select(p => p.Value));
+        // Like the last plain paragraph, its spacing and look; the heading a heading.
+        Assert.NotNull(paragraphs[2].Element(W + "pPr")?.Element(W + "spacing"));
+        Assert.NotNull(paragraphs[2].Descendants(W + "i").FirstOrDefault());
+        Assert.Equal("Heading2", (string?)paragraphs[3].Element(W + "pPr")?.Element(W + "pStyle")?.Attribute(W + "val"));
+        Assert.True((await Edit("end.docx", "", " ")).IsError);
+    }
+
+    [Fact]
     public async Task New_paragraphs_and_headings_come_from_line_breaks_and_whole_paragraphs_can_go()
     {
         var path = WordFile("plan.docx", """
