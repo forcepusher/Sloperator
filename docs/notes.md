@@ -4584,6 +4584,12 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   user had asked for an engine of Sloperator's own as PDF preview is "quite critical" (2026-10-25):
   Windows' PDF previewer is whatever the PDF program registered, and Acrobat's failed on every PDF
   on the laptop; Windows.Data.Pdf is not that previewer and needs no PDF program.
+  Seen once, not fixed (2026-11-10, the laptop, Intel graphics): a command-line run that had drawn PDF
+  pages with it, and taken screenshots through the magnifier, never ended after its last line: its one
+  thread spun a core in Intel's Direct3D 11 driver (igd10um64xe.dll, loaded with d2d1 and
+  Windows.Data.Pdf), and Stop-Process couldn't end it (the exe stayed locked until a restart). Hundreds of
+  runs before ended as they should. Windows.Data.Pdf draws on the graphics card; drawing through
+  `IPdfRendererNative` on a WARP (software) Direct3D device would keep the driver out of it.
 - Word, Excel, PowerPoint (and .doc/.xls/.ppt, OpenDocument, HTML, RTF): drawn by the previewer
   Windows has for the kind, as in Explorer's preview pane (`ShellPreview`, `ShellPreviewHost`): a
   native window of the panel's in which Word's, Excel's, PowerPoint's (Office installed), the PDF
