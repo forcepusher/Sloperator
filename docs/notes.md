@@ -2871,7 +2871,7 @@ of the limit from then on, after a handoff note; the cost grows
 - An Anthropic key (`sk-ant-…`) given to another server, or pasted as the address, gets a line
   saying Claude's address.
 
-Not yet run against Anthropic itself: the test PC had no key on 21 October 2026.
+Run against Anthropic itself since 1 November 2026 (the every-provider check, then daily on Haiku 5.5); in the tests
 `tests/Sloperator.Core.Tests/AnthropicFake.cs` stands in for it, with the rules the API answers 400
 to, its prompt cache (a prefix match, looked for up to 20 blocks back) and its thinking check.
 The app and the command-line runner were run against a stand-in like it on 21 October, with Kilo's
