@@ -54,7 +54,7 @@
       <!-- The pictures, the one changed last first: its newest version small, its name, how many versions. -->
       <Panel Grid.Column="0">
         <TextBlock Classes="muted" IsVisible="{Binding !HasItems}" Text="No pictures yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        <ListBox x:Name="List" Classes="files pictures" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+        <ListBox x:Name="List" AutomationProperties.Name="Pictures" Classes="files pictures" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Pictures">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:PictureItem">

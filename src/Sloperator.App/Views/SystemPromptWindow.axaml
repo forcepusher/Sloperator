@@ -25,7 +25,7 @@
       </DockPanel>
     </Border>
     <!-- The prompt in the Code editor's editor, its lines wrapped, its words in braces in yellow. -->
-    <views:CodeView x:Name="Editor" WordWrap="True" ShowLineNumbers="False" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
+    <views:CodeView x:Name="Editor" AutomationProperties.Name="System prompt" WordWrap="True" ShowLineNumbers="False" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
                     Background="Transparent" Foreground="{StaticResource BbCode}" Padding="16,8,8,8"
                     HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="System prompt" />
   </DockPanel>

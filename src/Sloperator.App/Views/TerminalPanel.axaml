@@ -33,7 +33,7 @@
       <!-- The chat's commands, newest last: the command, then where it ran, how it ended and how long it took. -->
       <Panel Grid.Column="0">
         <TextBlock Classes="muted" IsVisible="{Binding !HasCommands}" Text="No commands yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        <ListBox x:Name="List" Classes="files commands" ItemsSource="{Binding Commands}" SelectedItem="{Binding Selected}"
+        <ListBox x:Name="List" AutomationProperties.Name="Commands" Classes="files commands" ItemsSource="{Binding Commands}" SelectedItem="{Binding Selected}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Commands">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:CommandItem">
@@ -60,7 +60,7 @@
         <Panel>
           <TextBlock Classes="muted" IsVisible="{Binding !HasSelected}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="Its output shows here" />
           <!-- All it printed, read-only; lines selected go into the chat's box. -->
-          <views:CodeView x:Name="Output" IsVisible="{Binding HasSelected}" IsReadOnly="True" WordWrap="{Binding Wrap}" ShowLineNumbers="True"
+          <views:CodeView x:Name="Output" AutomationProperties.Name="Output" IsVisible="{Binding HasSelected}" IsReadOnly="True" WordWrap="{Binding Wrap}" ShowLineNumbers="True"
                           FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
                           Background="Transparent" Foreground="{StaticResource BbCode}" LineNumbersForeground="{StaticResource BbFaint}"
                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Output" />

@@ -72,7 +72,7 @@
                     <TextBlock Text="{Binding Count}" Classes="muted" Margin="4,0,0,0" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
-                <ListBox Classes="files" ItemsSource="{Binding Files}" Selection="{Binding Selection}" SelectionMode="Multiple" IsVisible="{Binding IsExpanded}"
+                <ListBox AutomationProperties.Name="Changed files" Classes="files" ItemsSource="{Binding Files}" Selection="{Binding Selection}" SelectionMode="Multiple" IsVisible="{Binding IsExpanded}"
                          SelectionChanged="OnFilePicked" ContainerPrepared="OnFileContainer" ContextRequested="OnFileMenu" AutomationProperties.Name="{Binding ListName}"
                          ScrollViewer.VerticalScrollBarVisibility="Disabled">
                   <ListBox.ItemTemplate>
