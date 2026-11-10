@@ -47,12 +47,13 @@ internal static partial class TextEdit
                 break;
             }
         }
-        if (hits.Count == 0 && !slides && Rows(oldText) is { } oldRows && Rows(newText) is { } newRows
-            && oldRows.Count == newRows.Count && oldRows.Zip(newRows).All(r => r.First.Count == r.Second.Count))
-            return ReplaceCells(parts, stretches, oldRows, newRows, all);
+        if (hits.Count == 0 && !slides && Rows(oldText) is { } oldRows && RowsAndText(newText) is { } changed
+            && changed.Rows.Count >= oldRows.Count && oldRows.Zip(changed.Rows).All(r => r.First.Count == r.Second.Count))
+            return ReplaceCells(parts, stretches, oldRows, changed.Rows, all, changed.Before, changed.After);
         if (hits.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document. Read it again with read_file and copy the text exactly; " +
-                "a change must stay within one table cell, text box or run of paragraphs not broken by a table, or be whole table rows as read_file shows them.");
+                "a change must stay within one table cell, text box or run of paragraphs not broken by a table, or be whole table rows as read_file shows them " +
+                "(new_text can add rows after them, and text after a table's last row or before its first).");
         if (hits.Count > 1 && !all)
             throw new InvalidOperationException($"old_text occurs {hits.Count} times. Include more of the text around it to make it unique, or set replace_all to change every one.");
 
@@ -134,14 +135,36 @@ internal static partial class TextEdit
     }
 
     /// <summary>
+    /// A new text of table rows with paragraphs before or after them ("| note3.md | note 3 |\n\nEnd of report."):
+    /// the rows, and the text on either side; null when its rows aren't one run of lines.
+    /// </summary>
+    private static (List<List<string>> Rows, string? Before, string? After)? RowsAndText(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        static bool IsRow(string line) => line.Trim() is { Length: >= 2 } l && l[0] == '|' && l[^1] == '|';
+        var first = Array.FindIndex(lines, IsRow);
+        var last = Array.FindLastIndex(lines, IsRow);
+        if (first < 0 || lines[first..(last + 1)].Any(l => l.Trim().Length > 0 && !IsRow(l)) || Rows(string.Join("\n", lines[first..(last + 1)])) is not { } rows)
+            return null;
+        static string? Text(IEnumerable<string> part) => string.Join("\n", part).Trim('\n', ' ') is { Length: > 0 } t ? t : null;
+        return (rows, Text(lines[..first]), Text(lines[(last + 1)..]));
+    }
+
+    /// <summary>
     /// A change given as rows of a Word table, copied from read_file: Haiku changed "| North | 140 |" to
     /// "| North | 150 |", twice refused as the text crosses cells, then rewrote the document's XML in
     /// PowerShell (2 November 2026). The rows are matched cell by cell (a run of a row's cells, so a
     /// single "| 140 |" is the cell that holds just that), and each cell whose text changed is changed
     /// as its own stretch, keeping its formatting as any other change does.
     /// </summary>
+    /// <remarks>
+    /// Rows after the ones given are added below them, made like the last; text before or after the rows goes before
+    /// or after the table, when they are its first or last. Asked to end a report with a line under its table, Haiku
+    /// 5.5 gave the last row and that row with the line after it, was told the text wasn't there, and rewrote the
+    /// document's XML through PowerShell (2026-11-10).
+    /// </remarks>
     private static (int Count, List<string> Parts) ReplaceCells(Dictionary<string, XDocument> parts, List<Stretch> stretches,
-        List<List<string>> oldRows, List<List<string>> newRows, bool all)
+        List<List<string>> oldRows, List<List<string>> newRows, bool all, string? textBefore = null, string? textAfter = null)
     {
         var format = WordFormat;
         string CellText(XElement tc) => Fold(string.Join(" ", tc.Elements(W + "p").Select(p => string.Concat(format.Units(p).Select(format.UnitText))))).Trim();
@@ -163,6 +186,23 @@ internal static partial class TextEdit
             throw new InvalidOperationException("old_text was not found in the document: no table has those rows. Read it again with read_file and copy the rows exactly, or change one cell's text by itself.");
         if (matches.Count > 1 && !all)
             throw new InvalidOperationException($"old_text occurs {matches.Count} times. Include more of the row around it to make it unique, or set replace_all to change every one.");
+        var extraRows = newRows.Skip(oldRows.Count).ToList();
+        if (extraRows.Count > 0 || textBefore is not null || textAfter is not null)
+        {
+            if (matches.Count > 1)
+                throw new InvalidOperationException("Those rows are in more than one table: include more rows to make them unique, as rows and text are added in one place.");
+            var (_, found, column) = matches[0];
+            if (column != 0 || found.Select((cells, i) => cells.Length != oldRows[i].Count).Any(partial => partial))
+                throw new InvalidOperationException("To add rows or text by a table, give its whole rows as old_text, every cell, as read_file shows them.");
+            var table = found[0][0].Parent!.Parent!;
+            var tableRows = table.Elements(W + "tr").ToList();
+            if (textBefore is not null && found[0][0].Parent != tableRows[0])
+                throw new InvalidOperationException("Text goes before a table only before its first row: give that row as old_text, or change the paragraph before the table.");
+            if (textAfter is not null && found[^1][0].Parent != tableRows[^1])
+                throw new InvalidOperationException("Text goes after a table only after its last row: give that row as old_text, or change the paragraph after the table.");
+            if (extraRows.FirstOrDefault(r => r.Count != found[^1].Length) is { } wrong)
+                throw new InvalidOperationException($"A row added needs the table's {found[^1].Length} cells; it has {wrong.Count}.");
+        }
 
         var changed = new List<string>();
         foreach (var (part, rows, column) in matches)
@@ -189,7 +229,62 @@ internal static partial class TextEdit
                     if (!changed.Contains(part))
                         changed.Add(part);
                 }
+        if (extraRows.Count > 0 || textBefore is not null || textAfter is not null)
+        {
+            var (part, found, _) = matches[0];
+            var lastRow = found[^1][0].Parent!;
+            var table = lastRow.Parent!;
+            var below = lastRow;
+            foreach (var cells in extraRows)
+            {
+                var row = new XElement(lastRow);
+                row.Element(W + "trPr")?.Element(W + "tblHeader")?.Remove();
+                foreach (var (tc, text) in row.Elements(W + "tc").Zip(cells))
+                    SetCellText(tc, text);
+                below.AddAfterSelf(row);
+                below = row;
+            }
+            if (textBefore is not null)
+                table.AddBeforeSelf(Paragraphs(table, textBefore));
+            if (textAfter is not null)
+                table.AddAfterSelf(Paragraphs(table, textAfter));
+            if (!changed.Contains(part))
+                changed.Add(part);
+        }
         return (matches.Count, changed);
+    }
+
+    /// <summary>A cell's text, in place of what it held, looking as its first line did.</summary>
+    private static void SetCellText(XElement tc, string text)
+    {
+        var paragraphs = tc.Elements(W + "p").ToList();
+        foreach (var extra in paragraphs.Skip(1))
+            extra.Remove();
+        var first = paragraphs[0];
+        var look = first.Descendants(W + "r").FirstOrDefault()?.Element(W + "rPr");
+        first.Elements().Where(e => e.Name != W + "pPr").Remove();
+        first.Add(MarkdownDocument.Inline(Unmarked(text)).SelectMany(s => WordFormat.NewRuns(s, look)));
+    }
+
+    /// <summary>
+    /// Paragraphs for <paramref name="text"/> by <paramref name="table"/>, one a line ("# " a heading), looking as the
+    /// body's last plain paragraph before it does: not a heading's look, as a table often has its heading over it.
+    /// </summary>
+    private static IEnumerable<XElement> Paragraphs(XElement table, string text)
+    {
+        static bool Heading(XElement p) => p.Element(W + "pPr")?.Element(W + "pStyle")?.Attribute(W + "val")?.Value is { } style
+            && (style.StartsWith("Heading", StringComparison.OrdinalIgnoreCase) || style.Equals("Title", StringComparison.OrdinalIgnoreCase));
+        var like = table.ElementsBeforeSelf(W + "p").LastOrDefault(p => !Heading(p)) ?? new XElement(W + "p");
+        var look = like.Descendants(W + "r").FirstOrDefault()?.Element(W + "rPr");
+        var made = new List<XElement>();
+        foreach (var line in text.Split('\n').Where(l => l.Trim().Length > 0))
+        {
+            int? heading = HeadingMark().Match(line) is { Success: true } m ? m.Groups[1].Length : null;
+            var p = WordFormat.NewParagraph(like, heading);
+            p.Add(MarkdownDocument.Inline(HeadingMark().Replace(ListMark().Replace(line, ""), "")).SelectMany(s => WordFormat.NewRuns(s, heading is null ? look : null)));
+            made.Add(p);
+        }
+        return made;
     }
 
     // ---- finding ---------------------------------------------------------------------------------------

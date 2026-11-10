@@ -187,6 +187,9 @@ public sealed partial class MainWindowViewModel
                 if (opened)
                     editor.OpenLit(path);
                 break;
+            case FileInspectorViewModel inspector:
+                inspector.ShowChanged(path);
+                break;
             case IFilePanel file when !string.Equals(file.Path, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase):
                 file.Show(path);
                 break;

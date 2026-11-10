@@ -134,7 +134,11 @@ start makes a heading, and `**bold**` applies. A Word table's rows can be given 
 shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
 cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
 2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
-PowerShell. In a workbook it sets cells written the way
+PowerShell. Rows in the new text after the ones given are added below them, made like the last (no header mark), and
+lines before or after the rows go before or after the table as paragraphs, when the rows given are its first or last
+(`TextEdit.RowsAndText`). Asked to end a report with a line under its table, Haiku gave the last row and that row with
+the line after it, was told the text wasn't there, and rewrote document.xml through PowerShell again (2026-11-10).
+In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses
 it replaces text in the cells. A line `insert row 7` or `delete rows 3-4` changes the rows first, as

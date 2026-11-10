@@ -512,6 +512,22 @@ public class DocumentWriteTests : IDisposable
         var missing = await Edit("report.docx", "| West | 10 |", "| West | 20 |");
         Assert.True(missing.IsError);
         Assert.Contains("no table has those rows", missing.Text);
+
+        // The last row with a row and a line after it (Haiku's, 2026-11-10): a row made like it, then a paragraph after the table.
+        var added = await Edit("report.docx", "| South | 90 |", "| South | 90 |\n| West | 70 |\n\nEnd of report.");
+        Assert.False(added.IsError, added.Text);
+        Assert.Equal([["Region", "Q4"], ["North", "160"], ["South", "90"], ["West", "70"]], Cells());
+        var after = Body(path).Element(W + "tbl")!.ElementsAfterSelf(W + "p").First();
+        Assert.Equal("End of report.", after.Value);
+        var read = await Read("report.docx");
+        Assert.True(read.IndexOf("| West | 70 |", StringComparison.Ordinal) is >= 0 and var row && read.IndexOf("End of report.", StringComparison.Ordinal) > row, read);
+
+        // Text goes by a table only at its ends, and a row added has the table's cells.
+        Assert.Contains("only after its last row", (await Edit("report.docx", "| North | 160 |", "| North | 160 |\n\nMore.")).Text);
+        Assert.Contains("needs the table's 2 cells", (await Edit("report.docx", "| West | 70 |", "| West | 70 |\n| East |")).Text);
+        // A line before the first row goes before the table.
+        Assert.False((await Edit("report.docx", "| Region | Q4 |", "Sales by region:\n\n| Region | Q4 |")).IsError);
+        Assert.Equal("Sales by region:", Body(path).Element(W + "tbl")!.ElementsBeforeSelf(W + "p").Last().Value);
     }
 
     [Fact]
