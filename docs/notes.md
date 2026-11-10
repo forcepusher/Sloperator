@@ -5029,7 +5029,9 @@ alone, its tool, its arguments and what it made, the same for every model and se
   command then a file in one go, the window's thread still opening the Terminal as both ended, gave the file to
   the command: Auto stayed on the Terminal): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
   there), in **Web preview**; a picture, animation, video, sound, 3D model or document (Word, Excel, PowerPoint,
-  PDF, an SVG elsewhere) in the **File inspector**, which draws it. Code and text (Markdown and tables too) by whose
+  PDF, an SVG elsewhere) in the **File inspector**, which draws it, again when it is the file shown and was written
+  since it was read (`FileInspectorViewModel.ShowChanged`: the same path kept the old one, a paragraph the agent
+  shortened in a .docx unseen, 2026-11-10). Code and text (Markdown and tables too) by whose
   file it is (`FileChanges.IsNew`: it wasn't there before the agent first changed it): one the agent made in this
   chat, inside the folder the Code editor shows (the user's, else the agent's project), in the **Code editor**,
   opened at what the agent wrote in it, lit (`CodeEditorViewModel.OpenLit`, then its Watch follows the next
