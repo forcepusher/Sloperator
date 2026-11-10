@@ -45,7 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
-- The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too.
+- The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too:
+  a command that would end a program by name is not run while you have windows of it open.
 - The agent reads a PowerPoint table as rows, as it reads a Word table, rather than one cell a line.
 - The agent edits Word, Excel, PowerPoint and PDF files with its own tools straight away, rather than first looking
   for Python or the program's MCP server.

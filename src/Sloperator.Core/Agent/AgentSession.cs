@@ -407,6 +407,7 @@ public sealed partial class AgentSession(
         // A picture given earlier in the chat (a reference sheet) is still the one to follow.
         toolContext.UserPictures = UserInput.PicturesIn(History);
         toolContext.UserMessage = _arrived.Token;
+        toolContext.RunStarted = DateTime.Now;
         if (toolContext.Ask is null)
         {
             var eyes = new FreshLook(client, requestOptions);

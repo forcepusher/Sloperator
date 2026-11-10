@@ -3561,7 +3561,13 @@ file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an ea
 started): Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all."
 qwen3.8 closed Word, opened by mistake for WordPad, with `Get-Process winword | Stop-Process -Force`, and Paint with
 `Stop-Process -Name mspaint` (2 of the release checks' runs, 2026-10-30 and 2026-11-10): every window of the program,
-the user's own too, without asking to save them.
+the user's own too, without asking to save them. With the line in the prompt it still ended its own Photoshop with
+`Stop-Process -Name Photoshop` the same day, so run_shell now refuses such a command while the program has windows
+that were open before the run (`KillByName`: `Stop-Process -Name`, `Get-Process x | Stop-Process`, `(Get-Process
+x).Kill()`, `taskkill /IM`; one narrowed down with `Where-Object`, a start time or a window title, or by id, runs;
+`ToolContext.RunStarted` is the run's start, `WindowsOpenBefore` the processes with a window that started before it,
+an elevated one counted as the user's as its start time can't be read). The model is told to close its window
+itself or end the processes it started by id. Nothing is refused when only the agent's own windows are open.
 
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
