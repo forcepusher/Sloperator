@@ -1765,7 +1765,7 @@ message box with the party blob walking it; of five concepts they picked a point
 word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
 
 The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
-tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
+tokens. `now` is read as `GetNumber` reads numbers, so "2" moves it too (it was read as no step). The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 `MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through
 `IAgentObserver.OnPlanChanged`, and `SavedChat.Plan` keeps it with the chat. A finished plan stays
 until the next message. Side tasks don't get the tool: their steps are not the chat's.
@@ -3024,7 +3024,7 @@ repair, name hints, normalizing), and wrong ones get the same error with the too
 (`ArgumentProblem`; since the 1.4.0 release check). Pictures a call returns are left out (text only). A server's failure ends the side task with an
 error, not the run. The card: the task as its line, the prompt as its Input foldout (`ToolCallItem.Input`,
 saved as the entry's `input`), and an Output only with output on, or for a failure's reason
-(`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
+(`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`, which reads `output` as the tool does: "true" in quotes is on).
 
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default) asks the same without the
 button, as a side task with no output. Only at the end of a run in a long chat: after the answer, at

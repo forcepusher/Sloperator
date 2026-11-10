@@ -36,14 +36,16 @@ public sealed class SideTaskTool : Tool
     }
 
     /// <summary>Whether a side_task call's arguments (JSON) enable output; false for anything else.</summary>
-    public static bool OutputIn(string arguments) => ArgumentIn(arguments, "output") is JsonValue v && v.TryGetValue<bool>(out var on) && on;
+    public static bool OutputIn(string arguments) => ArgumentsOf(arguments) is { } args && GetBool(args, "output");
 
     /// <summary>A side_task call's prompt in its arguments (JSON), as its card's Input shows it; empty when there is none.</summary>
     public static string PromptIn(string arguments) => ArgumentIn(arguments, "prompt") is JsonValue v && v.TryGetValue<string>(out var prompt) ? prompt : "";
 
-    private static JsonNode? ArgumentIn(string arguments, string key)
+    private static JsonNode? ArgumentIn(string arguments, string key) => ArgumentsOf(arguments)?[key];
+
+    private static JsonObject? ArgumentsOf(string arguments)
     {
-        try { return JsonNode.Parse(arguments)?[key]; }
+        try { return JsonNode.Parse(arguments) as JsonObject; }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) { return null; }
     }
 }
