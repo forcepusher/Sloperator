@@ -1862,6 +1862,14 @@ Compared at 100% and 125% (`.dev/centre-test/shots/code-size-*.png`): Consolas a
 smaller than Inter at 14; at 14 its small letters are about as tall as Inter's. Code blocks stay 13
 and a tool's output and command 12.
 
+## Long messages
+
+A message the user sends of more than 30 lines, or 4,500 characters, shows its first 20 lines (cut at 3,000
+characters) and an ellipsis in its bubble, with Show all *N* lines under it, which turns to Show less
+(`UserMessageItem.FoldedLines`, `ShownText`, the toggle Show steps has, right of the bubble). A pasted log of 3,000
+lines stood as a bubble of 3,000 lines, the chat's scrollbar a sliver (2026-11-10). All of it goes to the model and is
+saved; selecting takes what shows. Unfolding keeps the chat where it is (`OnFoldClick`), so line 21 follows line 20.
+
 ## Selected text
 Avalonia (11.3.22, and its master) draws a selection in a text block made of runs (a reply: bold,
 code, headings, links) with properties of its own for the selected part, built from the block's size

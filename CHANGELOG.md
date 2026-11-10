@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
+  every line of it; all of it still goes to the model.
 - **Audio editor** side panel, beside the Image and Video editors: your sounds with their versions, a big waveform
   to play and drag over, and Cut, Keep only, Fade in, Fade out, Louder and Quieter, each saved as a new version so
   the earlier ones stay. The agent can make the same edits, and redo a stretch with a new take.

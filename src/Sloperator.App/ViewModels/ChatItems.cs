@@ -100,10 +100,46 @@ public abstract partial class ChatItemViewModel : ObservableObject
 /// A message the user sent: what they typed, and the files that came with it (dropped, pasted or
 /// picked), with the cards of what the open side panel gave it as they showed over the box.
 /// </summary>
-public sealed class UserMessageItem(string text, IReadOnlyList<string>? files = null, IReadOnlyList<SidePanelCard>? cards = null) : ChatItemViewModel
+public sealed partial class UserMessageItem(string text, IReadOnlyList<string>? files = null, IReadOnlyList<SidePanelCard>? cards = null) : ChatItemViewModel
 {
     public string Text { get; } = text;
     public bool HasText => Text.Length > 0;
+
+    /// <summary>
+    /// The lines a long message shows until Show all: a pasted log of 3,000 lines stood in the chat as a bubble of
+    /// 3,000 lines, the scrollbar a sliver (2026-11-10). All of it goes to the model; selecting takes what shows.
+    /// </summary>
+    public const int FoldedLines = 20;
+
+    /// <summary>The characters a long message of few, long lines shows until Show all.</summary>
+    public const int FoldedCharacters = 3_000;
+
+    private readonly int _lineCount = text.Count(c => c == '\n') + 1;
+
+    /// <summary>Whether it is long enough to fold: by half again what it shows folded, so a fold always hides a good part.</summary>
+    public bool IsLong => _lineCount > FoldedLines * 3 / 2 || Text.Length > FoldedCharacters * 3 / 2;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShownText), nameof(FoldText))]
+    private bool _showsAll;
+
+    /// <summary>The words the bubble shows: the whole message, or its start while folded.</summary>
+    public string ShownText => !IsLong || ShowsAll ? Text : Start(Text);
+
+    public string FoldText => ShowsAll ? "Show less" : _lineCount > 1 ? $"Show all {_lineCount:N0} lines" : "Show all";
+
+    [RelayCommand]
+    private void ToggleAll() => ShowsAll = !ShowsAll;
+
+    /// <summary>The first <see cref="FoldedLines"/> lines, cut at <see cref="FoldedCharacters"/>, and an ellipsis.</summary>
+    internal static string Start(string text)
+    {
+        var end = 0;
+        for (var line = 0; line < FoldedLines && end < text.Length; line++)
+            end = text.IndexOf('\n', end) is >= 0 and var at ? at + 1 : text.Length;
+        end = Math.Min(end, FoldedCharacters);
+        return text[..end].TrimEnd() + "…";
+    }
 
     /// <summary>Where it was written, when not in the chat's box ("Video editor · The Fox and the Moon · clip 2").</summary>
     public string? Via { get; init; }
