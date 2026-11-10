@@ -45,7 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
-- The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too.
+- The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too:
+  a command that would end a program by name is not run while you have windows of it open.
 - The agent reads a PowerPoint table as rows, as it reads a Word table, rather than one cell a line.
 - The agent edits Word, Excel, PowerPoint and PDF files with its own tools straight away, rather than first looking
   for Python or the program's MCP server.
@@ -92,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- `sloperator-cli` keeps each run's captures apart, so comparing with "capture 1" no longer takes another run's picture.
 - The plan bar moves on when the agent names its step in quotes ("2"), as some models do, rather than staying put.
 - Desktop tasks on the free model Sloperator starts with no longer end some 15 steps in on "input rejected by content
   safety screening": that is how it says it takes no more than 13 pictures, so the older screenshots are left out.

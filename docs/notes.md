@@ -3561,7 +3561,13 @@ file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an ea
 started): Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all."
 qwen3.8 closed Word, opened by mistake for WordPad, with `Get-Process winword | Stop-Process -Force`, and Paint with
 `Stop-Process -Name mspaint` (2 of the release checks' runs, 2026-10-30 and 2026-11-10): every window of the program,
-the user's own too, without asking to save them.
+the user's own too, without asking to save them. With the line in the prompt it still ended its own Photoshop with
+`Stop-Process -Name Photoshop` the same day, so run_shell now refuses such a command while the program has windows
+that were open before the run (`KillByName`: `Stop-Process -Name`, `Get-Process x | Stop-Process`, `(Get-Process
+x).Kill()`, `taskkill /IM`; one narrowed down with `Where-Object`, a start time, a window title or taskkill's `/FI`, or by id, runs;
+`ToolContext.RunStarted` is the run's start, `WindowsOpenBefore` the processes with a window that started before it,
+an elevated one counted as the user's as its start time can't be read). The model is told to close its window
+itself or end the processes it started by id. Nothing is refused when only the agent's own windows are open.
 
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
@@ -3674,7 +3680,9 @@ characters that show as nothing (Edge's has a zero-width space in "Microsoft Edg
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
 moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the
-chat does), shown open on the card as a file preview; the model gets the same crop as a JPEG at the
+chat does), shown open on the card as a file preview; the command line, which saves no chat, keeps each run's
+in `SloperatorData/scratch/cli/<time>-<process id>` (in one folder for all, the numbers ran past 100 and
+"compare 1" took another run's first capture, 2026-11-10); the model gets the same crop as a JPEG at the
 zoom's quality, no larger than a screenshot of that screen. The app names the chat when a run starts
 for this. When the run ends, its captures also show in its last reply, under the words, as the same
 picture preview the card has (name, size, Inspect, a click for full screen), each with its caption under
@@ -4576,6 +4584,12 @@ under the panel's bar here and in the full-screen viewer for a card's peek, see 
   user had asked for an engine of Sloperator's own as PDF preview is "quite critical" (2026-10-25):
   Windows' PDF previewer is whatever the PDF program registered, and Acrobat's failed on every PDF
   on the laptop; Windows.Data.Pdf is not that previewer and needs no PDF program.
+  Seen once, not fixed (2026-11-10, the laptop, Intel graphics): a command-line run that had drawn PDF
+  pages with it, and taken screenshots through the magnifier, never ended after its last line: its one
+  thread spun a core in Intel's Direct3D 11 driver (igd10um64xe.dll, loaded with d2d1 and
+  Windows.Data.Pdf), and Stop-Process couldn't end it (the exe stayed locked until a restart). Hundreds of
+  runs before ended as they should. Windows.Data.Pdf draws on the graphics card; drawing through
+  `IPdfRendererNative` on a WARP (software) Direct3D device would keep the driver out of it.
 - Word, Excel, PowerPoint (and .doc/.xls/.ppt, OpenDocument, HTML, RTF): drawn by the previewer
   Windows has for the kind, as in Explorer's preview pane (`ShellPreview`, `ShellPreviewHost`): a
   native window of the panel's in which Word's, Excel's, PowerPoint's (Office installed), the PDF

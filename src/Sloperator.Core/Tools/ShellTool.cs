@@ -38,6 +38,9 @@ public sealed partial class ShellTool : Tool
         var cwd = GetString(args, "working_directory") is { Length: > 0 } wd ? ctx.ResolvePath(wd) : ctx.WorkingDirectory;
         if (!Directory.Exists(cwd))
             return ToolResult.Error($"Working directory not found: {cwd}");
+        if (KillByName.Programs(command).FirstOrDefault(p => ctx.WindowsOpenBefore(p, ctx.RunStarted) > 0) is { } users)
+            return ToolResult.Error($"Not run: ending {users} by name would also close the user's own {users} windows, open before this task, " +
+                                    "with any unsaved work. Close the window you opened from the window itself, or end only the processes you started by their ids.");
 
         var psi = ctx.Platform.CreateShellStartInfo(command);
         psi.WorkingDirectory = cwd;

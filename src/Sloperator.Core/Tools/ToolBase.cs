@@ -56,6 +56,12 @@ public sealed class ToolContext
     /// <summary>Cancelled when the user sends a message during the run: a wait ends early so the model reads it soon.</summary>
     public CancellationToken UserMessage { get; set; }
 
+    /// <summary>When the run began: a program's windows open before it are the user's (see <see cref="KillByName"/>).</summary>
+    public DateTime RunStarted { get; set; } = DateTime.Now;
+
+    /// <summary>How many windows of a program (its exe's name) were open before a time: the processes on this PC, or a test's.</summary>
+    public Func<string, DateTime, int> WindowsOpenBefore { get; init; } = KillByName.WindowsOpenBefore;
+
     private volatile CancellationTokenSource? _waiting;
 
     /// <summary>What ends the wait tool's call in progress; null when none is going.</summary>

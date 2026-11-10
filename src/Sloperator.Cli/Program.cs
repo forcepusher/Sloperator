@@ -174,7 +174,10 @@ catch (OperationCanceledException)
 using var ssh = new Sloperator.Core.Ssh.SshHosts(paths.KnownHostsFile);
 var backend = BackendConnection.Create(http, settings.Server);
 await backend.Client.SpeaksMessagesAsync(cts.Token);
-var session = AgentSetup.Create(backend, platform, agent, paths, mcp, ssh, folderIndex: !noIndex);
+// A folder of this chat's own for capture_result's pictures: in one shared by every run, "compare 1"
+// took another chat's first capture (a Sales table for a budget), and the numbers ran on past 100.
+var chatFolder = Path.Combine(paths.ScratchDir, "cli", $"{DateTime.Now:yyyyMMdd-HHmmss}-{Environment.ProcessId}");
+var session = AgentSetup.Create(backend, platform, agent, paths, mcp, ssh, folderIndex: !noIndex, chatDirectory: chatFolder);
 var observer = new ConsoleObserver(autoYes, shotsDir, fullResults);
 
 var t0 = DateTime.UtcNow;
