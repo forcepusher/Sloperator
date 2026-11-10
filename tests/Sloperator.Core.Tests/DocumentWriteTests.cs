@@ -679,6 +679,20 @@ public class DocumentWriteTests : IDisposable
     }
 
     [Fact]
+    public async Task A_tables_first_row_of_words_over_numbers_is_its_header_without_the_dashes_line()
+    {
+        // Qwen 3.8's budget left the |---| line out: the months still head their columns.
+        await Write("budget.xlsx", "# Budget\n\n| Expense | January | February |\n| Rent | 400 | 400 |\n| Food | 250 | 260 |");
+        Assert.Contains("(bold: A1, B1, C1)", await Read("budget.xlsx"));
+
+        // Words alone, or numbers from the top, have no header.
+        await Write("words.xlsx", "| Red | Green |\n| Blue | Grey |");
+        Assert.DoesNotContain("bold:", await Read("words.xlsx"));
+        await Write("figures.xlsx", "| 1 | 2 |\n| 3 | 4 |");
+        Assert.DoesNotContain("bold:", await Read("figures.xlsx"));
+    }
+
+    [Fact]
     public async Task Rows_are_inserted_above_a_total_and_deleted_with_formulas_following()
     {
         await Write("budget.xlsx", "# Budget\n\n| Item | Cost |\n|---|---|\n| Rent | $1,200 |\n| Food | $850 |\n| **Total** | =SUM(B2:B3) |");
