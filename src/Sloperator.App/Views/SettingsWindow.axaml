@@ -24,22 +24,13 @@
     </Style>
   </Window.Styles>
 
-  <DockPanel>
-    <views:TitleBar DockPanel.Dock="Top" />
-    <Border DockPanel.Dock="Bottom" Classes="bar foot">
-      <!-- The buttons first: a long folder path is cut short instead of pushing them out of the window. -->
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
-          <Button Classes="ghost" Content="Cancel" Click="OnCancel" />
-          <Button Classes="primary" Content="Save" Click="OnSave" />
-        </StackPanel>
-        <TextBlock Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                   Text="{Binding Paths.SettingsFile, StringFormat='Saved to {0}'}" ToolTip.Tip="{Binding Paths.SettingsFile}" />
-      </DockPanel>
-    </Border>
+  <!-- Rows rather than a dock panel, so Tab goes down the window as it reads: the foot bar docked to the bottom came
+       first, and Tab went to Cancel and Save before the settings. -->
+  <Grid RowDefinitions="Auto,*,Auto">
+    <views:TitleBar />
 
     <!-- Everyday options in General, the ones most people never touch in Advanced. -->
-    <TabControl x:Name="Tabs">
+    <TabControl x:Name="Tabs" Grid.Row="1">
       <TabItem Header="General">
         <ScrollViewer>
           <StackPanel Spacing="4" Margin="16,8,28,24">
@@ -143,5 +134,17 @@
         </ScrollViewer>
       </TabItem>
     </TabControl>
-  </DockPanel>
+
+    <Border Grid.Row="2" Classes="bar foot">
+      <!-- The buttons first: a long folder path is cut short instead of pushing them out of the window. -->
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
+          <Button Classes="ghost" Content="Cancel" Click="OnCancel" />
+          <Button Classes="primary" Content="Save" Click="OnSave" />
+        </StackPanel>
+        <TextBlock Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                   Text="{Binding Paths.SettingsFile, StringFormat='Saved to {0}'}" ToolTip.Tip="{Binding Paths.SettingsFile}" />
+      </DockPanel>
+    </Border>
+  </Grid>
 </Window>

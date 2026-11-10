@@ -1919,6 +1919,9 @@ UI Automation, 2026-11-10). The rows under the top bar are grids, not dock panel
 in its dock panel, and Tab went to Servers before the address, Effort before Model and Auto before the context
 slider. The title bar's buttons are out of the Tab order (`Button.caption`, IsTabStop), as Windows' own are: Tab from
 the message box went to Close next. Layout unchanged, compared pixel by pixel before and after.
+Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Still open there: once round,
+Tab comes back to the page's last control focused (Add a language) and not to General; neither TabNavigation Continue on
+the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026-11-10). Shift+Tab goes back up.
 
 ## One look for every control
 Every control a person can type in, pick from or drag has a name for screen readers and UI Automation

@@ -85,8 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
-- Tab moves through the window left to right, Model before Effort and the address before **Servers**, and no
-  longer stops on the title bar's Close, Maximize and Minimize.
+- Tab moves through the window left to right, Model before Effort and the address before **Servers**, Settings'
+  fields before Cancel and Save, and no longer stops on the title bar's Close, Maximize and Minimize.
 - A key the agent presses that needs Shift on your keyboard, such as `*` or `+`, is pressed with it: `*` came out
   as an 8, so Calculator never multiplied.
 - A command that prints without end no longer makes Sloperator use more and more memory: the **Terminal** keeps its
