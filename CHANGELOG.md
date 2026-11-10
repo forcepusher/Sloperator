@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- The agent edits Word, Excel, PowerPoint and PDF files with its own tools straight away, rather than first looking
+  for Python or the program's MCP server.
 - The agent makes and changes files with its file tools rather than shell commands, so the changes show in
   **File changes** and Undo can put them back.
 - Command output reaches the agent without the spaces PowerShell pads table rows with, so listings cost fewer tokens.

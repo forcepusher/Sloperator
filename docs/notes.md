@@ -5527,6 +5527,11 @@ nudge. One sentence naming that very reasoning, that the setup is the user's cal
 Unity 7 of 8 and 2 of 4 in a second round, so 9 of 12; Blender and Unreal asked; Haiku asked in all 4, and
 Paint went on.
 
+A document is no program for the rule: "(a Word, Excel, PowerPoint or PDF file isn't one: write_file and edit_file
+make and change those)" after its first words. Asked to change a slide's title and add a table row in a .pptx, Haiku
+looked for Python and then searched for PowerPoint's MCP server "as the rule says" before edit_file did the edits
+(2026-11-10); with the words, a title and a bullet in 3 runs of 3 took edit_file alone, 4 to 6 calls.
+
 With everything already in place the first text wasn't enough: Haiku called the Unity CLI missing without a
 look, and all three runs with Blender's server in Settings fell back on scripts when it couldn't connect,
 as Blender wasn't open. Hence the last two sentences. They stand at the rule's end: put before the question
