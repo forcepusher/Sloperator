@@ -36,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Each new chat starts on the daily driver; a short reply ("yes, go on") goes on with the model in use, with no look.
 - **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
-- Side tasks can run on another model of the server than the chat's.
 - Ask the agent to show you something in a side panel ("show it in the Web preview") and it opens that panel with
   the page, file or folder in it.
 
