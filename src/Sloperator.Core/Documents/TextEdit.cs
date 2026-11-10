@@ -50,6 +50,9 @@ internal static partial class TextEdit
         if (hits.Count == 0 && !slides && Rows(oldText) is { } oldRows && RowsAndText(newText) is { } changed
             && changed.Rows.Count >= oldRows.Count && oldRows.Zip(changed.Rows).All(r => r.First.Count == r.Second.Count))
             return ReplaceCells(parts, stretches, oldRows, changed.Rows, all, changed.Before, changed.After);
+        if (hits.Count == 0 && !slides && Rows(oldText) is { } givenRows
+            && (newText.Trim().Length == 0 || RowsAndText(newText) is { Before: null, After: null } kept && kept.Rows.Count < givenRows.Count))
+            return RemoveRows(parts, givenRows, newText.Trim().Length == 0 ? [] : RowsAndText(newText)!.Value.Rows, all);
         if (hits.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document. Read it again with read_file and copy the text exactly; " +
                 "a change must stay within one table cell, text box or run of paragraphs not broken by a table, or be whole table rows as read_file shows them " +
@@ -167,21 +170,7 @@ internal static partial class TextEdit
         List<List<string>> oldRows, List<List<string>> newRows, bool all, string? textBefore = null, string? textAfter = null)
     {
         var format = WordFormat;
-        string CellText(XElement tc) => Fold(string.Join(" ", tc.Elements(W + "p").Select(p => string.Concat(format.Units(p).Select(format.UnitText))))).Trim();
-        bool Same(string given, string cell) => Fold(given).Trim() == cell || Fold(Unmarked(given)).Trim() == cell;
-
-        var matches = new List<(string Part, List<XElement[]> Rows, int Column)>();
-        foreach (var (part, xml) in parts)
-            foreach (var table in xml.Descendants(W + "tbl"))
-            {
-                var rows = table.Elements(W + "tr").Select(r => r.Elements(W + "tc").ToArray()).ToList();
-                var texts = rows.Select(r => r.Select(CellText).ToArray()).ToList();
-                for (var r = 0; r + oldRows.Count <= rows.Count; r++)
-                    for (var c = 0; c < rows[r].Length; c++)
-                        if (oldRows.Select((cells, i) => (cells, row: texts[r + i])).All(x => c + x.cells.Count <= x.row.Length
-                                && x.cells.Select((cell, j) => Same(cell, x.row[c + j])).All(same => same)))
-                            matches.Add((part, rows.GetRange(r, oldRows.Count), c));
-            }
+        var matches = MatchRows(parts, oldRows);
         if (matches.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document: no table has those rows. Read it again with read_file and copy the rows exactly, or change one cell's text by itself.");
         if (matches.Count > 1 && !all)
@@ -248,6 +237,66 @@ internal static partial class TextEdit
                 table.AddBeforeSelf(Paragraphs(table, textBefore));
             if (textAfter is not null)
                 table.AddAfterSelf(Paragraphs(table, textAfter));
+            if (!changed.Contains(part))
+                changed.Add(part);
+        }
+        return (matches.Count, changed);
+    }
+
+    /// <summary>A cell's text as read_file's row shows it: its paragraphs joined by a space, folded as <see cref="Fold"/> does.</summary>
+    private static string CellText(XElement tc) =>
+        Fold(string.Join(" ", tc.Elements(W + "p").Select(p => string.Concat(WordFormat.Units(p).Select(WordFormat.UnitText))))).Trim();
+
+    /// <summary>Whether a cell as the model gave it ("**140**" or "140") is the cell's text.</summary>
+    private static bool Same(string given, string cell) => Fold(given).Trim() == cell || Fold(Unmarked(given)).Trim() == cell;
+
+    /// <summary>Every place in a table where <paramref name="oldRows"/> are, a run of their cells from a column on.</summary>
+    private static List<(string Part, List<XElement[]> Rows, int Column)> MatchRows(Dictionary<string, XDocument> parts, List<List<string>> oldRows)
+    {
+        var matches = new List<(string Part, List<XElement[]> Rows, int Column)>();
+        foreach (var (part, xml) in parts)
+            foreach (var table in xml.Descendants(W + "tbl"))
+            {
+                var rows = table.Elements(W + "tr").Select(r => r.Elements(W + "tc").ToArray()).ToList();
+                var texts = rows.Select(r => r.Select(CellText).ToArray()).ToList();
+                for (var r = 0; r + oldRows.Count <= rows.Count; r++)
+                    for (var c = 0; c < rows[r].Length; c++)
+                        if (oldRows.Select((cells, i) => (cells, row: texts[r + i])).All(x => c + x.cells.Count <= x.row.Length
+                                && x.cells.Select((cell, j) => Same(cell, x.row[c + j])).All(same => same)))
+                            matches.Add((part, rows.GetRange(r, oldRows.Count), c));
+            }
+        return matches;
+    }
+
+    /// <summary>
+    /// Whole rows given as old_text and fewer as new_text, the same rows with some left out (none, for an empty new_text):
+    /// those left out go, and the table with them when it had no others.
+    /// </summary>
+    private static (int Count, List<string> Parts) RemoveRows(Dictionary<string, XDocument> parts, List<List<string>> oldRows, List<List<string>> keptRows, bool all)
+    {
+        var matches = MatchRows(parts, oldRows).Where(m => m.Column == 0 && m.Rows.Select((cells, i) => cells.Length == oldRows[i].Count).All(whole => whole)).ToList();
+        if (matches.Count == 0)
+            throw new InvalidOperationException("old_text was not found in the document: no table has those whole rows. Read it again with read_file and copy the rows exactly, every cell.");
+        if (matches.Count > 1 && !all)
+            throw new InvalidOperationException($"Those rows occur {matches.Count} times. Include more rows around them to make them unique, or set replace_all to take out every one.");
+        // The rows kept are the given ones in order: which go is what they skip.
+        var going = new List<int>();
+        var next = 0;
+        for (var i = 0; i < oldRows.Count; i++)
+            if (next < keptRows.Count && keptRows[next].Count == oldRows[i].Count && keptRows[next].Zip(oldRows[i]).All(c => Fold(Unmarked(c.First)).Trim() == Fold(Unmarked(c.Second)).Trim()))
+                next++;
+            else
+                going.Add(i);
+        if (next < keptRows.Count)
+            throw new InvalidOperationException("To take rows out, new_text is the rows given with those left out, as they were; change cells in another edit.");
+        var changed = new List<string>();
+        foreach (var (part, rows, _) in matches)
+        {
+            var table = rows[0][0].Parent!.Parent!;
+            foreach (var i in going)
+                rows[i][0].Parent!.Remove();
+            if (!table.Elements(W + "tr").Any())
+                table.Remove();
             if (!changed.Contains(part))
                 changed.Add(part);
         }

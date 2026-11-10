@@ -528,6 +528,14 @@ public class DocumentWriteTests : IDisposable
         // A line before the first row goes before the table.
         Assert.False((await Edit("report.docx", "| Region | Q4 |", "Sales by region:\n\n| Region | Q4 |")).IsError);
         Assert.Equal("Sales by region:", Body(path).Element(W + "tbl")!.ElementsBeforeSelf(W + "p").Last().Value);
+
+        // Rows given and fewer kept: the ones left out go; all of them, with an empty new_text, and the table with the last.
+        Assert.False((await Edit("report.docx", "| South | 90 |\n| West | 70 |", "| West | 70 |")).IsError);
+        Assert.Equal([["Region", "Q4"], ["North", "160"], ["West", "70"]], Cells());
+        Assert.False((await Edit("report.docx", "| West | 70 |", "")).IsError);
+        Assert.Equal([["Region", "Q4"], ["North", "160"]], Cells());
+        Assert.False((await Edit("report.docx", "| Region | Q4 |\n| North | 160 |", "")).IsError);
+        Assert.Null(Body(path).Element(W + "tbl"));
     }
 
     [Fact]
