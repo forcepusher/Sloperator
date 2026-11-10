@@ -171,8 +171,9 @@ public class CaptureResultTests : IDisposable
 
         // A name that is neither is said, with the titles as they read.
         var missing = await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "Paint" }));
-        Assert.Contains("\"Shop and 3 more pages - Profile 1 - Microsoft Edge\"", missing.Message);
-        Assert.Contains("\"rename\"", missing.Message);
+        Assert.Contains("\"Shop and 3 more pages - Profile 1 - Microsoft Edge\" (msedge)", missing.Message);
+        // A title that doesn't name its program has the program beside it.
+        Assert.Contains("\"rename\" (explorer)", missing.Message);
     }
 
     [Fact]
