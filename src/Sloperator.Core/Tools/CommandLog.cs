@@ -152,6 +152,17 @@ public sealed class CommandRun
 
     internal List<string> Lines { get; } = [];
 
+    /// <summary>
+    /// The lines a command keeps from its start; past them only its last <see cref="TailLines"/> are kept, put after a
+    /// line saying how many went, once it ends. Every line was kept, in memory and in the chat's file, which is written
+    /// again as each command ends: a command printing a line for each of a million files grew both without end.
+    /// </summary>
+    internal const int MaxLines = 100_000, TailLines = 2_000;
+
+    /// <summary>Lines past <see cref="MaxLines"/>, the last <see cref="TailLines"/> of them, and how many there were.</summary>
+    private readonly Queue<string> _tail = new();
+    private long _past;
+
     public int LineCount
     {
         get
@@ -175,7 +186,16 @@ public sealed class CommandRun
         {
             if (HasEnded)
                 return;
-            Lines.Add(line);
+            if (Lines.Count < MaxLines)
+                Lines.Add(line);
+            else
+            {
+                _past++;
+                _tail.Enqueue(line);
+                if (_tail.Count > TailLines)
+                    _tail.Dequeue();
+                return;
+            }
         }
         _log.Touched();
     }
@@ -187,6 +207,10 @@ public sealed class CommandRun
         {
             if (HasEnded)
                 return;
+            if (_past > _tail.Count)
+                Lines.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"… {_past - _tail.Count:N0} more lines, not kept …"));
+            Lines.AddRange(_tail);
+            _tail.Clear();
             ExitCode = exitCode;
             Ending = ending;
             Took = DateTime.Now - Started;

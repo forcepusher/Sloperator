@@ -4942,7 +4942,10 @@ it printed in all, and the lines numbered as the panel shows them, up to 20,000 
 chat gets its id then; written when each command ends, through a temporary file of its own, `AtomicFile`, as
 two commands can end at once), so a chat opened from
 History shows its commands, and deleting the chat deletes them with its folder. A command still running when
-the app closed comes back ended, "not seen to end".
+the app closed comes back ended, "not seen to end". A command keeps its first 100,000 lines and, once it ends, its
+last 2,000 under a line saying how many went (`CommandRun.MaxLines`): every line was kept in memory and in the file,
+written whole again as each command ends, so a command that printed a line for each of a million files grew both
+without end (2026-11-10).
 
 No new library: the published exe grew 28 KB (28,141,496 to 28,169,656 bytes against develop 4d0fd59, no trim
 warnings), and the trimmed exe wrote and read terminal.json as the Debug build did.

@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A command that prints without end no longer makes Sloperator use more and more memory: the **Terminal** keeps its
+  first 100,000 lines and its last 2,000.
 - A table the agent writes in a workbook, Word document, PDF or slide without its `|---|` line still gets a header row,
   bold and kept in sight, when its first row is words over rows of numbers, such as a budget's months.
 - `sloperator-cli --help` prints its options, and a misspelt option is said, rather than sent to the model as a task.
