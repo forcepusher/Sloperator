@@ -205,7 +205,24 @@ public class DocumentWriteTests : IDisposable
         Assert.Contains("--- slide 1 of 3 ---\nQ3 results\nNorthwind, October 2026", text.ReplaceLineEndings("\n"));
         Assert.Contains("Airport up 8%", text);
         Assert.Contains("roadworks", text);
-        Assert.Contains("Airport\n37,450", text.ReplaceLineEndings("\n"));
+        Assert.Contains("| Store | Sales |\n| Airport | 37,450 |", text.ReplaceLineEndings("\n")); // a table as rows, as a Word one
+
+        // Its rows change, and come and go, as a Word table's do, the frame growing with a row added (2026-11-10).
+        long FrameHeight()
+        {
+            using var deck = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx"));
+            var slide = XDocument.Load(deck.GetEntry("ppt/slides/slide3.xml")!.Open());
+            XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main", p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+            return (long)slide.Descendants(p + "graphicFrame").Single().Element(p + "xfrm")!.Element(a + "ext")!.Attribute("cy")!;
+        }
+        var height = FrameHeight();
+        Assert.False((await Edit("deck.pptx", "| Airport | 37,450 |", "| Airport | 38,000 |\n| Station | 21,300 |")).IsError);
+        Assert.Contains("| Airport | 38,000 |\n| Station | 21,300 |", (await Read("deck.pptx")).ReplaceLineEndings("\n"));
+        Assert.True(FrameHeight() > height);
+        Assert.False((await Edit("deck.pptx", "| Airport | 38,000 |\n| Station | 21,300 |", "| Station | 21,300 |")).IsError);
+        Assert.DoesNotContain("Airport | 38,000", await Read("deck.pptx"));
+        Assert.Equal(height, FrameHeight());
+        Assert.Contains("text doesn't go before or after a table", (await Edit("deck.pptx", "| Station | 21,300 |", "| Station | 21,300 |\n\nMore")).Text);
         using var zip = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx"));
         Assert.Contains(zip.Entries, e => e.FullName.StartsWith("ppt/media/image1.png", StringComparison.Ordinal));
         Assert.Contains("slideLayout1.xml", new StreamReader(zip.GetEntry("ppt/slides/_rels/slide1.xml.rels")!.Open()).ReadToEnd());
@@ -512,6 +529,51 @@ public class DocumentWriteTests : IDisposable
         var missing = await Edit("report.docx", "| West | 10 |", "| West | 20 |");
         Assert.True(missing.IsError);
         Assert.Contains("no table has those rows", missing.Text);
+
+        // The last row with a row and a line after it (Haiku's, 2026-11-10): a row made like it, then a paragraph after the table.
+        var added = await Edit("report.docx", "| South | 90 |", "| South | 90 |\n| West | 70 |\n\nEnd of report.");
+        Assert.False(added.IsError, added.Text);
+        Assert.Equal([["Region", "Q4"], ["North", "160"], ["South", "90"], ["West", "70"]], Cells());
+        var after = Body(path).Element(W + "tbl")!.ElementsAfterSelf(W + "p").First();
+        Assert.Equal("End of report.", after.Value);
+        var read = await Read("report.docx");
+        Assert.True(read.IndexOf("| West | 70 |", StringComparison.Ordinal) is >= 0 and var row && read.IndexOf("End of report.", StringComparison.Ordinal) > row, read);
+
+        // Text goes by a table only at its ends, and a row added has the table's cells.
+        Assert.Contains("only after its last row", (await Edit("report.docx", "| North | 160 |", "| North | 160 |\n\nMore.")).Text);
+        Assert.Contains("needs the table's 2 cells", (await Edit("report.docx", "| West | 70 |", "| West | 70 |\n| East |")).Text);
+        // A line before the first row goes before the table.
+        Assert.False((await Edit("report.docx", "| Region | Q4 |", "Sales by region:\n\n| Region | Q4 |")).IsError);
+        Assert.Equal("Sales by region:", Body(path).Element(W + "tbl")!.ElementsBeforeSelf(W + "p").Last().Value);
+
+        // Rows given and fewer kept: the ones left out go; all of them, with an empty new_text, and the table with the last.
+        Assert.False((await Edit("report.docx", "| South | 90 |\n| West | 70 |", "| West | 70 |")).IsError);
+        Assert.Equal([["Region", "Q4"], ["North", "160"], ["West", "70"]], Cells());
+        Assert.False((await Edit("report.docx", "| West | 70 |", "")).IsError);
+        Assert.Equal([["Region", "Q4"], ["North", "160"]], Cells());
+        Assert.False((await Edit("report.docx", "| Region | Q4 |\n| North | 160 |", "")).IsError);
+        Assert.Null(Body(path).Element(W + "tbl"));
+    }
+
+    [Fact]
+    public async Task An_empty_old_text_adds_to_the_end_of_a_word_document()
+    {
+        // As Haiku 5.5 tried to add a closing line: before the empty paragraph and the section settings that end the body.
+        var path = WordFile("end.docx", """
+            <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Report</w:t></w:r></w:p>
+            <w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:i/></w:rPr><w:t>All is well.</w:t></w:r></w:p>
+            <w:p/>
+            """);
+        var result = await Edit("end.docx", "", "End of report.\n## Next steps");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("at the end of the document", result.Text);
+        var paragraphs = Body(path).Elements(W + "p").ToList();
+        Assert.Equal(["Report", "All is well.", "End of report.", "Next steps", ""], paragraphs.Select(p => p.Value));
+        // Like the last plain paragraph, its spacing and look; the heading a heading.
+        Assert.NotNull(paragraphs[2].Element(W + "pPr")?.Element(W + "spacing"));
+        Assert.NotNull(paragraphs[2].Descendants(W + "i").FirstOrDefault());
+        Assert.Equal("Heading2", (string?)paragraphs[3].Element(W + "pPr")?.Element(W + "pStyle")?.Attribute(W + "val"));
+        Assert.True((await Edit("end.docx", "", " ")).IsError);
     }
 
     [Fact]

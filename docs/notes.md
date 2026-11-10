@@ -134,7 +134,15 @@ start makes a heading, and `**bold**` applies. A Word table's rows can be given 
 shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
 cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
 2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
-PowerShell. In a workbook it sets cells written the way
+PowerShell. Rows in the new text after the ones given are added below them, made like the last (no header mark), and
+lines before or after the rows go before or after the table as paragraphs, when the rows given are its first or last
+(`TextEdit.RowsAndText`), and rows given with fewer kept, or none with an empty new text, take the others out (the
+table with its last row, `RemoveRows`). Asked to end a report with a line under its table, Haiku gave the last row and that row with
+the line after it, was told the text wasn't there, and rewrote document.xml through PowerShell again (2026-11-10).
+An empty old text adds the new text at the end of a Word document, before the empty paragraphs and section settings
+that close it, looking as its last plain paragraph (`TextEdit.AppendToBody`): Haiku tried that first, and was told to
+give the paragraph it goes after.
+In a workbook it sets cells written the way
 `read_file` shows them (`B7 =SUM(B2:B7)`, `Budget!A8 Total`), after checking that the cells being
 replaced still hold what the model read, and keeps each cell's formatting; without cell addresses
 it replaces text in the cells. A line `insert row 7` or `delete rows 3-4` changes the rows first, as
@@ -1919,9 +1927,12 @@ UI Automation, 2026-11-10). The rows under the top bar are grids, not dock panel
 in its dock panel, and Tab went to Servers before the address, Effort before Model and Auto before the context
 slider. The title bar's buttons are out of the Tab order (`Button.caption`, IsTabStop), as Windows' own are: Tab from
 the message box went to Close next. Layout unchanged, compared pixel by pixel before and after.
-Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Still open there: once round,
-Tab comes back to the page's last control focused (Add a language) and not to General; neither TabNavigation Continue on
-the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026-11-10). Shift+Tab goes back up.
+Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Its tab control keeps a
+page's controls in its tabs' one tab stop: Tab from Save came back to the page's last control focused (Add a language)
+rather than to General, and Shift+Tab from the page's first control stayed on it, a trap; TabNavigation Continue on the
+TabControl or on its strip's ItemsPresenter changed nothing (Avalonia 12, 2026-11-10). `SettingsWindow.OnTabKey` sends
+Tab from Save to the page's tab, and Shift+Tab that went nowhere there too; both ways go round now. Esc is Cancel there
+and in the System prompt window (`IsCancel`): it did nothing.
 The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
 children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
 holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
@@ -5022,7 +5033,9 @@ alone, its tool, its arguments and what it made, the same for every model and se
   command then a file in one go, the window's thread still opening the Terminal as both ended, gave the file to
   the command: Auto stayed on the Terminal): a web page, or a .css, .js, .mjs, .json or .svg in the folder of the page the agent wrote last (it reloads
   there), in **Web preview**; a picture, animation, video, sound, 3D model or document (Word, Excel, PowerPoint,
-  PDF, an SVG elsewhere) in the **File inspector**, which draws it. Code and text (Markdown and tables too) by whose
+  PDF, an SVG elsewhere) in the **File inspector**, which draws it, again when it is the file shown and was written
+  since it was read (`FileInspectorViewModel.ShowChanged`: the same path kept the old one, a paragraph the agent
+  shortened in a .docx unseen, 2026-11-10). Code and text (Markdown and tables too) by whose
   file it is (`FileChanges.IsNew`: it wasn't there before the agent first changed it): one the agent made in this
   chat, inside the folder the Code editor shows (the user's, else the agent's project), in the **Code editor**,
   opened at what the agent wrote in it, lit (`CodeEditorViewModel.OpenLit`, then its Watch follows the next
@@ -5516,6 +5529,15 @@ time and still didn't ask (Unity 0 of 4). A reminder with each message: 2 of 4, 
 nudge. One sentence naming that very reasoning, that the setup is the user's call, even for a small task:
 Unity 7 of 8 and 2 of 4 in a second round, so 9 of 12; Blender and Unreal asked; Haiku asked in all 4, and
 Paint went on.
+
+A document is no program for the rule: "(not a Word, Excel, PowerPoint or PDF file: write_file and edit_file make and
+change those without the program, so none of this is for them)" after its first words. Asked to change a slide's title
+and add a table row in a .pptx, Haiku looked for Python and searched for PowerPoint's MCP server "as the rule says"
+before edit_file did the edits, and once stopped to ask about installing one (2026-11-10). "isn't one: write_file and
+edit_file make and change those" was enough for a title and a bullet (3 of 3 with edit_file alone) but not with the
+table row (2 of 2 searched); with "without the program, so none of this is for them", 3 of 3 with the row took
+edit_file alone, 7 or 8 calls, the row added each time. Slide tables now read as rows and change as a Word table's do
+(`DocumentText.Pptx`, `TextEdit` with `CellParagraphs`, the frame's height following rows added or taken out).
 
 With everything already in place the first text wasn't enough: Haiku called the Unity CLI missing without a
 look, and all three runs with Blender's server in Settings fell back on scripts when it couldn't connect,

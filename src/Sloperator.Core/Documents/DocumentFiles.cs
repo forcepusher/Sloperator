@@ -92,7 +92,7 @@ internal static partial class DocumentFiles
     public static string Edit(string path, string oldText, string newText, bool all)
     {
         var kind = EditKind(path);
-        if (kind is "docx" or "pptx" && oldText.Length == 0)
+        if (kind == "pptx" && oldText.Length == 0)
             throw new InvalidOperationException("old_text must not be empty. To add text, give the paragraph it goes after as old_text, and that paragraph followed by the new text as new_text.");
         if (kind == "pdf")
             throw new InvalidOperationException("A PDF can't be changed in place. Read it with read_file and write a new one with write_file " +
@@ -129,9 +129,21 @@ internal static partial class DocumentFiles
                     }
                 if (documents.Count == 0)
                     throw new InvalidOperationException($"{Path.GetFileName(path)} has no text to change.");
-                var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
-                foreach (var part in changed) parts.Changed(part);
-                message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was.";
+                // Nothing given to find, in a Word document: the new text goes at its end.
+                if (oldText.Length == 0 && documents.TryGetValue("word/document.xml", out var main))
+                {
+                    if (newText.Trim().Length == 0)
+                        throw new InvalidOperationException("Both old_text and new_text are empty: there is nothing to change.");
+                    TextEdit.AppendToBody(main, newText.Replace("\r\n", "\n"));
+                    parts.Changed("word/document.xml");
+                    message = "Added the text at the end of the document, looking like its last paragraph.";
+                }
+                else
+                {
+                    var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
+                    foreach (var part in changed) parts.Changed(part);
+                    message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was.";
+                }
             }
             parts.Save();
         }

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- The agent can add text at the end of a Word document without naming the paragraph it goes after.
+- The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
+  document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
 - A series of key presses the agent makes can type text between them, such as Ctrl+A, the new name and Enter to
   rename something, in one step.
 - A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
@@ -42,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- The agent reads a PowerPoint table as rows, as it reads a Word table, rather than one cell a line.
+- The agent edits Word, Excel, PowerPoint and PDF files with its own tools straight away, rather than first looking
+  for Python or the program's MCP server.
 - The agent makes and changes files with its file tools rather than shell commands, so the changes show in
   **File changes** and Undo can put them back.
 - Command output reaches the agent without the spaces PowerShell pads table rows with, so listings cost fewer tokens.
@@ -85,6 +91,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- On **Auto**, the File inspector shows a document again once the agent changes it, rather than the version it had
+  read before.
+- Esc closes Settings and the System prompt window without saving, as Cancel does.
+- In Settings, Tab and Shift+Tab go round the whole dialog: Shift+Tab from the first box stayed on it, and Tab
+  from **Save** skipped back to the page's last button.
 - Tab moves through the window left to right, Model before Effort and the address before **Servers**, Settings'
   fields before Cancel and Save, a side panel's buttons as they show, and no longer stops on the title bar's Close,
   Maximize and Minimize.

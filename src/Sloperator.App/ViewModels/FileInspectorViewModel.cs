@@ -325,10 +325,32 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
             Post(load, () => Recipe = recipe);
     });
 
+    /// <summary>When the file shown was last written, as it was when it was read; for <see cref="ShowChanged"/>.</summary>
+    private DateTime _written;
+
+    /// <summary>
+    /// Shows <paramref name="path"/> as it is now, when it isn't the file shown or that file changed since it was read:
+    /// Auto showing the document the agent edited. The panel kept the old one, the change unseen, as the path was the
+    /// same (a paragraph the agent shortened in report.docx, 2026-11-10).
+    /// </summary>
+    public void ShowChanged(string path)
+    {
+        path = System.IO.Path.GetFullPath(path);
+        if (!string.Equals(path, Path, StringComparison.OrdinalIgnoreCase) || WrittenAt(path) != _written)
+            Show(path);
+    }
+
+    private static DateTime WrittenAt(string path)
+    {
+        try { return File.GetLastWriteTimeUtc(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return default; }
+    }
+
     /// <summary>Shows <paramref name="path"/> in the panel, in place of the file shown.</summary>
     public void Show(string path)
     {
         path = System.IO.Path.GetFullPath(path);
+        _written = WrittenAt(path);
         var load = ++_loading;
         Unpick();
         AreaMode = false;

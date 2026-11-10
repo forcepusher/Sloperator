@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Sloperator.App.ViewModels;
@@ -7,7 +8,36 @@ namespace Sloperator.App.Views;
 
 public partial class SettingsWindow : Window
 {
-    public SettingsWindow() => InitializeComponent();
+    public SettingsWindow()
+    {
+        InitializeComponent();
+        AddHandler(KeyDownEvent, OnTabKey, RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>
+    /// Tab round the dialog through the page's tab: Avalonia's tab control keeps a page's controls in its tabs' one
+    /// tab stop, so Tab from Save came back to the page's last control focused (Add a language), and Shift+Tab from the
+    /// page's first control stayed on it (checked by UI Automation, 2026-11-10; TabNavigation didn't change that).
+    /// </summary>
+    private void OnTabKey(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Tab || Tabs.ContainerFromIndex(Tabs.SelectedIndex) is not TabItem page || FocusManager?.GetFocusedElement() is not { } focused)
+            return;
+        if (e.KeyModifiers == KeyModifiers.None && ReferenceEquals(focused, SaveButton))
+        {
+            page.Focus(NavigationMethod.Tab);
+            e.Handled = true;
+        }
+        else if (e.KeyModifiers == KeyModifiers.Shift)
+        {
+            // Where Shift+Tab goes nowhere, the page's tab is the place before it.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(FocusManager?.GetFocusedElement(), focused) && !ReferenceEquals(focused, page))
+                    page.Focus(NavigationMethod.Tab);
+            });
+        }
+    }
 
     private void OnSave(object? sender, RoutedEventArgs e)
     {
