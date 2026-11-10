@@ -162,6 +162,9 @@ public class CaptureResultTests : IDisposable
         var missing = await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "Blender" }));
         Assert.Contains("\"Blender\"", missing.Message);
         Assert.Contains("\"Untitled - Paint\", \"Inbox - Mail\"", missing.Message);
+        // Sloperator's own window and side panel are never among them: the model is told it can't see them.
+        Assert.Contains("Sloperator's own windows and side panel are left out",
+            (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "Web preview" }))).Message);
 
         platform.Windows = [new("Far away", new ScreenRect(5000, 5000, 300, 200))];
         Assert.Contains("off the screen", (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "far" }))).Message);

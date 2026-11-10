@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
+  every line of it; all of it still goes to the model.
 - **Audio editor** side panel, beside the Image and Video editors: your sounds with their versions, a big waveform
   to play and drag over, and Cut, Keep only, Fade in, Fade out, Louder and Quieter, each saved as a new version so
   the earlier ones stay. The agent can make the same edits, and redo a stretch with a new take.
@@ -34,11 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Each new chat starts on the daily driver; a short reply ("yes, go on") goes on with the model in use, with no look.
 - **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
-- Side tasks can run on another model of the server than the chat's.
 - Ask the agent to show you something in a side panel ("show it in the Web preview") and it opens that panel with
   the page, file or folder in it.
 
 ### Changed
+- The agent makes and changes files with its file tools rather than shell commands, so the changes show in
+  **File changes** and Undo can put them back.
 - Command output reaches the agent without the spaces PowerShell pads table rows with, so listings cost fewer tokens.
 - What Sloperator tells the agent with your message (what Auto found, a side panel pick, text you selected in the
   chat) now comes after your words, so the agent no longer takes your message for one of Sloperator's.
@@ -80,10 +83,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A table the agent writes in a workbook, Word document, PDF or slide without its `|---|` line still gets a header row,
+  bold and kept in sight, when its first row is words over rows of numbers, such as a budget's months.
+- `sloperator-cli --help` prints its options, and a misspelt option is said, rather than sent to the model as a task.
+- **File changes** no longer lists changes made before the agent began, and not committed, under Committed as
+  taken out, nor a file git doesn't track as deleted there.
+- The agent no longer tells you to reload a page in **Web preview** after changing it: it is told the panel reloads
+  the page by itself as its files change.
+- An agent trying to capture Sloperator's own side panel is told it can't see it, rather than that no such window
+  is open.
+- Auto's card shows the file it is reading by name, as other cards do, rather than a whole path that cut its own line.
+- Auto's notes to the agent no longer say what it didn't open, or repeat what the chat already says.
+- The API key's tooltip names the SloperatorData folder it is saved in, not the old Data folder.
+- The agent no longer waits for a change to a screen that already changed (a window that had opened), which could
+  keep a task waiting until you skipped it.
+- A message sent while the server can't be reached says so, rather than asking you to enter the address that is there.
 - The **Terminal** panel no longer shows a table's rows a blank line apart when Wrap is on.
 - Saving **MCP servers** text that isn't valid JSON shows why in plain words, with the line and character, and scrolls
   the message into sight.
-- **History** names a chat that starts with a long path by the path's last folder or file, so the rows tell apart.
+- **History** and **Cost estimates** name a chat that starts with a long path by the path's last folder or file, so
+  the rows tell apart.
 - After the context is compacted, the chat says how big the context is now, not a size that read as the handoff note's.
 - A request the server turns down says why in plain words, rather than showing the server's raw JSON.
 - Undoing a message no longer lists Auto's look, the plan or a side panel opened among what couldn't be undone.
@@ -96,14 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than empty cells or old totals until Excel opens it.
 - When a program the agent runs isn't installed, it is told so, and to ask you before installing, rather than that
   names change between versions.
-- A chat opened from **History** knows how full its context is from the server's own count, rather than an estimate,
-  so the context is compacted at the right time.
 - The agent is no longer told it is going in circles when it clicks or presses the same thing on purpose and the
   screen moves on each time, such as a counter's button or Down through a list.
 - A click whose effect shows a little way off, such as a counter above the button, is no longer reported to the agent
   as a miss.
 - A chat opened from **History** shows how full its context is in the top bar at once, as it did when you left it,
-  not only once the next task starts.
+  and measures it by the server's own count rather than an estimate, so the context is compacted at the right time.
 - In a narrow chat, a folded card's title wraps before the model Auto picked, not inside its name or before its effort.
 - **Web preview** shows a page that sets no background of its own on white, as a browser does, rather than its
   black text on the panel's dark grey.

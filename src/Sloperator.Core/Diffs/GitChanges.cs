@@ -91,6 +91,20 @@ public static class GitChanges
         return read;
     }
 
+    /// <summary>When the last commit that changed <paramref name="relative"/> was made (git's committer time, to the second); null when none did or git failed.</summary>
+    internal static async Task<DateTimeOffset?> LastCommitAsync(string root, string relative, CancellationToken ct)
+    {
+        try
+        {
+            var output = await GitDiff.RunAsync(root, ["log", "-1", "--format=%ct", "--", relative], ct, 1_000).ConfigureAwait(false);
+            return output.Exit == 0 && long.TryParse(output.Out.Trim(), out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+        }
+        catch (DiffException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The status letters of each path that isn't as committed: "M " staged, " M" not, "??" untracked.</summary>
     private static async Task<Dictionary<string, (char X, char Y)>> StatusAsync(string root, List<string> relative, CancellationToken ct)
     {

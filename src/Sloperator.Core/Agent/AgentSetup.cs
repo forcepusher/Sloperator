@@ -27,7 +27,7 @@ public static class AgentSetup
     public static AgentSession Create(BackendConnection backend, IPlatformServices platform, AgentSettings agent, AppPaths paths,
         McpHost mcp, SshHosts ssh, List<ChatMessage>? history = null, Func<bool>? userComposing = null, DesktopTurn? desktopTurn = null,
         object? desktopSeat = null, bool folderIndex = true, Diffs.FileChanges? changes = null, IModelServerSwitch? modelServer = null, string? chatDirectory = null,
-        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null, Func<string, string?, Task<string?>>? showPanel = null)
+        CommandLog? commands = null, Action<ModelPrices>? setPrices = null, AgentPlan? plan = null, Func<string, string?, Task<PanelShown>>? showPanel = null)
     {
         var mcpSetup = new McpSetup(mcp, paths.McpConfigFile);
         var comfy = Comfy.ComfyHub.For(paths.ComfyDir);

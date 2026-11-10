@@ -86,7 +86,7 @@ internal sealed class WindowsUserInput : IUserInput
 
     /// <summary>
     /// Whether what is under a point is Sloperator's: a window that lets clicks through (the click
-    /// log, the frame) isn't, nor one that stepped aside for the action; the page in a Live preview
+    /// log, the frame) isn't, nor one that stepped aside for the action; the page in a Web preview
     /// is another process's child window, so it goes by the top-level window.
     /// </summary>
     private static bool IsSloperatorAt(POINT at) =>

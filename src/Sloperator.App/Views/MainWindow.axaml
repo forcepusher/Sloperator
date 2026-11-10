@@ -477,7 +477,7 @@
         <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="API key" Margin="16,0,8,0" />
         <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding ApiKey}" AutomationProperties.Name="API key" PasswordChar="•" RevealPassword="{Binding ShowApiKey}" MinWidth="120"
                  PlaceholderText="Optional"
-                 ToolTip.Tip="Saved in plain text in the Data folder." />
+                 ToolTip.Tip="Saved in plain text in the SloperatorData folder." />
         <ToggleButton Grid.Row="0" Grid.Column="4" Classes="ghost icon" IsChecked="{Binding ShowApiKey}" Margin="8,0,0,0"
                       VerticalAlignment="Stretch" ToolTip.Tip="Show or hide the API key" AutomationProperties.Name="Show API key">
           <Panel>
@@ -754,7 +754,15 @@
                          margin off, so a long line came back narrower than measured, wrapped once more and
                          lost the last line of the message under the bubble's edge. -->
                     <!-- Its right-click menu is the chat's (MainWindow.OnChatMenu): Copy, Undo message and everything below, Compact context. -->
-                    <views:SelectableText views:MarkdownText.Plain="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding HasText}" Margin="0,-8" Padding="12,8" />
+                    <views:SelectableText views:MarkdownText.Plain="{Binding ShownText}" TextWrapping="Wrap" IsVisible="{Binding HasText}" Margin="0,-8" Padding="12,8" />
+                    <!-- A long message folds to its first lines (UserMessageItem.FoldedLines), with the toggle Show steps has. -->
+                    <Button Classes="ghost menu" Command="{Binding ToggleAllCommand}" Click="OnFoldClick" IsVisible="{Binding IsLong}" HorizontalAlignment="Right"
+                            Margin="12,2,4,0" AutomationProperties.Name="{Binding FoldText}">
+                      <DockPanel>
+                        <PathIcon DockPanel.Dock="Right" Classes="arrow" Classes.open="{Binding ShowsAll}" />
+                        <TextBlock Text="{Binding FoldText}" VerticalAlignment="Center" />
+                      </DockPanel>
+                    </Button>
                   </StackPanel>
                 </Border>
               </StackPanel>

@@ -600,6 +600,9 @@ public class DocumentWriteTests : IDisposable
     [InlineData("-A1+$B$1", 1.0)]
     [InlineData("SUM(A1:B1, 10)", 15.0)]
     [InlineData("MAX(A1:B1)-MIN(A1:B1)+COUNT(A1:B1)", 3.0)]
+    [InlineData("ROUND(1234.5, -2)", 1200.0)] // to hundreds: Math.Round refuses a negative count of digits
+    [InlineData("ROUND(2.5)", 3.0)]
+    [InlineData("((((((1))))))", 1.0)]
     [InlineData("A1/C1", null)]       // an empty cell is 0: a division by zero
     [InlineData("A1+T1", null)]       // text
     [InlineData("A1 > 1", null)]      // a comparison isn't worked out here
@@ -615,6 +618,14 @@ public class DocumentWriteTests : IDisposable
             _ => SheetFormula.Cell.Empty,
         };
         Assert.Equal(value, SheetFormula.Value(formula, Read));
+    }
+
+    [Fact]
+    public void A_formula_nested_thousands_deep_has_no_value_rather_than_overflowing_the_stack()
+    {
+        Assert.Null(SheetFormula.Value(new string('(', 50_000) + "1" + new string(')', 50_000), _ => SheetFormula.Cell.Empty));
+        Assert.Null(SheetFormula.Value(new string('-', 50_000) + "1", _ => SheetFormula.Cell.Empty));
+        Assert.Null(SheetFormula.Value(string.Concat(Enumerable.Repeat("SUM(", 50_000)) + "1" + new string(')', 50_000), _ => SheetFormula.Cell.Empty));
     }
 
     [Fact]
@@ -665,6 +676,27 @@ public class DocumentWriteTests : IDisposable
             Assert.Equal("1", (string?)XDocument.Load(check.GetEntry("xl/workbook.xml")!.Open()).Descendants(s + "calcPr").Single().Attribute("fullCalcOnLoad"));
         // The total's new value is worked out here too, for what shows the file without Excel.
         Assert.Contains("B4 =SUM(B2:B3) → 2100", await Read("budget.xlsx"));
+    }
+
+    [Fact]
+    public async Task A_tables_first_row_of_words_over_numbers_is_its_header_without_the_dashes_line_in_any_document()
+    {
+        // Qwen 3.8's budget left the |---| line out: the months still head their columns.
+        await Write("budget.xlsx", "# Budget\n\n| Expense | January | February |\n| Rent | 400 | 400 |\n| Food | 250 | 260 |");
+        Assert.Contains("(bold: A1, B1, C1)", await Read("budget.xlsx"));
+
+        // Words alone, or numbers from the top, have no header.
+        await Write("words.xlsx", "| Red | Green |\n| Blue | Grey |");
+        Assert.DoesNotContain("bold:", await Read("words.xlsx"));
+        await Write("figures.xlsx", "| 1 | 2 |\n| 3 | 4 |");
+        Assert.DoesNotContain("bold:", await Read("figures.xlsx"));
+
+        // The same in a Word document: a header row, repeated on each page.
+        await Write("budget.docx", "| Expense | January |\n| Rent | 400 |");
+        using var docx = ZipFile.OpenRead(Path.Combine(_dir, "budget.docx"));
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var rows = XDocument.Load(docx.GetEntry("word/document.xml")!.Open()).Descendants(w + "tr").ToList();
+        Assert.Equal([true, false], rows.Select(r => r.Descendants(w + "tblHeader").Any()));
     }
 
     [Fact]

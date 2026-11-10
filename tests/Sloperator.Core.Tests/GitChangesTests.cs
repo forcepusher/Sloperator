@@ -16,6 +16,9 @@ public class GitChangesTests : IDisposable
     private readonly string _repo;
     private readonly FileChanges _changes = new();
 
+    /// <summary>The time the next commits are made at, as git records it; null: now.</summary>
+    private DateTimeOffset? _committedAt;
+
     public GitChangesTests()
     {
         _repo = Path.Combine(_root, "repo");
@@ -40,6 +43,8 @@ public class GitChangesTests : IDisposable
             psi.ArgumentList.Add(a);
         foreach (var (k, v) in new[] { ("GIT_AUTHOR_NAME", "Tester"), ("GIT_AUTHOR_EMAIL", "t@example.com"), ("GIT_COMMITTER_NAME", "Tester"), ("GIT_COMMITTER_EMAIL", "t@example.com") })
             psi.Environment[k] = v;
+        if (_committedAt is { } at)
+            psi.Environment["GIT_COMMITTER_DATE"] = at.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         using var p = Process.Start(psi)!;
         var err = p.StandardError.ReadToEndAsync();
         var output = p.StandardOutput.ReadToEnd();
@@ -135,6 +140,37 @@ public class GitChangesTests : IDisposable
 
         Assert.Equal("one\r\ntwo\r\nthree\r\nfour\r\n", Git("show", ":crlf.txt"));
         Assert.Single(file.Lines, l => l.Kind == DiffLineKind.Hunk);
+    }
+
+    [Fact]
+    public async Task Changes_not_committed_before_the_agent_began_are_not_shown_as_committed()
+    {
+        // Committed an hour ago, then changed and left uncommitted before the agent began.
+        var path = Path.Combine(_repo, "s.txt");
+        File.WriteAllText(path, Numbered(10));
+        _committedAt = DateTimeOffset.Now.AddHours(-1);
+        Git("add", "-A");
+        Git("commit", "-q", "-m", "First");
+        _committedAt = null;
+        var earlier = Numbered(10).Replace("line 3\n", "line three\n");
+        File.WriteAllText(path, earlier);
+        // A file git doesn't track, there before the agent began.
+        var loose = Path.Combine(_repo, "loose.txt");
+        File.WriteAllText(loose, "a\n");
+
+        await Write(path, earlier.Replace("line 8\n", "line eight\n"));
+        await Write(loose, "a\nb\n");
+
+        // Nothing is committed: the change made before shows as not staged, with the agent's, and not as taken out.
+        Assert.Empty(await In(GitSection.Committed));
+        Assert.Equal([path, loose], (await In(GitSection.Unstaged)).Select(f => Path.Combine(_repo, f.Path.Replace('/', '\\'))));
+
+        // Committed now, the agent's change shows there, against what the file held before it.
+        Git("add", "s.txt");
+        Git("commit", "-q", "-m", "Second");
+        var committed = Assert.Single(await In(GitSection.Committed));
+        Assert.Equal((1, 1), (committed.Added, committed.Removed));
+        Assert.Contains(new DiffLine(DiffLineKind.Added, null, 8, "line eight"), committed.Lines);
     }
 
     [Fact]

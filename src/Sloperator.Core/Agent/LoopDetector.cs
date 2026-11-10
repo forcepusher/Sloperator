@@ -41,11 +41,12 @@ internal sealed class LoopDetector
     public string? Check(ToolCall call, ToolResult result)
     {
         var notes = new List<string>();
+        var hash = result.Image is { } shot ? SHA256.HashData(shot) : null;
 
         if (!Passive.Contains(call.Name))
         {
             _recent.Add(call.Name + " " + call.Arguments.Replace(" ", ""));
-            _screens.Add(result.Image is { } shot ? Convert.ToHexString(SHA256.HashData(shot)) : null);
+            _screens.Add(hash is null ? null : Convert.ToHexString(hash));
             if (_recent.Count > LongestRound * Rounds)
             {
                 _recent.RemoveAt(0);
@@ -62,9 +63,8 @@ internal sealed class LoopDetector
             }
         }
 
-        if (result.Image is not null)
+        if (hash is not null)
         {
-            var hash = SHA256.HashData(result.Image);
             var same = _lastScreen is not null && hash.AsSpan().SequenceEqual(_lastScreen);
             _lastScreen = hash;
             _unchanged = same && !Passive.Contains(call.Name) ? _unchanged + 1 : 0;

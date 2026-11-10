@@ -20,7 +20,11 @@ internal sealed record ParagraphBlock(IReadOnlyList<Span> Text) : Block;
 /// <param name="Number">For a numbered item, the number it was written with.</param>
 internal sealed record ListItemBlock(int Level, bool Ordered, int Number, IReadOnlyList<Span> Text) : Block;
 
-/// <param name="Header">The first row is the header (a |---| line followed it).</param>
+/// <param name="Header">
+/// The first row is the header: a |---| line followed it, or none did and it is all words over rows with numbers or formulas.
+/// Qwen 3.8 headed a budget "Expense | January | February" without the line, and the months came out as a plain row,
+/// neither bold nor kept in sight (2026-11-10). A table of words alone, or of numbers from the top, has none.
+/// </param>|---| line followed it).</param>
 /// <param name="Align">Per column: 'l', 'c' or 'r'.</param>
 internal sealed record TableBlock(IReadOnlyList<IReadOnlyList<IReadOnlyList<Span>>> Rows, bool Header, IReadOnlyList<char> Align) : Block
 {
@@ -282,7 +286,16 @@ internal static partial class MarkdownDocument
         var rows = cells.Where((_, i) => i != separator)
             .Select(r => (IReadOnlyList<IReadOnlyList<Span>>)r.Select(c => (IReadOnlyList<Span>)Inline(c.Replace("<br>", "\n").Replace("<br/>", "\n"))).ToList())
             .ToList();
-        return new TableBlock(rows, separator == 1, align);
+        return new TableBlock(rows, separator == 1 || separator < 0 && WordsOverFigures(rows), align);
+    }
+
+    /// <summary>A first row all of words over rows with a number or formula (see <see cref="TableBlock.Header"/>).</summary>
+    private static bool WordsOverFigures(List<IReadOnlyList<IReadOnlyList<Span>>> rows)
+    {
+        static string Text(IReadOnlyList<Span> cell) => Plain(cell).Trim();
+        static bool Words(string text) => !text.StartsWith('=') && XlsxWriter.Value(text).Value is string;
+        return rows.Count >= 2 && rows[0].Select(Text).Where(s => s.Length > 0).ToList() is { Count: > 0 } top && top.All(Words) &&
+               rows.Skip(1).Any(row => row.Select(Text).Any(s => s.Length > 0 && !Words(s)));
     }
 
     [GeneratedRegex(@"^\s{0,3}(`{3,}|~{3,})")]

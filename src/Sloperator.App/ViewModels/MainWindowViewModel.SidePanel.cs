@@ -166,34 +166,30 @@ public sealed partial class MainWindowViewModel
     /// <summary>
     /// show_panel: the panel named open beside the chat, with the page, file or folder in it. Under Auto, Auto
     /// shows it as it shows a panel for the agent's work, and stays picked; else it opens as one picked by hand,
-    /// in place of the panel open. Null when it did, else why it didn't.
+    /// in place of the panel open. Why it didn't, or what the panel does with what it shows.
     /// </summary>
-    private Task<string?> ShowPanelForAgent(string name, string? path) => Dispatcher.UIThread.InvokeAsync<string?>(() =>
+    private Task<Core.Tools.PanelShown> ShowPanelForAgent(string name, string? path) => Dispatcher.UIThread.InvokeAsync(() =>
     {
         if (_closed)
-            return "The window is closing.";
+            return new Core.Tools.PanelShown("The window is closing.");
         if (SidePanelOptions.FirstOrDefault(o => o.Name == name && o.Open is not null && o.Name != SidePanelNames.Auto) is not { } option)
-            return $"There is no panel \"{name}\".";
+            return new Core.Tools.PanelShown($"There is no panel \"{name}\".");
         var folder = path is not null && Directory.Exists(path);
         if (path is not null && option.Opens is { } opens && (folder ? option.Name != SidePanelNames.CodeEditor : !opens(path)))
-            return $"The {name} doesn't show {(folder ? "a folder" : Path.GetFileName(path))}.";
+            return new Core.Tools.PanelShown($"The {name} doesn't show {(folder ? "a folder" : Path.GetFileName(path))}.");
         if (IsAuto)
         {
-            var old = SidePanel;
-            if (!ReferenceEquals(option, _autoShown) || old is null)
+            if (!ReferenceEquals(option, _autoShown) || SidePanel is null)
             {
                 foreach (var picked in Attachments.Where(a => a.Picked).ToList())
                     RemoveAttachment(picked);
-                AutoShown = option;
-                SidePanel = OpenForAuto(option);
-                if (old is not null && !ReferenceEquals(old, _autoChanges))
-                    old.Dispose();
+                ReplaceAutoPanel(option);
             }
         }
         else if (!ReferenceEquals(SelectedSidePanel, option))
             SelectedSidePanel = option;
         if (path is null)
-            return null;
+            return new Core.Tools.PanelShown();
         switch (SidePanel)
         {
             case CodeEditorViewModel editor when folder:
@@ -212,7 +208,7 @@ public sealed partial class MainWindowViewModel
                 audio.Show(folder ? path : Path.GetDirectoryName(path)!);
                 break;
         }
-        return (string?)null;
+        return new Core.Tools.PanelShown(Note: SidePanel is WebPreviewViewModel { Following: true } ? WebPreviewViewModel.ReloadsNote : null);
     }).GetTask();
 
     /// <summary>The × on the open panel: None in the dropdown; under Auto the panel closes and Auto stays.</summary>

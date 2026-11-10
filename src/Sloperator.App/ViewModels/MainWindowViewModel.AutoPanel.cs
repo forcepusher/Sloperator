@@ -142,14 +142,23 @@ public sealed partial class MainWindowViewModel
     {
         if (!IsAuto || _closed || target is null || Attachments.Any(a => a.Picked) || OptionOf(target) is not { } option)
             return;
-        var old = SidePanel;
-        if (ReferenceEquals(option, _autoShown) && old is not null)
+        if (ReferenceEquals(option, _autoShown) && SidePanel is { } open)
         {
-            ShowIn(old, target.Path);
+            ShowIn(open, target.Path);
             return;
         }
+        ReplaceAutoPanel(option, panel => ShowIn(panel, target.Path, opened: true));
+    }
+
+    /// <summary>
+    /// Auto's room shows a new panel of <paramref name="option"/>'s in place of the one open, which goes (but File
+    /// changes, kept reading); <paramref name="before"/> shows what is to be in it before it is on screen.
+    /// </summary>
+    private void ReplaceAutoPanel(SidePanelOption option, Action<ISidePanel>? before = null)
+    {
+        var old = SidePanel;
         var panel = OpenForAuto(option);
-        ShowIn(panel, target.Path, opened: true);
+        before?.Invoke(panel);
         AutoShown = option;
         SidePanel = panel;
         if (old is not null && !ReferenceEquals(old, _autoChanges))

@@ -173,10 +173,10 @@ public sealed class ToolContext
     public Action<ModelPrices>? SetPrices { get; init; }
 
     /// <summary>
-    /// Opens a panel of the app's side panel by its name, to a page, file or folder (null: as it opens), for show_panel;
-    /// gives back why it couldn't, null when it did. Null where there is no side panel.
+    /// Opens a panel of the app's side panel by its name, to a page, file or folder (null: as it opens), for show_panel.
+    /// Null where there is no side panel.
     /// </summary>
-    public Func<string, string?, Task<string?>>? ShowPanel { get; init; }
+    public Func<string, string?, Task<PanelShown>>? ShowPanel { get; init; }
 
     /// <summary>The servers this chat is logged in to over SSH (the ssh tool, and the file tools with host); null when SSH is off.</summary>
     public Ssh.SshHosts? Ssh { get; init; }

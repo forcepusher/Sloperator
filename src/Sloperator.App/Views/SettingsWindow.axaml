@@ -92,7 +92,7 @@
                 </StackPanel>
               </Grid>
               <TextBlock Classes="muted" TextWrapping="Wrap"
-                         Text="Makes model's clicks more accurate. Not used or offered when disabled." />
+                         Text="Makes the model's clicks more accurate. Not used or offered when off." />
             </StackPanel>
           </StackPanel>
         </ScrollViewer>

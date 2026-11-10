@@ -53,10 +53,10 @@ public sealed class FindTextTool : Tool
     /// (the user: "make sure the user is ready for it"), so the model says it is coming before it runs.
     /// It runs one command, not a script, which a "running scripts is disabled" execution policy
     /// doesn't stop; -ExecutionPolicy Bypass makes sure of it.
-    /// </summary>
-    /// <summary>
-    /// The same in the app, which shows its own card with the offer (the user: "the text is often
-    /// ignored, we need something more visible"), so the model doesn't ask as well.
+    /// <para>
+    /// In the app, which shows its own card with the offer (the user: "the text is often ignored, we
+    /// need something more visible"), the model doesn't ask as well; <see cref="NoLanguage"/> is the CLI's.
+    /// </para>
     /// </summary>
     internal const string Offered =
         "Windows has no text recognition language installed, so the screen's text can't be read; look with screenshot and zoom instead. " +

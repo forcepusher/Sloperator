@@ -104,7 +104,9 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   them), lists real bulleted and numbered lists, and tables, pictures
   (`![caption](C:\path\chart.png)`), links, code and quotes come out as such; `\newpage` starts a page.
 - `.xlsx`: each heading starts a sheet named after it, and tables fill it with their header row bold
-  and frozen. A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
+  and frozen; a table written without its `|---|` line has one when its first row is all words over rows with
+  numbers or formulas (`TableBlock.Header`, so in every document; Qwen 3.8's budget, 2026-11-10: its months came out as
+  a plain row). A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
   become values shown that way; a formula under amounts of money shows money. Excel works the
   formulas out on opening. Plain ones are written with their value too (`SheetFormula`: numbers, cells of the
   sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
@@ -1509,7 +1511,8 @@ folder. The frame tool now says when a frame is made from words alone in a video
 ## Chat history
 Every chat is saved on its own in `SloperatorData/chats/` from its first message on, after every step, and
 named after that message, a long path in it cut to its last name (`ChatStore.TitleFrom`: "In …\units make a
-module", where every row read "In C:\Repos\Sloperator\.dev\shine-test\r3…", 2026-11-10). **History** next to **New chat** lists them, the latest first: pick one to
+module", where every row read "In C:\Repos\Sloperator\.dev\shine-test\r3…", 2026-11-10; a chat saved before is shown
+so too, `PastChat.Title`). **History** next to **New chat** lists them, the latest first: pick one to
 read it and carry on where it stopped (the model gets the conversation back), or delete it with its
 trash button. The pictures the model was shown (screenshots, zoomed crops, pictures tools made or
 the user sent) are kept beside the chat, in `SloperatorData/chats/<id>/` as `0001.jpg`, `0002.png`… in the
@@ -1858,6 +1861,14 @@ block's runs are laid out again whenever its size changes (a heading run is two 
 Compared at 100% and 125% (`.dev/centre-test/shots/code-size-*.png`): Consolas at 13 still read
 smaller than Inter at 14; at 14 its small letters are about as tall as Inter's. Code blocks stay 13
 and a tool's output and command 12.
+
+## Long messages
+
+A message the user sends of more than 30 lines, or 4,500 characters, shows its first 20 lines (cut at 3,000
+characters) and an ellipsis in its bubble, with Show all *N* lines under it, which turns to Show less
+(`UserMessageItem.FoldedLines`, `ShownText`, the toggle Show steps has, right of the bubble). A pasted log of 3,000
+lines stood as a bubble of 3,000 lines, the chat's scrollbar a sliver (2026-11-10). All of it goes to the model and is
+saved; selecting takes what shows. Unfolding keeps the chat where it is (`OnFoldClick`), so line 21 follows line 20.
 
 ## Selected text
 Avalonia (11.3.22, and its master) draws a selection in a text block made of runs (a reply: bold,
@@ -2385,7 +2396,9 @@ provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes a
 request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
 another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Any other failed
 request says the server's words too, not its JSON ("Chat request failed (404): No endpoints found that support image
-input"), as the Messages route already did. Nothing answering on LM
+input"), as the Messages route already did. A message sent while the server can't be reached stops with that and Continue
+("Can't reach the server: … Check the server address at the top and that the server is running"), where it asked to enter
+an address that was there (2026-11-10). Nothing answering on LM
 Studio's port 1234 adds that its server has to be switched on in its Developer tab (and Serve on
 Local Network turned on for another PC), and on Ollama's 11434 that the Ollama app has to run; on
 1234 the Effort tooltip says LM Studio sets it. A message names a program only where the port says
@@ -2738,7 +2751,12 @@ the server is checked again for the picked model (its context, images, levels, a
 session is made for it, and what it found goes with the message (`UserInput.Context`, after the user's words and any other context:
 "[Sloperator] Before you started, claude-haiku-5-5 took a first look at this task to pick the model for it. What it
 found: …"), so the picked model needn't look again. A found field that is "nothing" with why after it ("nothing; I
-looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The pick holds until the next
+looked at nothing, since the message is self-contained", Haiku 5.5) goes as no notes. The request asks for what was read
+"as they stand there": Haiku told the agent a parameter's default it had misread, and the agent corrected it to the
+user (2026-11-10). Then, told "no guesses about what you didn't open", and again told "not what you didn't open",
+it wrote "I did not open any files, so I can't confirm the page's markup" under what the chat had said. Asked for
+"facts ... nothing about yourself, such as what you did or didn't open, and nothing the chat already says", its notes
+were facts alone 3 times in 3 (a new page, a script's option, a question about a README). The pick holds until the next
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
 evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
@@ -2861,7 +2879,7 @@ of the limit from then on, after a handoff note; the cost grows
 - An Anthropic key (`sk-ant-…`) given to another server, or pasted as the address, gets a line
   saying Claude's address.
 
-Not yet run against Anthropic itself: the test PC had no key on 21 October 2026.
+Run against Anthropic itself since 1 November 2026 (the every-provider check, then daily on Haiku 5.5); in the tests
 `tests/Sloperator.Core.Tests/AnthropicFake.cs` stands in for it, with the rules the API answers 400
 to, its prompt cache (a prefix match, looked for up to 20 blocks back) and its thinking check.
 The app and the command-line runner were run against a stand-in like it on 21 October, with Kilo's
@@ -3423,7 +3441,9 @@ wildcard, or a word like on/to/with/in/for, unless a separator comes after that 
 begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are: what follows ": "
 (an SSH command, a search, keys), anything in quotes (typed text), relative paths, a bare root, web
 addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
-only once it changed a file, so the first cards (a list, a read) would still show whole paths.
+only once it changed a file, so the first cards (a list, a read) would still show whole paths. What a running card
+says it is doing at its top right goes through it too: Auto's card said "Read C:\Repos\…\proj\index.html" there and cut its
+own line to "claude-haiku-5-5 pi…" in a narrow chat (2026-11-10).
 
 How the call ended in how long stays at the card's top right, without the clock time it had before
 it ("Done in 1.2 s"; the time it began to run is the tooltip): too many times in the chat, the user
@@ -3497,6 +3517,12 @@ keyboard, find_text, web search, model switching), with words in braces where th
 chat or PC to PC: `{os}`, `{date}`, `{home folder}`, `{screens}`, `{tools folder}`, `{scratch folder}`,
 `{made folder}`, `{data folder}`, `{mcp servers}`, `{instructions}` (the user's "Things Sloperator should always know").
 
+**Files through the file tools**: "Make and change files with write_file and edit_file, not shell commands (Set-Content,
+Add-Content, > or sed): the user sees those changes and can undo them. A command is for many files at once, or a file a
+program makes." Asked to add a line to a README, Haiku 5.5 ran Add-Content: File changes showed nothing and Undo couldn't
+put it back. Five small edits on Haiku through the command line (2026-11-10): without the line 4 of 5 went through the
+file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
+
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
@@ -3522,7 +3548,12 @@ Under Auto, Auto shows it as it shows a panel for the agent's work and stays pic
 it opens as one picked by hand, in place of the panel open. A file a panel doesn't open (a .txt in the Web preview)
 is refused with why. About 150 tokens with its schema. Asked to "show it in the Web preview" with the panel closed,
 Haiku 5.5 had opened the page in Edge and said it couldn't open Sloperator's panel (2026-11-10); with the tool it called
-show_panel once and the page opened beside the chat, with the panel on None and on Auto.
+show_panel once and the page opened beside the chat, with the panel on None and on Auto. Told only that the panel showed
+the page, it said after each change that it couldn't see the panel, and to reload the page there if it still showed the
+old one; it had reloaded already. While the Web preview follows the agent (Watch, or Auto showing it) the result, and the
+panel's note with each message, say it reloads the page as the files in its folder change (`PanelShown.Note`,
+`WebPreviewViewModel.ReloadsNote`). Asked to capture "Web preview" to check, capture_result says Sloperator's own windows
+and side panel are left out of captures, rather than that no window has that title.
 `SystemPrompt.Build` fills them in for each chat, in one pass, so what goes in (an MCP server's
 instructions, the user's text) is never read again for markers. `{screens}`, `{mcp servers}` and
 `{instructions}` alone on their line are blocks of lines; with nothing to say (no MCP servers, a model
@@ -4334,7 +4365,10 @@ row drawn under the last. `FileChanges.DiffAsync` takes the files of the full di
 (`:path`) and HEAD (`HEAD:path`), read as bytes (`GitDiff.RunBytesAsync`) so a byte order mark and
 line endings stay as they are. A file then becomes up to three files, each with a `GitFile` naming its
 section: Committed, what the file held before the agent's first change against HEAD (what of the
-agent's change is committed; left out when Sloperator didn't know it before); Staged (index letter set),
+agent's change is committed; left out when Sloperator didn't know it before, and when no commit has changed the file
+since the agent began, by git's time of its last commit against when the first version was read, `Version.At`, kept
+with the list: a file changed and not committed before the agent began showed that difference under Committed, read
+backwards as taken out, and a file git doesn't track as deleted, 2026-11-10); Staged (index letter set),
 HEAD against the index; Unstaged (work-tree letter set, untracked too), the index against the file on
 disk as read_file reads it. All diffed by `LineDiff`, so a hunk's new-side numbers are the staged
 file's or the file's on disk. Not text, or a Word file: a binary entry where git's letters say it
@@ -5917,8 +5951,10 @@ What the runs showed and what changed:
   wait (three minutes); it then ended at once when the screen already differed from the screenshot
   the model decided on. Since 2026-11-02 waiting is two tools, as the user asked: `wait` (a set
   time, no screenshot unless `screenshot_on_end`) and `wait_until_change`, which waits until a change
-  unless given `seconds` (the taskbar clock ticking counts, so about a minute at most), compares only with
-  the screen as it starts and always screenshots at the end. A message that comes while the model
+  unless given `seconds`, compares only with the screen as it starts and always screenshots at the end. The
+  taskbar clock's minute is too small a change to end it (`ClickCheck.Differ`): right after starting Notepad,
+  Qwen 3.8 called it to see the window already open and waited out the task's 15 minutes (2026-11-10), so its
+  description says a change before the wait doesn't count and a screenshot shows the screen as it is. A message that comes while the model
   decides to wait is again seen only at the next change or when the wait runs out.
   Measured on 2026-11-02 against 1.3.0 (away, haggle, support; scores new / 1.3.0): Qwen 20/21,
   13/13, 12/12 / 19/21, 13/13, 12/12 in 29, 28, 24 steps / 36, 34, 28; Haiku 21/21, 12/13, 12/12 on
@@ -5992,7 +6028,9 @@ versions (EV certificates no longer skip it, Microsoft, 2026).
   host-window handling, Pause/Break, and what Windows itself has in place of a library: video and
   sound (Media Foundation), PDF pages, text recognition, notifications, file previews and signature
   checks (COM and WinRT called through their vtables, `ComAbi`). Only referenced when building on Windows.
-- `src/Sloperator.Cli`: headless runner for trying tasks and models.
+- `src/Sloperator.Cli`: headless runner for trying tasks and models; its options are in `Program.cs`'s first lines and
+  `--help`. A first word that starts with `--` and isn't an option is refused, not sent: "--help" went to the model as
+  a task, which answered it (2026-11-10).
 - `src/Sloperator.App`: Avalonia 12 UI with CommunityToolkit.Mvvm.
 - `tests/Sloperator.Core.Tests`: xUnit tests (unit tests plus opt-in server integration tests).
 - `tests/Sloperator.App.Tests`: the app's windows laid out headless (the chat, lists, players, Settings).

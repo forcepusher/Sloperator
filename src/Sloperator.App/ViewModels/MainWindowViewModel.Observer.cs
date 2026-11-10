@@ -104,9 +104,9 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// Ends the streaming bubble, whose step ended <paramref name="at"/>. An empty one (a discarded
-    /// reply) leaves no trace; one that only called tools keeps its line with the step's time.
+    /// reply) leaves no trace; one that only called tools keeps its line with the step's time, but not
+    /// one that only planned (a plan call has no card, so its line of time would stand alone).
     /// </summary>
-    /// <summary>Ends the reply on its way in; one with nothing to show goes (a plan call has no card, so its line of time would stand alone).</summary>
     private void FinishCurrent(DateTime at, ChatMessage? message = null)
     {
         if (_current is null) return;
