@@ -452,6 +452,17 @@ public sealed class FileChanges
             return all;
         List<(string Path, DiffFile File)>[] sections = [[], [], []];
         var outside = new List<(string Path, DiffFile File)>();
+        // What was committed since the agent first changed a file, by repository: one git log each.
+        var began = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        lock (_gate)
+            foreach (var (path, read) in git)
+                if (_versions.TryGetValue(path, out var versions) && versions[0].At is { } first &&
+                    new DateTimeOffset(first.ToUniversalTime()) is var at && (!began.TryGetValue(read.Root, out var earliest) || at < earliest))
+                    began[read.Root] = at;
+        var committedSince = new Dictionary<string, Dictionary<string, DateTimeOffset>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (repository, at) in began)
+            committedSince[repository] = await GitChanges.CommittedSinceAsync(repository, git.Values.Where(r => r.Root == repository).Select(r => r.Path).ToList(),
+                at.AddSeconds(-1), ct).ConfigureAwait(false);
         for (var i = 0; i < paths.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
@@ -467,12 +478,12 @@ public sealed class FileChanges
                 (before, at) = _versions.TryGetValue(path, out var versions) ? (versions[0].Content, versions[0].At) : (null, null);
             var (index, head, now) = (FromGit(read.Index, path), FromGit(read.Head, path), Read(path));
             // The last commit differs from the file before the agent's change, but no commit has changed the file since the
-            // agent began (or ever, a file git doesn't track): the difference was there already, changes not committed then.
-            // Shown as committed, they read backwards (2026-11-10: a script's option the chat before had added, uncommitted,
-            // under "Committed" as taken out). A list kept before the time was kept goes by whether any commit changed it.
-            if (before is not null && (head.Exists != before.Exists || head.Text != before.Text) &&
-                await GitChanges.LastCommitAsync(read.Root, read.Path, ct).ConfigureAwait(false) is var committed &&
-                (committed is null || at is { } began && committed < new DateTimeOffset(began.ToUniversalTime()).AddSeconds(-1)))
+            // agent began: the difference was there already, changes not committed then (a file git doesn't track, all of
+            // it). Shown as committed, they read backwards (2026-11-10: a script's option the chat before had added,
+            // uncommitted, under "Committed" as taken out). A list kept before the time was kept shows it as before.
+            if (before is not null && at is { } first && (head.Exists != before.Exists || head.Text != before.Text) &&
+                !(committedSince.GetValueOrDefault(read.Root)?.TryGetValue(read.Path, out var committed) == true &&
+                  committed >= new DateTimeOffset(first.ToUniversalTime()).AddSeconds(-1)))
                 before = null;
             var disk = GitChanges.OnDisk(path);
             var utf8 = (Index: read.Index is null || GitChanges.Lines(read.Index) is not null, Head: read.Head is null || GitChanges.Lines(read.Head) is not null,
