@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Esc closes Settings and the System prompt window without saving, as Cancel does.
 - In Settings, Tab and Shift+Tab go round the whole dialog: Shift+Tab from the first box stayed on it, and Tab
   from **Save** skipped back to the page's last button.
 - Tab moves through the window left to right, Model before Effort and the address before **Servers**, Settings'

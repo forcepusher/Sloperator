@@ -139,7 +139,7 @@
       <!-- The buttons first: a long folder path is cut short instead of pushing them out of the window. -->
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
-          <Button Classes="ghost" Content="Cancel" Click="OnCancel" />
+          <Button Classes="ghost" Content="Cancel" Click="OnCancel" IsCancel="True" ToolTip.Tip="Close without saving (Esc)" />
           <Button x:Name="SaveButton" Classes="primary" Content="Save" Click="OnSave" />
         </StackPanel>
         <TextBlock Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"

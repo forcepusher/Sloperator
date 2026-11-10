@@ -1923,7 +1923,8 @@ Settings is rows too, the foot bar last: Tab went to Cancel and Save before the 
 page's controls in its tabs' one tab stop: Tab from Save came back to the page's last control focused (Add a language)
 rather than to General, and Shift+Tab from the page's first control stayed on it, a trap; TabNavigation Continue on the
 TabControl or on its strip's ItemsPresenter changed nothing (Avalonia 12, 2026-11-10). `SettingsWindow.OnTabKey` sends
-Tab from Save to the page's tab, and Shift+Tab that went nowhere there too; both ways go round now.
+Tab from Save to the page's tab, and Shift+Tab that went nowhere there too; both ways go round now. Esc is Cancel there
+and in the System prompt window (`IsCancel`): it did nothing.
 The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
 children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
 holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
