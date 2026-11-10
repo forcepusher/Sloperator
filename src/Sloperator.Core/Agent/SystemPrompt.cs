@@ -253,6 +253,10 @@ public static class SystemPrompt
         // Asked to add a line to a README, Haiku 5.5 ran Add-Content: File changes showed nothing, and Undo couldn't put it back (2026-11-10).
         sb.AppendLine("- Make and change files with write_file and edit_file, not shell commands (Set-Content, Add-Content, > or sed): " +
                       "the user sees those changes and can undo them. A command is for many files at once, or a file a program makes.");
+        // Having opened Word for WordPad by mistake, qwen3.8 closed it with Get-Process winword | Stop-Process -Force, and to
+        // close Paint, Stop-Process -Name mspaint: every window of the program, the user's own with their unsaved work (2026-11-10).
+        sb.AppendLine("- Close only windows you opened, from the window itself (or by the process id you started): " +
+                      "Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all.");
         sb.AppendLine("- For work on another computer (a server, a VM), use ssh, copy, and read_file, write_file, edit_file and list_directory with host set; " +
                       "don't run ssh or scp through run_shell (ssh with new_login is the test of a fresh login).");
         // A budget workbook took qwen3.8 24 minutes through Excel's COM interface from PowerShell.

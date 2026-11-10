@@ -150,6 +150,32 @@ public class CaptureResultTests : IDisposable
     }
 
     [Fact]
+    public async Task A_window_is_found_by_the_title_as_it_reads_or_by_its_program()
+    {
+        var platform = new FakePlatform
+        {
+            Screens = [Plain],
+            Windows =
+            [
+                new("Shop and 3 more pages - Profile 1 - Microsoft​ Edge", new ScreenRect(0, 0, 800, 600), Program: "msedge"),
+                new("rename", new ScreenRect(100, 100, 600, 400), Program: "explorer"),
+            ],
+        };
+        var ctx = Ctx(platform);
+
+        // Edge's title has a zero-width space in "Microsoft Edge"; File Explorer's is only its folder.
+        Assert.Contains("the window \"Shop and 3 more pages - Profile 1 - Microsoft Edge\"", (await Capture(ctx, new JsonObject { ["window"] = "Microsoft Edge" })).Text);
+        Assert.Contains("the window \"rename\"", (await Capture(ctx, new JsonObject { ["window"] = "File Explorer" })).Text);
+        Assert.Contains("the window \"rename\"", (await Capture(ctx, new JsonObject { ["window"] = "rename" })).Text);
+        Assert.Equal(new ScreenRect(100, 100, 600, 400), platform.Captures[^1]);
+
+        // A name that is neither is said, with the titles as they read.
+        var missing = await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["window"] = "Paint" }));
+        Assert.Contains("\"Shop and 3 more pages - Profile 1 - Microsoft Edge\"", missing.Message);
+        Assert.Contains("\"rename\"", missing.Message);
+    }
+
+    [Fact]
     public async Task Arguments_it_cannot_use_are_explained()
     {
         var platform = new FakePlatform

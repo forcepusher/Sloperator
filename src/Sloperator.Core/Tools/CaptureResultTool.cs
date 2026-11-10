@@ -199,14 +199,18 @@ public sealed partial class CaptureResultTool : Tool
     }
 
     /// <summary>
-    /// The frontmost window whose title is <paramref name="title"/> or has it in it, the screen it is
-    /// mostly on, and the window again when another program's is in front of it.
+    /// The frontmost window whose title is <paramref name="title"/> or has it in it, else whose program
+    /// it names ("File Explorer" for explorer's, titled by its folder), the screen it is mostly on, and
+    /// the window again when another program's is in front of it.
     /// </summary>
     private static (ScreenWindow Window, int Screen, ScreenWindow? Covered) FindWindow(ToolContext ctx, string title)
     {
-        var windows = ctx.Platform.Screen.GetWindows();
-        var found = windows.FirstOrDefault(w => w.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } exact ? exact
-            : windows.FirstOrDefault(w => w.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
+        var windows = ctx.Platform.Screen.GetWindows().Select(w => w with { Title = Plain(w.Title) }).ToList();
+        title = Plain(title);
+        var words = title.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var found = windows.FirstOrDefault(w => w.Title.Equals(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } exact ? exact
+            : windows.FirstOrDefault(w => w.Title.Contains(title, StringComparison.OrdinalIgnoreCase)) is { Title.Length: > 0 } inTitle ? inTitle
+            : windows.FirstOrDefault(w => w.Program is { Length: > 2 } program && words.Contains(program, StringComparer.OrdinalIgnoreCase));
         // Haiku 5.5 tried to capture "Web preview" to check a page it had shown there (2026-11-10).
         if (found.Title is null && (title.Contains("Sloperator", StringComparison.OrdinalIgnoreCase) ||
                                     ShowPanelTool.Panels.Contains(title.Trim(), StringComparer.OrdinalIgnoreCase)))
@@ -226,6 +230,14 @@ public sealed partial class CaptureResultTool : Tool
             throw new ToolArgumentException($"The window \"{found.Title}\" is off the screen: move it onto the screen first.");
         return (found, best, windows[0] == found ? null : found);
     }
+
+    /// <summary>
+    /// A title as it reads, without the characters that show as nothing (Edge's has a zero-width space
+    /// between "Microsoft" and " Edge", so the name never matched) and with its spaces one apart.
+    /// </summary>
+    private static string Plain(string title) =>
+        string.Join(' ', new string(title.Where(c => char.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray())
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>The box the model gave, in screenshot coordinates of the screen it looks at, cut to that screen.</summary>
     private static (ScreenRect Region, int Screen, string What, View? View, ScreenWindow? Covered) BoxRegion(ToolContext ctx, JsonObject args)

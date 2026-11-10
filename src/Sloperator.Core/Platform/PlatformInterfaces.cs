@@ -50,9 +50,10 @@ public interface IScreenCapture
 
 /// <summary>
 /// A program's window as it shows on screen (see <see cref="IScreenCapture.GetWindows"/>), and the
-/// OS's own handle to it (an HWND on Windows; 0 for none).
+/// OS's own handle to it (an HWND on Windows; 0 for none), and the name of the program it is
+/// (its exe's, without .exe: "explorer" for File Explorer's; null where it can't be read).
 /// </summary>
-public readonly record struct ScreenWindow(string Title, ScreenRect Bounds, nint Handle = 0);
+public readonly record struct ScreenWindow(string Title, ScreenRect Bounds, nint Handle = 0, string? Program = null);
 
 /// <summary>Synthetic mouse and keyboard input. Coordinates are physical screen pixels.</summary>
 public interface IInputController

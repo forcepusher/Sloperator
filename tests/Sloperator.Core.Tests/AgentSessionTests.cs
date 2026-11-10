@@ -326,6 +326,31 @@ public class AgentSessionTests
         Assert.False(session.SeesImages);
     }
 
+    /// <summary>Kilo's free Nemotron, 10 November 2026: 13 pictures answered, a 14th (64x48 too) refused so.</summary>
+    private const string Screened = """{"error":{"message":"Provider returned error","code":422,"metadata":{"raw":"{\"error\": {\"message\": \"input rejected by content safety screening\"}}","provider_name":"Nvidia","is_byok":false}}}""";
+
+    [Fact]
+    public async Task Pictures_refused_by_a_safety_screening_are_a_cap_but_one_is_what_it_says()
+    {
+        var server = new ScriptedServer(Sse.Text("Done."));
+        server.Failures.Enqueue((HttpStatusCode.UnprocessableEntity, Screened));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 1_000_000);
+        AddScreenshotSteps(session, 14);
+
+        await session.RunAsync("what now?", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal([14, 1], server.Requests.Select(r => ImagesSent(r).Count));
+        Assert.Equal(13, session.MaxImages);
+
+        // The one screenshot left refused too: the screening's words, and the pictures stay.
+        server.Failures.Enqueue((HttpStatusCode.UnprocessableEntity, Screened));
+        await session.RunAsync("and now?", observer, CancellationToken.None);
+        Assert.Equal(AgentStopReason.Error, observer.StopReason);
+        Assert.Contains("input rejected by content safety screening", observer.Detail);
+        Assert.True(session.SeesImages);
+    }
+
     /// <summary>Claude through proxyapi.ru's /v1, measured 8 November 2026: 21 pictures of 4000 px, at HTTP 400.</summary>
     private const string PictureTooLarge = """{"error": {"message": "messages.0.content.1.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels", "type": "invalid_request_error", "param": null, "code": null}}""";
 
@@ -1812,6 +1837,13 @@ public class AgentSessionTests
         var prompt = SystemPrompt.Build("Test OS", null, "C:\\", "");
         Assert.Contains(DateTime.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture), prompt);
         Assert.DoesNotMatch(@"\d{1,2}:\d{2}", prompt);
+    }
+
+    [Fact]
+    public void The_prompt_keeps_the_agent_off_the_users_own_windows()
+    {
+        // Stop-Process -Name mspaint closed every Paint window to close the one the agent had opened.
+        Assert.Contains("Close only windows you opened", SystemPrompt.Build("Test OS", null, "C:\\", ""));
     }
 
     [Fact]

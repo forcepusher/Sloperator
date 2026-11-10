@@ -38,6 +38,9 @@ public sealed class PlanToolTests
         await Call(ctx, """{"now":3}""");
         Assert.True(ctx.Plan!.Finished);
         Assert.Equal(3, told.Count);
+
+        // A step written as a string moves it too.
+        Assert.Equal("Step 1 of 2: Read.", (await Call(ctx, """{"now":"1"}""")).Text);
     }
 
     [Fact]

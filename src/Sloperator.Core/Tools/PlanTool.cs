@@ -49,7 +49,8 @@ public sealed class PlanTool : Tool
     public override Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
         var steps = Steps(args);
-        var now = args["now"] is JsonValue value && value.TryGetValue<int>(out var number) ? number : (int?)null;
+        // GetNumber reads "2" too: a step given as a string left the bar where it was.
+        var now = GetNumber(args, "now") is { } number ? (int)number : (int?)null;
         if (steps is { Count: 0 })
         {
             ctx.Plan = null;

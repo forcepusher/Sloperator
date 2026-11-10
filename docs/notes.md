@@ -1765,7 +1765,7 @@ message box with the party blob walking it; of five concepts they picked a point
 word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
 
 The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
-tokens. The plan lives in the chat, not the run: `ToolContext.Plan` comes from
+tokens. `now` is read as `GetNumber` reads numbers, so "2" moves it too (it was read as no step). The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 `MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through
 `IAgentObserver.OnPlanChanged`, and `SavedChat.Plan` keeps it with the chat. A finished plan stays
 until the next message. Side tasks don't get the tool: their steps are not the chat's.
@@ -3024,7 +3024,7 @@ repair, name hints, normalizing), and wrong ones get the same error with the too
 (`ArgumentProblem`; since the 1.4.0 release check). Pictures a call returns are left out (text only). A server's failure ends the side task with an
 error, not the run. The card: the task as its line, the prompt as its Input foldout (`ToolCallItem.Input`,
 saved as the entry's `input`), and an Output only with output on, or for a failure's reason
-(`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`).
+(`MainWindowViewModel.OnToolFinished` leaves the rest out, `SideTaskTool.OutputIn`, which reads `output` as the tool does: "true" in quotes is on).
 
 **Auto pricing lookup** (Settings > Advanced, `cost.autoLookup`, on by default) asks the same without the
 button, as a side task with no output. Only at the end of a run in a long chat: after the answer, at
@@ -3193,7 +3193,12 @@ The wording isn't uniform: munito's "too many image inputs", vLLM's "At most 1 i
 provided in one request." (its `--limit-mm-per-prompt`, 1 a request unless set; Azure says the
 same), Anthropic's "too many images and documents: 104 + 1 > 100" (Sloperator's own Claude
 requests leave the oldest out past 100, fifty at a time). OpenRouter and Kilo pass on the model
-server's; OpenAI, llama-server and LM Studio name no cap.
+server's; OpenAI, llama-server and LM Studio name no cap. Kilo's free Nemotron (NVIDIA behind it) says
+it as a safety check: 422 "input rejected by content safety screening" (in the error's metadata.raw)
+for 14 pictures, 13 answered, 64x48 plain ones the same (probed 10 November 2026, after every desktop
+task on it ended there some 15 steps in). With more than one picture that is taken for the cap
+(`OpenAiChatClient.LooksLikeScreening`), one under what was sent; with one it is what it says, an
+error, and the pictures stay.
 
 A picture too large is another refusal (`PictureTooLargeException`): Anthropic's "At least one of the
 image dimensions exceed max allowed size for many-image requests: 3000 pixels", past 20 pictures,
@@ -3552,6 +3557,12 @@ program makes." Asked to add a line to a README, Haiku 5.5 ran Add-Content: File
 put it back. Five small edits on Haiku through the command line (2026-11-10): without the line 4 of 5 went through the
 file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
 
+**Closing only its own windows**: "Close only windows you opened, from the window itself (or by the process id you
+started): Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all."
+qwen3.8 closed Word, opened by mistake for WordPad, with `Get-Process winword | Stop-Process -Force`, and Paint with
+`Stop-Process -Name mspaint` (2 of the release checks' runs, 2026-10-30 and 2026-11-10): every window of the program,
+the user's own too, without asking to save them.
+
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
 …)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
@@ -3655,7 +3666,11 @@ game, a chart), run or opened if it isn't showing, cropped to the work, the whol
 is the point (the same line for every model). The user's measure: a boss who says "send me screenshots
 of what you've done", and for a change "what it was before and how it looks after". The capture is
 fresh, without the pointer, at the screen's own resolution; a window is cut to its DWM frame (no
-invisible borders) and the screen it is mostly on, a box maps like a click's x/y. A window another
+invisible borders) and the screen it is mostly on, a box maps like a click's x/y. The window is the
+first whose title is the name given, else has it in it, else whose program the name has as a word
+(`ScreenWindow.Program`, the exe's name: "File Explorer" finds explorer's window titled "rename", where
+qwen3.8 was told no window has it, 2026-11-10); titles are matched and listed as they read, without
+characters that show as nothing (Edge's has a zero-width space in "Microsoft Edge"). A window another
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
 moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the

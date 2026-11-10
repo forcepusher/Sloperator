@@ -507,6 +507,11 @@ public sealed partial class OpenAiChatClient
             return new PictureTooLargeException(ErrorText(err).Clip(300), side);
         if (status is 400 or 413 or 422 && HasImages(messages) && LooksLikeTooManyImages(err))
             return new TooManyImagesException(ErrorText(err).Clip(300), ImageCount(messages));
+        // Kilo's free Nemotron (NVIDIA behind it) takes 13 pictures and turns down a 14th as "input rejected by
+        // content safety screening", plain 64x48 ones too (measured 2026-11-10): every desktop task ended there,
+        // some 15 steps in. With more than one picture it is a cap like the others; with one, what it says.
+        if (status is 400 or 422 && ImageCount(messages) > 1 && LooksLikeScreening(err))
+            return new TooManyImagesException(ErrorText(err).Clip(300), ImageCount(messages));
         if (LooksLikeContextOverflow(err))
             return new ContextOverflowException(err.Clip(500));
         if (status == 413)
@@ -1069,6 +1074,9 @@ public sealed partial class OpenAiChatClient
     /// llama-server and LM Studio name no such cap.
     /// </summary>
     internal static bool LooksLikeTooManyImages(string err) => TooManyImagesWords().IsMatch(err);
+
+    /// <summary>A provider's safety check turning the input down, which for many pictures is how one says it takes no more (see <see cref="SizeRefusal"/>).</summary>
+    internal static bool LooksLikeScreening(string err) => err.Contains("content safety", StringComparison.OrdinalIgnoreCase);
 
     [GeneratedRegex(@"too many (image|picture)|(at most|maximum( number)? of|max(imum)?|up to|limit( of)?) \d* ?(image\(s\)|images|pictures|image inputs)|(images?|pictures?) (limit|count) (exceeded|reached)|exceeds? the (maximum|max|limit)[^.]{0,30}(images|pictures)", RegexOptions.IgnoreCase)]
     private static partial Regex TooManyImagesWords();

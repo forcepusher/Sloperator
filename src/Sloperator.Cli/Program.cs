@@ -261,6 +261,9 @@ internal sealed class ConsoleObserver(bool autoYes, string? shotsDir, bool fullR
     public void OnDelta(StreamDelta delta)
     {
         _firstToken ??= DateTime.Now;
+        // qwen3.8 says a blank line before its tool calls: no "[say]" for that.
+        if (_channel != delta.Channel && string.IsNullOrWhiteSpace(delta.Text))
+            return;
         if (_channel != delta.Channel)
         {
             Console.Write($"\n{(delta.Channel == StreamChannel.Reasoning ? "[think]" : "[say]")} {Now} ");

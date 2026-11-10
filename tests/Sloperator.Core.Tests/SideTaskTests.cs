@@ -190,6 +190,17 @@ public class SideTaskTests
     }
 
     [Fact]
+    public void Output_is_read_from_a_calls_arguments_as_the_tool_reads_it()
+    {
+        // The card showed no answer for "output":"true", which the tool takes as on.
+        Assert.True(SideTaskTool.OutputIn("""{"prompt":"p","output":true}"""));
+        Assert.True(SideTaskTool.OutputIn("""{"prompt":"p","output":"true"}"""));
+        Assert.False(SideTaskTool.OutputIn("""{"prompt":"p"}"""));
+        Assert.False(SideTaskTool.OutputIn("not json"));
+        Assert.Equal("p", SideTaskTool.PromptIn("""{"prompt":"p"}"""));
+    }
+
+    [Fact]
     public async Task Set_api_pricing_needs_a_price_and_a_place_to_keep_it()
     {
         var tool = new SetApiPricingTool();
