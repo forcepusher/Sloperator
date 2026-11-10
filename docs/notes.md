@@ -3676,7 +3676,8 @@ invisible borders) and the screen it is mostly on, a box maps like a click's x/y
 first whose title is the name given, else has it in it, else whose program the name has as a word
 (`ScreenWindow.Program`, the exe's name: "File Explorer" finds explorer's window titled "rename", where
 qwen3.8 was told no window has it, 2026-11-10); titles are matched and listed as they read, without
-characters that show as nothing (Edge's has a zero-width space in "Microsoft Edge"). A window another
+characters that show as nothing (Edge's has a zero-width space in "Microsoft Edge"); the list of windows a name
+matched none of gives a title that doesn't name its program with the program beside it ("rename" (explorer)). A window another
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
 moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the

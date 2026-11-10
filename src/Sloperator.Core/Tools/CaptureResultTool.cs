@@ -220,7 +220,7 @@ public sealed partial class CaptureResultTool : Tool
             throw new ToolArgumentException(windows.Count == 0
                 ? $"No window's title has \"{title}\" in it: no windows of other programs are open on the screen."
                 : $"No window's title has \"{title}\" in it. Windows on the screen: " +
-                  string.Join(", ", windows.Take(ListedWindows).Select(w => $"\"{w.Title}\"")) + (windows.Count > ListedWindows ? "…" : "") + ".");
+                  string.Join(", ", windows.Take(ListedWindows).Select(Listed)) + (windows.Count > ListedWindows ? "…" : "") + ".");
         var screens = ctx.Screens;
         var (best, area) = (-1, 0L);
         for (var i = 0; i < screens.Count; i++)
@@ -230,6 +230,10 @@ public sealed partial class CaptureResultTool : Tool
             throw new ToolArgumentException($"The window \"{found.Title}\" is off the screen: move it onto the screen first.");
         return (found, best, windows[0] == found ? null : found);
     }
+
+    /// <summary>A window as the list of them says it: its title, and its program where the title doesn't name it ("rename" (explorer)).</summary>
+    private static string Listed(ScreenWindow w) =>
+        $"\"{w.Title}\"" + (w.Program is { Length: > 0 } program && !w.Title.Contains(program, StringComparison.OrdinalIgnoreCase) ? $" ({program})" : "");
 
     /// <summary>
     /// A title as it reads, without the characters that show as nothing (Edge's has a zero-width space
