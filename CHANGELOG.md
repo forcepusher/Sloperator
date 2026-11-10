@@ -93,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- `sloperator-cli` keeps each run's captures apart, so comparing with "capture 1" no longer takes another run's picture.
 - The plan bar moves on when the agent names its step in quotes ("2"), as some models do, rather than staying put.
 - Desktop tasks on the free model Sloperator starts with no longer end some 15 steps in on "input rejected by content
   safety screening": that is how it says it takes no more than 13 pictures, so the older screenshots are left out.

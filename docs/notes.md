@@ -3680,7 +3680,9 @@ characters that show as nothing (Edge's has a zero-width space in "Microsoft Edg
 program's covers (the terminal that started it) is brought to the front first, always-on-top for a
 moment and then not, without making it active (`IScreenCapture.BringToFront`). The user gets a PNG in the chat's folder (`SloperatorData/chats/<id>/capture-N.png`,
 apart from the numbered pictures the conversation names, so undo doesn't drop it and deleting the
-chat does), shown open on the card as a file preview; the model gets the same crop as a JPEG at the
+chat does), shown open on the card as a file preview; the command line, which saves no chat, keeps each run's
+in `SloperatorData/scratch/cli/<time>-<process id>` (in one folder for all, the numbers ran past 100 and
+"compare 1" took another run's first capture, 2026-11-10); the model gets the same crop as a JPEG at the
 zoom's quality, no larger than a screenshot of that screen. The app names the chat when a run starts
 for this. When the run ends, its captures also show in its last reply, under the words, as the same
 picture preview the card has (name, size, Inspect, a click for full screen), each with its caption under
