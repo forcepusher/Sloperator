@@ -105,7 +105,8 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   (`![caption](C:\path\chart.png)`), links, code and quotes come out as such; `\newpage` starts a page.
 - `.xlsx`: each heading starts a sheet named after it, and tables fill it with their header row bold
   and frozen; a table written without its `|---|` line has one when its first row is all words over rows with
-  numbers or formulas (Qwen 3.8's budget, 2026-11-10: its months came out as a plain row). A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
+  numbers or formulas (`TableBlock.Header`, so in every document; Qwen 3.8's budget, 2026-11-10: its months came out as
+  a plain row). A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
   become values shown that way; a formula under amounts of money shows money. Excel works the
   formulas out on opening. Plain ones are written with their value too (`SheetFormula`: numbers, cells of the
   sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working

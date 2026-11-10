@@ -52,12 +52,11 @@ internal static partial class XlsxWriter
                 case TableBlock t when t.Columns > 0:
                     var sheet = Current();
                     if (sheet.Rows.Count > 0) sheet.Next++;
-                    var header = t.Header || WordsOverFigures(t);
-                    if (header && sheet.Rows.Count == 0) sheet.FreezeHeader = true;
+                    if (t.Header && sheet.Rows.Count == 0) sheet.FreezeHeader = true;
                     for (var r = 0; r < t.Rows.Count; r++)
                     {
                         for (var c = 0; c < t.Rows[r].Count; c++)
-                            Set(sheet, sheet.Next, c + 1, t.Rows[r][c], styles, header: header && r == 0);
+                            Set(sheet, sheet.Next, c + 1, t.Rows[r][c], styles, header: t.Header && r == 0);
                         sheet.Next++;
                     }
                     break;
@@ -176,19 +175,6 @@ internal static partial class XlsxWriter
                 break;
         }
         return cell;
-    }
-
-    /// <summary>
-    /// Whether a table written without its |---| line still has a header: a first row all of words over rows with
-    /// numbers or formulas. Qwen 3.8 wrote a budget's "Expense | January | February" so, and it came out as a plain
-    /// row, neither bold nor kept in sight (2026-11-10). A table of words alone, or of numbers from the top, has none.
-    /// </summary>
-    private static bool WordsOverFigures(TableBlock t)
-    {
-        static string Text(IReadOnlyList<Span> cell) => MarkdownDocument.Plain(cell).Trim();
-        static bool Words(string text) => !text.StartsWith('=') && Value(text).Value is string;
-        return t.Rows.Count >= 2 && t.Rows[0].Select(Text).Where(s => s.Length > 0).ToList() is { Count: > 0 } top && top.All(Words) &&
-               t.Rows.Skip(1).Any(row => row.Select(Text).Any(s => s.Length > 0 && !Words(s)));
     }
 
     /// <summary>

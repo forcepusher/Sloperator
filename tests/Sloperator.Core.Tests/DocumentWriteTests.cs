@@ -679,7 +679,7 @@ public class DocumentWriteTests : IDisposable
     }
 
     [Fact]
-    public async Task A_tables_first_row_of_words_over_numbers_is_its_header_without_the_dashes_line()
+    public async Task A_tables_first_row_of_words_over_numbers_is_its_header_without_the_dashes_line_in_any_document()
     {
         // Qwen 3.8's budget left the |---| line out: the months still head their columns.
         await Write("budget.xlsx", "# Budget\n\n| Expense | January | February |\n| Rent | 400 | 400 |\n| Food | 250 | 260 |");
@@ -690,6 +690,13 @@ public class DocumentWriteTests : IDisposable
         Assert.DoesNotContain("bold:", await Read("words.xlsx"));
         await Write("figures.xlsx", "| 1 | 2 |\n| 3 | 4 |");
         Assert.DoesNotContain("bold:", await Read("figures.xlsx"));
+
+        // The same in a Word document: a header row, repeated on each page.
+        await Write("budget.docx", "| Expense | January |\n| Rent | 400 |");
+        using var docx = ZipFile.OpenRead(Path.Combine(_dir, "budget.docx"));
+        XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var rows = XDocument.Load(docx.GetEntry("word/document.xml")!.Open()).Descendants(w + "tr").ToList();
+        Assert.Equal([true, false], rows.Select(r => r.Descendants(w + "tblHeader").Any()));
     }
 
     [Fact]
