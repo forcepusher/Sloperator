@@ -1922,6 +1922,10 @@ the message box went to Close next. Layout unchanged, compared pixel by pixel be
 Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Still open there: once round,
 Tab comes back to the page's last control focused (Add a language) and not to General; neither TabNavigation Continue on
 the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026-11-10). Shift+Tab goes back up.
+The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
+children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
+holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
+Dividers (`GridSplitter`, which take Tab for the arrow keys) are named Divider; they had no name.
 
 ## One look for every control
 Every control a person can type in, pick from or drag has a name for screen readers and UI Automation

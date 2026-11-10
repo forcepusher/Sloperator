@@ -34,7 +34,7 @@
   <DockPanel>
     <!-- What the panel is for, then × to close it. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <TextBlock Classes="muted" Text="What this chat cost, and the prices behind it" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
       </DockPanel>

@@ -9,7 +9,7 @@
     <!-- Area at the left, as the File inspector's; the page's name and the folder served; Reload, Open file
          and Watch, then × to close the panel. All there from the start, greyed while they have nothing to do. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <!-- Watch: the page the agent writes opens, and the page reloads as files in its folder change. -->
         <ToggleButton DockPanel.Dock="Right" Classes="ghost" Margin="8,0,0,0" IsChecked="{Binding WatchShown}" IsEnabled="{Binding !ByAuto}" ToolTip.ShowOnDisabled="True"
@@ -77,7 +77,7 @@
       <!-- The page's script errors since it last loaded; those selected go into the chat's box. -->
       <DockPanel Grid.Row="2">
         <Border DockPanel.Dock="Top" Classes="bar slim">
-          <DockPanel>
+          <DockPanel views:TabOrder.LeftToRight="True">
             <TextBlock Text="Errors" FontWeight="SemiBold" VerticalAlignment="Center" />
             <TextBlock Classes="muted" Margin="12,0,0,0" Text="{Binding ErrorCount}" VerticalAlignment="Center" />
           </DockPanel>

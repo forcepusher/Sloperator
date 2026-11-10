@@ -471,6 +471,10 @@
     <Style Selector="views|TitleBar TextBlock.title#SubtitleText">
       <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
+    <!-- A divider between a panel's parts takes Tab, for the arrow keys to move it; it had no name for a screen reader. -->
+    <Style Selector="GridSplitter">
+      <Setter Property="AutomationProperties.Name" Value="Divider" />
+    </Style>
     <Style Selector="Button.caption">
       <Setter Property="Width" Value="46" />
       <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />

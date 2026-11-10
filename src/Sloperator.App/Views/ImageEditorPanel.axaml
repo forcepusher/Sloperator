@@ -29,7 +29,7 @@
   <DockPanel>
     <!-- The picture and version shown, or how the panel is used; New picture and Make again, then × to close. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <Button DockPanel.Dock="Right" Classes="ghost act" Margin="8,0,0,0" Command="{Binding MakeAgainCommand}"
                 ToolTip.Tip="{Binding MakeAgainTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Make again">
@@ -74,7 +74,7 @@
       <!-- The version shown big (a drag marks a part to redraw, a click picks it whole), its versions under it. -->
       <DockPanel Grid.Column="2">
         <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
-          <DockPanel>
+          <DockPanel views:TabOrder.LeftToRight="True">
             <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
             <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
               <ItemsControl.ItemsPanel>

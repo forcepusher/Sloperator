@@ -34,7 +34,7 @@
   <DockPanel>
     <!-- The sound and version shown, or how the panel is used; New sound and Make again, then × to close. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <Button DockPanel.Dock="Right" Classes="ghost act" Margin="8,0,0,0" Command="{Binding MakeAgainCommand}"
                 ToolTip.Tip="{Binding MakeAgainTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Make again">
@@ -80,7 +80,7 @@
            the wheel zooms), its player, its versions under it. -->
       <DockPanel Grid.Column="2">
         <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
-          <DockPanel>
+          <DockPanel views:TabOrder.LeftToRight="True">
             <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
             <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
               <ItemsControl.ItemsPanel>
@@ -127,7 +127,7 @@
            Under them how the version shown was made, as the File inspector's Prompt metadata shows it. -->
       <DockPanel Grid.Column="4">
         <Border DockPanel.Dock="Top" Classes="bar slim">
-          <DockPanel>
+          <DockPanel views:TabOrder.LeftToRight="True">
             <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding EditsOn}" VerticalAlignment="Center" Margin="12,0,0,0" />
             <TextBlock Text="Edit" FontWeight="SemiBold" VerticalAlignment="Center" ToolTip.Tip="Each edit is saved as a new version; the ones before stay" />
           </DockPanel>
