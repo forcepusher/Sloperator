@@ -2454,7 +2454,9 @@ twice. Each connection tries the host's IPv6 and IPv4 addresses at the same time
 listens on, so each new connection waited 2 s. On 24 October 2026, with LM Studio reached as
 `localhost:1234` (through an IPv4-only port, as LM Studio's own) and a model not loaded, the
 request that loads it went out 5.5 s after the message was sent, and 1.0 s after the fix; with the
-server's own address over the VPN, 1.6 s and 1.0 s.
+server's own address over the VPN, 1.6 s and 1.0 s. What each family's attempt throws is read, every one: with both
+refused, the second's exception went to the finalizer, which wrote it to crash.log as "a task nobody waited for"
+(2026-11-10, `LlmHttpTests`).
 
 With no model picked (the dropdown's Auto, see "Auto model and effort" below) and none of Auto's three
 models on the server, Sloperator stands in the cheapest of the strongest ones the server offers
