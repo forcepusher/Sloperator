@@ -92,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Desktop tasks on the free model Sloperator starts with no longer end some 15 steps in on "input rejected by content
+  safety screening": that is how it says it takes no more than 13 pictures, so the older screenshots are left out.
 - The agent finds a window it names by its program too, such as File Explorer's, titled only by its folder, and finds
   Edge's by "Microsoft Edge", which its title spells with an invisible character.
 - On **Auto**, the File inspector shows a document again once the agent changes it, rather than the version it had

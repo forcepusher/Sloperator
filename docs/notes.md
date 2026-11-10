@@ -3193,7 +3193,12 @@ The wording isn't uniform: munito's "too many image inputs", vLLM's "At most 1 i
 provided in one request." (its `--limit-mm-per-prompt`, 1 a request unless set; Azure says the
 same), Anthropic's "too many images and documents: 104 + 1 > 100" (Sloperator's own Claude
 requests leave the oldest out past 100, fifty at a time). OpenRouter and Kilo pass on the model
-server's; OpenAI, llama-server and LM Studio name no cap.
+server's; OpenAI, llama-server and LM Studio name no cap. Kilo's free Nemotron (NVIDIA behind it) says
+it as a safety check: 422 "input rejected by content safety screening" (in the error's metadata.raw)
+for 14 pictures, 13 answered, 64x48 plain ones the same (probed 10 November 2026, after every desktop
+task on it ended there some 15 steps in). With more than one picture that is taken for the cap
+(`OpenAiChatClient.LooksLikeScreening`), one under what was sent; with one it is what it says, an
+error, and the pictures stay.
 
 A picture too large is another refusal (`PictureTooLargeException`): Anthropic's "At least one of the
 image dimensions exceed max allowed size for many-image requests: 3000 pixels", past 20 pictures,
