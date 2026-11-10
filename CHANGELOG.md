@@ -6,8 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- The agent can add and remove rows of a Word table, and put text right after a table that ends the document or before one that
-  starts it, keeping the document's formatting: it used to rewrite the file's XML through PowerShell.
+- The agent can add and remove rows of a Word table, and put text right after a table that ends the document or
+  before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
 - A series of key presses the agent makes can type text between them, such as Ctrl+A, the new name and Enter to
   rename something, in one step.
 - A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
