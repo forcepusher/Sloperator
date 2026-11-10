@@ -478,6 +478,8 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{StaticResource BbSecondary}" />
+      <!-- Out of the Tab order, as Windows' own caption buttons are: Tab from the message box went to Close next. -->
+      <Setter Property="IsTabStop" Value="False" />
       <!-- No corners, border or Fluent's shrink when pressed. -->
       <Setter Property="Template">
         <ControlTemplate>

@@ -1911,6 +1911,15 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
 - `ChatSelectionTests` checks it headless: kept while the box has the focus, over two paragraphs of a
   reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
+## Tab order
+
+Tab goes through the window as it reads, left to right: the side panel, History, New chat, New window, Settings,
+the server address, Servers, the API key, Model, Effort, Context, the paperclip and the message box (checked by
+UI Automation, 2026-11-10). The rows under the top bar are grids, not dock panels: a field docked right comes first
+in its dock panel, and Tab went to Servers before the address, Effort before Model and Auto before the context
+slider. The title bar's buttons are out of the Tab order (`Button.caption`, IsTabStop), as Windows' own are: Tab from
+the message box went to Close next. Layout unchanged, compared pixel by pixel before and after.
+
 ## One look for every control
 Every control a person can type in, pick from or drag has a name for screen readers and UI Automation
 (`AutomationProperties.Name`, the words of the label beside it): the server address, API key, context size, the
