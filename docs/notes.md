@@ -1919,9 +1919,11 @@ UI Automation, 2026-11-10). The rows under the top bar are grids, not dock panel
 in its dock panel, and Tab went to Servers before the address, Effort before Model and Auto before the context
 slider. The title bar's buttons are out of the Tab order (`Button.caption`, IsTabStop), as Windows' own are: Tab from
 the message box went to Close next. Layout unchanged, compared pixel by pixel before and after.
-Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Still open there: once round,
-Tab comes back to the page's last control focused (Add a language) and not to General; neither TabNavigation Continue on
-the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026-11-10). Shift+Tab goes back up.
+Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Its tab control keeps a
+page's controls in its tabs' one tab stop: Tab from Save came back to the page's last control focused (Add a language)
+rather than to General, and Shift+Tab from the page's first control stayed on it, a trap; TabNavigation Continue on the
+TabControl or on its strip's ItemsPresenter changed nothing (Avalonia 12, 2026-11-10). `SettingsWindow.OnTabKey` sends
+Tab from Save to the page's tab, and Shift+Tab that went nowhere there too; both ways go round now.
 The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
 children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
 holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
