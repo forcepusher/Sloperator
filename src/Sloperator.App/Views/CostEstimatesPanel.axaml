@@ -62,7 +62,7 @@
           </Border>
           <!-- A row picked shows its prices below (the model in use's by default): on Auto, the evaluation model's
                replies could be priced only by picking it at the top. -->
-          <ListBox AutomationProperties.Name="Models" Classes="costs" ItemsSource="{Binding Models}" SelectedItem="{Binding PricedRow}" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+          <ListBox Classes="costs" ItemsSource="{Binding Models}" SelectedItem="{Binding PricedRow}" ScrollViewer.VerticalScrollBarVisibility="Disabled"
                    AutomationProperties.Name="Models this chat used">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelCostRow">

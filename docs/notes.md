@@ -1925,8 +1925,7 @@ the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026
 The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
 children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
 holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
-Dividers (`GridSplitter`, which take Tab for the arrow keys) are named Divider, and the panels' lists and editors
-(Files, Code, Commands, Output, Pictures, Sounds, Changed files, Errors, Models) by what they hold; they had no name.
+Dividers (`GridSplitter`, which take Tab for the arrow keys) are named Divider; they had no name.
 
 ## One look for every control
 Every control a person can type in, pick from or drag has a name for screen readers and UI Automation

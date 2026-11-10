@@ -85,7 +85,7 @@
         <Panel>
           <TextBlock Classes="muted" IsVisible="{Binding !HasErrors}" HorizontalAlignment="Center" VerticalAlignment="Center"
                      Text="{Binding NoErrorsText}" />
-          <ListBox x:Name="ErrorList" AutomationProperties.Name="Errors" Classes="files" ItemsSource="{Binding Errors}" SelectionMode="Multiple" IsVisible="{Binding HasErrors}"
+          <ListBox x:Name="ErrorList" Classes="files" ItemsSource="{Binding Errors}" SelectionMode="Multiple" IsVisible="{Binding HasErrors}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Errors">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ConsoleItem">
