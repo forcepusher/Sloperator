@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- A series of key presses the agent makes can type text between them, such as Ctrl+A, the new name and Enter to
+  rename something, in one step.
 - A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
   every line of it; all of it still goes to the model.
 - **Audio editor** side panel, beside the Image and Video editors: your sounds with their versions, a big waveform
