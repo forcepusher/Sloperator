@@ -21,6 +21,7 @@ public sealed class KillByNameTests
     [InlineData("Get-Process notepad | Where-Object { $_.StartTime -gt $t } | Stop-Process", "")]
     [InlineData("Get-Process | ? { $_.MainWindowTitle -like '*haiku*' } | Stop-Process", "")]
     [InlineData("taskkill /PID 1234 /F", "")]
+    [InlineData("taskkill /IM notepad.exe /FI \"WINDOWTITLE eq haiku*\"", "")]
     // Only looks: no kill in the statement.
     [InlineData("Get-Process notepad -ErrorAction SilentlyContinue | Measure-Object; Stop-Process -Id 12", "")]
     [InlineData("Get-Process | Sort-Object CPU -Descending | Select-Object -First 5", "")]

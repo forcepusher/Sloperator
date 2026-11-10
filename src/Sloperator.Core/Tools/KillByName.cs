@@ -66,7 +66,7 @@ internal static partial class KillByName
     [GeneratedRegex(@"\b(Stop-Process|spps|taskkill)\b|\|\s*kill\b|\.Kill\(", RegexOptions.IgnoreCase)]
     private static partial Regex Kills();
 
-    [GeneratedRegex(@"\|\s*(Where-Object|where|\?)[\s{]|-Filter\b|\bStartTime\b|\bMainWindowTitle\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\|\s*(Where-Object|where|\?)[\s{]|-Filter\b|/FI\b|\bStartTime\b|\bMainWindowTitle\b", RegexOptions.IgnoreCase)]
     private static partial Regex Filter();
 
     // Stop-Process -Name a,b / -ProcessName / -n (and spps, kill).

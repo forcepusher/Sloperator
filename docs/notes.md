@@ -3564,7 +3564,7 @@ qwen3.8 closed Word, opened by mistake for WordPad, with `Get-Process winword | 
 the user's own too, without asking to save them. With the line in the prompt it still ended its own Photoshop with
 `Stop-Process -Name Photoshop` the same day, so run_shell now refuses such a command while the program has windows
 that were open before the run (`KillByName`: `Stop-Process -Name`, `Get-Process x | Stop-Process`, `(Get-Process
-x).Kill()`, `taskkill /IM`; one narrowed down with `Where-Object`, a start time or a window title, or by id, runs;
+x).Kill()`, `taskkill /IM`; one narrowed down with `Where-Object`, a start time, a window title or taskkill's `/FI`, or by id, runs;
 `ToolContext.RunStarted` is the run's start, `WindowsOpenBefore` the processes with a window that started before it,
 an elevated one counted as the user's as its start time can't be read). The model is told to close its window
 itself or end the processes it started by id. Nothing is refused when only the agent's own windows are open.
