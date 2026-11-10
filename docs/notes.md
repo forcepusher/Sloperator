@@ -3723,7 +3723,9 @@ review, 2026-10-29; `MapVirtualKeyEx` with MAPVK_VK_TO_CHAR sets the top bit for
 event log (`--debug-events`) showed not one event for 1,080 typed characters, while the click and the
 keys of a `press_keys` that followed landed in the field, which kept editing all along. Typed as key
 presses, the same text arrived exactly, punctuation and capitals included; into a WinForms text box
-with Caps Lock on too, and accented, Japanese and emoji text through the fallback.
+with Caps Lock on too, and accented, Japanese and emoji text through the fallback. `press_keys` presses a
+punctuation key the same way, with the Shift or AltGr it needs on that layout (`ChordKeys`): "*" was its key alone, an 8,
+and Calculator read Qwen 3.8's ["type 1234","*","type 5678","enter"] as 12345678 (2026-11-10).
 
 A reply without tool calls ends the run, whatever it says: Sloperator doesn't guess whether it looks
 finished. Only two kinds of message make the model answer again on its own, both about something

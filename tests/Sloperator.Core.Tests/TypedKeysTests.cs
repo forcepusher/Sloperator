@@ -41,6 +41,15 @@ public class TypedKeysTests
     public void A_dead_key_is_followed_by_space_so_it_types_itself() =>
         Assert.Equal(("DC DC^ 20 20^", "10 DD DD^ 10^ 20 20^"), (Presses('^', German), Presses('`', German))); // ^ and Shift+´
 
+    /// <summary>A chord's keys as hex, modifiers first.</summary>
+    private static string Chord(nint layout, params string[] keys) => string.Join(" ", WindowsInputController.ChordKeys(keys, layout).Select(k => k.ToString("X2")));
+
+    [Fact]
+    public void A_punctuation_key_in_a_chord_brings_the_shift_or_altgr_it_needs() =>
+        // "*" alone is Shift+8 on a US keyboard, Ctrl and "+" Ctrl+Shift+=; German "@" is AltGr+Q, and keys and letters stay as named.
+        Assert.Equal(("10 38", "10 11 BB", "11 12 51", "11 43", "BD"),
+            (Chord(Us, "*"), Chord(Us, "ctrl", "+"), Chord(German, "@"), Chord(Us, "ctrl", "c"), Chord(Us, "-")));
+
     [Fact]
     public void What_no_key_makes_goes_as_unicode() =>
         Assert.Equal(("U+00E9 U+00E9^", "U+65E5 U+65E5^"), (Presses('é', Us), Presses('日', Us)));

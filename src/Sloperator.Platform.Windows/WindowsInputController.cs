@@ -99,8 +99,7 @@ internal sealed class WindowsInputController : IInputController
 
     public void TypeText(string text)
     {
-        // The layout of the window being typed into, which may not be Sloperator's.
-        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), out _));
+        var layout = ForegroundLayout();
         var capsLock = (GetKeyState(0x14) & 1) != 0;
         var count = 0;
         foreach (var ch in text)
@@ -165,7 +164,7 @@ internal sealed class WindowsInputController : IInputController
 
     public void PressKeys(IReadOnlyList<string> keys)
     {
-        var vks = keys.Select(k => ResolveKey(k) ?? throw new ArgumentException($"Unknown key '{k}'.")).ToList();
+        var vks = ChordKeys(keys, ForegroundLayout());
         var inputs = new List<INPUT>();
         foreach (var vk in vks)
             inputs.Add(VkInput(vk, up: false));
@@ -176,7 +175,7 @@ internal sealed class WindowsInputController : IInputController
 
     public IDisposable HoldKeys(IReadOnlyList<string> keys)
     {
-        var vks = keys.Select(k => ResolveKey(k) ?? throw new ArgumentException($"Unknown key '{k}'.")).ToList();
+        var vks = ChordKeys(keys, ForegroundLayout());
         Send(vks.Select(vk => VkInput(vk, up: false)).ToArray());
         return new Release(vks);
     }
@@ -194,6 +193,35 @@ internal sealed class WindowsInputController : IInputController
     }
 
     public bool IsKnownKey(string key) => ResolveKey(key) is not null;
+
+    /// <summary>
+    /// The virtual keys of a chord, the modifiers it needs first: a punctuation key is the key that makes it on
+    /// <paramref name="layout"/>, with the Shift or AltGr (Ctrl+Alt) it needs there. "*" is Shift+8 on a US keyboard:
+    /// pressed as its key alone it was an 8, and Calculator read "1234*5678" as 12345678 (Qwen 3.8, 2026-11-10).
+    /// </summary>
+    internal static List<ushort> ChordKeys(IReadOnlyList<string> keys, nint layout)
+    {
+        var vks = new List<ushort>();
+        var needed = new List<ushort>();
+        foreach (var key in keys)
+        {
+            var name = key.Trim();
+            var vk = ResolveKey(name) ?? throw new ArgumentException($"Unknown key '{key}'.");
+            if (name.Length == 1 && !char.IsAsciiLetterOrDigit(name[0]) && VkKeyScanEx(name[0], layout) is var scan && scan != -1)
+            {
+                vk = (ushort)(scan & 0xFF);
+                if (((scan >> 8) & 1) != 0)
+                    needed.Add(0x10);
+                if (((scan >> 8) & 6) == 6)
+                    needed.AddRange([0x11, 0x12]);
+            }
+            vks.Add(vk);
+        }
+        return [.. needed.Distinct().Where(m => !vks.Contains(m)), .. vks];
+    }
+
+    /// <summary>The keyboard layout of the window being typed into, which may not be Sloperator's.</summary>
+    private static nint ForegroundLayout() => GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), out _));
 
     private static ushort? ResolveKey(string key)
     {

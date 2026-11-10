@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A key the agent presses that needs Shift on your keyboard, such as `*` or `+`, is pressed with it: `*` came out
+  as an 8, so Calculator never multiplied.
 - A command that prints without end no longer makes Sloperator use more and more memory: the **Terminal** keeps its
   first 100,000 lines and its last 2,000.
 - A table the agent writes in a workbook, Word document, PDF or slide without its `|---|` line still gets a header row,
