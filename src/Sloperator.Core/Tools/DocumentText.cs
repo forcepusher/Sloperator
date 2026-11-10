@@ -329,8 +329,14 @@ internal static class DocumentText
             if (id is null || !targets.TryGetValue(id, out var target) || zip.GetEntry(target) is null)
                 continue;
             sb.Append("--- slide ").Append(number).Append(" of ").Append(ids.Count).AppendLine(" ---");
-            foreach (var para in Load(zip, target).Descendants(A + "p"))
-                if (string.Concat(para.Descendants(A + "t").Select(t => t.Value)) is { Length: > 0 } text)
+            // A table as rows, as a Word table reads: its cells one a line, the model couldn't tell rows apart, and to
+            // add one it typed "insert row 10" into a cell (2026-11-10).
+            static string Text(XElement para) => string.Concat(para.Descendants(A + "t").Select(t => t.Value));
+            foreach (var block in Load(zip, target).Descendants().Where(e => e.Name == A + "tbl" || e.Name == A + "p" && !e.Ancestors(A + "tbl").Any()))
+                if (block.Name == A + "tbl")
+                    foreach (var row in block.Elements(A + "tr"))
+                        sb.Append("| ").AppendJoin(" | ", row.Elements(A + "tc").Select(c => string.Join(" ", c.Descendants(A + "p").Select(Text)).Trim())).AppendLine(" |");
+                else if (Text(block) is { Length: > 0 } text)
                     sb.AppendLine(text);
             // The speaker notes, which went unseen: asked to change them, the model had nothing to go on.
             if (Optional(() => Notes(zip, target), []) is { Count: > 0 } notes)

@@ -205,7 +205,24 @@ public class DocumentWriteTests : IDisposable
         Assert.Contains("--- slide 1 of 3 ---\nQ3 results\nNorthwind, October 2026", text.ReplaceLineEndings("\n"));
         Assert.Contains("Airport up 8%", text);
         Assert.Contains("roadworks", text);
-        Assert.Contains("Airport\n37,450", text.ReplaceLineEndings("\n"));
+        Assert.Contains("| Store | Sales |\n| Airport | 37,450 |", text.ReplaceLineEndings("\n")); // a table as rows, as a Word one
+
+        // Its rows change, and come and go, as a Word table's do, the frame growing with a row added (2026-11-10).
+        long FrameHeight()
+        {
+            using var deck = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx"));
+            var slide = XDocument.Load(deck.GetEntry("ppt/slides/slide3.xml")!.Open());
+            XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main", p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+            return (long)slide.Descendants(p + "graphicFrame").Single().Element(p + "xfrm")!.Element(a + "ext")!.Attribute("cy")!;
+        }
+        var height = FrameHeight();
+        Assert.False((await Edit("deck.pptx", "| Airport | 37,450 |", "| Airport | 38,000 |\n| Station | 21,300 |")).IsError);
+        Assert.Contains("| Airport | 38,000 |\n| Station | 21,300 |", (await Read("deck.pptx")).ReplaceLineEndings("\n"));
+        Assert.True(FrameHeight() > height);
+        Assert.False((await Edit("deck.pptx", "| Airport | 38,000 |\n| Station | 21,300 |", "| Station | 21,300 |")).IsError);
+        Assert.DoesNotContain("Airport | 38,000", await Read("deck.pptx"));
+        Assert.Equal(height, FrameHeight());
+        Assert.Contains("text doesn't go before or after a table", (await Edit("deck.pptx", "| Station | 21,300 |", "| Station | 21,300 |\n\nMore")).Text);
         using var zip = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx"));
         Assert.Contains(zip.Entries, e => e.FullName.StartsWith("ppt/media/image1.png", StringComparison.Ordinal));
         Assert.Contains("slideLayout1.xml", new StreamReader(zip.GetEntry("ppt/slides/_rels/slide1.xml.rels")!.Open()).ReadToEnd());

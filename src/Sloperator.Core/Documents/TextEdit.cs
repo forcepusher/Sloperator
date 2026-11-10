@@ -47,10 +47,10 @@ internal static partial class TextEdit
                 break;
             }
         }
-        if (hits.Count == 0 && !slides && Rows(oldText) is { } oldRows && RowsAndText(newText) is { } changed
+        if (hits.Count == 0 && Rows(oldText) is { } oldRows && RowsAndText(newText) is { } changed
             && changed.Rows.Count >= oldRows.Count && oldRows.Zip(changed.Rows).All(r => r.First.Count == r.Second.Count))
             return ReplaceCells(parts, stretches, oldRows, changed.Rows, all, changed.Before, changed.After);
-        if (hits.Count == 0 && !slides && Rows(oldText) is { } givenRows
+        if (hits.Count == 0 && Rows(oldText) is { } givenRows
             && (newText.Trim().Length == 0 || RowsAndText(newText) is { Before: null, After: null } kept && kept.Rows.Count < givenRows.Count))
             return RemoveRows(parts, givenRows, newText.Trim().Length == 0 ? [] : RowsAndText(newText)!.Value.Rows, all);
         if (hits.Count == 0)
@@ -169,7 +169,6 @@ internal static partial class TextEdit
     private static (int Count, List<string> Parts) ReplaceCells(Dictionary<string, XDocument> parts, List<Stretch> stretches,
         List<List<string>> oldRows, List<List<string>> newRows, bool all, string? textBefore = null, string? textAfter = null)
     {
-        var format = WordFormat;
         var matches = MatchRows(parts, oldRows);
         if (matches.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document: no table has those rows. Read it again with read_file and copy the rows exactly, or change one cell's text by itself.");
@@ -184,7 +183,9 @@ internal static partial class TextEdit
             if (column != 0 || found.Select((cells, i) => cells.Length != oldRows[i].Count).Any(partial => partial))
                 throw new InvalidOperationException("To add rows or text by a table, give its whole rows as old_text, every cell, as read_file shows them.");
             var table = found[0][0].Parent!.Parent!;
-            var tableRows = table.Elements(W + "tr").ToList();
+            var tableRows = table.Elements(table.Name.Namespace + "tr").ToList();
+            if ((textBefore ?? textAfter) is not null && table.Name == A + "tbl")
+                throw new InvalidOperationException("On a slide, text doesn't go before or after a table: change the text of a box on the slide instead.");
             if (textBefore is not null && found[0][0].Parent != tableRows[0])
                 throw new InvalidOperationException("Text goes before a table only before its first row: give that row as old_text, or change the paragraph before the table.");
             if (textAfter is not null && found[^1][0].Parent != tableRows[^1])
@@ -199,12 +200,14 @@ internal static partial class TextEdit
                 for (var j = 0; j < oldRows[i].Count; j++)
                 {
                     var tc = rows[i][column + j];
+                    var format = FormatOf(tc);
                     var plain = MarkdownDocument.Plain(MarkdownDocument.Inline(Unmarked(newRows[i][j])));
                     var after = Fold(plain);
-                    var stretch = stretches.FirstOrDefault(s => s.Paragraphs[0].Parent == tc);
+                    var paragraphs = CellParagraphs(tc).ToList();
+                    var stretch = paragraphs.Count == 0 ? null : stretches.FirstOrDefault(s => s.Paragraphs[0] == paragraphs[0]);
                     if (stretch is null || CellText(tc) == after)
                         continue;
-                    if (stretch.Paragraphs.Count != tc.Elements(W + "p").Count())
+                    if (stretch.Paragraphs.Count != paragraphs.Count)
                         throw new InvalidOperationException("A cell it would change holds a table of its own: change that cell's text by itself.");
                     // The cell's paragraphs are joined by a line break here and by a space in read_file: one character either way.
                     var before = Fold(Text(stretch, format).Replace('\n', ' '));
@@ -228,10 +231,11 @@ internal static partial class TextEdit
             {
                 var row = new XElement(lastRow);
                 row.Element(W + "trPr")?.Element(W + "tblHeader")?.Remove();
-                foreach (var (tc, text) in row.Elements(W + "tc").Zip(cells))
+                foreach (var (tc, text) in row.Elements(table.Name.Namespace + "tc").Zip(cells))
                     SetCellText(tc, text);
                 below.AddAfterSelf(row);
                 below = row;
+                GrowFrame(table, RowHeight(row));
             }
             if (textBefore is not null)
                 table.AddBeforeSelf(Paragraphs(table, textBefore));
@@ -245,7 +249,28 @@ internal static partial class TextEdit
 
     /// <summary>A cell's text as read_file's row shows it: its paragraphs joined by a space, folded as <see cref="Fold"/> does.</summary>
     private static string CellText(XElement tc) =>
-        Fold(string.Join(" ", tc.Elements(W + "p").Select(p => string.Concat(WordFormat.Units(p).Select(WordFormat.UnitText))))).Trim();
+        Fold(string.Join(" ", CellParagraphs(tc).Select(p => string.Concat(FormatOf(tc).Units(p).Select(FormatOf(tc).UnitText))))).Trim();
+
+    /// <summary>A cell's paragraphs: a Word table cell's own, a slide table cell's in its text body.</summary>
+    private static IEnumerable<XElement> CellParagraphs(XElement tc) =>
+        tc.Name == W + "tc" ? tc.Elements(W + "p") : tc.Element(A + "txBody")?.Elements(A + "p") ?? [];
+
+    private static Format FormatOf(XElement tc) => tc.Name == W + "tc" ? WordFormat : SlideFormat;
+
+    /// <summary>A slide table row's height in EMUs (its h); 0 for a Word row, whose table grows by itself.</summary>
+    private static long RowHeight(XElement tr) => tr.Name == A + "tr" && long.TryParse((string?)tr.Attribute("h"), out var h) ? h : 0;
+
+    /// <summary>
+    /// A slide table's frame made <paramref name="by"/> EMUs taller (or shorter): it holds the table's size, which
+    /// PowerPoint and LibreOffice draw by, and rows added would run out of it.
+    /// </summary>
+    private static void GrowFrame(XElement table, long by)
+    {
+        if (by == 0 || table.Ancestors(P + "graphicFrame").FirstOrDefault()?.Element(P + "xfrm")?.Element(A + "ext") is not { } ext
+            || !long.TryParse((string?)ext.Attribute("cy"), out var cy))
+            return;
+        ext.SetAttributeValue("cy", Math.Max(0, cy + by));
+    }
 
     /// <summary>Whether a cell as the model gave it ("**140**" or "140") is the cell's text.</summary>
     private static bool Same(string given, string cell) => Fold(given).Trim() == cell || Fold(Unmarked(given)).Trim() == cell;
@@ -255,9 +280,10 @@ internal static partial class TextEdit
     {
         var matches = new List<(string Part, List<XElement[]> Rows, int Column)>();
         foreach (var (part, xml) in parts)
-            foreach (var table in xml.Descendants(W + "tbl"))
+            foreach (var table in xml.Descendants().Where(e => e.Name == W + "tbl" || e.Name == A + "tbl"))
             {
-                var rows = table.Elements(W + "tr").Select(r => r.Elements(W + "tc").ToArray()).ToList();
+                var ns = table.Name.Namespace;
+                var rows = table.Elements(ns + "tr").Select(r => r.Elements(ns + "tc").ToArray()).ToList();
                 var texts = rows.Select(r => r.Select(CellText).ToArray()).ToList();
                 for (var r = 0; r + oldRows.Count <= rows.Count; r++)
                     for (var c = 0; c < rows[r].Length; c++)
@@ -294,9 +320,13 @@ internal static partial class TextEdit
         {
             var table = rows[0][0].Parent!.Parent!;
             foreach (var i in going)
+            {
+                GrowFrame(table, -RowHeight(rows[i][0].Parent!));
                 rows[i][0].Parent!.Remove();
-            if (!table.Elements(W + "tr").Any())
-                table.Remove();
+            }
+            // With its last row, a Word table goes, and a slide's with the frame it is in.
+            if (!table.Elements(table.Name.Namespace + "tr").Any())
+                (table.Ancestors(P + "graphicFrame").FirstOrDefault() ?? table).Remove();
             if (!changed.Contains(part))
                 changed.Add(part);
         }
@@ -306,13 +336,15 @@ internal static partial class TextEdit
     /// <summary>A cell's text, in place of what it held, looking as its first line did.</summary>
     private static void SetCellText(XElement tc, string text)
     {
-        var paragraphs = tc.Elements(W + "p").ToList();
+        var format = FormatOf(tc);
+        var paragraphs = CellParagraphs(tc).ToList();
         foreach (var extra in paragraphs.Skip(1))
             extra.Remove();
         var first = paragraphs[0];
-        var look = first.Descendants(W + "r").FirstOrDefault()?.Element(W + "rPr");
-        first.Elements().Where(e => e.Name != W + "pPr").Remove();
-        first.Add(MarkdownDocument.Inline(Unmarked(text)).SelectMany(s => WordFormat.NewRuns(s, look)));
+        var look = format.Units(first).Select(format.Properties).FirstOrDefault(p => p is not null);
+        look = look is null ? null : new XElement(look);
+        first.Elements().Where(e => e.Name != W + "pPr" && e.Name != A + "pPr" && e.Name != A + "endParaRPr").Remove();
+        format.Append(first, MarkdownDocument.Inline(Unmarked(text)).SelectMany(s => format.NewRuns(s, look)).ToList());
     }
 
     /// <summary>

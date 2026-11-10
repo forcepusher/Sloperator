@@ -169,8 +169,8 @@ public static class SystemPrompt
         // Blender's server in Settings fell back on scripts when it couldn't connect: Blender wasn't open.
         // Asked to change a slide's title and add a table row in a .pptx, Haiku 5.5 looked for Python, then searched for
         // PowerPoint's MCP server "as the rule says", before edit_file did it all (2026-11-10).
-        sb.AppendLine("- When a task is to be done in a program or a project made with one (a Word, Excel, PowerPoint or PDF file isn't one: " +
-                      "write_file and edit_file make and change those), your first tool call, before you check anything else, is " +
+        sb.AppendLine("- When a task is to be done in a program or a project made with one (not a Word, Excel, PowerPoint or PDF file: " +
+                      "write_file and edit_file make and change those without the program, so none of this is for them), your first tool call, before you check anything else, is " +
                       (webSearch ? "web_search for the program's name and \"official MCP server CLI\"" : "a look at the program's documentation") +
                       ", even when you know a way to script it: makers add MCP servers and command line tools for AI agents all the time. " +
                       "What they offer is what you use, however small the task, rather than the mouse and keyboard or a script of your own in the program's batch mode, even if that looks simpler: it costs far fewer tokens. A community project with a similar name is not theirs. Whether the setup is worth it is the user's call, not yours, even for a small task. " +
