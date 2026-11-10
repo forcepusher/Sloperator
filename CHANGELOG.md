@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- A series of key presses the agent makes can type text between them, such as Ctrl+A, the new name and Enter to
+  rename something, in one step.
 - A long message you send, such as a pasted log, shows its first 20 lines in the chat with **Show all**, rather than
   every line of it; all of it still goes to the model.
 - **Audio editor** side panel, beside the Image and Video editors: your sounds with their versions, a big waveform
@@ -83,6 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Tab moves through the window left to right, Model before Effort and the address before **Servers**, Settings'
+  fields before Cancel and Save, a side panel's buttons as they show, and no longer stops on the title bar's Close,
+  Maximize and Minimize.
+- A key the agent presses that needs Shift on your keyboard, such as `*` or `+`, is pressed with it: `*` came out
+  as an 8, so Calculator never multiplied.
+- A command that prints without end no longer makes Sloperator use more and more memory: the **Terminal** keeps its
+  first 100,000 lines and its last 2,000.
 - A table the agent writes in a workbook, Word document, PDF or slide without its `|---|` line still gets a header row,
   bold and kept in sight, when its first row is words over rows of numbers, such as a budget's months.
 - `sloperator-cli --help` prints its options, and a misspelt option is said, rather than sent to the model as a task.

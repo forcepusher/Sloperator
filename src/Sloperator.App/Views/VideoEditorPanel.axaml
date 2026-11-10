@@ -183,7 +183,7 @@
   <DockPanel>
     <!-- The video (its name opens the videos' menu), its size and frame rate, changed here and saved at once, and what to do with all of it; × closes the panel. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <!-- A ghost button as every other in the bar: yellow (primary), it looked lit all the time. -->
         <!-- Greyed while there is nothing to make it from, its tip saying why. -->
@@ -218,7 +218,7 @@
          was there), and how long the video is. Its buttons are always there, greyed where they don't apply.
          Play is on the ruler's row. -->
     <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
-      <DockPanel>
+      <DockPanel views:TabOrder.LeftToRight="True">
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="4">
             <Button Classes="ghost icon small act" Command="{Binding ZoomOutCommand}" ToolTip.ShowOnDisabled="True"

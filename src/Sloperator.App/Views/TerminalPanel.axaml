@@ -21,7 +21,7 @@
   <DockPanel>
     <!-- How the panel is used; Wrap and Watch, as File changes and the Code editor have them, then × to close. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <!-- Watch: the newest command shows as it starts, its output kept at its end. -->
         <views:WatchToggles DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" />

@@ -42,6 +42,24 @@ public sealed class CommandLogTests : IDisposable
     }
 
     [Fact]
+    public void A_command_that_prints_without_end_keeps_its_start_and_its_end()
+    {
+        var run = new CommandLog().Start("dir /s C:\\", "This PC", @"C:\");
+        var printed = CommandRun.MaxLines + 10_000;
+        for (var i = 1; i <= printed; i++)
+            run.Add($"line {i}");
+        // While it runs, the start, as it came.
+        Assert.Equal(CommandRun.MaxLines, run.LineCount);
+        run.End(0);
+
+        var lines = run.LinesFrom(0);
+        Assert.Equal(CommandRun.MaxLines + 1 + CommandRun.TailLines, lines.Count);
+        Assert.Equal($"line {CommandRun.MaxLines}", lines[CommandRun.MaxLines - 1]);
+        Assert.Equal("… 8,000 more lines, not kept …", lines[CommandRun.MaxLines]);
+        Assert.Equal($"line {printed}", lines[^1]);
+    }
+
+    [Fact]
     public void The_log_is_kept_in_the_chats_folder_and_comes_back_with_it()
     {
         var file = Path.Combine(_dir, "chat", "terminal.json");

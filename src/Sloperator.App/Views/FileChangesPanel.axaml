@@ -45,7 +45,7 @@
          × to close the panel. A bar as the chat's top bar beside it. Wrap and Watch are there with no files
          too (the user, 2026-10-31), so the bar doesn't change mid-task when the first file does. -->
     <Border DockPanel.Dock="Top" Classes="bar">
-      <DockPanel MinHeight="32">
+      <DockPanel views:TabOrder.LeftToRight="True" MinHeight="32">
         <views:SidePanelClose DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
         <views:WatchToggles DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
         <TextBlock DockPanel.Dock="Right" Classes="muted" Margin="12,0,0,0" VerticalAlignment="Center" ToolTip.Tip="{Binding Folder}" AutomationProperties.Name="{Binding Summary}">
@@ -102,7 +102,7 @@
                shows beside them. All three always there, greyed with nothing to act on (no file yet, or
                Stage and Unstage outside git), so the bar doesn't change mid-task. -->
           <Border DockPanel.Dock="Top" Classes="bar" Padding="8">
-            <DockPanel>
+            <DockPanel views:TabOrder.LeftToRight="True">
               <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
                 <Button Classes="ghost small act" Command="{Binding StageCommand}" IsEnabled="{Binding CanStage}"
                         ToolTip.ShowOnDisabled="True" ToolTip.Tip="{Binding StageTip}" AutomationProperties.Name="Stage">

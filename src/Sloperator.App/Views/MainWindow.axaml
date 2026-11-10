@@ -432,12 +432,16 @@
     <Border Grid.Row="1" Classes="bar fields">
       <Grid ColumnDefinitions="Auto,3*,Auto,2*,Auto" RowDefinitions="32,32" RowSpacing="8" VerticalAlignment="Center">
         <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Server" Margin="0,0,8,0" />
-        <DockPanel Grid.Row="0" Grid.Column="1">
+        <!-- A grid rather than a dock panel, so Tab goes left to right as the row reads: a field docked right
+             came first in its dock panel, and Tab went to Servers before the address, Effort before Model. -->
+        <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,Auto">
+          <!-- No least width: one wider than the narrowest chat's column was laid out over the "Server" label. -->
+          <TextBox Text="{Binding ServerAddress}" AutomationProperties.Name="Server address" PlaceholderText="http://localhost:1234/v1" />
           <!-- The servers that answered before, each with its key and model: a row switches to it,
                its trash button forgets it. Its list works as History's does, the button looks like
                the dropdowns around it; as wide as the effort dropdown under it, so the address and
                the model end on one line. -->
-          <Button x:Name="SavedServersButton" DockPanel.Dock="Right" Classes="dropdown" Width="112" Margin="8,0,0,0" VerticalAlignment="Stretch" AutomationProperties.Name="Saved servers">
+          <Button x:Name="SavedServersButton" Grid.Column="1" Classes="dropdown" Width="112" Margin="8,0,0,0" VerticalAlignment="Stretch" AutomationProperties.Name="Saved servers">
             <DockPanel>
               <PathIcon DockPanel.Dock="Right" Classes="arrow" />
               <TextBlock Text="Servers" VerticalAlignment="Center" />
@@ -471,9 +475,7 @@
               </Flyout>
             </Button.Flyout>
           </Button>
-          <!-- No least width: one wider than the narrowest chat's column was laid out over the "Server" label. -->
-          <TextBox Text="{Binding ServerAddress}" AutomationProperties.Name="Server address" PlaceholderText="http://localhost:1234/v1" />
-        </DockPanel>
+        </Grid>
         <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="API key" Margin="16,0,8,0" />
         <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding ApiKey}" AutomationProperties.Name="API key" PasswordChar="•" RevealPassword="{Binding ShowApiKey}" MinWidth="120"
                  PlaceholderText="Optional"
@@ -489,28 +491,7 @@
         </ToggleButton>
 
         <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Model" Margin="0,0,8,0" />
-        <DockPanel Grid.Row="1" Grid.Column="1">
-          <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), or Auto with the level it
-               uses ("Auto (High)"), in a slot as wide as the widest of its mode needs ("Extra high", or on Auto "Auto
-               (Extra high)"); greyed out for a model whose server lists no effort for it. -->
-          <ComboBox x:Name="EffortBox" DockPanel.Dock="Right" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
-                    Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
-                    AutomationProperties.Name="Effort">
-            <ComboBox.SelectionBoxItemTemplate>
-              <DataTemplate x:DataType="vm:EffortOption">
-                <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxText}"
-                                Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxSlot}" VerticalAlignment="Center" />
-              </DataTemplate>
-            </ComboBox.SelectionBoxItemTemplate>
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:EffortOption">
-                <StackPanel Spacing="1">
-                  <TextBlock Text="{Binding Label}" />
-                  <TextBlock Classes="muted" Text="Picked with the model" IsVisible="{Binding IsAuto}" />
-                </StackPanel>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto">
           <views:ModelDropdown x:Name="ModelBox" ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                PlaceholderText="No models: check the server address" ToolTip.Tip="{Binding ModelToolTip}" AutomationProperties.Name="Model">
             <ComboBox.ItemsPanel>
@@ -541,19 +522,40 @@
               </DataTemplate>
             </ComboBox.SelectionBoxItemTemplate>
           </views:ModelDropdown>
-        </DockPanel>
+          <!-- How hard the model thinks ("Medium"; its tooltip says it is the effort), or Auto with the level it
+               uses ("Auto (High)"), in a slot as wide as the widest of its mode needs ("Extra high", or on Auto "Auto
+               (Extra high)"); greyed out for a model whose server lists no effort for it. -->
+          <ComboBox x:Name="EffortBox" Grid.Column="1" ItemsSource="{Binding EffortOptions}" SelectedItem="{Binding SelectedEffort}" IsEnabled="{Binding CanSetEffort}"
+                    Margin="8,0,0,0" VerticalAlignment="Stretch" ToolTip.Tip="{Binding EffortToolTip}" ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="Effort">
+            <ComboBox.SelectionBoxItemTemplate>
+              <DataTemplate x:DataType="vm:EffortOption">
+                <views:SlotText Text="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxText}"
+                                Slot="{Binding $parent[ComboBox].((vm:MainWindowViewModel)DataContext).EffortBoxSlot}" VerticalAlignment="Center" />
+              </DataTemplate>
+            </ComboBox.SelectionBoxItemTemplate>
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:EffortOption">
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding Label}" />
+                  <TextBlock Classes="muted" Text="Picked with the model" IsVisible="{Binding IsAuto}" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
         <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" Text="Context" Margin="16,0,8,0" />
-        <DockPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" ToolTip.Tip="{Binding ContextToolTip}">
-          <CheckBox DockPanel.Dock="Right" Content="Auto" IsChecked="{Binding AutoContext}" Margin="8,0,0,0" MinWidth="0" />
-          <!-- As wide as the size in it ("64k", "not loaded"); its number in the middle as a button's
-               word (with 5 over and under it was a pixel low at 100%). -->
-          <TextBox x:Name="ContextBox" AutomationProperties.Name="Context size in tokens" DockPanel.Dock="Right" Text="{Binding ContextInput, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding !AutoContext}"
-                   MinWidth="48" Padding="12,0" TextAlignment="Right" VerticalAlignment="Stretch" VerticalContentAlignment="Center" />
+        <Grid Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto" ToolTip.Tip="{Binding ContextToolTip}">
           <!-- Fluent's slider is 50px tall with the track in its middle: stretched over the 32px row
                plus these margins, the track sits on the row's centre line. -->
           <Slider Minimum="0" Maximum="{Binding ContextMaxIndex}" AutomationProperties.Name="Context size" Value="{Binding ContextIndex}" TickFrequency="1" IsSnapToTickEnabled="True"
                   IsEnabled="{Binding !AutoContext}" VerticalAlignment="Stretch" Margin="0,-9,8,-9" MinWidth="60" />
-        </DockPanel>
+          <!-- As wide as the size in it ("64k", "not loaded"); its number in the middle as a button's
+               word (with 5 over and under it was a pixel low at 100%). -->
+          <TextBox x:Name="ContextBox" AutomationProperties.Name="Context size in tokens" Grid.Column="1" Text="{Binding ContextInput, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding !AutoContext}"
+                   MinWidth="48" Padding="12,0" TextAlignment="Right" VerticalAlignment="Stretch" VerticalContentAlignment="Center" />
+          <CheckBox Grid.Column="2" Content="Auto" IsChecked="{Binding AutoContext}" Margin="8,0,0,0" MinWidth="0" />
+        </Grid>
       </Grid>
     </Border>
 

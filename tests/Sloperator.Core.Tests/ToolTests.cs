@@ -503,6 +503,12 @@ public class ToolTests
         Assert.True(started.ElapsedMilliseconds >= 280, $"waited {started.ElapsedMilliseconds} ms");
         Assert.Equal("Keys: hold shift+w, wait 0.3, space, release w, e done.", result.Text);
 
+        // A step can type text, as a rename does between selecting the name and Enter.
+        platform.Actions.Clear();
+        var renamed = await new PressKeysTool().ExecuteAsync(new JsonObject { ["sequence"] = new JsonArray("ctrl+a", "type Q3 Reports", "enter"), ["gap_ms"] = 0 }, Ctx(platform), CancellationToken.None);
+        Assert.False(renamed.IsError, renamed.Text);
+        Assert.Equal(["keys ctrl+a", "type Q3 Reports", "keys enter"], platform.Actions);
+
         // Stopped mid-wait: held keys still come up.
         platform.Actions.Clear();
         using var stop = new CancellationTokenSource(100);

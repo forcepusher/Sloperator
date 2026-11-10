@@ -52,15 +52,27 @@ public static class LlmHttp
             if (done.IsCompletedSuccessfully)
             {
                 race.Cancel();
-                // One that connects as well before it hears of the cancel isn't needed.
-                foreach (var other in families)
-                    _ = other.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); else _ = t.Exception; }, TaskScheduler.Default);
+                Forget(families);
                 return done.Result;
             }
-            ct.ThrowIfCancellationRequested();
-            failure ??= done.Exception?.InnerException;
+            // Read for every family, not only the first to fail: localhost's ::1 and 127.0.0.1 both refused, and the
+            // second's exception, never looked at, was reported by the finalizer as a task nobody waited for (2026-11-10).
+            var thrown = done.Exception?.InnerException;
+            if (ct.IsCancellationRequested)
+            {
+                Forget(families);
+                ct.ThrowIfCancellationRequested();
+            }
+            failure ??= thrown;
         }
         throw failure!;
+
+        // The attempts still going: one that connects as well isn't needed, and one that fails is looked at.
+        static void Forget(List<Task<Socket>> attempts)
+        {
+            foreach (var attempt in attempts)
+                _ = attempt.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); else _ = t.Exception; }, TaskScheduler.Default);
+        }
     }
 
     /// <summary>The addresses of one family, one after another until one connects.</summary>

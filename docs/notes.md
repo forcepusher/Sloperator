@@ -1911,6 +1911,22 @@ its panel (`toolArrow.up`). With nothing selected there is no card and no word o
 - `ChatSelectionTests` checks it headless: kept while the box has the focus, over two paragraphs of a
   reply too, gone with a click on other text or Esc, and other text still losing it with the focus.
 
+## Tab order
+
+Tab goes through the window as it reads, left to right: the side panel, History, New chat, New window, Settings,
+the server address, Servers, the API key, Model, Effort, Context, the paperclip and the message box (checked by
+UI Automation, 2026-11-10). The rows under the top bar are grids, not dock panels: a field docked right comes first
+in its dock panel, and Tab went to Servers before the address, Effort before Model and Auto before the context
+slider. The title bar's buttons are out of the Tab order (`Button.caption`, IsTabStop), as Windows' own are: Tab from
+the message box went to Close next. Layout unchanged, compared pixel by pixel before and after.
+Settings is rows too, the foot bar last: Tab went to Cancel and Save before the settings. Still open there: once round,
+Tab comes back to the page's last control focused (Add a language) and not to General; neither TabNavigation Continue on
+the TabControl nor on its strip's ItemsPresenter changed that (Avalonia 12, 2026-11-10). Shift+Tab goes back up.
+The side panels' bars keep their dock panels and number their tab places as they show (`TabOrder.LeftToRight`: the
+children docked left and the one filling, then those docked right from the middle out, in a Local group, a child
+holding buttons as one place): the Code editor went ×, Watch, Wrap, Open folder; now Open folder, Wrap, Watch, ×.
+Dividers (`GridSplitter`, which take Tab for the arrow keys) are named Divider; they had no name.
+
 ## One look for every control
 Every control a person can type in, pick from or drag has a name for screen readers and UI Automation
 (`AutomationProperties.Name`, the words of the label beside it): the server address, API key, context size, the
@@ -2438,7 +2454,9 @@ twice. Each connection tries the host's IPv6 and IPv4 addresses at the same time
 listens on, so each new connection waited 2 s. On 24 October 2026, with LM Studio reached as
 `localhost:1234` (through an IPv4-only port, as LM Studio's own) and a model not loaded, the
 request that loads it went out 5.5 s after the message was sent, and 1.0 s after the fix; with the
-server's own address over the VPN, 1.6 s and 1.0 s.
+server's own address over the VPN, 1.6 s and 1.0 s. What each family's attempt throws is read, every one: with both
+refused, the second's exception went to the finalizer, which wrote it to crash.log as "a task nobody waited for"
+(2026-11-10, `LlmHttpTests`).
 
 With no model picked (the dropdown's Auto, see "Auto model and effort" below) and none of Auto's three
 models on the server, Sloperator stands in the cheapest of the strongest ones the server offers
@@ -3524,7 +3542,7 @@ put it back. Five small edits on Haiku through the command line (2026-11-10): wi
 file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
 
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
-…)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
+…)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
 `\pictures`, `\sounds` and `\videos`, that on Auto it opens by itself to what the agent writes, runs or makes, that
 show_panel opens it when the user asks to see something there, and that the agent can't see it. About 90 tokens. Without it, asked to show a page "in the Web preview
@@ -3584,7 +3602,7 @@ not the text area) and one key down (Home); a posted WM_KEYDOWN for a letter typ
 | `zoom` | A sharp, enlarged picture of the region around x/y, with rulers in screenshot coordinates, to aim at small things (see below) |
 | `capture_result` | A picture of what the agent made for the user: a window (`window`, part of its title), a box (`x`, `y`, `width`, `height`) or the whole screen, with a `caption`; `file` shows a picture file instead; `compare` (earlier captures or picture files) with `labels` and `columns` puts them all in one picture, the new one last (see below) |
 | `mouse_move`, `mouse_drag`, `scroll` | Mouse control in screenshot coordinates; a drag can hold `modifiers` too |
-| `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held |
+| `type_text`, `press_keys` | Typing as key presses (see below) and key chords (`ctrl+c`, `win+r`, …); `hold_seconds` keeps keys down for a while, to walk in a game or make a long press; a `sequence` can also have timed steps: `wait 0.5` (seconds, no `gap_ms` next to it), `hold w` until `release w` (keys still held are let go at the end and on Stop), to tap keys while one is held, and `type Reports` types text between presses (Haiku 5.5 renamed a folder with ["ctrl+a","type Reports","enter"], an unknown key until 2026-11-10) |
 | `wait` | Waits a set time, up to 10 minutes, as for a build or a download; a screenshot at the end only with `screenshot_on_end` |
 | `wait_until_change` | Waits until the screen changes from how it was when the wait started (a reply in a chat, a window or page that finished loading), up to `seconds`, or without it until it does (a message or Stop ends it too), then screenshots (see below) |
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
@@ -3723,7 +3741,9 @@ review, 2026-10-29; `MapVirtualKeyEx` with MAPVK_VK_TO_CHAR sets the top bit for
 event log (`--debug-events`) showed not one event for 1,080 typed characters, while the click and the
 keys of a `press_keys` that followed landed in the field, which kept editing all along. Typed as key
 presses, the same text arrived exactly, punctuation and capitals included; into a WinForms text box
-with Caps Lock on too, and accented, Japanese and emoji text through the fallback.
+with Caps Lock on too, and accented, Japanese and emoji text through the fallback. `press_keys` presses a
+punctuation key the same way, with the Shift or AltGr it needs on that layout (`ChordKeys`): "*" was its key alone, an 8,
+and Calculator read Qwen 3.8's ["type 1234","*","type 5678","enter"] as 12345678 (2026-11-10).
 
 A reply without tool calls ends the run, whatever it says: Sloperator doesn't guess whether it looks
 finished. Only two kinds of message make the model answer again on its own, both about something
@@ -4366,9 +4386,10 @@ row drawn under the last. `FileChanges.DiffAsync` takes the files of the full di
 line endings stay as they are. A file then becomes up to three files, each with a `GitFile` naming its
 section: Committed, what the file held before the agent's first change against HEAD (what of the
 agent's change is committed; left out when Sloperator didn't know it before, and when no commit has changed the file
-since the agent began, by git's time of its last commit against when the first version was read, `Version.At`, kept
-with the list: a file changed and not committed before the agent began showed that difference under Committed, read
-backwards as taken out, and a file git doesn't track as deleted, 2026-11-10); Staged (index letter set),
+since the agent began: when the first version was read, `Version.At`, kept with the list, against git's commit times, one
+log for each repository since the earliest (`GitChanges.CommittedSinceAsync`; one `git log -1` a file would be a process per
+changed file at every refresh). Before that, a file changed and not committed before the agent began showed that
+difference under Committed, read backwards as taken out, and a file git doesn't track as deleted, 2026-11-10); Staged (index letter set),
 HEAD against the index; Unstaged (work-tree letter set, untracked too), the index against the file on
 disk as read_file reads it. All diffed by `LineDiff`, so a hunk's new-side numbers are the staged
 file's or the file's on disk. Not text, or a Word file: a binary entry where git's letters say it
@@ -4941,7 +4962,10 @@ it printed in all, and the lines numbered as the panel shows them, up to 20,000 
 chat gets its id then; written when each command ends, through a temporary file of its own, `AtomicFile`, as
 two commands can end at once), so a chat opened from
 History shows its commands, and deleting the chat deletes them with its folder. A command still running when
-the app closed comes back ended, "not seen to end".
+the app closed comes back ended, "not seen to end". A command keeps its first 100,000 lines and, once it ends, its
+last 2,000 under a line saying how many went (`CommandRun.MaxLines`): every line was kept in memory and in the file,
+written whole again as each command ends, so a command that printed a line for each of a million files grew both
+without end (2026-11-10).
 
 No new library: the published exe grew 28 KB (28,141,496 to 28,169,656 bytes against develop 4d0fd59, no trim
 warnings), and the trimmed exe wrote and read terminal.json as the Debug build did.

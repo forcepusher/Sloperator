@@ -524,12 +524,13 @@ public sealed class PressKeysTool : DesktopActionTool
         "Press a key or shortcut, or a whole series of them in one go. For one chord give its keys in order, e.g. [\"ctrl\",\"c\"], [\"alt\",\"tab\"], [\"enter\"]. " +
         "For several presses one after another, give sequence instead, e.g. [\"left\",\"down\",\"left\",\"tab\",\"ctrl+s\"]: much faster than one call per key. " +
         "A sequence can also time its steps: \"wait 0.5\" pauses that many seconds, \"hold w\" keeps w down while the next steps run until \"release w\" " +
-        "(whatever is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on. " +
+        "(whatever is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on; " +
+        "\"type Reports\" types that text, e.g. [\"ctrl+a\",\"type Reports\",\"enter\"] to rename. " +
         "To keep each press down for a while (walking in a game, a long press), give hold_seconds. " +
         "Names: ctrl, alt, shift, win, enter, esc, tab, backspace, delete, space, up, down, left, right, home, end, pageup, pagedown, f1-f12, a-z, 0-9.";
     public override JsonObject Parameters => Schema(
         ("keys", StrArray("Keys of one chord, modifiers first"), false),
-        ("sequence", StrArray("Steps to make one after another: a key or a chord like ctrl+s, \"wait 1.5\" (seconds), \"hold shift\" or \"release shift\". Use instead of keys."), false),
+        ("sequence", StrArray("Steps to make one after another: a key or a chord like ctrl+s, \"wait 1.5\" (seconds), \"hold shift\", \"release shift\" or \"type some text\". Use instead of keys."), false),
         ("repeat", Int("How many times to press the chord or run the sequence, default 1"), false),
         ("gap_ms", Int($"Pause between steps in milliseconds, default {DefaultGapMs}; none next to a wait step"), false),
         ("hold_seconds", Num($"Keep each press held down this long before letting go, e.g. [\"w\"] for 2 seconds to walk forward (max {MaxHoldSeconds}); default: a quick press"), false));
@@ -551,13 +552,13 @@ public sealed class PressKeysTool : DesktopActionTool
         return keys.SelectMany(Split).ToList();
     }
 
-    private enum StepKind { Press, Wait, Hold, Release }
+    private enum StepKind { Press, Wait, Hold, Release, Type }
 
-    /// <summary>One step of a sequence: a press, a wait, or keys held down or let go.</summary>
-    private sealed record Step(StepKind Kind, List<string> Keys, double Seconds = 0);
+    /// <summary>One step of a sequence: a press, a wait, keys held down or let go, or text typed.</summary>
+    private sealed record Step(StepKind Kind, List<string> Keys, double Seconds = 0, string Text = "");
 
     private static List<Step> Steps(JsonObject args) =>
-        (GetStringList(args, "sequence") ?? []).Select(ParseStep).Where(s => s.Kind == StepKind.Wait || s.Keys.Count > 0).ToList();
+        (GetStringList(args, "sequence") ?? []).Select(ParseStep).Where(s => s.Kind is StepKind.Wait or StepKind.Type || s.Keys.Count > 0).ToList();
 
     private static Step ParseStep(string text)
     {
@@ -574,6 +575,10 @@ public sealed class PressKeysTool : DesktopActionTool
                     return new Step(StepKind.Hold, Split(parts[1]).ToList());
                 case "release":
                     return new Step(StepKind.Release, Split(parts[1]).ToList());
+                // Haiku 5.5 renamed a new folder with ["wait 1","ctrl+a","type Reports","enter"], which failed as an
+                // unknown key, and took another call to type it (2026-11-10).
+                case "type":
+                    return new Step(StepKind.Type, [], Text: text.TrimStart()[5..]);
             }
         return new Step(StepKind.Press, Split(text).ToList());
     }
@@ -628,6 +633,9 @@ public sealed class PressKeysTool : DesktopActionTool
                                 held[at].Up.Dispose();
                                 held.RemoveAt(at);
                             }
+                        break;
+                    case StepKind.Type:
+                        ctx.Platform.Input.TypeText(TypeTextTool.EnterForEscapedBreaks(step.Text));
                         break;
                     case StepKind.Press when hold > TimeSpan.Zero:
                         // Released on Stop too, so no key is left held down.

@@ -91,18 +91,33 @@ public static class GitChanges
         return read;
     }
 
-    /// <summary>When the last commit that changed <paramref name="relative"/> was made (git's committer time, to the second); null when none did or git failed.</summary>
-    internal static async Task<DateTimeOffset?> LastCommitAsync(string root, string relative, CancellationToken ct)
+    /// <summary>
+    /// Of these files (paths in the repository), those a commit since <paramref name="since"/> changed, with the time of
+    /// the latest (git's committer time, to the second): one git log for them all, which mostly finds no commit.
+    /// Empty when git failed.
+    /// </summary>
+    internal static async Task<Dictionary<string, DateTimeOffset>> CommittedSinceAsync(string root, IReadOnlyList<string> relative, DateTimeOffset since, CancellationToken ct)
     {
+        var latest = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         try
         {
-            var output = await GitDiff.RunAsync(root, ["log", "-1", "--format=%ct", "--", relative], ct, 1_000).ConfigureAwait(false);
-            return output.Exit == 0 && long.TryParse(output.Out.Trim(), out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+            var output = await GitDiff.RunAsync(root, ["log", $"--since=@{since.ToUnixTimeSeconds()}", "--format=%x01%ct", "--name-only", "--", .. relative], ct, 400_000)
+                .ConfigureAwait(false);
+            if (output.Exit != 0)
+                return latest;
+            // Newest first: a mark and the commit's time, then the files it changed, one a line.
+            DateTimeOffset? when = null;
+            foreach (var raw in output.Out.Split('\n'))
+            {
+                var line = raw.TrimEnd('\r');
+                if (line.StartsWith('\x01'))
+                    when = long.TryParse(line[1..], out var seconds) ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+                else if (line.Length > 0 && when is { } time)
+                    latest.TryAdd(line, time);
+            }
         }
-        catch (DiffException)
-        {
-            return null;
-        }
+        catch (DiffException) { }
+        return latest;
     }
 
     /// <summary>The status letters of each path that isn't as committed: "M " staged, " M" not, "??" untracked.</summary>

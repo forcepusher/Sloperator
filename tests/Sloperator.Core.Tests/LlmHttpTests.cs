@@ -57,4 +57,56 @@ public class LlmHttpTests
         using var http = LlmHttp.Create(TimeSpan.FromSeconds(30));
         await Assert.ThrowsAsync<HttpRequestException>(() => http.GetStringAsync($"http://localhost:{port}/v1/models", TestContext.Current.CancellationToken));
     }
+
+    /// <summary>
+    /// localhost is ::1 and 127.0.0.1, and both refuse a port nobody listens on. The second refusal, never looked at,
+    /// was reported by the finalizer as a task nobody waited for (crash.log, 2026-11-10).
+    /// </summary>
+    [Fact]
+    public async Task A_refused_connection_leaves_no_failure_for_the_finalizer()
+    {
+        var unobserved = new List<string>();
+        void Seen(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            lock (unobserved)
+                unobserved.Add(e.Exception.ToString());
+        }
+        TaskScheduler.UnobservedTaskException += Seen;
+        try
+        {
+            for (var i = 0; i < 3; i++)
+                Assert.True(await RefusedAsync());
+            // The attempts are collected once nothing holds the connection's task: what they threw is reported then.
+            for (var i = 0; i < 3; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+            lock (unobserved)
+                Assert.DoesNotContain(unobserved, e => e.Contains(nameof(LlmHttp), StringComparison.Ordinal));
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= Seen;
+        }
+    }
+
+    /// <summary>Whether connecting to a port nobody listens on failed, the connection's task let go of when it returns.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static async Task<bool> RefusedAsync()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        try
+        {
+            (await LlmHttp.ConnectAsync(new DnsEndPoint("localhost", port), CancellationToken.None)).Dispose();
+            return false;
+        }
+        catch (SocketException)
+        {
+            return true;
+        }
+    }
 }
