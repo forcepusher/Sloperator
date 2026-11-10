@@ -3524,7 +3524,7 @@ put it back. Five small edits on Haiku through the command line (2026-11-10): wi
 file tools (a new file through Set-Content), with it 5 of 5, and 3 of 4 in an earlier run of four.
 
 **The side panel's line** (the user's pick, 2026-11-09), in the app's prompt only (`AgentSetup.Create(showPanel:
-…)`; the command line has no panel): what the panel shows (File changes, Code editor, Web preview, Terminal, the
+…)`; the command line has no panel): what the panel shows (File changes, File inspector, Code editor, Web preview, Terminal, the
 Image, Audio and Video editors), that their pictures, sounds and videos are folders in `{data folder}` (SloperatorData)
 `\pictures`, `\sounds` and `\videos`, that on Auto it opens by itself to what the agent writes, runs or makes, that
 show_panel opens it when the user asks to see something there, and that the agent can't see it. About 90 tokens. Without it, asked to show a page "in the Web preview

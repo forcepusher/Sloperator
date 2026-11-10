@@ -291,7 +291,7 @@ public static class SystemPrompt
         // couldn't (the panel had opened by itself); asked about "my Sloperator sounds", it searched the whole home
         // folder for them (2026-11-09). The user's pick: one line on the panel and where its editors keep their files.
         if (sidePanel)
-            sb.AppendLine("- Sloperator's side panel, left of this chat, shows the user your work: File changes, Code editor, Web preview, Terminal, and the Image, " +
+            sb.AppendLine("- Sloperator's side panel, left of this chat, shows the user your work: File changes, File inspector, Code editor, Web preview, Terminal, and the Image, " +
                           $"Audio and Video editors, whose pictures, sounds and videos are folders in {Path.Combine("{data folder}", "pictures")}, \\sounds and \\videos. " +
                           "On Auto, its default, it opens by itself to what you write, run or make; show_panel opens it when the user asks to see something there. You can't see it.");
         // Asked for "a simple snake game i can play", Nemotron left snake_game.py in the home folder
