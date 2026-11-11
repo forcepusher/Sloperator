@@ -32,7 +32,7 @@ Sloperator updates itself: when a new version is ready, a line under the top bar
   option. llama.cpp, Ollama and vLLM work the same way.
 - **Other online APIs:** any OpenAI-compatible server, such as [OpenRouter](https://openrouter.ai): its address and your key.
 
-On **Auto**, the first row of the model and effort lists, a cheap model looks at each message first
+On **Auto**, the first row of the model and effort lists and where both start, a cheap model looks at each message first
 and picks the model and effort for it from three you set in Settings (the newest Claude Haiku, Sonnet
 and Opus unless you change them). Before a dearer model it asks, and takes it after 10 seconds. Or
 pick a model and effort yourself. Every server that answered is under **Servers**, with its key and

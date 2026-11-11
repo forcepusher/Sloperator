@@ -2759,9 +2759,10 @@ daily driver (`ServerSettings.AutoTier`, not saved). The effort dropdown's first
 beside "Auto (claude-sonnet-5-5)"; "Auto" alone is left for a model that takes no effort), in a slot as wide as "Auto (Extra high)" on Auto and as "Extra high" otherwise (`EffortBoxSlot`; it was a fixed 112, as
 wide as "Extra high", then Auto's widest in every mode, 57 px of the model dropdown beside it at 125%). On Auto, `EffortInUse` is
 the picked level (`ServerSettings.AutoEffort`, not saved), medium before one is, the nearest the model takes as
-always. The effort's default stays medium: a fresh install is on Kilo's free model, where Auto effort would add an
-evaluation to every message with no model to choose. switch_model with no model, which was "Sloperator's own
-pick", is Auto.
+always. Both dropdowns are on Auto until one is picked (the user, 2026-11-11: "both model and effort to auto by
+default"): a fresh install, or a settings.json without `server.effort`; a level saved stays. The effort's default was
+medium until then, as on Kilo's free model with no key Auto effort adds an evaluation to every message (when the
+model takes a level) with no model to choose. switch_model with no model, which was "Sloperator's own pick", is Auto.
 
 **The evaluation** (`AgentSession.EvaluateAsync`, `AutoPick`): when a message starts a run (not a Compact, not a
 message sent during a run, not a short reply in a chat under way: five words or fewer with no file, pick or panel
