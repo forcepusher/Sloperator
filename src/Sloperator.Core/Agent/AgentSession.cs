@@ -697,7 +697,7 @@ public sealed partial class AgentSession(
         var task = $"Look up the prices of {requestOptions.Model}";
         var card = new ToolCall
         {
-            Id = "side-" + Guid.NewGuid().ToString("N")[..8],
+            Id = SideTaskTool.AfterAnswerId + Guid.NewGuid().ToString("N")[..8],
             Name = SideTaskTool.ToolName,
             Arguments = new JsonObject { ["task"] = task, ["prompt"] = lookup, ["output"] = false }.ToJsonString(),
         };

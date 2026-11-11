@@ -434,6 +434,12 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>Auto's evaluation (see <see cref="MainWindowViewModel.AutoCardName"/>): no call of the model's; what it found shows open.</summary>
     public bool IsAuto => Name == MainWindowViewModel.AutoCardName;
 
+    /// <summary>
+    /// A side task Sloperator ran itself once the model had answered (Auto pricing lookup's, see
+    /// <see cref="Core.Tools.SideTaskTool.AfterAnswerId"/>): no call of the model's, so the words before it are still the reply.
+    /// </summary>
+    public bool IsAfterAnswer => Name == Core.Tools.SideTaskTool.ToolName && CallId.StartsWith(Core.Tools.SideTaskTool.AfterAnswerId, StringComparison.Ordinal);
+
     /// <summary>The Output foldout's header: "What it found" on Auto's card.</summary>
     public string OutputHeader => IsAuto && !IsError ? "What it found" : "Output";
 
@@ -793,15 +799,19 @@ public sealed partial class WorkFold : ObservableObject
 
     /// <summary>
     /// Folds the stretch, but for what it ended with: its reply (the last words of the model's with
-    /// no tool call after them) and anything after that, or with no reply, a last line that stays in
-    /// sight (<paramref name="endsWith"/>: a stop, an error).
+    /// no call of the model's after them) and anything after that, or with no reply, a last line that
+    /// stays in sight (<paramref name="endsWith"/>: a stop, an error). A side task Sloperator ran after
+    /// the reply (<see cref="ToolCallItem.IsAfterAnswer"/>) folds with the work: counted as a call
+    /// after the words, it folded the reply away with it (2026-11-12, the price lookup after a long chat's answer).
     /// </summary>
     private static void Close(List<ChatItemViewModel> stretch, TimeSpan? took, bool endsWith)
     {
         var reply = stretch.FindLastIndex(l => l is AssistantMessageItem { HasText: true });
-        if (reply < 0 || stretch.Skip(reply).Any(l => l is ToolCallItem))
+        if (reply < 0 || stretch.Skip(reply).Any(l => l is ToolCallItem { IsAfterAnswer: false }))
             reply = endsWith ? stretch.Count - 1 : stretch.Count;
-        var (lines, kept) = (stretch[..reply], stretch[reply..]);
+        var lines = stretch[..reply];
+        lines.AddRange(stretch.Skip(reply).Where(l => l is ToolCallItem { IsAfterAnswer: true }));
+        var kept = stretch.Skip(reply).Where(l => l is not ToolCallItem { IsAfterAnswer: true }).ToList();
         if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true }) || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
             _ = new WorkFold(lines, kept, took);
         stretch.Clear();

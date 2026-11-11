@@ -1574,6 +1574,11 @@ nothing in sight said which model had answered). It is read back from the card's
 opened from History says it too; a card stopped while it picked has none. The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
+The side task Sloperator runs itself after the reply (Auto pricing lookup's, "Look up the prices of …", whose id
+begins `side-`: `SideTaskTool.AfterAnswerId`, `ToolCallItem.IsAfterAnswer`) is no call of the model's after its
+words: it folds with the work, out of sight after the reply (or, after a plain answer, under a card in its own
+place), and the reply stays. Counted as the model's, it made the reply read as words mid-work, and the reply
+folded away with everything: in a long chat every run ended in a card with nothing under it (2026-11-12).
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended

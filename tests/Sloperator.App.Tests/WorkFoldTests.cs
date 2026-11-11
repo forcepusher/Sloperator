@@ -73,6 +73,70 @@ public sealed class WorkFoldTests
     }
 
     [Fact]
+    public void The_price_lookup_after_the_reply_folds_with_the_work_and_the_reply_stays()
+    {
+        // A long chat's answer is followed by Sloperator's own side task looking up the model's prices: no call
+        // of the model's. Taken for one, the reply before it folded away with the work (2026-11-12).
+        var auto = new ToolCallItem("auto-1", "Auto", "claude-haiku-5-5 at Low") { At = T0.AddSeconds(1), State = ToolItemState.Done };
+        var reply = Step(4, "Start the stack from Tools > Test Backend.", "How the stack starts.");
+        var lookup = new ToolCallItem(Sloperator.Core.Tools.SideTaskTool.AfterAnswerId + "3d86397e", "side_task", "Look up the prices of claude-haiku-5-5")
+        { At = T0.AddSeconds(15), State = ToolItemState.Done, RunTook = TimeSpan.FromSeconds(25) };
+        ChatItemViewModel[] chat = [Message("How do I start it?", 0), auto, reply, lookup];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        var fold = auto.Card!;
+        Assert.Equal("Worked for 25 s · 1 tool call · " + WorkFold.Unbroken("claude-haiku-5-5 at Low"), fold.Title);
+        Assert.True(reply.IsShown);
+        Assert.False(reply.ShowsThoughts);
+        Assert.False(lookup.IsShown);
+        Assert.False(lookup.InChat);
+        Assert.False(lookup.ShowsRunTook); // the card says it
+
+        fold.ToggleCommand.Execute(null);
+        Assert.All(chat, l => Assert.True(l.IsShown));
+        fold.ToggleCommand.Execute(null); // Hide steps
+        Assert.True(reply.IsShown);
+        Assert.False(lookup.IsShown);
+
+        // The user wrote during the lookup: their message ends the stretch, and the reply still stays.
+        var work = Call("mouse_click", 2);
+        var checkedReply = Step(5, "I checked the new layout in the editor.");
+        var lookedUp = new ToolCallItem(Sloperator.Core.Tools.SideTaskTool.AfterAnswerId + "08591956", "side_task", "Look up the prices of claude-sonnet-5-5")
+        { At = T0.AddSeconds(6), State = ToolItemState.Done };
+        ChatItemViewModel[] steered = [Message("Verify it", 0), Step(1), work, checkedReply, lookedUp, Message("By playing it", 30)];
+        WorkFold.FoldFinished(steered, toTheEnd: false);
+        Assert.True(checkedReply.IsShown);
+        Assert.False(work.IsShown);
+        Assert.False(lookedUp.IsShown);
+
+        // A side task the model called itself after its words is more work: those words were no reply.
+        var words = Step(3, "Now the prices.");
+        var own = new ToolCallItem("toolu_01", "side_task", "Look up the prices") { At = T0.AddSeconds(4), State = ToolItemState.Done, RunTook = TimeSpan.FromSeconds(9) };
+        ChatItemViewModel[] called = [Message("Find the prices", 0), Call("read_file", 1), words, own];
+        WorkFold.FoldFinished(called, toTheEnd: false);
+        Assert.False(words.IsShown);
+        Assert.False(own.IsShown);
+    }
+
+    [Fact]
+    public void A_plain_answer_with_a_price_lookup_after_it_keeps_the_answer_and_folds_the_lookup_under_it()
+    {
+        var reply = Step(2, "Hello!");
+        var lookup = new ToolCallItem(Sloperator.Core.Tools.SideTaskTool.AfterAnswerId + "1", "side_task", "Look up the prices of qwen3")
+        { At = T0.AddSeconds(3), State = ToolItemState.Done, RunTook = TimeSpan.FromSeconds(12) };
+        ChatItemViewModel[] chat = [Message("Hi", 0), reply, lookup];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.True(reply.IsShown);
+        Assert.Null(reply.Card);
+        Assert.Equal("Worked for 12 s · 1 tool call", lookup.Card!.Title); // the card in the lookup's place, after the answer
+        Assert.False(lookup.IsShown);
+        Assert.True(lookup.InChat);
+    }
+
+    [Fact]
     public void A_message_sent_during_a_run_stays_and_each_stretch_folds_on_its_own()
     {
         var first = Call("screenshot", 2);
