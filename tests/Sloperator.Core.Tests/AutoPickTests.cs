@@ -48,6 +48,32 @@ public class AutoPickTests
     }
 
     [Fact]
+    public void Model_and_effort_are_on_Auto_until_one_is_picked()
+    {
+        var fresh = new AppSettings().Server;
+        Assert.True(fresh.ModelOnAuto);
+        Assert.True(fresh.EffortOnAuto);
+
+        // A settings.json without them (an older one, or written by hand) is on Auto too; a level saved stays.
+        var dir = Directory.CreateTempSubdirectory("sloperator-auto-default-");
+        try
+        {
+            var paths = new AppPaths(dir.FullName);
+            Directory.CreateDirectory(paths.DataDir);
+            File.WriteAllText(paths.SettingsFile, """{ "server": { "baseUrl": "http://localhost:1234/v1" } }""");
+            var loaded = new SettingsStore(paths).Load().Server;
+            Assert.True(loaded.ModelOnAuto && loaded.EffortOnAuto);
+            File.WriteAllText(paths.SettingsFile, """{ "server": { "model": "qwen3.8-27b", "effort": "high" } }""");
+            loaded = new SettingsStore(paths).Load().Server;
+            Assert.Equal(("qwen3.8-27b", "high"), (loaded.Model, loaded.Effort));
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void The_effort_on_Auto_is_the_one_picked_or_medium_and_the_nearest_the_model_takes()
     {
         var server = new ServerSettings { Effort = Efforts.Auto, EffortLevels = ["low", "medium", "high"] };

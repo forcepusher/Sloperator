@@ -267,7 +267,7 @@ public sealed class ModelToolsTests
         var result = await Effort(bar, "low");
         Assert.True(result.IsError);
         Assert.StartsWith("Nothing changed:", result.Text);
-        Assert.Equal(Efforts.Default, bar.Current.Effort);
+        Assert.Equal(Efforts.Auto, bar.Current.Effort);
     }
 
     [Fact]

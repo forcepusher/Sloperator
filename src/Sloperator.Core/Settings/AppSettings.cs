@@ -77,8 +77,11 @@ public sealed class ServerSettings
     [JsonIgnore]
     public bool SupportsVision { get; set; } = true;
 
-    /// <summary>How hard the model thinks, picked in the top bar: one of <see cref="Efforts.Levels"/>, or <see cref="Efforts.Auto"/>.</summary>
-    public string Effort { get; set; } = Efforts.Default;
+    /// <summary>
+    /// How hard the model thinks, picked in the top bar: one of <see cref="Efforts.Levels"/>, or <see cref="Efforts.Auto"/>,
+    /// which it is until one is picked (the user, 2026-11-11: model and effort on Auto by default).
+    /// </summary>
+    public string Effort { get; set; } = Efforts.Auto;
 
     /// <summary>The effort dropdown's Auto: the evaluation of each message picks the level (<see cref="AutoEffort"/>).</summary>
     [JsonIgnore]
@@ -296,7 +299,7 @@ public static class ContextSizes
 
 /// <summary>
 /// The effort a model can be asked to think with, least to most, as Anthropic names them
-/// (OpenAI-style servers take low, medium and high). Medium unless picked otherwise.
+/// (OpenAI-style servers take low, medium and high). Auto until one is picked, and medium on Auto before a message picks one.
 /// </summary>
 public static class Efforts
 {
