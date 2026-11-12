@@ -9,7 +9,22 @@ public sealed class PictureFolderTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-pictures-").FullName;
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    /// <summary>The folder goes; a file just written and read can still be held for a moment (mask.png, once in a run of the whole suite).</summary>
+    public void Dispose()
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Delete(_dir, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < 40)
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
 
     [Fact]
     public void A_pictures_versions_are_its_picture_files_oldest_first()

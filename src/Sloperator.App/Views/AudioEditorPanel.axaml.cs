@@ -6,7 +6,7 @@ using Sloperator.App.ViewModels;
 
 namespace Sloperator.App.Views;
 
-/// <summary>The Audio editor panel, on the left of the chat window: the sounds, the one picked's waveform with its versions, its edits and how it was made.</summary>
+/// <summary>The Audio editor panel, on the left of the chat window: the sounds, the one shown as its waveform across the panel, its edits and versions in two lines under it, and how it was made when asked for.</summary>
 public partial class AudioEditorPanel : UserControl
 {
     public AudioEditorPanel()
@@ -15,6 +15,9 @@ public partial class AudioEditorPanel : UserControl
         // A click on a sound in the list picks it, as a click on a picture does in the Image editor.
         List.AddHandler(TappedEvent, OnListTapped);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        // Prompt metadata takes at most half the room over the foot's lines, as under a picture in the Image editor.
+        Middle.SizeChanged += (_, e) => RecipeBox.MaxHeight = Math.Max(120, e.NewSize.Height / 2);
+        VersionStrip.Attach(this, VersionScroll, VersionList);
     }
 
     private void OnListTapped(object? sender, TappedEventArgs e)

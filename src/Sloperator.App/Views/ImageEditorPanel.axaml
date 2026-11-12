@@ -62,7 +62,7 @@
                 <Border Height="100" Background="{StaticResource BbFrame}" CornerRadius="4" ClipToBounds="True">
                   <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
                 </Border>
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                 <TextBlock Classes="muted" Text="{Binding Count}" FontSize="12" />
               </StackPanel>
             </DataTemplate>
@@ -85,21 +85,30 @@
                 <TextBlock Text="Prompt metadata" VerticalAlignment="Center" />
               </StackPanel>
             </ToggleButton>
-            <ItemsControl x:Name="VersionList" DockPanel.Dock="Left" ItemsSource="{Binding Versions}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Orientation="Horizontal" Spacing="4" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:VersionItem">
-                  <Button Classes="ghost small version" Classes.shown="{Binding IsShown}" MinWidth="32" HorizontalContentAlignment="Center"
-                          Click="OnVersionClick" ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding}">
-                    <TextBlock Text="{Binding Label}" TextElement.FontFeatures="+tnum" />
-                  </Button>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- Each version by its number and a small copy of it, 40 square (its middle, so every button is one
+                 size and none moves as the copies are read). More than fit scroll with the wheel, no bar. -->
+            <ScrollViewer x:Name="VersionScroll" DockPanel.Dock="Left" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="4" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:VersionItem">
+                    <Button Classes="ghost small version" Classes.shown="{Binding IsShown}" Padding="8,4"
+                            Click="OnVersionClick" ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding Label}" TextElement.FontFeatures="+tnum" VerticalAlignment="Center" />
+                        <Border Width="40" Height="40" CornerRadius="2" ClipToBounds="True" Background="{StaticResource BbFrame}">
+                          <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                        </Border>
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
             <!-- What the picture takes: said here now that one is always shown (the top bar said it with none picked). -->
             <TextBlock Classes="muted" IsVisible="{Binding HasPicture}" Text="Click to ask about it, drag to redraw a part" ToolTip.Tip="A click picks the version shown into your message; a box dragged over a part of it has the agent redraw only that part"
                        TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0" />

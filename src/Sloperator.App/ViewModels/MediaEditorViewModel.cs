@@ -81,12 +81,12 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
 
     /// <summary>The version shown; null before the one picked has one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid), nameof(PromptTip))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(PromptTip))]
     private VersionItem? _shown;
 
     /// <summary>How the version shown was made, as its file says (ComfyUI's prompt and settings, its workflow); null when it doesn't.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid), nameof(PromptTip))]
+    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(PromptTip))]
     private MediaRecipe? _recipe;
 
     public bool HasRecipe => Recipe is not null;
@@ -94,7 +94,8 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     /// <summary>
     /// Prompt metadata is on: how the version shown was made shows under it, as under a file in the File inspector.
     /// Off until asked for (the user, 2026-11-12: "is it even worth having an entirely separate prompt metadata
-    /// window?"): in the Image editor it had a column of its own, a quarter of the panel, beside every picture.
+    /// window?"): in the Image editor it had a column of its own, a quarter of the panel, beside every picture, and in
+    /// the Audio editor the room under the Edit buttons of such a column.
     /// </summary>
     [ObservableProperty]
     private bool _showRecipe;
@@ -103,9 +104,6 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     public string PromptTip => HasRecipe ? "Prompts and settings it was made with"
         : Shown is not null ? "This version doesn't say how it was made" : $"Pick a {_noun} that has been made first";
 
-    /// <summary>A version is shown and says nothing of how it was made: said in the Prompt metadata column (with none shown, it said so of no version).</summary>
-    public bool MadeUnsaid => Shown is not null && Recipe is null;
-
     partial void OnShownChanged(VersionItem? value) => ShownChanged();
 
     /// <summary>The version shown is another: what of the panel's own follows it.</summary>
@@ -113,11 +111,45 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
 
     partial void OnSelectedChanged(TItem? value)
     {
+        var old = Versions.ToList();
         Versions.Clear();
+        VersionsGone(old);
         if (value is not null)
             foreach (var (path, i) in value.Versions.Select((p, i) => (p, i)))
                 Versions.Add(new VersionItem(i + 1, path));
+        VersionsListed(Versions.ToList());
         ShowVersion(Versions.LastOrDefault());
+    }
+
+    /// <summary>Versions joined the strip: what the panel shows of each on its button (a picture's small copy).</summary>
+    protected virtual void VersionsListed(IReadOnlyList<VersionItem> versions) { }
+
+    /// <summary>Versions left the strip (another one is shown): what they held goes with them.</summary>
+    protected virtual void VersionsGone(IReadOnlyList<VersionItem> versions) { }
+
+    /// <summary>
+    /// One still named as New named it is called by what it shows (the user's go-ahead, 2026-11-12: every picture
+    /// was "Untitled picture", "Untitled picture 2", in the list, the bar, on its card and to the model): the first
+    /// clause of its first version's prompt, read off the window's thread. The first version, as a later one can
+    /// be a part redrawn, whose prompt says only what went there.
+    /// </summary>
+    private void ReadTitle(TItem item)
+    {
+        if (item.Versions.Count == 0 || item.TitledFrom == item.Versions[0] || !_folders.IsUntitled(item.Folder))
+            return;
+        var path = item.TitledFrom = item.Versions[0];
+        Task.Run(() =>
+        {
+            var title = MediaRecipe.Read(path)?.Title;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Closed || item.TitledFrom != path)
+                    return;
+                item.Titled = title;
+                if (ReferenceEquals(item, Selected))
+                    OnPropertyChanged(nameof(Title));
+            });
+        });
     }
 
     /// <summary>A version into the big view, its Prompt metadata beside it.</summary>
@@ -159,6 +191,7 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
             changed: item =>
             {
                 OnVersionsRead(item);
+                ReadTitle(item);
                 if (ReferenceEquals(item, Selected))
                     NewVersions(item);
             });
@@ -182,8 +215,13 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
             OnSelectedChanged(item);
             return;
         }
+        var added = new List<VersionItem>();
         foreach (var path in item.Versions.Skip(known.Count))
-            Versions.Add(new VersionItem(Versions.Count + 1, path));
+        {
+            added.Add(new VersionItem(Versions.Count + 1, path));
+            Versions.Add(added[^1]);
+        }
+        VersionsListed(added);
         ShowVersion(Versions[^1]);
         OnPropertyChanged(nameof(Title));
     }

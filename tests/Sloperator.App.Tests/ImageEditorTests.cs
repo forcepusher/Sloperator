@@ -199,4 +199,61 @@ public sealed class ImageEditorTests : IDisposable
             return 0;
         });
     }
+
+    /// <summary>A picture file that says how it was made, as ComfyUI's do: the prompt in a text chunk in front of the pixels.</summary>
+    private static void Made(string path, string prompt, int minutesAgo)
+    {
+        Png(path, minutesAgo);
+        var png = File.ReadAllBytes(path);
+        var graph = """{"3": {"inputs": {"seed": 7, "steps": 10, "cfg": 7, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}, "class_type": "KSampler"}, """ +
+                    """ "4": {"inputs": {"ckpt_name": "sd15.safetensors"}, "class_type": "CheckpointLoaderSimple"}, "5": {"inputs": {"width": 64, "height": 48, "batch_size": 1}, "class_type": "EmptyLatentImage"}, """ +
+                    """ "6": {"inputs": {"text": "PROMPT", "clip": ["4", 1]}, "class_type": "CLIPTextEncode"}, "7": {"inputs": {"text": "blurry", "clip": ["4", 1]}, "class_type": "CLIPTextEncode"}}""";
+        var body = System.Text.Encoding.Latin1.GetBytes("prompt\0" + graph.Replace("PROMPT", prompt));
+        var head = new byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(head, body.Length);
+        System.Text.Encoding.ASCII.GetBytes("tEXt").CopyTo(head, 4);
+        // After the IHDR chunk (8 + 25 bytes in); the CRC is four bytes nothing here checks.
+        File.WriteAllBytes(path, [.. png[..33], .. head, .. body, 0, 0, 0, 0, .. png[33..]]);
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(-minutesAgo));
+    }
+
+    [Fact]
+    public void An_untitled_picture_is_called_by_what_it_shows_and_each_version_has_its_small_copy()
+    {
+        // Every picture was "Untitled picture", "Untitled picture 2", and its versions were numbers.
+        Directory.CreateDirectory(Path.Combine(Root, "Untitled picture 2"));
+        Made(Path.Combine(Root, "Untitled picture 2", "a.png"), "a white lighthouse on a green cliff by the sea, blue sky, oil painting", minutesAgo: 9);
+        // A later version is a part redrawn: its prompt says what went there, not what the picture is.
+        Made(Path.Combine(Root, "Untitled picture 2", "b.png"), "a red hot air balloon", minutesAgo: 5);
+        Directory.CreateDirectory(Path.Combine(Root, "Harbour"));
+        Made(Path.Combine(Root, "Harbour", "a.png"), "a harbour at dawn, fishing boats", minutesAgo: 30);
+        Directory.CreateDirectory(Path.Combine(Root, "Untitled picture"));
+        Png(Path.Combine(Root, "Untitled picture", "a.png"), minutesAgo: 40);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var lighthouse = vm.Selected!;
+            Assert.Equal(lighthouse.Folder, Path.Combine(Root, "Untitled picture 2"));
+            Wait(() => lighthouse.Name != "Untitled picture 2");
+            Assert.Equal("A white lighthouse on a green cliff by the sea", lighthouse.Name);
+            Assert.Equal("A white lighthouse on a green cliff by the sea · version 2 of 2", vm.Title);
+            // A name of its own stays, and so does "Untitled picture" where the file doesn't say what it shows.
+            Assert.Equal(["A white lighthouse on a green cliff by the sea", "Harbour", "Untitled picture"], vm.Items.Select(i => i.Name));
+
+            // On its card in the box and to the model it goes by that name; the folder keeps its own.
+            vm.Pick(lighthouse);
+            var (via, context) = vm.About([Path.Combine(Root, "Untitled picture 2", "b.png")])!.Value;
+            Assert.Equal("Image editor · A white lighthouse on a green cliff by the sea · version 2", via);
+            Assert.Contains($"save_to set to the picture's folder, \"{Path.Combine(Root, "Untitled picture 2")}\"", context);
+
+            Wait(() => vm.Versions.All(v => v.Thumbnail is not null));
+            Assert.Equal(2, vm.Versions.Count);
+            // Another picture shown: the strip is its versions, and the ones that left hold nothing.
+            var left = vm.Versions.ToList();
+            vm.Selected = vm.Items[1];
+            Assert.All(left, v => Assert.Null(v.Thumbnail));
+            Wait(() => vm.Versions.Count == 1 && vm.Versions[0].Thumbnail is not null);
+            return 0;
+        });
+    }
 }

@@ -10,7 +10,24 @@ namespace Sloperator.App.ViewModels;
 public abstract partial class MediaFolderItem(string folder) : ObservableObject
 {
     public string Folder { get; } = folder;
-    public string Name => Path.GetFileName(Folder);
+
+    /// <summary>
+    /// What it is called in the panel, on its card in the box and to the model: its folder's name, or for one still
+    /// named as New named it ("Untitled picture 2") what its first version shows (<see cref="Titled"/>).
+    /// </summary>
+    public string Name => Titled ?? Path.GetFileName(Folder);
+
+    /// <summary>
+    /// What it shows in a few words, read from its first version's prompt (<see cref="Sloperator.Core.Media.MediaRecipe.Title"/>);
+    /// null for one with a name of its own, one not made yet, and one whose file doesn't say. The folder keeps its
+    /// name: the agent saves the next version there by the path it was told.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Name))]
+    private string? _titled;
+
+    /// <summary>The version <see cref="Titled"/> was read from, so it is read once.</summary>
+    internal string? TitledFrom { get; set; }
 
     /// <summary>Its versions, oldest first.</summary>
     [ObservableProperty]
