@@ -161,6 +161,11 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   old_text, as "name it by chart 1, or its title" reads: taken as the title since. Checked in Excel 16: Excel's own
   chart made a pie in its place at its size, and deleted, the file opening without repair.
   Not there: no scatter chart, and a chart Excel styled by hand loses that styling when it is made anew.
+  **What all of this costs in every request** (measured 2026-11-13 with `.dev/context-size-test`): charts,
+  formats, widths, PDF pages and slide text are sentences in the descriptions of write_file and edit_file, no new
+  tool. The two grew from 1,013 and 901 characters to 1,343 and 1,619 after a pass that cut their wording by a
+  fifth (about 260 tokens more on some 13,700 for the prompt and all tools); the same tasks ran alike before and
+  after the cut.
 - **How cells look** (`SheetEdit.Formats.cs`, 2026-11-13). A line `format A1:E1 bold, yellow fill` in edit_file's
   new_text gives cells bold, italic, a fill or a text colour (by name as Excel's palette has them, light and dark
   ones too, or #RRGGBB; a colour with nothing said of it is the fill), `center`/`left`/`right`, `wrap` and `border`
@@ -224,6 +229,12 @@ more title (`SlideText.Settle`, 2026-11-13): they go to the end of the slide's t
 gets one, with what it shows across its width (a chart, a table, a picture) moved to the right of it, as a slide
 written with text beside a chart is laid out. Asked for two bullets on a slide that held a title and a pie, Sonnet
 gave the title followed by the bullets; they came out inside the title, in its type, and it took them out again.
+The same for lines given after the slide's chart, by the line read_file shows for it, a part of that line, or the
+line it was written with (`DocumentFiles.AfterSlideChart`, tried when the text isn't found): asked for "two short
+bullets beside the chart", Haiku gave the chart's line and then the end of it, each followed by the bullets, and
+was told twice the text wasn't in the document; Sonnet didn't try edit_file and rewrote the slide's XML with a
+script (63 s, 4 errors). The tool's description says it in a clause since ("lines after a slide's title or chart
+become the slide's text"): after, both through edit_file, 21 to 38 s.
 **How text looks** (`TextEdit.Looks.cs`, `DocumentLook`, 2026-11-13): new_text `format: centered, dark blue, size 20`
 keeps what old_text says and changes how it looks: bold, italic, underlined, a size, a text colour and a fill behind
 it on the words matched (the runs break around them), left, center or right on their paragraphs. A table's rows given

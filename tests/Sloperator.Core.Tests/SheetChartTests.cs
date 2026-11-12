@@ -299,6 +299,22 @@ public class SheetChartTests : IDisposable
         var text = await Read("deck.pptx");
         Assert.Contains("Where Users Come From\nSearch is our biggest channel at 45%\nSocial adds another 30%\n(chart: pie chart", text);
 
+        // After the chart's own line, as read_file shows it or as it was written, or the end of that line: Haiku's
+        // two tries (2026-11-13), each told the text wasn't in the document. They are the slide's text too.
+        Assert.False((await Write("anchor.pptx", "# Update\nNumbers\n\n---\n\n# Sales by Region\n\n| Region | Sales |\n|---|---|\n| North | 120 |\n| West | 88 |\n\nchart: bar Sales by region")).IsError);
+        var shown = (await Read("anchor.pptx")).Split('\n').Single(l => l.StartsWith("(chart:", StringComparison.Ordinal));
+        Assert.Equal("(chart: bar chart: Sales: North 120, West 88)", shown);
+        var after = await Edit("anchor.pptx", shown, shown + "\n- North leads with 120");
+        Assert.False(after.IsError, after.Text);
+        Assert.Contains("Added the text to the chart's slide", after.Text);
+        Assert.False((await Edit("anchor.pptx", "West 88)", "West 88)\n- West trails with 88")).IsError);
+        Assert.False((await Edit("anchor.pptx", "chart: bar Sales by region", "chart: bar Sales by region\n\n- Two regions so far")).IsError);
+        var anchored = Part("anchor.pptx", "ppt/slides/slide2.xml").Descendants(p + "sp").ToList();
+        Assert.Equal("Sales by Region", Text(anchored[0]));
+        Assert.Equal(["North leads with 120", "West trails with 88", "Two regions so far"], anchored[1].Descendants(a + "p").Select(Text));
+        // A line that is no chart's is still not found.
+        Assert.Contains("not found", (await Edit("anchor.pptx", "(chart: pie chart)", "(chart: pie chart)\n- more")).Text);
+
         // A slide that has its text box: the lines join it, after what it holds.
         Assert.False((await Edit("deck.pptx", "Plans", "Plans\n- Open in March")).IsError);
         var plans = Part("deck.pptx", "ppt/slides/slide3.xml").Descendants(p + "sp").ToList();

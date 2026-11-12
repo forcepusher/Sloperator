@@ -218,10 +218,10 @@ public sealed class WriteFileTool : Tool
         "headings, paragraphs, lists, tables, **bold**, *italic*, links, pictures as ![caption](C:\\path\\picture.png), a line \\newpage for a new page. " +
         "In .xlsx each heading starts a sheet named after it and tables fill it; a cell starting with = is a formula, and numbers, 12%, $1,200 and " +
         "2026-10-16 become values shown as written (write amounts as $1,200.00 to show them in dollars; a formula under them shows dollars too). " +
-        "A line \"chart: bar Sales by month\" under a table draws it as a chart (bar, line, pie or area: the first column its labels, each other column a series; " +
-        "\"chart: line A1:A13,E1:E13 Totals\" draws only those cells). " +
-        "In .pptx a line --- starts the next slide, and a slide's first heading is its title; a chart: line under a table shows the table as that chart. " +
-        "A .pdf whose content is lines \"pages: C:\\a.pdf\" and \"pages: C:\\b.pdf 2-5,8\" is made of those pages of other PDFs, joined in that order. " +
+        "A line \"chart: bar Sales by month\" under a table draws it as a chart (bar, line, pie or area; the first column its labels), " +
+        "\"chart: line A1:A13,E1:E13 Totals\" only those cells. " +
+        "In .pptx a line --- starts the next slide, and a slide's first heading is its title; a chart: line under a table makes it a chart. " +
+        "A .pdf of lines \"pages: C:\\a.pdf\", \"pages: C:\\b.pdf 2-5,8\" is those pages of other PDFs, joined. " +
         "An .svg is shown to the user as the picture it draws: write a design mockup as one. " +
         "To change an existing document, use edit_file, which keeps its formatting.";
     public override ToolRisk Risk => ToolRisk.Risky;
@@ -283,18 +283,16 @@ public sealed class EditFileTool : Tool
     public override string Description =>
         "Replace an exact, unique snippet of text in a file with new text, or every occurrence of it with replace_all. " +
         "Also changes Word (.docx) and PowerPoint (.pptx) files in place, keeping their formatting: old_text as read_file shows it, " +
-        "new_text may use **bold** and *italic*, and a line break in it starts a new paragraph (\"# \" at its start makes a heading); " +
-        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (bold, italic, underlined, size, a text or fill colour, left/center/right; " +
-        "a table's rows as old_text get the fill as their cells' background). " +
+        "new_text may use **bold** and *italic*, and a line break in it starts a new paragraph (\"# \" at its start makes a heading; lines after a slide's title or chart become the slide's text); " +
+        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill). " +
         "In Excel (.xlsx) give cells as read_file shows them: old_text the cells to change (\"B7 =SUM(B2:B6)\") or empty, new_text the cells to set " +
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
         "with every formula pointing at them, and the new row is formatted like the one above; \"delete rows 3-4\" takes rows out. " +
-        "\"format A1:E1 bold, yellow fill\" sets how cells look (bold, italic, a fill or text colour by name or #RRGGBB, center, wrap, border), " +
-        "\"column A width 20\" or \"autofit columns\" how wide columns are. " +
-        "A line \"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart of those cells (bar, line, pie or area): the first column the labels and each other " +
-        "a series named by its top cell, or the same by rows (\"A1:D1,A6:D6\"). To change a chart, name it in old_text (\"chart 1\", or its title) " +
-        "and give its new line in new_text (\"chart: line Monthly totals\"); with new_text empty it is deleted.";
+        "\"format A1:E1 bold, yellow fill\" sets how cells look (also text colour, center, wrap, border), \"column A width 20\" or \"autofit columns\" their widths. " +
+        "\"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart (bar, line, pie or area) of those cells: the first column the labels, each other " +
+        "a series named by its top cell, or by rows (\"A1:D1,A6:D6\"). To change a chart give it as old_text (\"chart 1\" or its title) " +
+        "and its new line as new_text (\"chart: line Totals\"), empty to delete it.";
     public override ToolRisk Risk => ToolRisk.Risky;
     public override JsonObject Parameters => Schema(
         ("path", Str("File path"), true),
