@@ -327,8 +327,16 @@ headings, then a footer saying Confidential on the left, Haiku and Sonnet unzipp
 footer, its relationship and the section's reference through PowerShell (Haiku by way of a script in Sloperator's
 folder; Sonnet left a copy of the file beside it and found Word wouldn't open the result to check it). *Checked:* on
 the Word-made report, opened in Word 16 (`.dev/night-test/word-pages-check.ps1`): "Page 1 of 1" at the top right,
-"Confidential" left and the number centred at the bottom, both headings dark blue, nothing repaired. Not there: a
-table of contents (its page numbers need the pages laid out, which only Word or LibreOffice does). Page lines mixed with
+"Confidential" left and the number centred at the bottom, both headings dark blue, nothing repaired. **A table of
+contents** (`WordContents`, the same night): the line `table of contents` puts Word's own TOC field after the title
+(its first paragraph in the Title style, or the one Heading 1), a "Contents" line and an entry per Heading 1 to 3
+(2 to 3 when the title is the Heading 1, so Word's own update leaves the title out too), each a link to a bookmark on
+its heading with a PAGEREF for its page. The page numbers need the pages laid out: once the file is written it is drawn
+as a PDF through the converter (Office hidden, else LibreOffice) and each heading's page is the first with a line that
+is just its text, in order; the numbers are then written in. Without a converter the entries have none and the answer
+says Word puts them in with Update Field. A field marked dirty for Word to fill in on opening was tried first: Word
+asked "update the fields?" every time it opened the file (Documents.Open blocked with alerts on). Checked in Word 16:
+a four-page report, opened visible with every alert on (no prompt), our numbers the same as Word's own update. Page lines mixed with
 other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
 format: dark blue", both had gone in at the end of the document as text.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,

@@ -249,16 +249,7 @@ public sealed class WriteFileTool : Tool
             try
             {
                 // A document made for the user gets a card in the chat, to open or find.
-                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath, document =>
-                {
-                    // A Word, Excel or PowerPoint file in a "pages:" line, as it prints: through Office or LibreOffice, as capture_result draws it.
-                    var convert = Documents.DocumentPictures.Converter ?? throw new InvalidOperationException($"Nothing on this PC turns {Path.GetFileName(document)} into pages.");
-                    var scratch = ctx.ScratchDirectory ?? Path.GetTempPath();
-                    Directory.CreateDirectory(scratch);
-                    var pdf = Path.Combine(scratch, $"pages-{Guid.NewGuid():N}.pdf");
-                    convert(document, pdf, ctx.ToolsDirectory, ct);
-                    return pdf;
-                }), Files: [path]);
+                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath, document => ToPdf(document, ctx, ct)), Files: [path]);
             }
             catch (InvalidOperationException ex)
             {
@@ -284,6 +275,20 @@ public sealed class WriteFileTool : Tool
     /// picture it draws; other text files aren't shown.
     /// </summary>
     private static List<string>? Shown(string path) => Media.MarkdownFiles.Handles(path) || Media.SvgFile.Handles(path) ? [path] : null;
+
+    /// <summary>
+    /// A Word, Excel or PowerPoint file drawn as a PDF in the scratch folder, as it prints: through Office or
+    /// LibreOffice, as capture_result draws it. For a "pages:" line of write_file and a table of contents' page numbers.
+    /// </summary>
+    internal static string ToPdf(string document, ToolContext ctx, CancellationToken ct)
+    {
+        var convert = Documents.DocumentPictures.Converter ?? throw new InvalidOperationException($"Nothing on this PC turns {Path.GetFileName(document)} into pages.");
+        var scratch = ctx.ScratchDirectory ?? Path.GetTempPath();
+        Directory.CreateDirectory(scratch);
+        var pdf = Path.Combine(scratch, $"pages-{Guid.NewGuid():N}.pdf");
+        convert(document, pdf, ctx.ToolsDirectory, ct);
+        return pdf;
+    }
 }
 
 public sealed class EditFileTool : Tool
@@ -293,7 +298,7 @@ public sealed class EditFileTool : Tool
         "Replace an exact, unique snippet of text in a file with new text, or every occurrence of it with replace_all. " +
         "Also changes Word (.docx) and PowerPoint (.pptx) files in place, keeping their formatting: old_text as read_file shows it, " +
         "new_text may use **bold** and *italic*, and a line break in it starts a new paragraph (\"# \" at its start makes a heading; lines after a slide's title or chart become the slide's text); " +
-        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill; old_text \"headings\" is all of them). With old_text empty, lines \"page numbers at the bottom\", \"footer left: Confidential\", \"header right: Page {page} of {pages}\" set what is on every page. " +
+        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill; old_text \"headings\" is all of them). With old_text empty, lines \"page numbers at the bottom\", \"footer left: Confidential\", \"header right: Page {page} of {pages}\" set what is on every page, and \"table of contents\" puts one after the title. " +
         "In Excel (.xlsx) give cells as read_file shows them: old_text the cells to change (\"B7 =SUM(B2:B6)\") or empty, new_text the cells to set " +
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
@@ -329,7 +334,7 @@ public sealed class EditFileTool : Tool
         {
             try
             {
-                return new ToolResult(Documents.DocumentFiles.Edit(path, oldText, newText, GetBool(args, "replace_all")));
+                return new ToolResult(Documents.DocumentFiles.Edit(path, oldText, newText, GetBool(args, "replace_all"), document => WriteFileTool.ToPdf(document, ctx, ct)));
             }
             catch (InvalidOperationException ex)
             {

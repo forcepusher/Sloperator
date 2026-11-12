@@ -108,8 +108,10 @@ internal static partial class DocumentFiles
     /// Replaces text in a Word, PowerPoint or Excel file, the rest of it as it was; returns what
     /// changed. Throws <see cref="InvalidOperationException"/> with what to tell the model when it can't.
     /// </summary>
-    public static string Edit(string path, string oldText, string newText, bool all)
+    /// <param name="toPdf">Draws a Word, Excel or PowerPoint file as a PDF, its path: for a table of contents' page numbers.</param>
+    public static string Edit(string path, string oldText, string newText, bool all, Func<string, string>? toPdf = null)
     {
+        List<WordContents.Entry>? contents = null;
         var kind = EditKind(path);
         if (kind == "pptx" && oldText.Length == 0)
             throw new InvalidOperationException("old_text must not be empty. To add text, give the paragraph it goes after as old_text, and that paragraph followed by the new text as new_text.");
@@ -168,8 +170,15 @@ internal static partial class DocumentFiles
                 {
                     if (newText.Trim().Length == 0)
                         throw new InvalidOperationException("Both old_text and new_text are empty: there is nothing to change.");
+                    // A table of contents after the title, its page numbers once the file is written.
+                    if (WordContents.Asks(newText))
+                    {
+                        contents = WordContents.Insert(main, parts);
+                        parts.Changed("word/document.xml");
+                        message = $"Added a table of contents after the title, listing {(contents.Count == 1 ? "its 1 heading" : $"its {contents.Count} headings")}";
+                    }
                     // Lines for every page's header or footer ("page numbers at the bottom", "footer left: Confidential").
-                    if (WordPages.Edit(parts, newText) is { } pages)
+                    else if (WordPages.Edit(parts, newText) is { } pages)
                         message = pages;
                     else
                     {
@@ -211,6 +220,11 @@ internal static partial class DocumentFiles
         }
         var edited = buffer.ToArray();
         Save(path, edited);
+        if (contents is not null)
+        {
+            (edited, var said) = Numbered(path, edited, contents, toPdf);
+            message += said;
+        }
         // One made here stays the model's own after its own edit, to write again whole; a file that was there doesn't become it.
         if (Made.TryGet(path, out var made) && made.Hash == Hash(original))
             Made.Set(path, (Hash(edited), null));
@@ -263,6 +277,49 @@ internal static partial class DocumentFiles
             }
         }
         return found.Count == 1 && found[0].Title.Length > 0 ? (found[0].Slide, found[0].Title, lines) : null;
+    }
+
+    /// <summary>
+    /// The page numbers of a table of contents just put in, from the document drawn as a PDF, written into the file;
+    /// the file as it is now and what to say of the numbers.
+    /// </summary>
+    private static (byte[] File, string Said) Numbered(string path, byte[] edited, List<WordContents.Entry> contents, Func<string, string>? toPdf)
+    {
+        const string without = ", without page numbers: Word puts them in with Update Field (F9 on the table).";
+        if (toPdf is null)
+            return (edited, without);
+        string pdf;
+        try { pdf = toPdf(path); }
+        catch (InvalidOperationException ex)
+        {
+            return (edited, $", without page numbers, as they need the pages laid out ({ex.Message.TrimEnd('.')}): Word puts them in with Update Field (F9 on the table).");
+        }
+        try
+        {
+            var pages = WordContents.Pages(pdf, contents);
+            if (pages.Count == 0)
+                return (edited, without);
+            using var buffer = new MemoryStream();
+            buffer.Write(edited);
+            buffer.Position = 0;
+            using (var zip = new ZipArchive(buffer, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var parts = new PartSet(zip);
+                var numbered = WordContents.Number(parts.Get("word/document.xml"), pages);
+                parts.Changed("word/document.xml");
+                parts.Save();
+                if (numbered == 0)
+                    return (edited, without);
+            }
+            var file = buffer.ToArray();
+            Save(path, file);
+            return (file, pages.Count == contents.Count ? ", with the page each is on." : $", with the pages of {pages.Count} of them (the others weren't found as lines of their own in the laid-out pages).");
+        }
+        finally
+        {
+            try { File.Delete(pdf); }
+            catch (IOException) { }
+        }
     }
 
     /// <summary>
