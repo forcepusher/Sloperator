@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   servers with a prompt cache that lapses (Anthropic, and Claude through OpenRouter and the like): Sloperator has
   the server read the chat from its cache every 4.5 minutes while the agent's tool calls run, for up to half an
   hour, which costs a tenth of what writing it anew does. The chat says when it did.
+- When the agent answers with steps of its own plan still to do, such as the check of what it changed, Sloperator
+  has it carry on with them rather than leave them to you. A question to you still ends its turn.
 - The **plan bar** now shows for tasks of more than a step or two: tasks went by with no plan at all. Once the agent
   has started on a task with nothing on the bar, Sloperator asks it for a short, readable plan (a handful of steps,
   one word each) and to keep it moving; each move of the plan reminds it of the next, and the bar finishes when the

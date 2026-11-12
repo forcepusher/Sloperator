@@ -1832,6 +1832,22 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   the bar without asking. The aside question of "A plan left behind its work" is still asked when the turn ends on
   an earlier step.
 
+**An answer given with steps still to do** (2026-11-12, `PlanLeftNote`). In the user's Unity chat Sonnet 5.5 edited
+the prefab and answered "I haven't looked at the result in Unity. I only edited the file, so please open a chat
+message in the editor to check it", with Unity open in front of it; the user asked three times for the check. The
+prompt's "a check you can do yourself is part of the task" hadn't held, and whether an answer looks finished isn't
+guessed from its words (see "A reply without tools ends the run"). The plan says it instead: when the aside question
+of "A plan left behind its work" is answered with a step that is still to do (the model set the plan, to a step
+short of the end), the run goes on, once: "By your own plan the task isn't finished: step 3 of 4, "Check", is still
+to do… Carry on with it now rather than leave it to the user. If it can't be done from here, tell the user what
+stops you; if you are waiting for their answer, say nothing more." One line in the chat says both ("The plan was
+left at step 2 of 4; asked the model where it stands: step 3, "Check", is still to do. Asked it to carry on."), and
+the first answer folds with the work as words said on the way. Not when the answer ends in a question to the user,
+nor when the model left the plan untouched (that says nothing either way), nor twice in a run; a model that then
+says nothing more is waiting for the user, and the plan stays as it is. Five runs of the test task below on Haiku
+and Sonnet with it: none pressed on (one asked aside, "all done"). Not yet seen live on a run that stops short:
+none of the test runs did.
+
 What was tried, on one task through `sloperator-cli` (add two parameters to a PowerShell script, describe them in
 its README, run it; `.dev/night-test/live-plan.ps1`), Haiku 5.5 and Sonnet 5.5 through OpenRouter and Qwen 3.8 on
 LM Studio:

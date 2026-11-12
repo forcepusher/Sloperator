@@ -105,6 +105,67 @@ public sealed class PlanToolTests
         Assert.Contains(observer.Notices, n => n.Contains("left at step 1 of 2") && n.EndsWith("all done."));
     }
 
+    private const string Three = """{"steps":[{"word":"Read","detail":"Read the prefab"},{"word":"Fix","detail":"Change the frame"},{"word":"Check","detail":"Look at it in the editor"}]}""";
+
+    [Fact]
+    public async Task An_answer_given_with_steps_of_the_plan_still_to_do_is_followed_by_those_steps()
+    {
+        // The user's Unity chat: Sonnet 5.5 edited the prefab and answered "I haven't looked at the result in Unity…
+        // please open a chat message in the editor to check it", and the user asked three times for the check.
+        var root = Directory.CreateTempSubdirectory("plan-left").FullName;
+        var server = new ScriptedServer(Sse.ToolCall("p1", "plan", Three), Sse.ToolCall("p2", "plan", """{"now":2}"""), List("l1", Folder(root, "a")),
+            Sse.Text("I changed the frame, but I haven't looked at the result. Please check it in the editor."),
+            // Asked aside where the plan stands: at the check, which isn't done.
+            Sse.ToolCall("p3", "plan", """{"now":3}"""),
+            List("l2", Folder(root, "b")), Sse.Text("Checked in the editor: the frame fits."));
+        var ctx = NewContext();
+        var observer = new RecordingObserver();
+        var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys");
+
+        await session.RunAsync("Fix the frame", observer, CancellationToken.None);
+
+        Assert.Equal(7, server.Requests.Count);
+        Assert.Contains("still says step 2 of 3", server.Requests[4].ToJsonString());
+        var told = server.Requests[5].ToJsonString();
+        Assert.Contains("By your own plan the task isn", told);
+        Assert.Contains("step 3 of 3", told);
+        Assert.Single(observer.Notices, n => n == "The plan was left at step 2 of 3; asked the model where it stands: step 3, \"Check\", is still to do. Asked it to carry on.");
+        Assert.Equal("Checked in the editor: the frame fits.", session.History[^1].Content);
+        // It ended on the last step with the check made: the bar is done, and nothing more is asked.
+        Assert.True(ctx.Plan!.Finished);
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task Steps_left_are_not_pressed_on_a_question_to_the_user_nor_twice_nor_when_the_model_then_waits()
+    {
+        var root = Directory.CreateTempSubdirectory("plan-left-not").FullName;
+        // The answer asks the user something: the plan is brought up to date, and the question stands.
+        var asking = new ScriptedServer(Sse.ToolCall("p1", "plan", Three), List("l1", Folder(root, "a")),
+            Sse.Text("The frame has two sprites. Which one do you want fixed?"), Sse.ToolCall("p2", "plan", """{"now":2}"""));
+        var asked = new RecordingObserver();
+        var waiting = NewContext();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(asking), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), waiting, "sys").RunAsync("Fix the frame", asked, CancellationToken.None);
+        Assert.Equal(4, asking.Requests.Count);
+        Assert.DoesNotContain(asked.Notices, n => n.Contains("carry on"));
+        Assert.Equal(1, waiting.Plan!.At);
+
+        // Told to carry on, it says nothing more (it waits for the user): the run ends there, the plan as it is.
+        var silent = new ScriptedServer(Sse.ToolCall("p1", "plan", Three), List("l1", Folder(root, "b")),
+            Sse.Text("I changed the frame. I need your login to open the editor."), Sse.ToolCall("p2", "plan", """{"now":3}"""), Sse.Text(""));
+        var quiet = new RecordingObserver();
+        var left = NewContext();
+        var session = new AgentSession(new OpenAiChatClient(new HttpClient(silent), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), left, "sys");
+        await session.RunAsync("Fix the frame", quiet, CancellationToken.None);
+        Assert.Equal(5, silent.Requests.Count);
+        Assert.Single(quiet.Notices, n => n.EndsWith("Asked it to carry on."));
+        Assert.False(left.Plan!.Finished);
+        Directory.Delete(root, recursive: true);
+    }
+
     private static string Folder(string root, string name) => Directory.CreateDirectory(Path.Combine(root, name)).FullName;
 
     private static string List(string id, string folder) => Sse.ToolCall(id, "list_directory", new JsonObject { ["path"] = folder }.ToJsonString());

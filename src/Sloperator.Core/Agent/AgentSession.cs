@@ -435,6 +435,8 @@ public sealed partial class AgentSession(
         // it was asked, whether it was told to carry on after stopping at its plan, whether it made a plan call, and
         // whether it has worked since it was asked.
         var (planSteps, planAsked, planNudged, planPushed, planMoved, planNudgeWork) = (0, false, false, false, false, false);
+        // Whether the run was told to carry on with the steps its plan had left when it answered (see PlanLeftNote).
+        var planCarried = false;
         var pricesLooked = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
@@ -566,8 +568,9 @@ public sealed partial class AgentSession(
                     // of 5 and answered (that step was the answer), and the bar stood on its last step in accent, as
                     // a plan the run stopped short of; with work since the move it was asked aside where the plan
                     // stood, for "all done" and a line in the chat every time (2026-11-12). A question to the user
-                    // leaves it, as does a run that neither moved the plan nor worked.
-                    if ((planMoved || planWork) && toolContext.Plan is { Finished: false, At: > 0 } ending && ending.At == ending.Steps.Count - 1 && !EndsInQuestion(reply.Content))
+                    // leaves it, as does a run that neither moved the plan nor worked, and one told to carry on with
+                    // that step (PlanLeftNote) that did nothing more: it waits for the user.
+                    if ((planCarried ? planWork : planMoved || planWork) && toolContext.Plan is { Finished: false, At: > 0 } ending && ending.At == ending.Steps.Count - 1 && !EndsInQuestion(reply.Content))
                     {
                         toolContext.Plan = ending with { At = ending.Steps.Count };
                         toolContext.PlanChanged?.Invoke(toolContext.Plan);
@@ -575,15 +578,24 @@ public sealed partial class AgentSession(
                     if (!planChecked && planWork && toolContext.Plan is { Finished: false })
                     {
                         planChecked = true;
+                        AgentPlan? left;
                         try
                         {
-                            await PlanBehindAsync(observer, ct).ConfigureAwait(false);
+                            left = await PlanBehindAsync(observer, carryOn: !planCarried && !EndsInQuestion(reply.Content), ct).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) when (ct.IsCancellationRequested)
                         {
                             // The answer was complete: no note that the task was stopped.
                             observer.OnFinished(AgentStopReason.Cancelled, null);
                             return;
+                        }
+                        // By its own account steps are still to do: it carries on with them, once a run (see PlanLeftNote).
+                        // What it does then may leave the plan behind again, which is asked about as before.
+                        if (left is not null)
+                        {
+                            (planCarried, planChecked, planWork) = (true, false, false);
+                            History.Add(ChatMessage.User(PlanLeftNote(left)));
+                            continue;
                         }
                     }
                     // Prices to look up, once the chat is long and a reply came with no cost from the
@@ -927,10 +939,15 @@ public sealed partial class AgentSession(
     /// conversation or the chat, so the answer stays the run's last word (a reply to a note in the chat became the
     /// reply the run folded under). A plan set and then asked about ("does this suit you?") had no work after it.
     /// </summary>
-    private async Task PlanBehindAsync(IAgentObserver observer, CancellationToken ct)
+    /// <param name="carryOn">Whether the run may be told to carry on with what the model says is left.</param>
+    /// <returns>
+    /// The plan as the model set it just now, when by that steps are still to do and <paramref name="carryOn"/>
+    /// allows telling it to do them (<see cref="PlanLeftNote"/>); else null. A plan it didn't touch says nothing either way.
+    /// </returns>
+    private async Task<AgentPlan?> PlanBehindAsync(IAgentObserver observer, bool carryOn, CancellationToken ct)
     {
         if (toolContext.Plan is not { Finished: false } before)
-            return;
+            return null;
         var request = new List<ChatMessage>(History.Count + 2) { ChatMessage.System(systemPrompt) };
         request.AddRange(History);
         request.Add(ChatMessage.User(PlanBehindNote(before)));
@@ -941,7 +958,7 @@ public sealed partial class AgentSession(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return; // the answer stands, and the plan as it was
+            return null; // the answer stands, and the plan as it was
         }
         foreach (var call in reply.ToolCalls ?? [])
             if (ToolCallRepair.ResolveTool(call.Name, tools) is PlanTool plan && ToolCallRepair.AsObject(call.Arguments) is { } args)
@@ -950,14 +967,32 @@ public sealed partial class AgentSession(
                 catch (ToolArgumentException) { }
             }
         var was = $"The plan was left at step {before.At + 1} of {before.Steps.Count}; asked the model where it stands";
+        var left = carryOn && toolContext.Plan is { Finished: false } set && !ReferenceEquals(set, before) ? set : null;
         observer.OnNotice(toolContext.Plan switch
         {
             null => $"{was}: it took the plan away.",
             { Finished: true } => $"{was}: all done.",
+            { } now when left is not null => $"{was}: step {now.At + 1}, \"{now.Steps[now.At].Word}\", is still to do. Asked it to carry on.",
             { } now when !ReferenceEquals(now, before) => $"{was}: step {now.At + 1}, \"{now.Steps[now.At].Word}\".",
             _ => $"{was}: it left it there.",
         });
+        return left;
     }
+
+    /// <summary>
+    /// What the model is told, once a run, when it answered with steps of its plan still to do, by its own account
+    /// (asked aside where the plan stands, it set an unfinished step): to carry on with them. In the user's Unity
+    /// chat Sonnet 5.5 edited the prefab and answered "I haven't looked at the result in Unity… please open a chat
+    /// message in the editor to check it", with Unity open in front of it; the user had to ask three times for the
+    /// check (2026-11-12). The prompt's "a check you can do yourself is part of the task" hadn't held, and whether an
+    /// answer looks finished isn't guessed from its words: the plan says it. Not when the answer ends in a question
+    /// to the user, nor when the plan was left untouched.
+    /// </summary>
+    internal static string PlanLeftNote(AgentPlan plan) =>
+        $"[Sloperator] By your own plan the task isn't finished: step {plan.At + 1} of {plan.Steps.Count}, \"{plan.Steps[plan.At].Word}\", is still to do" +
+        (plan.At + 1 < plan.Steps.Count ? $", and {plan.Steps.Count - plan.At - 1} more after it" : "") + ". " +
+        "Carry on with it now rather than leave it to the user. If it can't be done from here, tell the user what stops you; " +
+        "if you are waiting for their answer, say nothing more.";
 
     /// <summary>Whether the tool results since the model's previous reply include a click that changed nothing.</summary>
     private bool LastClickMissed()
