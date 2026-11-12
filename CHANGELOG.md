@@ -119,6 +119,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   somewhere, before that click: it clicked and typed a second time.
 - A plan left on its last step when the agent answered now shows as done, rather than as one it stopped short of.
 - The agent no longer writes "the screenshot above" for a picture of its work that sits below its words.
+- The plan of a task you stopped no longer stays on the bar over whatever you ask next: it leaves with your next
+  message, and comes back if that message has the agent go on with the task.
+- The chat line about the plan says it was asked for only "if more than one thing is left to do", rather than
+  promise a plan a small task then doesn't show.
+- A script that fails on a file that isn't there no longer gets the agent sent to search the web when a line of
+  its output above the error says something failed, such as a test run's "1 failed".
+- The **Auto** card gives the helper model's reason as the one sentence it is, without its second thoughts after it
+  ("Hmm, but I'm changing my answer…"), and its notes are no longer cut short at a line such as "Model: …".
 - A document the agent made no longer shows twice under its answer, its page as a picture and the same page again
   on the file's card: the card shows just the name.
 - The chat line for a note Sloperator sends the agent about looking things up says what it asked and why, such as

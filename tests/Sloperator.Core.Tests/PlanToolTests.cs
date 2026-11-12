@@ -201,7 +201,7 @@ public sealed class PlanToolTests
         Assert.Contains("You have started on this task", server.Requests[1].ToJsonString());
         Assert.Contains("plan bar is empty", server.Requests[1].ToJsonString());
         Assert.Single(session.History, m => m.Content?.Contains("plan bar is empty") == true);
-        Assert.Single(observer.Notices, n => n == "Asked the model to show its plan on the bar above the message box.");
+        Assert.Single(observer.Notices, n => n == "Asked the model to show its plan on the bar above the message box, if more than one thing is left to do.");
         Assert.True(ctx.Plan!.Finished);
         Directory.Delete(root, recursive: true);
     }
@@ -317,5 +317,38 @@ public sealed class PlanToolTests
     {
         var names = typeof(AgentSession).GetField("NotInSideTasks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null) as string[];
         Assert.Contains("plan", names!);
+    }
+
+    [Fact]
+    public async Task The_plan_of_a_task_the_user_stopped_leaves_the_bar_with_their_next_message()
+    {
+        // Stopped in a task of four steps and asked for a haiku, Sonnet 5.5 wrote it with the task's plan still on
+        // the bar at its first step, where it stayed.
+        var server = new ScriptedServer
+        {
+            Responder = req => req["messages"]!.AsArray()[^1]!["content"]?.ToString() == "Write a haiku" ? Sse.Text("Rain.")
+                : req["messages"]!.AsArray().Any(m => m!["role"]!.ToString() == "tool") ? Sse.ToolCall("w1", "wait", """{"seconds":30}""")
+                : Sse.ToolCall("p1", "plan", Two),
+        };
+        var ctx = NewContext();
+        var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys");
+        var observer = new RecordingObserver();
+        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));
+
+        await session.RunAsync("go", observer, stop.Token);
+        Assert.Equal(AgentStopReason.Cancelled, observer.StopReason);
+        // Until they write again the bar shows where it was stopped, and the model is told what becomes of its plan.
+        Assert.Equal(0, ctx.Plan!.At);
+        Assert.Equal(AgentSession.StoppedNote + AgentSession.StoppedPlanNote(ctx.Plan), session.History[^1].Content);
+        Assert.Contains("step 1 of 2", session.History[^1].Content);
+
+        await session.RunAsync("Write a haiku", observer, CancellationToken.None);
+        Assert.Null(ctx.Plan);
+
+        // A plan the run finished, or one it left when it ended by itself, is not taken away.
+        ctx.Plan = new AgentPlan([new PlanStep("Read", "Read the files"), new PlanStep("Build", "Write the page")], 1);
+        await session.RunAsync("Write a haiku", observer, CancellationToken.None);
+        Assert.NotNull(ctx.Plan);
     }
 }

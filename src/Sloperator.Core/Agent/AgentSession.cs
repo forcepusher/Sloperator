@@ -407,6 +407,8 @@ public sealed partial class AgentSession(
     {
         _request = RequestOf(input);
         _projects.Recall(History, toolContext);
+        // The plan of a task the user stopped leaves the bar with their next message (see StoppedPlanNote).
+        var stoppedPlan = toolContext.Plan is { Finished: false } && History.Count > 0 && History[^1].Content?.StartsWith(StoppedNote, StringComparison.Ordinal) == true;
         // Each message starts a run, which looked at the primary screen: told "Continue" with
         // screen 2 in its last screenshot, the model clicked and typed into Notepad on screen 1.
         if (ScreenShown(History) is { } lastSeen)
@@ -426,6 +428,11 @@ public sealed partial class AgentSession(
         toolContext.SideTask = (task, output, c) => RunSideTaskAsync(task, output, null, null, toolContext.Progress, observer, c);
         toolContext.OfferTextRecognition = observer.OfferTextRecognition;
         toolContext.PlanChanged = observer.OnPlanChanged;
+        if (stoppedPlan)
+        {
+            toolContext.Plan = null;
+            observer.OnPlanChanged(null);
+        }
         toolContext.InConversation ??= text => History.Any(m => m.Content?.Contains(text, StringComparison.Ordinal) == true ||
                                                                 m.Parts?.Any(p => p.Text?.Contains(text, StringComparison.Ordinal) == true) == true);
         var cutOffs = 0;
@@ -711,7 +718,7 @@ public sealed partial class AgentSession(
                 {
                     planAsked = planNudged = true;
                     notes.Add(PlanNote);
-                    observer.OnNotice("Asked the model to show its plan on the bar above the message box.");
+                    observer.OnNotice("Asked the model to show its plan on the bar above the message box, if more than one thing is left to do.");
                 }
 
                 // Most OpenAI-compatible servers only accept images in user messages,
@@ -732,7 +739,7 @@ public sealed partial class AgentSession(
         {
             // Said in the conversation: stopped in Paint and given a story to write next, the model
             // wrote it and then "returned to the Paint task, which is still incomplete".
-            History.Add(ChatMessage.User(StoppedNote));
+            History.Add(ChatMessage.User(toolContext.Plan is { Finished: false } stoppedAt ? StoppedNote + StoppedPlanNote(stoppedAt) : StoppedNote));
             observer.OnFinished(AgentStopReason.Cancelled, null);
         }
         catch (Exception ex)
@@ -1044,6 +1051,19 @@ public sealed partial class AgentSession(
 
     /// <summary>Where the user stopped a run (Stop, Pause/Break), so what they write next is read in that light (see <see cref="SystemPrompt"/>).</summary>
     internal const string StoppedNote = "[Sloperator] The user stopped you here.";
+
+    /// <summary>
+    /// Said with <see cref="StoppedNote"/> when the stopped run's plan isn't finished. The plan stays on the bar, the
+    /// step it was stopped on in accent, until the user's next message, and leaves it then: that message may be
+    /// another task, and a run that goes on with an unfinished plan is never asked for one. Stopped in a task of four
+    /// steps and asked for a haiku, Sonnet 5.5 wrote it with "Script, README, Tests, Run" still on the bar at its
+    /// first step, where it would have stayed (2026-11-12). Told to take the plan away itself in that case, it wrote
+    /// the haiku and left the plan: an answer needs no call. Whether the next message goes on with the work isn't
+    /// guessed from its words: a run that does is asked for its plan like any run with an empty bar (PlanNote).
+    /// </summary>
+    internal static string StoppedPlanNote(AgentPlan plan) =>
+        $" Your plan, at step {plan.At + 1} of {plan.Steps.Count}, \"{plan.Steps[plan.At].Word}\", leaves their bar with their next message. " +
+        "If that message has you go on with this work, set the plan again, with now at the step the work stands on.";
 
     /// <summary>Said above a screenshot a tool took; any other picture a tool gives comes with its own caption.</summary>
     internal const string ScreenshotText = "Screenshot after the last action:";

@@ -507,7 +507,22 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         if (!text.StartsWith("Exit code ", StringComparison.Ordinal))
             return FirstMeaningful(lines);
         var meant = lines.Select(l => l.Trim()).Where(l => l.Length >= 8 && !Noise().IsMatch(l)).ToList();
-        return (text.Contains("FullyQualifiedErrorId", StringComparison.Ordinal) ? meant.Find(l => CmdletError().IsMatch(l)) : null) ?? meant.Find(l => SaysError().IsMatch(l) && !CodeLine().IsMatch(l));
+        return (text.Contains("FullyQualifiedErrorId", StringComparison.Ordinal) ? meant.Find(l => CmdletError().IsMatch(l)) ?? RecordLine(lines) : null) ?? meant.Find(l => SaysError().IsMatch(l) && !CodeLine().IsMatch(l));
+    }
+
+    /// <summary>
+    /// What a PowerShell error record says when no cmdlet is named before it (a .NET call's "Exception calling
+    /// "ReadAllText" …", a throw): the line above where it happened ("At C: .ps1:4 char:1", then "+ " and the code).
+    /// Without it the first line of the output that said something failed was taken for the error: a test run's own
+    /// "1 failed" above the record of a file that wasn't there, and Sonnet 5.5 was told to search the web (2026-11-12).
+    /// </summary>
+    private static string? RecordLine(string[] lines)
+    {
+        var echo = Array.FindIndex(lines, l => l.StartsWith("+ ", StringComparison.Ordinal));
+        for (var i = echo - 2; i >= 0; i--)
+            if (lines[i].Trim() is { Length: >= 8 } line && !Noise().IsMatch(line))
+                return line;
+        return null;
     }
 
     // A file printed before the failure: "LogExtension.Error($"Popup not found");" is no error of the command's.

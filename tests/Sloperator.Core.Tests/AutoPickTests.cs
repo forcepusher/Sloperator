@@ -189,6 +189,29 @@ public class AutoPickTests
     }
 
     [Fact]
+    public void The_reason_is_its_sentence_and_an_answer_started_over_counts_as_given_last()
+    {
+        // Haiku 5.5 thought on under its reason, and all of it stood on the card under "claude-haiku-5-5 at Low".
+        var pick = AutoPick.Read("model: helper\neffort: low\nwhy: The task is small, so the cheapest model should be enough.\n\n" +
+            "Hmm, but I'm changing my answer, so let me be precise: daily fits better, at medium effort.\nfound: stats.ps1 has no -Top yet.",
+            Set(Anthropic), true, true, AutoTier.Daily, "h")!;
+        Assert.Equal("The task is small, so the cheapest model should be enough.", pick.Why);
+        Assert.Equal((AutoTier.Helper, "low", "stats.ps1 has no -Top yet."), (pick.Tier, pick.Effort, pick.Found));
+
+        // The whole answer given again is the correction.
+        var again = AutoPick.Read("model: helper\neffort: low\nwhy: Small.\nfound: nothing\n\nOn second thought:\nmodel: daily\neffort: medium\nwhy: It runs code.\nfound: tests.ps1 is missing.",
+            Set(Anthropic), true, true, AutoTier.Helper, "h")!;
+        Assert.Equal((AutoTier.Daily, "medium", "It runs code.", "tests.ps1 is missing."), (again.Tier, again.Effort, again.Why, again.Found));
+
+        // A line of the notes that begins like a field stays a note.
+        var notes = AutoPick.Read("model: daily\neffort: medium\nwhy: Code.\nfound:\n- Model: the data model is in models.py\n- Effort: none needed for the tests\n- why: nobody knows",
+            Set(Anthropic), true, true, AutoTier.Helper, "h")!;
+        Assert.Equal((AutoTier.Daily, "medium", "Code."), (notes.Tier, notes.Effort, notes.Why));
+        Assert.Contains("the data model is in models.py", notes.Found);
+        Assert.Contains("nobody knows", notes.Found);
+    }
+
+    [Fact]
     public void An_answer_with_no_pick_is_none_and_one_it_was_not_to_make_is_left_out()
     {
         Assert.Null(AutoPick.Read("I think this is fine.", Set(Anthropic), true, true, AutoTier.Daily, "h"));

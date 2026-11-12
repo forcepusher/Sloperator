@@ -320,6 +320,13 @@ public class GuessworkTests
             Guesswork.ErrorLine(ToolResult.Error("Exit code 1\nusing System;\nGet-Content : Cannot find path 'C:\\x' because it does not exist.\n" + Record)));
         Assert.Equal("Set-Location : Не удается найти позиционный параметр, принимающий аргумент \"Games\".",
             Guesswork.ErrorLine(new ToolResult("Exit code 0\nSet-Location : Не удается найти позиционный параметр, принимающий аргумент \"Games\".\n" + Record)));
+
+        // A record with no cmdlet before it, under output that speaks of failures of its own: a test run's summary.
+        const string Thrown = "Exception calling \"ReadAllText\" with \"1\" argument(s): \"Could not find file 'C:\\Users\\user\\sample.txt'.\"";
+        var tests = new ToolResult("Exit code 0\nPASS  Top 1\nFAIL  MinLength 6 gives nothing (got 1, expected 0)\n1 failed\n" + Thrown +
+            "\nAt C:\\proj\\stats.ps1:4 char:1\n+ $text = [IO.File]::ReadAllText($Path).ToLowerInvariant()\n+ ~~~~~~~~\n    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException\n    + FullyQualifiedErrorId : FileNotFoundException\n");
+        Assert.Equal(Thrown, Guesswork.ErrorLine(tests));
+        Assert.False(Guesswork.Answerable(Shell, Guesswork.ErrorLine(tests)!));
     }
 
     [Theory]

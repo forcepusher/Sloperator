@@ -1826,7 +1826,8 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   too, one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan
   on as you start each step. If only one thing and its check are left, or just the answer, make no plan: a plan of
   two steps tells the user nothing. Either way say nothing of the plan to the user: they see the bar." The chat says "Asked the model to show its plan on the bar above the message
-  box." One note at a time: with another going out after that step (index the project, look an error up), it waits
+  box, if more than one thing is left to do." (without the condition it read as a promise the bar then broke for a
+  small task). One note at a time: with another going out after that step (index the project, look an error up), it waits
   for the next. Never told: a run that called plan itself, one that goes on with the chat's unfinished plan, a side
   task (it has no plan tool).
 - A run that ends its turn right after the plan it was asked for, with no work since the note, is told once to
@@ -1893,6 +1894,21 @@ and one lookup:
   the script in the next, two steps by its own count. Haiku planned, 3 of 3.
 - Counting things rather than steps, the wording above: the test task planned 4 of 4 (Sonnet "Read, Edit, Test" and
   "Read, Edit, Docs, Test", Haiku five steps), the spreadsheet, the document and the lookup 0 of 5.
+
+**A stopped task's plan** (2026-11-12, `StoppedPlanNote`). A plan the run didn't finish stays on the bar when the
+user stops it, the step it was on in accent, and leaves the bar with their next message, whatever it says. Before,
+it stayed: stopped in a task of four steps and asked "Never mind that. Write me a haiku about rain", Sonnet 5.5
+wrote the haiku with "Script, README, Tests, Run" on the bar at its first step, and it would have stood there over
+every later task, since a run that starts under an unfinished plan is never asked for one. Tried first: the plan
+kept, and the note the stop leaves in the conversation ("The user stopped you here.") telling the model to take it
+away with steps=[] if the next message is something else; it wrote the haiku and left the plan, as an answer needs
+no call. So it isn't the model's to do: the plan goes, the stop's note says so ("Your plan, at step 1 of 4,
+"Script", leaves their bar with their next message. If that message has you go on with this work, set the plan
+again, with now at the step the work stands on."), and a run that does go on is one with an empty bar like any
+other (asked after its first step, see above). Seen live in the app on Anthropic's API with Auto: the haiku's run
+ended with no bar; "Sorry, go on." had Sonnet set its four steps again in its first reply and finish them. Only
+after a stop (the conversation's last message is the stop's note): a plan left by a run that failed, or that
+ended with a question, is still the one the next message goes on with.
 
 `PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
 property with a transition, so the blob walks when the plan moves on and not when the window is
@@ -2896,7 +2912,11 @@ run's session: a side task on the helper model at low effort (the nearest it tak
 (helper for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which
 model it ran on (another reads it all anew at full price, so it switches only when the task needs it), the agent's
 last reply (for "yes, do it") and the message, and answers in four fields, `model:`, `effort:`, `why:` and `found:`,
-read plain or in Markdown, a model also by its name (`AutoPick.Read`). It runs in a session of its own made for the
+read plain or in Markdown, a model also by its name (`AutoPick.Read`). The why is its first paragraph: Haiku 5.5
+went on under it "Hmm, but I'm changing my answer, so let me be precise: I'm not switching it. … daily fits better,
+at medium effort", and all of it stood on the card under "claude-haiku-5-5 at Low" (2026-11-12). A field given twice
+counts as given last (an answer started over is the correction), but in found, the last field, only a `model:` line
+with a pick starts over: a note such as "- Model: the data model is in models.py" used to cut the notes short. It runs in a session of its own made for the
 model in use, so its replies count in the chat's cost by the helper model, and its calls ask the user's OK as
 any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
@@ -5469,7 +5489,9 @@ presses for it at more points than errors:
   file or folder at a path that isn't there, as .NET, Python, Node and the shells say it (`PathMissing`: Sonnet
   5.5's script read "sample.txt" from the process's folder, "Could not find file 'C:\Users\user\sample.txt'", and was
   sent to search the web before its next try, 9 November 2026; a bare name such as 'ffmpeg' can be a program that
-  isn't installed, and still counts), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
+  isn't installed, and still counts; the same error came back on 12 November under a test run's own "1 failed",
+  which was taken for the error as the first line that spoke of a failure, so a PowerShell record with no cmdlet
+  named before it now gives the line above its "At …:4 char:1", `Guesswork.RecordLine`), though a program that isn't on the PC does (`unity : The term 'unity' is not recognized` brought the way to
   install it). Its note says the program isn't installed or isn't on the PATH, to find where it is or look up how
   to get it, asking before installing (`Guesswork.ProgramNote`): it got the note on names from another version, which
   Haiku 5.5 was given for `python` on a PC with no Python (2026-11-09). A PowerShell command's Verb-Noun name
