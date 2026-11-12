@@ -654,7 +654,9 @@ the File inspector's button now, at the right of the foot bar, off until pressed
 for a version that doesn't say how it was made), and its box is the File inspector's too: under the picture, over
 the bar, at most half the height. The picture has the whole width (640 px of the same panel). The bar's line on
 what a click and a drag do showed only with no picture shown, so it moved to the foot bar ("Click to ask about
-it, drag to redraw a part", the whole of it on hover). The Audio editor keeps Prompt metadata under its Edit
+it, drag to redraw a part", the whole of it on hover). And **New picture** pressed twice made two empty pictures,
+"Untitled picture 2" and "3", each "not made yet" in the list for good: one that isn't made yet is the new one, shown
+and picked again (`MediaEditorViewModel.New`; New sound the same). The Audio editor keeps Prompt metadata under its Edit
 buttons: that column is there for the buttons, and the room under them was free.
 
 **Picks** (through `MainWindowViewModel.Pick`, no card otherwise): a click on a picture or a version picks the

@@ -194,6 +194,13 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     [RelayCommand]
     private void New()
     {
+        // One not made yet is the new one: every press made another empty "Untitled picture 3" beside it (2026-11-12).
+        if (Items.FirstOrDefault(i => !i.IsMade) is { } waiting)
+        {
+            Selected = waiting;
+            PickWhole();
+            return;
+        }
         string folder;
         try { folder = _folders.New(Root); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -101,7 +101,7 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
             <!-- What the picture takes: said here now that one is always shown (the top bar said it with none picked). -->
-            <TextBlock Classes="muted" Text="Click to ask about it, drag to redraw a part" ToolTip.Tip="A click picks the version shown into your message; a box dragged over a part of it has the agent redraw only that part"
+            <TextBlock Classes="muted" IsVisible="{Binding HasPicture}" Text="Click to ask about it, drag to redraw a part" ToolTip.Tip="A click picks the version shown into your message; a box dragged over a part of it has the agent redraw only that part"
                        TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
           </DockPanel>
         </Border>

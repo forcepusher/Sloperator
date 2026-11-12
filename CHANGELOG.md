@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The **Image editor** opens on your newest picture rather than on "Pick a picture", and the picture has the whole
   width: **Prompt metadata** is a button under it now, as in the File inspector, in place of a column that was
   always open beside it. The Audio editor opens on your newest sound too.
+- **New picture** and **New sound** no longer make a second empty one when the one before isn't made yet.
 - A wait, build or download of more than 5 minutes no longer makes the next step pay for the whole chat again on
   servers with a prompt cache that lapses (Anthropic, and Claude through OpenRouter and the like): Sloperator has
   the server read the chat from its cache every 4.5 minutes while the agent's tool calls run, for up to half an

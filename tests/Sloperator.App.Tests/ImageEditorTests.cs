@@ -66,6 +66,12 @@ public sealed class ImageEditorTests : IDisposable
             Assert.Equal("Image editor · Untitled picture · new", via);
             Assert.Contains($"save_to set to the picture's folder, \"{picture.Folder}\"", context);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
+
+            // Pressed again before it is made, it is the same new picture, picked again: not a second empty one.
+            vm.Unpick();
+            vm.NewCommand.Execute(null);
+            Assert.Same(picture, Assert.Single(vm.Items));
+            Assert.NotNull(vm.About([picture.Folder]));
             return 0;
         });
     }
