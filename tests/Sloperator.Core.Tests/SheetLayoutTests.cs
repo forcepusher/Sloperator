@@ -136,6 +136,11 @@ public class SheetLayoutTests : IDisposable
         Assert.Contains("C3 held something, which a merged cell doesn't show: emptied, as Excel does", emptied.Text);
         Assert.Contains("Unmerged B3:C3", (await Edit("orders.xlsx", "unmerge B3:C3")).Text);
 
+        // A colour written as #RRGGBB of noughts is black text, not a number format.
+        var black = await Edit("orders.xlsx", "format B3:B7 text #000000");
+        Assert.Contains("(text #000000)", black.Text);
+        Assert.DoesNotContain("numbers as", black.Text);
+
         // Percent, dates, decimals, and Excel's own code.
         var numbers = await Edit("orders.xlsx", "format D3:D7 as percent\nformat A3:A7 as dates\nformat E3:E7 #,##0.0\nformat F3:F7 with 1 decimal");
         Assert.False(numbers.IsError, numbers.Text);

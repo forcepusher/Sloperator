@@ -218,7 +218,7 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   `at least`, `between 10 and 20`, a text value too: Excel's conditional formatting, with its own light-fill and
   dark-text pairs for a colour said alone; `format F2:F73 red where …` is one only with its `where`. And a format
   line takes how numbers show: `as dollars` (`"$"#,##0.00`), euros, pounds, `as percent`, `as dates`, `2 decimals`,
-  `with a thousands separator`, or Excel's own code; a column too narrow for the numbers as they now show is widened
+  `with a thousands separator`, or Excel's own code (not a colour of noughts, `#000000`, which is black); a column too narrow for the numbers as they now show is widened
   (never narrowed), as Excel widens one, where Excel showed ##### for amounts in a column fitted to plain numbers.
   Rows inserted or deleted move the rules' formulas with their ranges, and the rows kept in view grow with a row
   inserted among them. read_file says each of them: `(frozen: row 1)`, `(filter: A1:F73)`, `(highlight: A2:F73
