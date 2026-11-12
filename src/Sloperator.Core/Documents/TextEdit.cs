@@ -31,7 +31,8 @@ internal static partial class TextEdit
     /// Throws <see cref="InvalidOperationException"/> with what to tell the model when the text isn't
     /// there, or is there more than once without <paramref name="all"/>.
     /// </summary>
-    public static (int Count, List<string> Parts) Replace(Dictionary<string, XDocument> parts, bool slides, string oldText, string newText, bool all)
+    /// <returns>Also in how many longer lines the same words were left as they are, when the place changed is the one line that is just them.</returns>
+    public static (int Count, List<string> Parts, int Within) Replace(Dictionary<string, XDocument> parts, bool slides, string oldText, string newText, bool all)
     {
         var format = slides ? SlideFormat : WordFormat;
         var stretches = parts.SelectMany(p => Stretches(p.Key, p.Value, format)).ToList();
@@ -49,16 +50,27 @@ internal static partial class TextEdit
         }
         if (hits.Count == 0 && Rows(oldText) is { } oldRows && RowsAndText(newText) is { } changed
             && changed.Rows.Count >= oldRows.Count && oldRows.Zip(changed.Rows).All(r => r.First.Count == r.Second.Count))
-            return ReplaceCells(parts, stretches, oldRows, changed.Rows, all, changed.Before, changed.After);
+        {
+            var (cells, cellParts) = ReplaceCells(parts, stretches, oldRows, changed.Rows, all, changed.Before, changed.After);
+            return (cells, cellParts, 0);
+        }
         if (hits.Count == 0 && Rows(oldText) is { } givenRows
             && (newText.Trim().Length == 0 || RowsAndText(newText) is { Before: null, After: null } kept && kept.Rows.Count < givenRows.Count))
-            return RemoveRows(parts, givenRows, newText.Trim().Length == 0 ? [] : RowsAndText(newText)!.Value.Rows, all);
+        {
+            var (rows, rowParts) = RemoveRows(parts, givenRows, newText.Trim().Length == 0 ? [] : RowsAndText(newText)!.Value.Rows, all);
+            return (rows, rowParts, 0);
+        }
         if (hits.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document. Read it again with read_file and copy the text exactly; " +
                 "a change must stay within one table cell, text box or run of paragraphs not broken by a table, or be whole table rows as read_file shows them " +
                 "(new_text can add rows after them, and text after a table's last row or before its first).");
+        var within = 0;
         if (hits.Count > 1 && !all)
-            throw new InvalidOperationException($"old_text occurs {hits.Count} times. Include more of the text around it to make it unique, or set replace_all to change every one.");
+        {
+            (hits, within) = Meant(hits, format);
+            if (hits.Count > 1)
+                throw new InvalidOperationException(Many(hits.Count, slides, "change"));
+        }
 
         // Found only without read_file's marks: the new text was copied with them too, and the
         // paragraphs already are the headings and list items the marks stand for.
@@ -87,8 +99,34 @@ internal static partial class TextEdit
                 continue; // nothing differs
             Apply(hit.Stretch, hit.Start + prefix, hit.End - suffix, Lines(plain[prefix..^suffix], inline: false), format);
         }
-        return (hits.Count, hits.Select(h => h.Stretch.Part).Distinct().ToList());
+        return (hits.Count, hits.Select(h => h.Stretch.Part).Distinct().ToList(), within);
     }
+
+    /// <summary>
+    /// Of the places a text was found in, the one that is a whole line of its own (a slide's title, a heading, a
+    /// bullet) when just one is, with how many other places have the words too: the text meant, and the only one
+    /// more text around it can't tell apart, as a title has none. Asked for a deck's titles in dark blue
+    /// (2026-11-13), Haiku and Sonnet gave "Revenue by region", the title of one slide and the start of another's
+    /// subtitle: refused as being there twice, Haiku wrote the colour into the slide's XML and Sonnet set
+    /// replace_all, which coloured half of the subtitle too. Not a table's cell: what is alone in one is a value
+    /// ("143") as likely meant where a sentence has it, and its row tells it apart.
+    /// </summary>
+    private static (List<Hit> Hits, int Within) Meant(List<Hit> hits, Format format)
+    {
+        var whole = hits.Where(h =>
+        {
+            var (first, start) = Locate(h.Stretch, h.Start, format);
+            var (last, end) = Locate(h.Stretch, h.End, format);
+            return start == 0 && end == Length(h.Stretch.Paragraphs[last], format) && first <= last
+                && !h.Stretch.Paragraphs[first].Ancestors().Any(a => a.Name == W + "tc" || a.Name == A + "tc");
+        }).ToList();
+        return whole.Count == 1 ? (whole, hits.Count - 1) : (hits, 0);
+    }
+
+    /// <summary>What to say of a text that is there more than once.</summary>
+    private static string Many(int count, bool slides, string verb) =>
+        $"old_text occurs {count} times. Include more of the text around it to make it unique" +
+        (slides ? ", put its slide's line before it as read_file shows it (\"--- slide 2 of 5 ---\")" : "") + $", or set replace_all to {verb} every one.";
 
     /// <summary>The bold, italic, struck and code parts of a text, to tell whether the new text asks for formatting the old didn't have.</summary>
     private static IEnumerable<string> StyledParts(string text) =>

@@ -146,6 +146,45 @@ public class SheetChartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_total_row_is_left_out_of_a_chart_and_bars_start_at_zero()
+    {
+        // As Haiku wrote it (2026-11-13): four regions and their total under them, then a pie of the table.
+        const string regions = "# Revenue by region\n| Region | Revenue |\n|---|---|\n| North | 45857.5 |\n| South | 48565 |\n| East | 42702.5 |\n| West | 43857.5 |\n| Total | =SUM(B2:B5) |\n";
+        var result = await Write("orders.xlsx", regions + "\nchart: pie Share of revenue\nchart: bar Revenue by region\nchart: line Revenue by region\n");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("The \"Total\" row is left out of the chart, as it adds up the others; give the cells to draw to have it in.", result.Text);
+        foreach (var n in new[] { 1, 2, 3 })
+        {
+            var ser = Part("orders.xlsx", $"xl/charts/chart{n}.xml").Descendants(C + "ser").First();
+            Assert.Equal("'Revenue by region'!$B$2:$B$5", ser.Element(C + "val")!.Descendants(C + "f").Single().Value);
+            Assert.Equal(["North", "South", "East", "West"], ser.Element(C + "cat")!.Descendants(C + "v").Select(v => v.Value));
+        }
+        // Bars from zero: left to itself the axis of these started at 39,000. A line starts where its values do.
+        Assert.Equal("0", (string?)Part("orders.xlsx", "xl/charts/chart2.xml").Descendants(C + "valAx").Single().Element(C + "scaling")!.Element(C + "min")!.Attribute("val"));
+        Assert.Null(Part("orders.xlsx", "xl/charts/chart3.xml").Descendants(C + "valAx").Single().Element(C + "scaling")!.Element(C + "min"));
+        Assert.Contains("A6 Total | B6 =SUM(B2:B5) → 180982.5", await Read("orders.xlsx"));
+
+        // Cells given that end at the total have it left out too, and said; a loss below zero leaves the axis to itself.
+        var added = await Edit("orders.xlsx", "", "A7 Returns\nB7 -1200\nadd chart bar A1:B6 With the total");
+        Assert.False(added.IsError, added.Text);
+        Assert.Contains("over 'Revenue by region'!A2:A5 (the \"Total\" row is left out of the chart, as it adds up the others; give the cells to draw to have it in)", added.Text);
+        var withLoss = await Edit("orders.xlsx", "", "add chart bar A1:B5,A7:B7 Gains and losses");
+        Assert.False(withLoss.IsError, withLoss.Text);
+        Assert.Null(Part("orders.xlsx", "xl/charts/chart5.xml").Descendants(C + "valAx").Single().Element(C + "scaling")!.Element(C + "min"));
+
+        // On a slide the same: the total isn't a bar beside the regions.
+        var deck = await Write("deck.pptx", "# Revenue\n\n| Region | Revenue |\n|---|---|\n| North | 45857.5 |\n| South | 48565 |\n| East | 42702.5 |\n| Grand total | 137125 |\n\nchart: bar Revenue");
+        Assert.False(deck.IsError, deck.Text);
+        Assert.Contains("The \"Grand total\" row is left out of the chart", deck.Text);
+        var slideChart = Part("deck.pptx", "ppt/charts/chart1.xml");
+        Assert.Equal(["North", "South", "East"], slideChart.Descendants(C + "cat").Single().Descendants(C + "v").Select(v => v.Value));
+        Assert.Equal("0", (string?)slideChart.Descendants(C + "valAx").Single().Element(C + "scaling")!.Element(C + "min")!.Attribute("val"));
+        // A table of two things and their total is charted whole: too little to tell a total from.
+        var two = await Write("two.xlsx", "| Item | Cost |\n|---|---|\n| Rent | 900 |\n| Total | 900 |\n\nchart: bar Costs");
+        Assert.DoesNotContain("left out", two.Text);
+    }
+
+    [Fact]
     public async Task Totals_on_a_sheet_of_their_own_are_worked_out_and_charted()
     {
         // As Haiku wrote it (2026-11-13): the figures on one sheet, their totals on another, by formulas across the
@@ -479,6 +518,9 @@ public class SheetChartTests : IDisposable
         Assert.Equal(("Total", "'Year'!$A$2", "'Year'!$B$1:$E$1", "'Year'!$B$2:$E$2"), (series.Name, series.NameRef, series.LabelsRef, series.ValuesRef));
         Assert.Equal([20d, 30d, 40d, 50d], series.Values.Select(v => v.Number!.Value));
         Assert.Throws<InvalidOperationException>(() => SheetChart.SeriesOf("Year", [new SheetChart.Cells(null, 1, 1, 2, 2), new SheetChart.Cells(null, 5, 4, 9, 4)], Cell));
+        // More than Excel draws is refused before anything is written, with how much it was.
+        var many = Assert.Throws<InvalidOperationException>(() => SheetChart.SeriesOf("Year", [new SheetChart.Cells(null, 1, 1, 40_000, 2)], (_, row, column) => new(null, row + column)));
+        Assert.Contains("at most 32,000 values", many.Message);
     }
 
     /// <summary>

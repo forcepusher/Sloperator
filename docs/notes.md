@@ -161,6 +161,13 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   old_text, as "name it by chart 1, or its title" reads: taken as the title since. Checked in Excel 16: Excel's own
   chart made a pie in its place at its size, and deleted, the file opening without repair.
   Not there: no scatter chart, and a chart Excel styled by hand loses that styling when it is made anew.
+  **A total row, and bars from zero** (the same night). A last row (or column, for cells by rows) whose label is
+  Total, Totals, Grand total, Subtotal, Sum or Overall is left out of the chart and said, when at least two rows
+  are left: Haiku wrote four regions with a total under them and a pie of the table, and the total was half of the
+  pie. A bar or area chart with no value below zero has its value axis start at 0 (`c:min`): left to Office, the
+  axis of four regions' revenue (42,700 to 48,600) started at 39,000, and Haiku said on its own that the gaps
+  looked many times what they are. A line chart keeps the axis Office picks. Checked in Excel 16 and PowerPoint 16.
+  Past Excel's own limits (32,000 values a series, 255 series) a chart is refused before anything is written.
   **What all of this costs in every request** (measured 2026-11-13 with `.dev/context-size-test`): charts,
   formats, widths, PDF pages and slide text are sentences in the descriptions of write_file and edit_file, no new
   tool. The two grew from 1,013 and 901 characters to 1,343 and 1,619 after a pass that cut their wording by a
@@ -184,6 +191,18 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   those beside them stay; a fit is the longest text of the column times 1.1 plus 2, between 8.43 and 60, as a
   workbook written here sizes its own. Asked for column A "about twice as wide", Haiku had written the width into
   the sheet's XML through PowerShell and Sonnet had gone to Excel by way of Python; after, one line each.
+  **Which sheet** (the same night): a format or width line takes its sheet as cells do (`'Revenue by region'!A1:B1`,
+  a line `# Sheet "Revenue by region"` before it), and also as models wrote it when the first way wasn't known to
+  them: in double quotes or none before the `!` (a name without quotes is matched against the workbook's sheets,
+  longest first), `on sheet "Revenue by region"` anywhere in the line, `Sheet: Name` as a line, the sheet before
+  `column A width 18` or `autofit columns`, and a range with only a look after it without the word `format`. An
+  `autofit columns` with no sheet said fits every sheet that holds something. A line that is none of what new_text
+  can be, with old_text empty, is refused with that line and the lines there are, where it said only "give
+  old_text". *Why:* asked for "the header rows bold on light blue and fit the column widths" of a two-sheet
+  workbook, Haiku tried five spellings of the second sheet (one, `format A1:B1 on sheet "…" bold`, formatted the
+  first sheet), then wrote the styles into the file's XML (46 calls, 10 errors); Sonnet's widths for the second
+  sheet never applied; Kilo's free Nemotron went to write the whole workbook again. After: Haiku 29 calls and 1
+  error (`Orders!autofit columns`, taken since), Sonnet 17 and none.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide. **A chart on a slide** (2026-11-13): a line `chart: bar Sales by region` under a table shows the
@@ -249,6 +268,14 @@ user's); Kilo's free Nemotron did the same in 152 s, 28 calls and 4 errors, zipp
 work in the user's Documents\Sloperator\scratch. After: three edit_file calls, 23 and 13 s. Read back through Word
 16 (`.dev/night-test/word-look.ps1`): alignment, colours, size, shading and bold as asked, nothing repaired.
 Not there: read_file marks bold text and not italic, so a model can't read its italics back (Sonnet said so).
+**The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
+is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
+says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell
+("143") is as likely meant where a sentence has it. And old_text may start with a slide's line as read_file shows it
+(`--- slide 2 of 3 ---`), which keeps the change to that slide and its notes (the deck's own order, as read_file
+numbers slides; copied into new_text too, it goes). *Why:* asked for a deck's titles in dark blue, Haiku and Sonnet
+both gave "Revenue by region", the title of slide 2 and the start of slide 1's subtitle: told it was there twice,
+Haiku wrote the colour into the slide's XML and Sonnet set replace_all, which coloured half the subtitle too.
 A Word table's rows
  can be given as `read_file`
 shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched

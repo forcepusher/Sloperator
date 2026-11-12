@@ -156,4 +156,109 @@ public class SheetFormatTests : IDisposable
         Assert.False((await Edit("budget.xlsx", "", "A6 format B2 as you like")).IsError);
         Assert.Contains("A6 format B2 as you like", await Read("budget.xlsx"));
     }
+
+    private const string Orders = "# Orders\n\n| date | region | units |\n|---|---|---|\n| 2026-01-15 | North | 16 |\n| 2026-01-16 | South | 21 |\n\n" +
+                                  "# Revenue by region\n\n| region | revenue |\n|---|---|\n| North | 45857.5 |\n| South | 48565 |";
+
+    /// <summary>The fill of a cell on a sheet (1, 2) as AARRGGBB, or null for none.</summary>
+    private string? Fill(string file, int sheet, string cell)
+    {
+        var styles = Part(file, "xl/styles.xml").Root!;
+        var c = Part(file, $"xl/worksheets/sheet{sheet}.xml").Descendants(S + "c").SingleOrDefault(e => (string?)e.Attribute("r") == cell);
+        var xf = styles.Element(S + "cellXfs")!.Elements(S + "xf").ElementAt((int?)c?.Attribute("s") ?? 0);
+        return (string?)styles.Element(S + "fills")!.Elements(S + "fill").ElementAt((int?)xf.Attribute("fillId") ?? 0).Descendants(S + "fgColor").SingleOrDefault()?.Attribute("rgb");
+    }
+
+    [Theory]
+    // As Sonnet named the second sheet (2026-11-13), which worked, and as Haiku did, which didn't: in double
+    // quotes, without quotes, in words after the cells (the first sheet was formatted), and without "format".
+    [InlineData("format 'Revenue by region'!A1:B1 bold, light blue fill")]
+    [InlineData("format \"Revenue by region\"!A1:B1 bold, light blue fill")]
+    [InlineData("format Revenue by region!A1:B1 bold, light blue fill")]
+    [InlineData("format A1:B1 on sheet \"Revenue by region\" bold, light blue fill")]
+    [InlineData("format A1:B1 bold, light blue fill on sheet Revenue by region")]
+    [InlineData("format A1:B1 in the sheet 'Revenue by region': bold, light blue fill")]
+    [InlineData("'Revenue by region'!A1:B1 bold, light blue fill")]
+    [InlineData("# Sheet \"Revenue by region\" (A1:B3)\nformat A1:B1 bold, light blue fill")]
+    [InlineData("Sheet \"Revenue by region\"\nformat A1:B1 bold, light blue fill")]
+    [InlineData("sheet: Revenue by region\nA1:B1 bold, light blue fill")]
+    public async Task A_format_line_names_its_sheet_as_models_name_it(string lines)
+    {
+        Assert.False((await Write("orders.xlsx", Orders)).IsError);
+        // A header row is written with a fill of its own: the first sheet's stays that.
+        var first = Fill("orders.xlsx", 1, "A1");
+        Assert.NotEqual("FFBDD7EE", first);
+        var result = await Edit("orders.xlsx", "", lines);
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("Formatted A1:B1 on sheet \"Revenue by region\" (bold, fill #BDD7EE).", result.Text);
+        Assert.Equal("FFBDD7EE", Fill("orders.xlsx", 2, "A1"));
+        Assert.Equal("FFBDD7EE", Fill("orders.xlsx", 2, "B1"));
+        Assert.Equal(first, Fill("orders.xlsx", 1, "A1"));
+        // What the sheets hold is as it was.
+        var text = await Read("orders.xlsx");
+        Assert.Contains("A1 date | B1 region | C1 units", text);
+        Assert.Contains("A1 region | B1 revenue", text);
+    }
+
+    [Fact]
+    public async Task Widths_name_their_sheet_too_and_a_fit_of_all_columns_is_every_sheets()
+    {
+        Assert.False((await Write("orders.xlsx", Orders)).IsError);
+        List<(int Min, string? Width)> Cols(int sheet) => Part("orders.xlsx", $"xl/worksheets/sheet{sheet}.xml").Root!.Element(S + "cols")?.Elements(S + "col")
+            .Where(c => (string?)c.Attribute("customWidth") == "1").Select(c => ((int)c.Attribute("min")!, (string?)c.Attribute("width"))).ToList() ?? [];
+        var before = Cols(1);
+
+        // As Sonnet wrote it (2026-11-13), told only to give old_text; then with the sheet inside the line.
+        var named = await Edit("orders.xlsx", "", "'Revenue by region'!column A width 18\ncolumn \"Revenue by region\"!B width 16");
+        Assert.False(named.IsError, named.Text);
+        Assert.Contains("Made column A of sheet \"Revenue by region\" 18 wide, then made column B of sheet \"Revenue by region\" 16 wide.", named.Text);
+        Assert.Equal([(1, "18"), (2, "16")], Cols(2));
+        Assert.Equal(before, Cols(1));
+
+        // As Haiku wrote it: the sheet after the words.
+        foreach (var line in new[] { "autofit columns \"Revenue by region\"", "autofit columns on 'Revenue by region'", "fit the column widths of sheet Revenue by region", "# Sheet \"Revenue by region\"\nautofit columns" })
+        {
+            var one = await Edit("orders.xlsx", "", line);
+            Assert.False(one.IsError, one.Text);
+            Assert.Contains("Fitted columns A-B of sheet \"Revenue by region\" to what they hold.", one.Text);
+            Assert.DoesNotContain("Orders", one.Text);
+        }
+        Assert.Equal(before, Cols(1));
+
+        // As Haiku wrote it on its next try: the sheet before the words, without quotes.
+        var before2 = await Edit("orders.xlsx", "", "Revenue by region!autofit columns");
+        Assert.False(before2.IsError, before2.Text);
+        Assert.Contains("Fitted columns A-B of sheet \"Revenue by region\" to what they hold.", before2.Text);
+
+        // No sheet said: "fit the column widths" of a workbook is all of it, as both models meant it.
+        foreach (var line in new[] { "autofit columns", "autofit columns on all sheets", "Fit the column widths." })
+        {
+            var every = await Edit("orders.xlsx", "", line);
+            Assert.False(every.IsError, every.Text);
+            Assert.Contains("Fitted columns A-C of sheet \"Orders\" to what they hold, then fitted columns A-B of sheet \"Revenue by region\" to what they hold.", every.Text);
+        }
+        Assert.Equal(3, Cols(1).Count);
+
+        // Columns named are the first sheet's, as cells are; a sheet that isn't there is said with the ones that are.
+        Assert.Contains("Fitted columns A-B of sheet \"Orders\"", (await Edit("orders.xlsx", "", "autofit columns A:B")).Text);
+        var nowhere = await Edit("orders.xlsx", "", "format A1:B1 on sheet \"Totals\" bold");
+        Assert.True(nowhere.IsError);
+        Assert.Contains("There is no sheet \"Totals\"; the sheets are \"Orders\", \"Revenue by region\".", nowhere.Text);
+    }
+
+    [Fact]
+    public async Task A_line_that_is_none_of_them_is_said_with_the_lines_there_are()
+    {
+        Assert.False((await Write("orders.xlsx", Orders)).IsError);
+        var unknown = await Edit("orders.xlsx", "", "format A1:C1 yellow fill\nfreeze the top row");
+        Assert.True(unknown.IsError);
+        Assert.Contains("\"freeze the top row\" is no line edit_file knows for a workbook.", unknown.Text);
+        Assert.Contains("\"'My sheet'!A1:B1\"", unknown.Text);
+        // Nothing of the edit was done.
+        Assert.NotEqual("FFFFFF00", Fill("orders.xlsx", 1, "A1"));
+        // A range with words that aren't a look is no format, and a cell with a look's word in it is a cell.
+        Assert.Contains("\"A5:C5 Totals for the year\" is no line", (await Edit("orders.xlsx", "", "A5:C5 Totals for the year")).Text);
+        Assert.False((await Edit("orders.xlsx", "", "B5 bold")).IsError);
+        Assert.Contains("B5 bold", await Read("orders.xlsx"));
+    }
 }

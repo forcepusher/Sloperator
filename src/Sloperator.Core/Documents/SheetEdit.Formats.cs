@@ -20,13 +20,18 @@ internal static partial class SheetEdit
     /// A line that formats cells, or null: "format A1:E1 bold, yellow fill", "format Budget!B2:B9 red text, centered",
     /// "format A1:D1 fill #FFF2CC, border". A colour with nothing said of it is the fill.
     /// </summary>
-    private static FormatLine? FormatOf(string line, string? sheet)
+    private static FormatLine? FormatOf(string line, string? sheet, IReadOnlyList<string> names)
     {
-        if (FormatStart().Match(line.Trim()) is not { Success: true } m)
+        var (said, text) = SheetSaid(line.Trim(), names);
+        if (FormatStart().Match(text) is not { Success: true } m)
+            return null;
+        // Without the word "format" it is one only as a range with nothing but a look after it ("A1:B1 bold, light
+        // blue fill"): a cell and what it holds is written the same way ("B2 bold").
+        if (!m.Groups["kw"].Success && (!m.Groups["b"].Success || !DocumentLook.OnlyLook(m.Groups["what"].Value)))
             return null;
         var (r1, c1) = Parse(m.Groups["a"].Value.Replace("$", "").ToUpperInvariant());
         var (r2, c2) = m.Groups["b"].Success ? Parse(m.Groups["b"].Value.Replace("$", "").ToUpperInvariant()) : (r1, c1);
-        var on = m.Groups["sheet"].Success ? m.Groups["sheet"].Value.Trim('\'').Replace("''", "'") : sheet;
+        var on = m.Groups["sheet"].Success ? Unquoted(m.Groups["sheet"].Value) : said ?? sheet;
         var look = DocumentLook.Parse(m.Groups["what"].Value);
         if (!look.Any)
             throw new InvalidOperationException($"{line.Trim()}: say how the cells should look: {DocumentLook.Words}, wrap, border.");
@@ -164,9 +169,56 @@ internal static partial class SheetEdit
         return items.Count;
     }
 
-    // "format A1:E1 bold, yellow fill", "format Budget!B2 as red text", "Format 'My sheet'!A1:D1: fill #FFF2CC"
-    [GeneratedRegex(@"^format\s+(?:(?:the\s+)?cells?\s+)?(?:(?<sheet>'(?:[^']|'')+'|[^\s!'|""]+)!)?(?<a>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?::(?<b>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}))?\s*[:,]?\s*(?:as\s+|with\s+|in\s+)?(?<what>.+)$", RegexOptions.IgnoreCase)]
+    // "format A1:E1 bold, yellow fill", "format Budget!B2 as red text", "Format 'My sheet'!A1:D1: fill #FFF2CC",
+    // "format "My sheet"!A1:B1 bold", "format My sheet!A1:B1 bold"
+    [GeneratedRegex(@"^(?:(?<kw>format)\s+(?:(?:the\s+)?(?:cells?|range)\s+)?)?(?:(?<sheet>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^!|'""“”]+?)!)?(?<a>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?::(?<b>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}))?\s*[:,]?\s*(?:as\s+|with\s+|in\s+|to\s+)?(?<what>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex FormatStart();
+
+    // ---- which sheet a line is for ---------------------------------------------------------------------------------
+    // Asked for the header rows of both sheets (2026-11-13), Sonnet named the second as a formula does and it was
+    // formatted; Haiku tried it in double quotes, without quotes, and as "format A1:B1 on sheet "Revenue by region"
+    // bold", which formatted the first sheet, the words read past. Nemotron went to write the workbook again.
+
+    /// <summary>A sheet's name as a line gives it before a "!" or after "on sheet": without the quotes around it.</summary>
+    private static string Unquoted(string name)
+    {
+        name = name.Trim();
+        if (name.Length >= 2 && name[0] == '\'' && name[^1] == '\'')
+            return name[1..^1].Replace("''", "'");
+        return name.Length >= 2 && (name[0] == '"' && name[^1] == '"' || name[0] == '“' && name[^1] == '”') ? name[1..^1] : name;
+    }
+
+    /// <summary>
+    /// The sheet a line names in words, and the line without them: "format A1:B1 on sheet "Revenue by region" bold"
+    /// is "Revenue by region" and "format A1:B1 bold". A name without quotes is one of the workbook's own (the
+    /// longest that fits), else one word.
+    /// </summary>
+    private static (string? Sheet, string Line) SheetSaid(string line, IReadOnlyList<string> names)
+    {
+        if (OnSheet().Match(line) is not { Success: true } m)
+            return (null, line);
+        var rest = line[(m.Index + m.Length)..];
+        string name;
+        int taken;
+        if (QuotedName().Match(rest) is { Success: true } quoted)
+            (name, taken) = (Unquoted(quoted.Value), quoted.Length);
+        else if (names.Where(n => rest.StartsWith(n, StringComparison.OrdinalIgnoreCase) && (rest.Length == n.Length || !char.IsLetterOrDigit(rest[n.Length])))
+                     .OrderByDescending(n => n.Length).FirstOrDefault() is { } known)
+            (name, taken) = (known, known.Length);
+        else
+        {
+            taken = rest.IndexOfAny([' ', ',', ':', ';']) is var end and >= 0 ? end : rest.Length;
+            name = rest[..taken];
+        }
+        return (name, (line[..m.Index] + " " + rest[taken..].TrimStart(' ', ',', ':', ';')).Trim());
+    }
+
+    // " on sheet ", " in the sheet ", " of worksheet "
+    [GeneratedRegex(@"\s+(?:on|in|of|for)\s+(?:the\s+)?(?:work)?sheet\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex OnSheet();
+
+    [GeneratedRegex(@"^(?:'(?:[^']|'')+'|""[^""]+""|“[^”]+”)")]
+    private static partial Regex QuotedName();
 }
 
 internal static partial class SheetEdit
@@ -176,22 +228,37 @@ internal static partial class SheetEdit
     // PowerShell and Sonnet looked for Python, then drove Excel.
 
     /// <summary>Columns <paramref name="Column1"/> to <paramref name="Column2"/> (0: to the last one used) made <paramref name="Width"/> characters wide, or (null) as wide as what they hold.</summary>
-    private sealed record WidthLine(string? Sheet, int Column1, int Column2, double? Width);
+    /// <param name="Every">Every sheet's columns: a fit of all columns with no sheet said ("autofit columns").</param>
+    private sealed record WidthLine(string? Sheet, int Column1, int Column2, double? Width, bool Every = false);
 
-    private static WidthLine? WidthOf(string line, string? sheet)
+    private static WidthLine? WidthOf(string line, string? sheet, IReadOnlyList<string> names)
     {
-        var text = line.Trim().TrimEnd('.');
+        var (said, text) = SheetSaid(line.Trim().TrimEnd('.'), names);
         static int Column(string letters) => letters.ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
-        if (ColumnWidth().Match(text) is { Success: true } m)
+        var m = ColumnWidth().Match(text);
+        // "autofit columns A:C" too, unless what follows is a sheet's name ("autofit columns Q1" in a workbook with a sheet Q1).
+        if (!m.Success && FitSome().Match(text) is { Success: true } some && !names.Contains(some.Groups["a"].Value, StringComparer.OrdinalIgnoreCase))
+            m = some;
+        if (m.Success)
         {
-            var on = m.Groups["sheet"].Success ? m.Groups["sheet"].Value.Trim('\'').Replace("''", "'") : sheet;
+            var on = m.Groups["sheet0"].Success ? Unquoted(m.Groups["sheet0"].Value) : m.Groups["sheet"].Success ? Unquoted(m.Groups["sheet"].Value) : said ?? sheet;
             var (a, b) = (Column(m.Groups["a"].Value), m.Groups["b"].Success ? Column(m.Groups["b"].Value) : Column(m.Groups["a"].Value));
             double? width = m.Groups["w"].Success ? double.Parse(m.Groups["w"].Value, CultureInfo.InvariantCulture) : null;
             if (width is < 0 or > 255)
                 throw new InvalidOperationException($"{text}: a column is 0 to 255 characters wide (Excel's own are 8.43).");
             return new WidthLine(on, Math.Min(a, b), Math.Max(a, b), width);
         }
-        return FitAll().IsMatch(text) ? new WidthLine(sheet, 1, 0, null) : null;
+        if (FitAll().Match(text) is not { Success: true } all)
+            return null;
+        // What follows is a sheet's name ("autofit columns 'Revenue by region'"), or all of them ("on all sheets"); other words make it no such line.
+        var where = all.Groups["where"].Success ? all.Groups["where"].Value.Trim() : null;
+        if (all.Groups["sheet0"].Success)
+            return where is null ? new WidthLine(Unquoted(all.Groups["sheet0"].Value), 1, 0, null) : null;
+        if (where is null || EverySheet().IsMatch(where))
+            return new WidthLine(said ?? sheet, 1, 0, null, Every: where is not null || (said ?? sheet) is null);
+        var named = QuotedName().Match(where) is { Success: true } quoted && quoted.Length == where.Length ? Unquoted(where)
+            : names.FirstOrDefault(n => n.Equals(where, StringComparison.OrdinalIgnoreCase));
+        return named is null ? null : new WidthLine(named, 1, 0, null);
     }
 
     /// <summary>The columns of a width line given their width in the sheet's column list, the ones around them left as they are; what was done.</summary>
@@ -261,11 +328,20 @@ internal static partial class SheetEdit
 
     private static string Letters(int column) => XlsxWriter.Reference(1, column).TrimEnd('1');
 
-    // "column A width 20", "columns B:D width 12.5", "set column A to width 18", "column C autofit", "Budget!A width 30"
-    [GeneratedRegex(@"^(?:set\s+|make\s+)?(?:the\s+)?(?:width\s+of\s+)?columns?\s+(?:(?<sheet>'(?:[^']|'')+'|[^\s!'|""]+)!)?(?<a>[A-Za-z]{1,3})(?:\s*(?::|-|to)\s*(?<b>[A-Za-z]{1,3}))?\s*(?:to\s+|:\s*|=\s*)?(?:(?:a\s+)?width\s*(?:of\s+|to\s+|=\s*|:\s*)?(?<w>[0-9]+(?:\.[0-9]+)?)|(?<w>[0-9]+(?:\.[0-9]+)?)\s*(?:wide|characters?(?:\s+wide)?)|auto-?fit(?:ted)?|fit(?:ted)?(?:\s+to\s+(?:its|their)\s+(?:content|text)s?)?|auto(?:matic)?\s+width)$", RegexOptions.IgnoreCase)]
+    // "column A width 20", "columns B:D width 12.5", "set column A to width 18", "column C autofit", "column Budget!A width 30",
+    // "'My sheet'!column A width 18"
+    [GeneratedRegex(@"^(?:(?<sheet0>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^!|'""“”]+?)!\s*)?(?:set\s+|make\s+)?(?:the\s+)?(?:width\s+of\s+)?columns?\s+(?:(?<sheet>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^\s!'|""]+)!)?(?<a>[A-Za-z]{1,3})(?:\s*(?::|-|to)\s*(?<b>[A-Za-z]{1,3}))?\s*(?:to\s+|:\s*|=\s*)?(?:(?:a\s+)?width\s*(?:of\s+|to\s+|=\s*|:\s*)?(?<w>[0-9]+(?:\.[0-9]+)?)|(?<w>[0-9]+(?:\.[0-9]+)?)\s*(?:wide|characters?(?:\s+wide)?)|auto-?fit(?:ted)?|fit(?:ted)?(?:\s+to\s+(?:its|their)\s+(?:content|text)s?)?|auto(?:matic)?\s+width)$", RegexOptions.IgnoreCase)]
     private static partial Regex ColumnWidth();
 
-    // "autofit columns", "fit all columns", "auto-fit the columns"
-    [GeneratedRegex(@"^(?:auto-?fit|fit|autosize)\s+(?:all\s+)?(?:the\s+)?columns?(?:\s+to\s+(?:their\s+)?(?:content|text)s?)?$", RegexOptions.IgnoreCase)]
+    // "autofit columns A:C", "fit column B", "'My sheet'!autofit columns A:F": the columns in capitals, as words follow too ("autofit columns on all sheets")
+    [GeneratedRegex(@"^(?:(?<sheet0>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^!|'""“”]+?)!\s*)?(?:auto[- ]?fit|fit|auto[- ]?size)\s+(?:the\s+)?(?:width\s+of\s+)?columns?\s+(?:(?<sheet>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^\s!'|""]+)!)?(?<a>(?-i:[A-Z]{1,3}))(?:\s*(?::|-|to)\s*(?<b>(?-i:[A-Z]{1,3})))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FitSome();
+
+    // "autofit columns", "fit all columns", "auto-fit the column widths", "autofit columns 'My sheet'", "autofit columns on all sheets",
+    // "Orders!autofit columns" (as Haiku wrote it, 2026-11-13)
+    [GeneratedRegex(@"^(?:(?<sheet0>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^!|'""“”]+?)!\s*)?(?:auto[- ]?fit|fit|auto[- ]?size)(?:\s+(?:all|every|each))?(?:\s+(?:of\s+)?the)?\s+columns?(?:\s+widths?)?(?:\s+to\s+(?:their\s+|the\s+)?(?:content|text|data)s?)?(?:\s+(?:(?:on|in|of|for)\s+)?(?<where>.+))?$", RegexOptions.IgnoreCase)]
     private static partial Regex FitAll();
+
+    [GeneratedRegex(@"^(?:all|every|each|both)(?:\s+(?:of\s+)?the)?\s+(?:work)?sheets?$|^(?:the\s+)?(?:whole\s+|entire\s+)?workbook$", RegexOptions.IgnoreCase)]
+    private static partial Regex EverySheet();
 }

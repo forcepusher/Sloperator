@@ -412,7 +412,7 @@ internal sealed class PptxWriter
         List<SheetChart.Series> series;
         try
         {
-            series = SheetChart.SeriesOf("Sheet1", [new SheetChart.Cells(null, 1, 1, table.Rows.Count, table.Columns)], Cell);
+            series = SheetChart.SeriesOf("Sheet1", [new SheetChart.Cells(null, 1, 1, table.Rows.Count, table.Columns)], Cell, _notes);
         }
         catch (InvalidOperationException ex)
         {

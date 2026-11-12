@@ -144,6 +144,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A chart of a table with a total row under it no longer draws the total as one more slice or bar, and a bar chart's
+  scale starts at zero. A pie of four regions and their total showed the total as half the pie, and bars of close
+  numbers looked many times apart.
+- The agent can format and fit the columns of any sheet of a workbook, not only the first, however it names the
+  sheet; asked to fit the columns of a workbook, it fits every sheet's.
+- Asked to change or colour a slide's title whose words also start another line, the agent changes the title. It
+  was told the words were there twice, and then either rewrote the file's insides or changed both places.
 - Bullets the agent adds to a slide that had only a title and a chart or picture go beside it, as the slide's text.
   They were put into the title itself.
 - A document the agent made and then changed can be written again by it. It was refused as "not one you wrote in

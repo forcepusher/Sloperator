@@ -68,6 +68,13 @@ internal sealed partial record DocumentLook(bool? Bold, bool? Italic, bool? Unde
             Flag("wrap(?:ped)?"), Regex.IsMatch(what, @"\bborders?\b") && !Regex.IsMatch(what, @"\bno\s+borders?\b"));
     }
 
+    /// <summary>Whether <paramref name="what"/> is words of a look and nothing else: what tells "A1:B1 bold, light blue fill" from cells and their text.</summary>
+    public static bool OnlyLook(string what) =>
+        Parse(what).Any && LookWords().Replace(" " + what.ToLowerInvariant().Replace(',', ' ').Replace(';', ' ') + " ", " ").Trim().Length == 0;
+
+    [GeneratedRegex(@"#[0-9a-f]{6}\b|\b(?:not|no|un|without|bold|italics?|underlined?|light|pale|dark|yellow|orange|red|green|blue|purple|pink|teal|brown|gr[ae]y|white|black|gold|navy|fill|background|bg|highlight(?:ed)?|shad(?:e|ed|ing)|text|font|letters?|colou?r|size|pt|points?|cent(?:er|re)(?:d|ed)?|left|right|align(?:ed)?|wrap(?:ped)?|borders?|none|and|with|in|of|a|the|[0-9]+(?:\.[0-9]+)?)\b|[:=-]")]
+    private static partial Regex LookWords();
+
     /// <summary>A colour by its name, as Office's palette has it, or as #RRGGBB; null for a word that is none.</summary>
     public static string? ColourOf(string word)
     {

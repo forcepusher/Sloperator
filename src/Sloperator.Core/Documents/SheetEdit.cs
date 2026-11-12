@@ -35,12 +35,13 @@ internal static partial class SheetEdit
         // Only then: "Chart" replaced by another word is text in a cell.
         if (ChartTargets(oldText) is { } targets && ChartAsks(newText) is { } asks)
             return ChangeCharts(parts, sheets, targets, asks);
-        var old = Lines(oldText);
+        var names = sheets.Select(s => s.Name).ToList();
+        var old = Lines(oldText, names, out _);
         // A chart's title alone as old_text, with a chart line as new_text: told to name the chart by "chart 1, or
         // its title", Haiku and Sonnet gave the title and nothing else, three times out of four (2026-11-13).
         if (old is null && oldText.Trim() is { Length: > 0 } title && !title.Contains('\n') && ChartAsks(newText) is { Count: 1 } one)
             return ChangeCharts(parts, sheets, [new ChartTarget(null, null, title.Trim('"', '“', '”'), null)], one);
-        var now = Lines(newText);
+        var now = Lines(newText, names, out var unread);
         if (old?.Rows.Count > 0)
             throw new InvalidOperationException("Rows are inserted or deleted with a line in new_text (\"insert row 7\", \"delete rows 3-4\"), not in old_text.");
         if (old?.Formats.Count > 0 || old?.Widths.Count > 0)
@@ -50,7 +51,15 @@ internal static partial class SheetEdit
                                                 "to change one, name it in old_text (\"chart 2\", or its title) and give its new line in new_text (\"chart: line Monthly totals\").");
         var cellMode = now is not null && (oldText.Trim().Length == 0 || old is not null)
             && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Gone.Count > 0 || now.Value.Formats.Count > 0 || now.Value.Widths.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
-        return cellMode ? SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats, now.Value.Widths) : ReplaceText(parts, sheets, oldText, newText, all);
+        if (cellMode)
+            return SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats, now.Value.Widths);
+        // Nothing to find and a line that is none of what new_text can be: said with the line and the lines there are.
+        // Told only to "give old_text", Haiku tried five spellings of a sheet's name in a row (2026-11-13).
+        if (oldText.Trim().Length == 0 && unread is not null)
+            throw new InvalidOperationException($"\"{(unread.Length > 80 ? unread[..80] + "…" : unread)}\" is no line edit_file knows for a workbook. With old_text empty, each line of new_text is a cell to set " +
+                "(\"B7 =SUM(B2:B6)\"), \"insert row 7\", \"delete rows 3-4\", \"format A1:E1 bold, yellow fill\", \"column A width 20\", \"autofit columns\", " +
+                "\"add chart bar A1:D13 Title\" or \"delete chart 2\". Another sheet is named before the cells (\"'My sheet'!A1:B1\", \"Budget!C9 12.5\") or by a line # Sheet \"My sheet\" before them.");
+        return ReplaceText(parts, sheets, oldText, newText, all);
     }
 
     // ---- cells -----------------------------------------------------------------------------------------
@@ -160,8 +169,13 @@ internal static partial class SheetEdit
         foreach (var format in looks)
             done.Add(ApplyFormat(parts, SheetOf(format.Sheet), format));
         // And how wide their columns are ("column A width 20", "autofit columns"), fitted to what the cells hold now.
+        // A fit of all columns with no sheet said is every sheet's that holds something: "fit the column widths" of a
+        // workbook is all of it, and only the first sheet's were (2026-11-13).
         foreach (var width in widths)
-            done.Add(ApplyWidth(parts, SheetOf(width.Sheet), width, shared));
+            if (width.Every && sheets.Where(s => parts.Get(s.Part).Root!.Element(S + "sheetData")?.Elements(S + "row").Elements(S + "c").Any() == true).ToList() is { Count: > 0 } filled)
+                done.AddRange(filled.Select(s => ApplyWidth(parts, s, width, shared)));
+            else
+                done.Add(ApplyWidth(parts, SheetOf(width.Sheet), width, shared));
         // Charts last, so one draws the cells as this edit leaves them. Those to delete ("delete chart 2") first, all
         // found before any goes, as deleting one moves the numbers of those after it.
         foreach (var chart in gone.Select(g => Find(Charts(parts, sheets), g)).ToList())
@@ -186,8 +200,11 @@ internal static partial class SheetEdit
     /// "delete rows 3-4"), or null when the text isn't made of them. A line # Sheet "Name" sets the
     /// sheet of what follows it.
     /// </summary>
-    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats, List<WidthLine> Widths)? Lines(string text)
+    /// <param name="names">The workbook's sheets, to tell a sheet named without quotes.</param>
+    /// <param name="unread">The first line that is none of them, when the text isn't made of them.</param>
+    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats, List<WidthLine> Widths)? Lines(string text, IReadOnlyList<string> names, out string? unread)
     {
+        unread = null;
         var cells = new List<CellLine>();
         var rows = new List<RowChange>();
         var charts = new List<ChartLine>();
@@ -204,13 +221,16 @@ internal static partial class SheetEdit
                 var from = int.Parse(row.Groups["from"].Value, CultureInfo.InvariantCulture);
                 var to = row.Groups["to"].Success ? int.Parse(row.Groups["to"].Value, CultureInfo.InvariantCulture) : from;
                 if (from < 1 || to < from)
+                {
+                    unread = line;
                     return null;
+                }
                 var insert = row.Groups["verb"].Value.Equals("insert", StringComparison.OrdinalIgnoreCase);
                 // Inserting copies the styled cells of the row above into each new row: "insert rows
                 // 2-9999999" ran for minutes and out of memory, past where Excel's sheets end anyway.
                 if (to > MaxRow || insert && to - from + 1 > MaxInsert)
                     throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture, $"{line}: a sheet ends at row {MaxRow:N0}, and one line inserts at most {MaxInsert:N0} rows."));
-                var on = row.Groups["sheet"].Success ? row.Groups["sheet"].Value.Trim().Trim('"', '\'') : sheet;
+                var on = row.Groups["sheet"].Success ? Unquoted(row.Groups["sheet"].Value) : sheet;
                 rows.Add(new RowChange(on, insert, from, to - from + 1));
                 continue;
             }
@@ -224,12 +244,12 @@ internal static partial class SheetEdit
                 gone.Add(target);
                 continue;
             }
-            if (FormatOf(line, sheet) is { } format)
+            if (FormatOf(line, sheet, names) is { } format)
             {
                 formats.Add(format);
                 continue;
             }
-            if (WidthOf(line, sheet) is { } width)
+            if (WidthOf(line, sheet, names) is { } width)
             {
                 widths.Add(width);
                 continue;
@@ -242,13 +262,16 @@ internal static partial class SheetEdit
             foreach (var part in RowSplit().Split(line))
             {
                 if (CellPattern().Match(part.Trim()) is not { Success: true } m)
+                {
+                    unread = line;
                     return null;
+                }
                 var value = m.Groups["value"].Success ? m.Groups["value"].Value : null;
                 // read_file shows a formula with its value after an arrow: "=SUM(B2:B6) → 2150", or
                 // nothing after it when Excel hasn't worked it out yet.
                 if (value is not null && value.StartsWith('=') && value.LastIndexOf('→') is var arrow and > 0)
                     value = value[..arrow].TrimEnd();
-                var on = m.Groups["sheet"].Success ? m.Groups["sheet"].Value.Trim('\'').Replace("''", "'") : sheet;
+                var on = m.Groups["sheet"].Success ? Unquoted(m.Groups["sheet"].Value) : sheet;
                 cells.Add(new CellLine(on, m.Groups["ref"].Value, value));
             }
         }
@@ -722,13 +745,14 @@ internal static partial class SheetEdit
                 yield return target;
     }
 
-    [GeneratedRegex(@"^#+\s*(?:Sheet\s+)?""?([^""(]+?)""?\s*(?:\([A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?\))?\s*$", RegexOptions.IgnoreCase)]
+    // # Sheet "Budget" (A1:C9) as read_file shows it, # Budget, and without the mark: Sheet "Budget", sheet: Budget
+    [GeneratedRegex(@"^(?:#+\s*(?:Sheet\s+)?|(?:on\s+|in\s+)?sheet\s*:?\s+)[""'“]?([^""“”(]+?)[""'”]?\s*:?\s*(?:\([A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?\))?\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex SheetHeader();
 
-    [GeneratedRegex(@"^(?:(?<sheet>'(?:[^']|'')+'|[^\s!'|""]+)!)?(?<ref>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?:\s+(?<value>.*?))?\s*$")]
+    [GeneratedRegex(@"^(?:(?<sheet>'(?:[^']|'')+'|""[^""]+""|“[^”]+”|[^\s!'|""]+)!)?(?<ref>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?:\s+(?<value>.*?))?\s*$")]
     private static partial Regex CellPattern();
 
-    [GeneratedRegex(@"\s+\|\s+(?=(?:(?:'[^']+'|[^\s!'|]+)!)?\$?[A-Za-z]{1,3}\$?[0-9]+(?:\s|$))")]
+    [GeneratedRegex(@"\s+\|\s+(?=(?:(?:'[^']+'|""[^""]+""|“[^”]+”|[^\s!'|]+)!)?\$?[A-Za-z]{1,3}\$?[0-9]+(?:\s|$))")]
     private static partial Regex RowSplit();
 
     [GeneratedRegex(@"^([A-Z]{1,3})([0-9]+)$")]

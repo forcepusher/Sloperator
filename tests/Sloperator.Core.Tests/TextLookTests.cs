@@ -147,6 +147,69 @@ public class TextLookTests : IDisposable
         Assert.Equal("FF0000", (string?)word.Element(A + "solidFill")!.Element(A + "srgbClr")!.Attribute("val"));
     }
 
+    [Fact]
+    public async Task A_title_is_told_from_the_same_words_in_a_longer_line_and_by_its_slides_line()
+    {
+        // As Haiku and Sonnet made the deck (2026-11-13): slide 2's title is how slide 1's subtitle starts.
+        Assert.False((await Write("deck.pptx", "# Orders summary\nRevenue by region and product\n\n---\n\n# Revenue by region\n\n- South leads the regions\n\n---\n\n# Thank you\nQuestions")).IsError);
+        var before = await Read("deck.pptx");
+        XNamespace p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+        List<XElement> Runs(int slide, string text) => Part("deck.pptx", $"ppt/slides/slide{slide}.xml").Descendants(A + "p").Single(q => Text(q) == text).Elements(A + "r").ToList();
+        static string? Colour(XElement run) => (string?)run.Element(A + "rPr")?.Element(A + "solidFill")?.Element(A + "srgbClr")?.Attribute("val");
+
+        // The title alone is the line that is just these words: it is the one meant, and the answer says what was left.
+        var title = await Edit("deck.pptx", "Revenue by region", "format: dark blue");
+        Assert.False(title.IsError, title.Text);
+        Assert.Contains("Formatted the text (text #002060)", title.Text);
+        Assert.Contains("the same words are in 1 other place, which is as before (replace_all takes those too).", title.Text);
+        Assert.Equal("002060", Colour(Runs(2, "Revenue by region").Single()));
+        Assert.Null(Colour(Runs(1, "Revenue by region and product").Single()));
+        Assert.Equal(before, await Read("deck.pptx"));
+
+        // Words inside two longer lines are still refused, now with the way to say which slide; and that way works.
+        var twice = await Edit("deck.pptx", "by region", "format: italic");
+        Assert.True(twice.IsError);
+        Assert.Contains("old_text occurs 2 times.", twice.Text);
+        Assert.Contains("put its slide's line before it as read_file shows it (\"--- slide 2 of 5 ---\")", twice.Text);
+        var onFirst = await Edit("deck.pptx", "--- slide 1 of 3 ---\nby region", "format: italic");
+        Assert.False(onFirst.IsError, onFirst.Text);
+        Assert.Equal(["Revenue ", "by region", " and product"], Runs(1, "Revenue by region and product").Select(Text));
+        Assert.Equal("1", (string?)Runs(1, "Revenue by region and product")[1].Element(A + "rPr")!.Attribute("i"));
+        Assert.All(Runs(2, "Revenue by region"), r => Assert.Null(r.Element(A + "rPr")!.Attribute("i")));
+        Assert.Contains("There is no slide 9: the deck has 3.", (await Edit("deck.pptx", "--- slide 9 of 3 ---\nby region", "format: italic")).Text);
+
+        // The same for a change of what it says, the slide's line copied into both texts.
+        var changed = await Edit("deck.pptx", "--- slide 2 of 3 ---\nSouth leads the regions", "--- slide 2 of 3 ---\nSouth leads by 6%");
+        Assert.False(changed.IsError, changed.Text);
+        var renamed = await Edit("deck.pptx", "Revenue by region", "Sales by region");
+        Assert.False(renamed.IsError, renamed.Text);
+        Assert.Contains("Replaced the text; the formatting around it is as it was. That is the line that is just this text; the same words are in 1 other place", renamed.Text);
+        var after = await Read("deck.pptx");
+        Assert.Contains("--- slide 2 of 3 ---\nSales by region\nSouth leads by 6%\n", after);
+        Assert.Contains("Revenue by region and product", after);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(after, "--- slide 2 of 3 ---"));
+        Assert.Equal("002060", Colour(Part("deck.pptx", "ppt/slides/slide2.xml").Descendants(p + "sp").First().Descendants(A + "r").First()));
+    }
+
+    [Fact]
+    public async Task A_heading_is_told_from_the_same_words_in_a_paragraph_but_a_cell_is_not()
+    {
+        Assert.False((await Write("report.docx", "# Summary\n\nThe Summary below is short.\n\n| Part | Pages |\n|---|---|\n| Summary | 2 |\n| Figures | 5 |")).IsError);
+        // The heading is the line that is just "Summary": the paragraph and the table's cell have it too.
+        var heading = await Edit("report.docx", "Summary", "format: centered, dark blue");
+        Assert.False(heading.IsError, heading.Text);
+        Assert.Contains("the same words are in 2 other places, which are as before", heading.Text);
+        var document = Part("report.docx", "word/document.xml");
+        var first = document.Descendants(W + "p").First();
+        Assert.Equal("center", (string?)first.Element(W + "pPr")!.Element(W + "jc")!.Attribute(W + "val"));
+        Assert.Single(document.Descendants(W + "color"), c => (string?)c.Attribute(W + "val") == "002060");
+        // A value alone in a cell and again in a sentence: which isn't said, so it is still refused.
+        Assert.False((await Edit("report.docx", "The Summary below is short.", "The Summary below is short: 2 pages.")).IsError);
+        var value = await Edit("report.docx", "2", "format: bold");
+        Assert.True(value.IsError);
+        Assert.Contains("old_text occurs 2 times. Include more of the text around it to make it unique, or set replace_all to format every one.", value.Text);
+    }
+
     /// <summary>
     /// Opt-in (BB_DOC_OUT): a document Word itself saved, put in the folder as word.docx (a title, a paragraph, a
     /// heading and a table with a Month row), formatted here and left as word-formatted.docx for Word to open and

@@ -100,7 +100,7 @@ internal static partial class DocumentFiles
         Save(path, bytes);
         Made.Set(path, (Hash(bytes), markdown));
         var what = $"{(append ? "Added to" : existed ? "Overwrote" : "Created")} {path}: {Describe(kind, blocks, bytes)}.";
-        return notes.Count == 0 ? what : what + " " + string.Join(" ", notes);
+        return notes.Count == 0 ? what : what + " " + string.Join(" ", notes.Distinct());
     }
 
     /// <summary>
@@ -147,6 +147,21 @@ internal static partial class DocumentFiles
                     }
                 if (documents.Count == 0)
                     throw new InvalidOperationException($"{Path.GetFileName(path)} has no text to change.");
+                // "--- slide 2 of 5 ---" before the text, as read_file shows a slide: the text on that slide and in its
+                // notes, which is how a title is told from the same words on another slide.
+                if (kind == "pptx" && SlideLine().Match(oldText.Replace("\r\n", "\n")) is { Success: true } on)
+                {
+                    var order = SlideOrder(parts, documents.Keys);
+                    var number = int.Parse(on.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    if (number < 1 || number > order.Count || order[number - 1] is not { } slide || !documents.ContainsKey(slide))
+                        throw new InvalidOperationException($"There is no slide {number}: the deck has {order.Count}.");
+                    var notes = NotesOf(parts, slide);
+                    documents = documents.Where(d => d.Key == slide || d.Key == notes).ToDictionary(d => d.Key, d => d.Value);
+                    oldText = on.Groups["rest"].Value;
+                    // The same line copied into new_text goes with it.
+                    if (SlideLine().Match(newText.Replace("\r\n", "\n")) is { Success: true } same && same.Groups[1].Value == on.Groups[1].Value)
+                        newText = same.Groups["rest"].Value;
+                }
                 // Nothing given to find, in a Word document: the new text goes at its end.
                 if (oldText.Length == 0 && documents.TryGetValue("word/document.xml", out var main))
                 {
@@ -166,9 +181,9 @@ internal static partial class DocumentFiles
                 {
                     try
                     {
-                        var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
+                        var (count, changed, within) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
                         foreach (var part in changed) parts.Changed(part);
-                        message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was.";
+                        message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was." + (within > 0 ? " " + TextEdit.Within(within) : "");
                     }
                     // Lines given after a slide's chart, as read_file shows it: no text to find, but where they go is
                     // clear, and they are the slide's text as lines after its title are.
@@ -243,6 +258,50 @@ internal static partial class DocumentFiles
         return found.Count == 1 && found[0].Title.Length > 0 ? (found[0].Slide, found[0].Title, lines) : null;
     }
 
+    /// <summary>
+    /// A deck's slides as their parts in the order it shows them, which is how read_file numbers them: a slide
+    /// moved in PowerPoint keeps its part's name. One that isn't there is null, its number kept; by the parts' own
+    /// numbers when the deck's list can't be read.
+    /// </summary>
+    private static List<string?> SlideOrder(PartSet parts, IEnumerable<string> documents)
+    {
+        var byName = documents.Where(k => SlidePart().IsMatch(k)).Cast<string?>().ToList();
+        try
+        {
+            if (!parts.Exists("ppt/presentation.xml") || !parts.Exists("ppt/_rels/presentation.xml.rels"))
+                return byName;
+            XNamespace p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+            var targets = parts.Get("ppt/_rels/presentation.xml.rels").Root!.Elements()
+                .Where(r => r.Attribute("Id") is not null && r.Attribute("Target") is not null)
+                .ToDictionary(r => (string)r.Attribute("Id")!, r => PartSet.Resolve("ppt", (string)r.Attribute("Target")!));
+            var listed = parts.Get("ppt/presentation.xml").Root!.Element(p + "sldIdLst")?.Elements(p + "sldId")
+                .Select(s => (string?)s.Attribute(OfficePackage.R + "id") is { } id && targets.TryGetValue(id, out var target) && parts.Exists(target) ? target : null).ToList();
+            return listed is { Count: > 0 } ? listed : byName;
+        }
+        catch (Exception ex) when (ex is System.Xml.XmlException or InvalidDataException or ArgumentException)
+        {
+            return byName;
+        }
+    }
+
+    /// <summary>The part of a slide's speaker notes, or null.</summary>
+    private static string? NotesOf(PartSet parts, string slide)
+    {
+        var folder = slide[..(slide.LastIndexOf('/') + 1)];
+        var rels = $"{folder}_rels/{slide[folder.Length..]}.rels";
+        if (!parts.Exists(rels))
+            return null;
+        try
+        {
+            return parts.Get(rels).Root!.Elements().FirstOrDefault(r => ((string?)r.Attribute("Type"))?.EndsWith("/notesSlide", StringComparison.Ordinal) == true)?.Attribute("Target") is { } target
+                ? PartSet.Resolve(folder.TrimEnd('/'), target.Value) : null;
+        }
+        catch (Exception ex) when (ex is System.Xml.XmlException or InvalidDataException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Writes the file through a temporary one, so a failure leaves the old one whole.</summary>
     private static void Save(string path, byte[] bytes)
     {
@@ -306,6 +365,10 @@ internal static partial class DocumentFiles
 
     [GeneratedRegex(@"^ppt/notesSlides/notesSlide(\d+)\.xml$")]
     private static partial Regex NotesPart();
+
+    // "--- slide 2 of 5 ---" as read_file shows it, and the text after it
+    [GeneratedRegex(@"^\s*-{2,}\s*slide\s+(\d{1,5})(?:\s+of\s+\d+)?\s*-{2,}[ \t]*\n(?<rest>[\s\S]*\S[\s\S]*)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SlideLine();
 }
 
 /// <summary>The XML parts of an Office file open for changing; the changed ones are written back on <see cref="Save"/>.</summary>
