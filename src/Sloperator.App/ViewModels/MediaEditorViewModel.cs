@@ -184,6 +184,8 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
         MediaFolderItem.Sync(Items, _folders.All(Root), NewItem, _folders.Versions,
             gone: gone =>
             {
+                // Picked into the box, it would go with the next message as a file that isn't there.
+                UnpickOf(gone);
                 if (ReferenceEquals(gone, Selected))
                     Selected = null;
                 OnGone(gone);
@@ -233,7 +235,8 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     private void New()
     {
         // One not made yet is the new one: every press made another empty "Untitled picture 3" beside it (2026-11-12).
-        if (Items.FirstOrDefault(i => !i.IsMade) is { } waiting)
+        // Not one a message went with already: the agent is making that one, and what is said next is another.
+        if (Items.FirstOrDefault(i => !i.IsMade && !Asked(i)) is { } waiting)
         {
             Selected = waiting;
             PickWhole();
@@ -268,7 +271,208 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
 
     private bool CanMakeAgain() => Selected is { IsMade: true };
 
+    /// <summary>The ones a message went with that the chat is still at work on: being made or changed.</summary>
+    private readonly HashSet<string> _askedFor = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A message went with <paramref name="item"/> picked: the agent is at work on it until the chat rests.</summary>
+    protected void AskedFor(TItem item) => _askedFor.Add(item.Folder);
+
+    /// <summary>Whether a message went with <paramref name="item"/> that the chat is still at work on.</summary>
+    private bool Asked(TItem item)
+    {
+        // Once the chat rests, what it was asked for is made, or isn't going to be.
+        if (Chat is { IsBusy: false })
+            _askedFor.Clear();
+        return _askedFor.Contains(item.Folder);
+    }
+
     public string MakeAgainTip => CanMakeAgain() ? "Make a new version of it, as it was made" : $"Pick a {_noun} that has been made first";
+
+    // ---- a right-click: renamed, deleted, shown in its folder ---------------------------------------
+    // As the Video editor's cards have it. Until 2026-11-13 a picture or a sound made here could only be renamed
+    // or thrown away in Explorer, in a folder the panel didn't show the way to.
+
+    /// <summary>
+    /// Whether the agent is at work on <paramref name="item"/> now: a message went with it picked and the chat
+    /// hasn't rested since, or a tool call running now names its folder. Renamed or deleted then, the work went
+    /// astray: the next version saved into a folder made anew under the old name.
+    /// </summary>
+    private bool AtWork(TItem item) => Asked(item) || Chat?.RunningCallNames(item.Folder) == true;
+
+    /// <summary>What a right-click on one in the list offers.</summary>
+    public IReadOnlyList<PanelMenuItem?> MenuFor(TItem item)
+    {
+        var free = !AtWork(item);
+        return
+        [
+            new("Rename", free, () => RenameAsked?.Invoke(item), "F2"),
+            new("Delete", free, () => Delete(item)),
+            new("Show in folder", true, () => FilePreview.ShowInFolder(item.Folder)),
+        ];
+    }
+
+    /// <summary>What a right-click on a version of the one shown offers.</summary>
+    public IReadOnlyList<PanelMenuItem?> MenuFor(VersionItem version) =>
+    [
+        new("Delete", Selected is { } item && !AtWork(item), () => Delete(version)),
+        new("Show in folder", true, () => FilePreview.ShowInFolder(version.Path)),
+    ];
+
+    /// <summary>One in the list is to be renamed: the panel shows a box with its name to type the new one in.</summary>
+    public event Action<TItem>? RenameAsked;
+
+    /// <summary>F2 on the list: the one shown is renamed. False when it can't be now.</summary>
+    public bool AskRename()
+    {
+        if (Selected is not { } item || AtWork(item))
+            return false;
+        RenameAsked?.Invoke(item);
+        return true;
+    }
+
+    /// <summary>
+    /// The name typed for <paramref name="item"/>: its folder is renamed, and it stays the one shown. The same
+    /// name, or none, changes nothing.
+    /// </summary>
+    public void Rename(TItem item, string name)
+    {
+        name = name.Trim();
+        if (name.Length == 0 || name == item.Name || AtWork(item) || !Items.Contains(item))
+            return;
+        var shown = ReferenceEquals(item, Selected);
+        UnpickOf(item);
+        // What shows a file of it lets go of it first: a folder can't be moved while a file in it is open.
+        if (shown)
+            Release();
+        string to;
+        try
+        {
+            to = Moved(item.Folder, name);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Chat?.AddNotice($"The {_noun} could not be renamed: {ex.Message}", isError: true, ex);
+            if (shown)
+                ShowVersion(Shown);
+            return;
+        }
+        Refresh();
+        if (shown && Items.FirstOrDefault(i => string.Equals(i.Folder, to, StringComparison.OrdinalIgnoreCase)) is { } renamed)
+            Selected = renamed;
+    }
+
+    /// <summary>The folder renamed, once nothing of the panel's own still reads a file in it.</summary>
+    private static string Moved(string folder, string name)
+    {
+        WaitFree(folder);
+        return MediaFolders.Rename(folder, name);
+    }
+
+    /// <summary>
+    /// Waits, a second at most, until no file of <paramref name="path"/> (a version, or a folder of them) is open:
+    /// the panel reads each for its small copy in the list and the strip as it is shown, and one deleted or moved
+    /// in that moment was refused as in use (a version deleted right after another was, 2026-11-13).
+    /// </summary>
+    private static void WaitFree(string path)
+    {
+        try
+        {
+            var until = Environment.TickCount64 + 1000;
+            foreach (var file in Directory.Exists(path) ? Directory.EnumerateFiles(path) : [path])
+                while (File.Exists(file) && Environment.TickCount64 < until)
+                {
+                    try
+                    {
+                        using (File.Open(file, FileMode.Open, FileAccess.Read, FileShare.None))
+                            break;
+                    }
+                    catch (IOException)
+                    {
+                        Thread.Sleep(25);
+                    }
+                }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Not to be read at all: the move or the delete says why.
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="item"/> to the Recycle Bin, its versions with it, as Explorer's Delete puts a folder there:
+    /// it can be brought back. The one that takes its place in the list is shown.
+    /// </summary>
+    public void Delete(TItem item)
+    {
+        if (AtWork(item) || !Items.Contains(item))
+            return;
+        var (shown, index) = (ReferenceEquals(item, Selected), Items.IndexOf(item));
+        UnpickOf(item);
+        if (shown)
+            Release();
+        if (!Binned(item.Folder) && shown)
+            ShowVersion(Shown);
+        Refresh();
+        if (shown && !Items.Contains(item) && Items.Count > 0)
+            Selected = Items[Math.Min(index, Items.Count - 1)];
+    }
+
+    /// <summary>
+    /// A version of the one shown to the Recycle Bin; the one after it is shown, or the one before the last. The
+    /// only version takes the picture or sound with it: one deleted down to nothing isn't kept as "not made yet".
+    /// </summary>
+    public void Delete(VersionItem version)
+    {
+        if (Selected is not { } item || AtWork(item) || !Versions.Contains(version))
+            return;
+        if (Versions.Count == 1)
+        {
+            Delete(item);
+            return;
+        }
+        var index = Versions.IndexOf(version);
+        // Another version shown stays the one shown.
+        var stays = ReferenceEquals(version, Shown) ? null : Shown?.Path;
+        UnpickOf(item);
+        if (stays is null)
+            Release();
+        if (!Binned(version.Path))
+        {
+            if (stays is null)
+                ShowVersion(Shown);
+            return;
+        }
+        Refresh();
+        if (!ReferenceEquals(item, Selected) || Versions.Count == 0)
+            return;
+        var next = stays is not null ? Versions.FirstOrDefault(v => v.Path == stays) : null;
+        ShowVersion(next ?? Versions[Math.Min(index, Versions.Count - 1)]);
+    }
+
+    /// <summary>A folder or file to the Recycle Bin; false, and said in the chat, when it couldn't go.</summary>
+    private bool Binned(string path)
+    {
+        try
+        {
+            WaitFree(path);
+            Recycle(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            Chat?.AddNotice($"The {_noun} could not be deleted: {ex.Message}", isError: true, ex);
+            return false;
+        }
+    }
+
+    /// <summary>How a folder or file is deleted: to the Recycle Bin. A test's own way in its place, which has no bin to fill.</summary>
+    public Action<string> Recycle { get; set; } = RecycleBin.Put;
+
+    /// <summary>What holds a file of the one shown open lets go of it (a sound's player), before its folder is renamed or deleted.</summary>
+    protected virtual void Release() { }
+
+    /// <summary>What is picked of <paramref name="item"/> leaves the box: it is renamed, deleted or gone, and the pick names files that aren't there any more.</summary>
+    protected abstract void UnpickOf(TItem item);
 
     // ---- what is picked, into the chat's box ------------------------------------------------------
 
@@ -300,7 +504,11 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
 
     public abstract void Sent();
 
-    /// <summary>Files of the panel's kind dropped on it go into a new one as its first versions.</summary>
+    /// <summary>
+    /// Files of the panel's kind dropped on it: each a new one, named as its file, the file its first version; the
+    /// first of them is shown. Until 2026-11-13 all of them went into one "Untitled picture" as its versions, so
+    /// three photos dropped were one picture's three versions, under a name that said nothing.
+    /// </summary>
     public bool Drop(IReadOnlyList<string> paths)
     {
         var files = paths.Where(p => File.Exists(p) && _folders.IsVersionFile(p)).ToList();
@@ -308,11 +516,15 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
             return false;
         try
         {
-            var folder = _folders.New(Root);
+            string? first = null;
             foreach (var p in files)
+            {
+                var folder = _folders.New(Root, Path.GetFileNameWithoutExtension(p));
+                first ??= folder;
                 File.Copy(p, Path.Combine(folder, Path.GetFileName(p)));
+            }
             Refresh();
-            if (Items.FirstOrDefault(i => i.Folder == folder) is { } item)
+            if (Items.FirstOrDefault(i => i.Folder == first) is { } item)
                 Selected = item;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

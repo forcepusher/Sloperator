@@ -641,8 +641,40 @@ of the foot bar is on (see below). The bar has the picture
 and version ("Untitled picture · version 2 of 2"), **New picture** (a folder "Untitled picture", "Untitled picture
 2"…, `PictureFolder.New`, picked so what the user says next is what it shows) and **Make again** (the panel's own
 message, "Make this picture again as a new version.", sent with the pick as Make the video is; greyed with a tip
-until a picture that has a version is picked). Pictures dropped on the panel start a picture with them as its
-versions.
+until a picture that has a version is picked). Pictures dropped on the panel are each a picture of its own, named
+as its file (`MediaFolders.New(root, name)`: "harbour", "harbour 2" when taken), the first of them shown; until
+2026-11-13 all of them went into one "Untitled picture" as its versions, so three photos dropped were one picture's
+three versions.
+
+**Rename, Delete, Show in folder** (2026-11-13, for the Audio editor too: both are `MediaEditorViewModel`'s). A
+picture or a sound made here could only be renamed or thrown away in Explorer, in a folder the panel didn't show the
+way to. A right-click on one in the list offers Rename (F2 on the list too; a box over its name, as Explorer's and
+the Video editor's, `PanelMenu.AskName`), Delete and Show in folder, then the file's own entries for its newest
+version (Open in Inspector, Copy image or Copy file); a right-click on a version's button offers Delete and Show in
+folder, then the file's entries. Rename renames the folder (`MediaFolders.Rename`, the name made safe as
+`Storyboard.Safe` makes a video's; a name another has is refused and said in the chat) and the renamed one stays
+shown. Delete puts the folder, or the version's file, in the Recycle Bin (`RecycleBin.Put`, the Video editor's way,
+now shared), with no question, as Explorer's Delete: the one that takes its place in the list is shown; after a
+version, the one after it, and another version shown stays shown. The only version takes the picture with it: one
+deleted down to nothing isn't kept as "not made yet". Versions are numbered by their place, so the ones after a
+deleted one move down a number. No Delete key: in the Audio editor it cuts the stretch picked, and a whole picture
+gone at one key is too much. What made these safe to add:
+- *The agent at work.* Rename and Delete are greyed for one the agent is at work on (`AtWork`): a message went with
+  it picked and the chat hasn't rested since (`AskedFor`, forgotten once `IsBusy` is off), or a tool call running
+  now names its folder (`MainWindowViewModel.RunningCallNames`). Renamed then, the next version was saved into a
+  folder made anew under the old name.
+- *The pick.* What is picked of it leaves the box first (`UnpickOf`): the pick names files of the old folder. The
+  same when a folder goes outside the app (`Refresh`'s gone).
+- *Files held.* The Audio editor's player lets go of the sound shown (`Release`), and the panel's own reads are
+  waited for, a second at most (`WaitFree`): each version is read for its small copy as it is listed, and a version
+  deleted in that moment was refused as in use (found by the test that deletes two in a row).
+The menu's record and its opening are the Video editor's, moved out to be shared: `PanelMenuItem` (was
+`VideoMenuItem`), `PanelMenu.Open/Entries/AskName`, `MediaEditorMenus.Attach` for the two panels' lists and strips.
+
+**New picture, with one being made** (2026-11-13). New picks the one not made yet again rather than make a second
+empty one (2026-11-12), which was wrong for one a message had gone with: the agent was making it, and what the user
+said next was saved into the same folder as its version 2. One the chat is at work on (`Asked`) is left be, and New
+starts another.
 
 **Streamlined** (the user, 2026-11-12: "Take a closer look at image editor as well and stream line user experience
 there. Besides, is it even worth having an entirely separate prompt metadata window?"). Two things stood between
@@ -710,6 +742,11 @@ the screen, the real mouse's moves came in between while the box held the pointe
 pointer stood with every one; a pen or a finger on the picture beside a mouse would have done the same. That also
 means the brush can't be tried with posted messages: the headless test presses the mouse through Avalonia
 (`With_the_brush_a_drag_over_the_picture_paints_and_without_it_marks_a_box`).
+Tried with the real mouse on the screen the day after (2026-11-13, `.dev/night-test/mouse.ps1`, which brings the
+window onto the screen and moves the real pointer): the ring follows the pointer, a curved stroke is the curve drawn,
+Ctrl and the wheel size the brush and move the slider, painting zoomed in lands where painted, Ctrl+Z takes the last
+stroke back, Esc all of them, and a box marked after strokes takes their place. One thing changed for it: the ring
+was a 1 px yellow line, lost on a bright sky or a white page, and now has a dark line under it (`BrushRingUnder`).
 
 **sloperator/redraw_area** (`ComfyBuiltins`, next to image_to_image): LoadImage the picture, LoadImageMask the
 mask (its red channel), VAEEncode, SetLatentNoiseMask, the model through DifferentialDiffusion, KSampler at
@@ -766,7 +803,9 @@ its box over both lines, which stay where they are when it opens; and what the e
 player's line, at its right: the stretch picked in yellow, else "Drag over a stretch to edit it or ask about it".
 The waveform has the whole width (800 px of the same panel). At the panel's least width, 760, the six buttons end
 22 px short of the edge. The bar has the sound and version, **New sound** ("Untitled sound", picked) and **Make again**
-("Make this sound again as a new version.", sent with the pick). Sound files dropped on the panel start a sound. The
+("Make this sound again as a new version.", sent with the pick). Sound files dropped on the panel are each a sound
+of its own, named as its file; Rename, Delete and Show in folder are a right-click away, as in the Image editor (see
+there). The
 version on screen stays shown, stopped, until the next is read, so an edit doesn't blink the room empty, and the edits
 wait until the version shown is the one read. Space plays, Delete cuts the stretch picked, Esc lets go of a pick; on
 the waveform the arrows, Home and End move the playhead as in the File inspector.

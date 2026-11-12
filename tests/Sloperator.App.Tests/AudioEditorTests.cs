@@ -106,6 +106,43 @@ public sealed class AudioEditorTests : IDisposable
     }
 
     [Fact]
+    public void A_sound_shown_is_renamed_and_a_version_of_it_deleted()
+    {
+        var folder = Path.Combine(Root, "Untitled sound");
+        Directory.CreateDirectory(folder);
+        Wav(Path.Combine(folder, "a.wav"), 10);
+        Wav(Path.Combine(folder, "b.wav"), 5, seconds: 1);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new AudioEditorViewModel(null, Previews(), Root, Picks);
+            var sound = Assert.Single(vm.Items);
+            Assert.Equal(["Rename", "Delete", "Show in folder"], vm.MenuFor(sound).Select(m => m!.Header));
+            vm.Pick(sound);
+            Wait(() => vm.HasSound);
+
+            // Renamed while its newest version is shown and picked: the folder moves, the pick leaves the box, and
+            // the sound is shown again from where it is now.
+            vm.Rename(sound, "Rain on a roof");
+            var renamed = Path.Combine(Root, "Rain on a roof");
+            Assert.False(Directory.Exists(folder));
+            Assert.Equal(renamed, vm.Selected!.Folder);
+            Assert.Null(vm.About([Path.Combine(folder, "b.wav")]));
+            Wait(() => vm.HasSound);
+            Assert.Equal("Rain on a roof · version 2 of 2", vm.Title);
+            Assert.StartsWith(renamed, vm.Sound!.Path);
+
+            // The version shown deleted: the one left is shown.
+            vm.Recycle = File.Delete;
+            vm.Delete(vm.Versions[1]);
+            Assert.Equal("Rain on a roof · version 1 of 1", vm.Title);
+            Wait(() => vm.HasSound);
+            Assert.EndsWith("a.wav", vm.Sound!.Path);
+            Assert.Equal(["a.wav"], Directory.GetFiles(renamed).Select(Path.GetFileName));
+            return 0;
+        });
+    }
+
+    [Fact]
     public void Edits_are_new_versions_and_a_stretch_stays_picked_through_one_that_keeps_the_length()
     {
         var folder = Path.Combine(Root, "Rain");

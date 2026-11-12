@@ -31,6 +31,29 @@ public sealed class PictureFolderTests : IDisposable
     }
 
     [Fact]
+    public void A_new_picture_can_have_a_name_from_the_start_and_one_is_renamed_with_its_versions()
+    {
+        // Named as a file dropped on the panel is: safe as a folder's name, numbered when taken.
+        var harbour = PictureFolder.Folders.New(_dir, "harbour");
+        Assert.Equal("harbour", Path.GetFileName(harbour));
+        Assert.Equal("harbour 2", Path.GetFileName(PictureFolder.Folders.New(_dir, "harbour")));
+        Assert.Equal("a_b", Path.GetFileName(PictureFolder.Folders.New(_dir, "a:b")));
+        Assert.Equal("Untitled picture", Path.GetFileName(PictureFolder.Folders.New(_dir, " .. ")));
+
+        var a = Write(harbour, "a.png", -5);
+        var renamed = MediaFolders.Rename(harbour, " Harbour at night ");
+        Assert.Equal(Path.Combine(_dir, "Harbour at night"), renamed);
+        Assert.False(Directory.Exists(harbour));
+        Assert.Equal([Path.Combine(renamed, Path.GetFileName(a))], PictureFolder.Versions(renamed));
+        // A name another has is refused, and nothing moves; its own name, or none, is no change.
+        var taken = Assert.Throws<IOException>(() => MediaFolders.Rename(renamed, "harbour 2"));
+        Assert.Contains("harbour 2", taken.Message);
+        Assert.True(Directory.Exists(renamed));
+        Assert.Equal(renamed, MediaFolders.Rename(renamed, "Harbour at night"));
+        Assert.Equal(renamed, MediaFolders.Rename(renamed, "  "));
+    }
+
+    [Fact]
     public void The_mask_is_white_in_the_box_black_outside_and_soft_at_its_edge()
     {
         var mask = Path.Combine(_dir, "mask.png");

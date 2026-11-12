@@ -79,6 +79,152 @@ public sealed class ImageEditorTests : IDisposable
     }
 
     [Fact]
+    public void New_picture_after_one_was_asked_for_starts_another()
+    {
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            vm.NewCommand.Execute(null);
+            var first = Assert.Single(vm.Items);
+            // The message went with it: the agent is making it, so what is said next is another picture. Before, New
+            // picked the same one again, and the second thing asked for was saved into the first's folder.
+            vm.Sent();
+            vm.NewCommand.Execute(null);
+            Assert.Equal(2, vm.Items.Count);
+            Assert.NotSame(first, vm.Selected);
+            Assert.NotNull(vm.About([vm.Selected!.Folder]));
+            // Nor is one the agent is at work on renamed or deleted from under it.
+            Assert.All(vm.MenuFor(first).Where(m => m is { Header: "Rename" or "Delete" }), m => Assert.False(m!.Enabled));
+            Assert.All(vm.MenuFor(vm.Selected).Where(m => m is { Header: "Rename" or "Delete" }), m => Assert.True(m!.Enabled));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_picture_is_renamed_from_its_menu_and_stays_the_one_shown()
+    {
+        var folder = Path.Combine(Root, "Untitled picture");
+        Directory.CreateDirectory(folder);
+        Png(Path.Combine(folder, "a.png"), 10);
+        Png(Path.Combine(folder, "b.png"), 5);
+        Directory.CreateDirectory(Path.Combine(Root, "Taken"));
+        Png(Path.Combine(Root, "Taken", "t.png"), 60);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var picture = vm.Items.Single(i => i.Folder == folder);
+            Assert.Equal(["Rename", "Delete", "Show in folder"], vm.MenuFor(picture).Select(m => m!.Header));
+            PictureItem? asked = null;
+            vm.RenameAsked += item => asked = item;
+            vm.MenuFor(picture)[0]!.Do();
+            Assert.Same(picture, asked);
+
+            // Picked into the box, then renamed: the pick named files of the old folder, and leaves the box.
+            vm.Pick(picture);
+            Wait(() => vm.HasPicture);
+            vm.Rename(picture, "  Lighthouse at dusk ");
+            var renamed = Path.Combine(Root, "Lighthouse at dusk");
+            Assert.False(Directory.Exists(folder));
+            Assert.Equal(2, Directory.GetFiles(renamed).Length);
+            Assert.Equal(renamed, vm.Selected!.Folder);
+            Assert.Equal("Lighthouse at dusk · version 2 of 2", vm.Title);
+            Assert.Null(vm.About([Path.Combine(folder, "b.png")]));
+            Wait(() => vm.HasPicture);
+
+            // A name another has, the same name and no name change nothing.
+            var now = vm.Selected;
+            vm.Rename(now, "Taken");
+            vm.Rename(now, "Lighthouse at dusk");
+            vm.Rename(now, "   ");
+            Assert.True(Directory.Exists(renamed));
+            Assert.Same(now, vm.Selected);
+            Assert.Single(Directory.GetFiles(Path.Combine(Root, "Taken")));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_version_or_a_picture_deleted_goes_to_the_bin_and_the_next_is_shown()
+    {
+        var folder = Path.Combine(Root, "Lighthouse");
+        Directory.CreateDirectory(folder);
+        foreach (var (name, ago) in new[] { ("a.png", 30), ("b.png", 20), ("c.png", 10) })
+            Png(Path.Combine(folder, name), ago);
+        Directory.CreateDirectory(Path.Combine(Root, "Boat"));
+        Png(Path.Combine(Root, "Boat", "x.png"), 60);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            // No Recycle Bin is filled by a test: what would go there is deleted, and noted.
+            var binned = new List<string>();
+            vm.Recycle = path =>
+            {
+                binned.Add(path);
+                if (Directory.Exists(path))
+                    Directory.Delete(path, recursive: true);
+                else
+                    File.Delete(path);
+            };
+            var picture = vm.Items[0];
+            Assert.Equal("Lighthouse", picture.Name);
+            vm.Pick(picture, vm.Versions[1]);
+            Assert.Equal(["Delete", "Show in folder"], vm.MenuFor(vm.Versions[1]).Select(m => m!.Header));
+
+            // The version shown, the middle one: it goes, the pick of it with it, and the one after it is shown as 2.
+            vm.Delete(vm.Versions[1]);
+            Assert.Equal([Path.Combine(folder, "b.png")], binned);
+            Assert.Equal(2, vm.Versions.Count);
+            Assert.True(vm.Versions[1].IsShown);
+            Assert.EndsWith("c.png", vm.Shown!.Path);
+            Assert.Equal("Lighthouse · version 2 of 2", vm.Title);
+            Assert.Null(vm.About([Path.Combine(folder, "b.png")]));
+
+            // Another than the one shown: the one shown stays.
+            vm.Delete(vm.Versions[0]);
+            Assert.EndsWith("c.png", vm.Shown!.Path);
+            Assert.Equal("Lighthouse · version 1 of 1", vm.Title);
+
+            // The only version takes the picture with it; the next in the list is shown.
+            vm.Delete(vm.Versions[0]);
+            Assert.Equal(folder, binned[^1]);
+            Assert.False(Directory.Exists(folder));
+            Assert.Equal("Boat", Assert.Single(vm.Items).Name);
+            Assert.Equal("Boat", vm.Selected!.Name);
+
+            // A picture from its menu: the folder goes, and the panel is empty.
+            vm.MenuFor(vm.Selected).Single(m => m!.Header == "Delete")!.Do();
+            Assert.Empty(vm.Items);
+            Assert.Null(vm.Selected);
+            Assert.False(vm.HasPicture);
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void Pictures_dropped_on_the_panel_are_each_a_picture_named_as_its_file()
+    {
+        var from = Path.Combine(_dir, "from");
+        Directory.CreateDirectory(from);
+        Png(Path.Combine(from, "harbour.png"), 3);
+        Png(Path.Combine(from, "old boat.png"), 2);
+        File.WriteAllText(Path.Combine(from, "notes.txt"), "not a picture");
+        Directory.CreateDirectory(Path.Combine(Root, "harbour"));
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            Assert.False(vm.Drop([Path.Combine(from, "notes.txt")]));
+            Assert.True(vm.Drop([Path.Combine(from, "harbour.png"), Path.Combine(from, "notes.txt"), Path.Combine(from, "old boat.png")]));
+            // Each its own, by its file's name ("harbour" was taken); the first dropped is the one shown.
+            Assert.Equal(["harbour", "harbour 2", "old boat"], vm.Items.Select(i => i.Name).Order());
+            Assert.Equal("harbour 2", vm.Selected!.Name);
+            Assert.Equal("1 version", vm.Selected.Count);
+            Assert.True(File.Exists(Path.Combine(Root, "old boat", "old boat.png")));
+            Wait(() => vm.HasPicture);
+            return 0;
+        });
+    }
+
+    [Fact]
     public void Versions_are_listed_the_newest_shown_and_a_picked_one_told_with_the_rest()
     {
         var folder = Path.Combine(Root, "Lighthouse");

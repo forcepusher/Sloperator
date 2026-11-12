@@ -387,6 +387,12 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         RaiseUnpicked();
     }
 
+    protected override void UnpickOf(PictureItem item)
+    {
+        if (ReferenceEquals(_pick?.Picture, item))
+            Unpick();
+    }
+
     /// <summary>
     /// What a message sent with a pick carries: over its bubble the picture and what of it; for the model, the
     /// picture's folder and versions, and how to make the next one there (the comfyui tool's save_to), or for a
@@ -429,6 +435,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
     {
         if (_pick is null)
             return;
+        AskedFor(_pick.Picture);
         _pick = null;
         Mark = null;
         Strokes = null;
