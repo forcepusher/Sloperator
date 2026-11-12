@@ -869,7 +869,10 @@ gone at one key is too much. What made these safe to add:
   same when a folder goes outside the app (`Refresh`'s gone).
 - *Files held.* The Audio editor's player lets go of the sound shown (`Release`), and the panel's own reads are
   waited for, a second at most (`WaitFree`): each version is read for its small copy as it is listed, and a version
-  deleted in that moment was refused as in use (found by the test that deletes two in a row).
+  deleted in that moment was refused as in use (found by the test that deletes two in a row). Since the same night
+  the Image editor reads a picture into memory before drawing it, and the prompt metadata is read with the file
+  open to deletes and moves (`MediaFolders.ReadShared`, `MediaRecipe.Read`): that test still failed now and then
+  when the PC was busy, a picture's decoding holding its file past the second.
 The menu's record and its opening are the Video editor's, moved out to be shared: `PanelMenuItem` (was
 `VideoMenuItem`), `PanelMenu.Open/Entries/AskName`, `MediaEditorMenus.Attach` for the two panels' lists and strips.
 

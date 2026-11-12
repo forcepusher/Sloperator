@@ -87,7 +87,7 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
     {
         try
         {
-            using var file = File.OpenRead(path);
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var bytes = Head(file);
             if (IsPng(bytes))
             {
@@ -114,7 +114,7 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
     {
         try
         {
-            using var file = File.OpenRead(path);
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var bytes = Head(file);
             if (IsPng(bytes))
                 return PngTexts(bytes).TryGetValue("prompt", out var prompt) && ParseObject(prompt) is { } graph && IsApiPrompt(graph) ? graph : null;
