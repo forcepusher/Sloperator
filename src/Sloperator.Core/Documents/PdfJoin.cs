@@ -43,9 +43,15 @@ internal static partial class PdfJoin
     }
 
     /// <summary>The PDF of <paramref name="parts"/> joined in order, and what went into it ("lease.pdf: 1 page; inventory.pdf: pages 2-3").</summary>
-    public static (byte[] Bytes, int Pages, string Said) Build(IReadOnlyList<Part> parts)
+    /// <param name="toPdf">
+    /// Turns a Word, Excel or PowerPoint file into a PDF as it prints, its path; null where nothing can. Asked for a
+    /// report as a PDF (2026-11-13), Haiku and Sonnet drove Word through PowerShell, which a PC with only LibreOffice
+    /// doesn't have; capture_result already turned such files into pages either way.
+    /// </param>
+    public static (byte[] Bytes, int Pages, string Said) Build(IReadOnlyList<Part> parts, Func<string, string>? toPdf = null)
     {
         var opened = new Dictionary<string, PdfDocument>(StringComparer.OrdinalIgnoreCase);
+        var made = new List<string>();
         try
         {
             using var builder = new PdfDocumentBuilder();
@@ -58,9 +64,15 @@ internal static partial class PdfJoin
                     throw new InvalidOperationException($"There is no {part.File} to take pages from.");
                 if (!opened.TryGetValue(part.File, out var document))
                 {
+                    var file = part.File;
+                    if (!Path.GetExtension(file).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        file = (toPdf ?? throw new InvalidOperationException($"Nothing on this PC turns {name} into pages."))(part.File);
+                        made.Add(file);
+                    }
                     try
                     {
-                        opened[part.File] = document = PdfDocument.Open(part.File);
+                        opened[part.File] = document = PdfDocument.Open(file);
                     }
                     catch (Exception ex) when (ex is not (OutOfMemoryException or IOException or UnauthorizedAccessException))
                     {
@@ -81,6 +93,9 @@ internal static partial class PdfJoin
         {
             foreach (var document in opened.Values)
                 document.Dispose();
+            foreach (var file in made)
+                try { File.Delete(file); }
+                catch (IOException) { }
         }
     }
 
@@ -106,8 +121,8 @@ internal static partial class PdfJoin
         return numbers;
     }
 
-    // "pages: C:\Users\me\lease.pdf", "pages: scan of the lease.pdf 2-5, 8", "Pages: "C:\a b.pdf" 3-"
-    [GeneratedRegex(@"^pages\s*:\s*(?<path>.+?\.pdf[""']?)(?:\s+(?:pages?\s+)?(?<pages>[0-9][0-9,\-\s]*))?$", RegexOptions.IgnoreCase)]
+    // "pages: C:\Users\me\lease.pdf", "pages: scan of the lease.pdf 2-5, 8", "Pages: "C:\a b.pdf" 3-", "pages: report.docx"
+    [GeneratedRegex(@"^pages\s*:\s*(?<path>.+?\.(?:pdf|docx|docm|doc|rtf|odt|xlsx|xlsm|xls|ods|pptx|pptm|ppt|odp)[""']?)(?:\s+(?:pages?\s+)?(?<pages>[0-9][0-9,\-\s]*))?$", RegexOptions.IgnoreCase)]
     private static partial Regex PagesLine();
 
     [GeneratedRegex(@"^(?<a>[0-9]{1,6})?\s*(?<dash>-)?\s*(?<b>[0-9]{1,6})?$")]

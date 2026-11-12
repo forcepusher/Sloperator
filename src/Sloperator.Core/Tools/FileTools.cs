@@ -221,7 +221,7 @@ public sealed class WriteFileTool : Tool
         "A line \"chart: bar Sales by month\" under a table draws it as a chart (bar, line, pie or area; the first column its labels), " +
         "\"chart: line A1:A13,E1:E13 Totals\" only those cells. " +
         "In .pptx a line --- starts the next slide, and a slide's first heading is its title; a chart: line under a table makes it a chart. " +
-        "A .pdf of lines \"pages: C:\\a.pdf\", \"pages: C:\\b.pdf 2-5,8\" is those pages of other PDFs, joined. " +
+        "A .pdf of lines \"pages: C:\\a.pdf\", \"pages: C:\\b.pdf 2-5,8\" is those pages of other PDFs, joined; \"pages: C:\\report.docx\" makes a Word, Excel or PowerPoint file a PDF as it prints. " +
         "An .svg is shown to the user as the picture it draws: write a design mockup as one. " +
         "To change an existing document, use edit_file, which keeps its formatting.";
     public override ToolRisk Risk => ToolRisk.Risky;
@@ -249,7 +249,16 @@ public sealed class WriteFileTool : Tool
             try
             {
                 // A document made for the user gets a card in the chat, to open or find.
-                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath), Files: [path]);
+                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath, document =>
+                {
+                    // A Word, Excel or PowerPoint file in a "pages:" line, as it prints: through Office or LibreOffice, as capture_result draws it.
+                    var convert = Documents.DocumentPictures.Converter ?? throw new InvalidOperationException($"Nothing on this PC turns {Path.GetFileName(document)} into pages.");
+                    var scratch = ctx.ScratchDirectory ?? Path.GetTempPath();
+                    Directory.CreateDirectory(scratch);
+                    var pdf = Path.Combine(scratch, $"pages-{Guid.NewGuid():N}.pdf");
+                    convert(document, pdf, ctx.ToolsDirectory, ct);
+                    return pdf;
+                }), Files: [path]);
             }
             catch (InvalidOperationException ex)
             {

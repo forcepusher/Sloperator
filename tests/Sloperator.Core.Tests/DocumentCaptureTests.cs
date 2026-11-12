@@ -129,6 +129,38 @@ public sealed class DocumentCaptureTests : IDisposable
         Assert.Contains("Microsoft Office or LibreOffice", (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["file"] = budget }))).Message);
     }
 
+    [Fact]
+    public async Task A_word_file_in_a_pages_line_is_made_a_pdf_through_the_converter()
+    {
+        // As asked of Haiku and Sonnet (2026-11-13), who drove Word through PowerShell for it: the report as a PDF,
+        // then joined with a lease. The converter (Office or LibreOffice) is faked: it writes a PDF of two pages.
+        var asked = new List<string>();
+        DocumentPictures.Converter = (source, pdf, _, _) =>
+        {
+            asked.Add(source);
+            DocumentFiles.Write(pdf, "# Report\n\nPage one.\n\n\\newpage\n\n# Second\n\nPage two.", append: false, p => p);
+        };
+        var report = Path.Combine(_dir, "report.docx");
+        File.WriteAllText(report, "not read: the fake converter writes its own");
+        Assert.False((await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "lease.pdf", ["content"] = "Lease one" }, Ctx(), CancellationToken.None)).IsError);
+        var ctx = Ctx();
+        var result = await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "pack.pdf", ["content"] = "pages: report.docx\npages: lease.pdf" }, ctx, CancellationToken.None);
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("pack.pdf: a PDF of 3 pages (report.docx: 2 pages; lease.pdf: 1 page).", result.Text);
+        Assert.Equal([report], asked);
+        // The PDF made on the way goes; the report is as it was.
+        Assert.Empty(Directory.EnumerateFiles(ctx.ScratchDirectory!, "*.pdf"));
+        Assert.Equal("not read: the fake converter writes its own", File.ReadAllText(report));
+
+        // Some of its pages, and why it can't when nothing on the PC can.
+        Assert.Contains("(report.docx: page 2 of 2)", (await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "second.pdf", ["content"] = "pages: report.docx 2" }, ctx, CancellationToken.None)).Text);
+        DocumentPictures.Converter = (_, _, _, _) => throw new DocumentPictures.NoProgramException("No program on this PC turns report.docx into pages: Microsoft Office or LibreOffice does.");
+        var none = await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "third.pdf", ["content"] = "pages: report.docx" }, ctx, CancellationToken.None);
+        Assert.True(none.IsError);
+        Assert.Contains("Microsoft Office or LibreOffice", none.Text);
+        Assert.False(File.Exists(Path.Combine(_dir, "third.pdf")));
+    }
+
 #if WINDOWS
     /// <summary>
     /// Opt-in (set BB_OFFICE_TESTS=1, starts Word and Excel hidden for a few seconds): the real Office
