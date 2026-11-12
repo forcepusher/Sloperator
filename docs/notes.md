@@ -385,6 +385,7 @@ it keeping only its layout relationship, everything on it taken off but the titl
 "Next steps" slide with two bullets after the chart slide, Haiku had tried "---" inside edit_file and then "insert
 slide 3" with the lines under it, 89 s, 22 calls, 6 errors, before looking for python-pptx; Sonnet wrote the slide's
 XML by hand. Checked in PowerPoint 16 on a deck it made: the slide in the deck's Title and Content layout, bulleted.
+After, the same ask: Haiku 9 s and Sonnet 8 s, one edit_file each ("add slide after 2" and the lines), no errors.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
 is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
 says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell
