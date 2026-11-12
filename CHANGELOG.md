@@ -152,6 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Deleting a picture's version in the Image editor while its small copy was still being drawn could fail on a busy
+  PC: pictures are read into memory before they are drawn, and never keep their file from being deleted or moved.
 - In a workbook of several sheets, the agent can no longer insert or delete rows without saying on which sheet: a row
   of the first sheet was deleted when another sheet's was meant.
 - A chart of a table with a total row under it no longer draws the total as one more slice or bar, and a bar chart's

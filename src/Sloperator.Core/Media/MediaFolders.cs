@@ -94,6 +94,20 @@ public sealed class MediaFolders(string untitled, params string[] types)
     }
 
     /// <summary>
+    /// A file's bytes in memory, read without keeping others out of it (deleting or moving it too): a picture decoded
+    /// straight from its file held it for as long as decoding took, and a version deleted while its thumbnail was
+    /// drawn couldn't go to the Recycle Bin when the PC was busy (2026-11-13).
+    /// </summary>
+    public static MemoryStream ReadShared(string path)
+    {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var memory = new MemoryStream(file.CanSeek ? (int)Math.Min(file.Length, int.MaxValue) : 0);
+        file.CopyTo(memory);
+        memory.Position = 0;
+        return memory;
+    }
+
+    /// <summary>
     /// <paramref name="name"/> as a folder's name: no character Windows forbids, not a device's name
     /// (<see cref="Video.Storyboard.Safe"/>); <paramref name="otherwise"/> for one of nothing but spaces and dots.
     /// </summary>
