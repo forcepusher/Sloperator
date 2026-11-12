@@ -634,13 +634,28 @@ after writing rests (`Refresh`), and a new version of the picture shown is shown
 "2 versions" or "not made yet"; the one shown grey, as the Code editor's tree); the version shown big in a
 `ZoomBox` (the wheel zooms, a right drag pans), its versions under it as small buttons in a foot bar (the one
 shown lighter, the others' numbers muted: not the yellow of a toggle that is on, which read as picked); and
-beside it in a 260 column how that version was made, `MediaRecipe.Read` shown by the File inspector's
-`RecipeView` (prompts with Copy, then the settings: ComfyUI's PNGs carry their workflow). The bar has the picture
+how that version was made, `MediaRecipe.Read` shown by the File inspector's `RecipeView` (prompts with Copy,
+then the settings: ComfyUI's PNGs carry their workflow), under the picture when **Prompt metadata** at the right
+of the foot bar is on (see below). The bar has the picture
 and version ("Untitled picture · version 2 of 2"), **New picture** (a folder "Untitled picture", "Untitled picture
 2"…, `PictureFolder.New`, picked so what the user says next is what it shows) and **Make again** (the panel's own
 message, "Make this picture again as a new version.", sent with the pick as Make the video is; greyed with a tip
 until a picture that has a version is picked). Pictures dropped on the panel start a picture with them as its
 versions.
+
+**Streamlined** (the user, 2026-11-12: "Take a closer look at image editor as well and stream line user experience
+there. Besides, is it even worth having an entirely separate prompt metadata window?"). Two things stood between
+opening the panel and looking at a picture. It opened on "Pick a picture", with none shown, beside the list of
+them: now one is always shown when there is any, the one changed last, and the next one when that goes
+(`MediaEditorViewModel.Refresh`, so the Audio editor opens on its newest sound too); shown is not picked, which
+still takes a click. And Prompt metadata had a column of its own, 260 of the panel's width beside every picture,
+for what is looked at now and then (the seed, a prompt to copy): the picture got 470 px of a 1070 px panel. It is
+the File inspector's button now, at the right of the foot bar, off until pressed (`ShowRecipe`; greyed, with why,
+for a version that doesn't say how it was made), and its box is the File inspector's too: under the picture, over
+the bar, at most half the height. The picture has the whole width (640 px of the same panel). The bar's line on
+what a click and a drag do showed only with no picture shown, so it moved to the foot bar ("Click to ask about
+it, drag to redraw a part", the whole of it on hover). The Audio editor keeps Prompt metadata under its Edit
+buttons: that column is there for the buttons, and the room under them was free.
 
 **Picks** (through `MainWindowViewModel.Pick`, no card otherwise): a click on a picture or a version picks the
 version shown ("Version 2 · Lighthouse"; a picture not made yet as "New · Untitled picture", its folder the

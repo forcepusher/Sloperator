@@ -6,7 +6,7 @@ using Sloperator.App.ViewModels;
 
 namespace Sloperator.App.Views;
 
-/// <summary>The Image editor panel, on the left of the chat window: the pictures, the one picked big with its versions, and how it was made.</summary>
+/// <summary>The Image editor panel, on the left of the chat window: the pictures, the one shown big with its versions, and how it was made under it when asked for.</summary>
 public partial class ImageEditorPanel : UserControl
 {
     public ImageEditorPanel()
@@ -17,6 +17,8 @@ public partial class ImageEditorPanel : UserControl
         // A click on a picture in the list picks it, as a click on a clip does in the Video editor.
         List.AddHandler(TappedEvent, OnListTapped);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        // Prompt metadata takes at most half the room under the bar, as under a file in the File inspector.
+        Middle.SizeChanged += (_, e) => RecipeBox.MaxHeight = Math.Max(120, e.NewSize.Height / 2);
     }
 
     private void OnListTapped(object? sender, TappedEventArgs e)

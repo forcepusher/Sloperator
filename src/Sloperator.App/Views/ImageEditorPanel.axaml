@@ -50,7 +50,7 @@
       </DockPanel>
     </Border>
 
-    <Grid ColumnDefinitions="180,4,*,4,260">
+    <Grid ColumnDefinitions="180,4,*">
       <!-- The pictures, the one changed last first: its newest version small, its name, how many versions. -->
       <Panel Grid.Column="0">
         <TextBlock Classes="muted" IsVisible="{Binding !HasItems}" Text="No pictures yet" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -72,11 +72,20 @@
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <!-- The version shown big (a drag marks a part to redraw, a click picks it whole), its versions under it. -->
-      <DockPanel Grid.Column="2">
+      <DockPanel x:Name="Middle" Grid.Column="2">
         <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
           <DockPanel views:TabOrder.LeftToRight="True">
             <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <ItemsControl x:Name="VersionList" ItemsSource="{Binding Versions}">
+            <!-- Prompt metadata: how the version shown was made, under it, as the File inspector's button shows a
+                 file's. Always there, greyed for a version that doesn't say. -->
+            <ToggleButton DockPanel.Dock="Right" Classes="ghost small" IsEnabled="{Binding HasRecipe}" Margin="12,0,0,0"
+                          IsChecked="{Binding ShowRecipe}" ToolTip.ShowOnDisabled="True" ToolTip.Tip="{Binding PromptTip}" AutomationProperties.Name="Prompt metadata">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Width="12" Height="12" Data="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z" />
+                <TextBlock Text="Prompt metadata" VerticalAlignment="Center" />
+              </StackPanel>
+            </ToggleButton>
+            <ItemsControl x:Name="VersionList" DockPanel.Dock="Left" ItemsSource="{Binding Versions}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <StackPanel Orientation="Horizontal" Spacing="4" />
@@ -91,7 +100,23 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- What the picture takes: said here now that one is always shown (the top bar said it with none picked). -->
+            <TextBlock Classes="muted" Text="Click to ask about it, drag to redraw a part" ToolTip.Tip="A click picks the version shown into your message; a box dragged over a part of it has the agent redraw only that part"
+                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
           </DockPanel>
+        </Border>
+        <!-- How the version shown was made, with Prompt metadata on: under the picture, over the bar, at most half
+             the height (set in code), scrolling past that. -->
+        <Border x:Name="RecipeBox" DockPanel.Dock="Bottom" Background="{StaticResource BbSurface}" BorderBrush="{StaticResource BbBorder}" BorderThickness="0,1,0,0">
+          <Border.IsVisible>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="ShowRecipe" />
+              <Binding Path="HasRecipe" />
+            </MultiBinding>
+          </Border.IsVisible>
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <views:RecipeView DataContext="{Binding Recipe}" Margin="16,12,16,16" />
+          </ScrollViewer>
         </Border>
         <Panel>
           <TextBlock Classes="muted" IsVisible="{Binding !HasPicture}" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -99,21 +124,6 @@
           <views:ZoomBox x:Name="Big" Source="{Binding Picture}" IsVisible="{Binding HasPicture}" Margin="16" Zoom="{Binding Zoom}"
                          Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" views:FileMenu.Image="{Binding Picture}"
                          views:FileMenu.File="{Binding Shown.Path, FallbackValue={x:Null}}" AutomationProperties.Name="Picture" />
-        </Panel>
-      </DockPanel>
-      <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
-
-      <!-- How the version shown was made: its prompts and settings, as the File inspector's Prompt metadata shows them. -->
-      <DockPanel Grid.Column="4">
-        <Border DockPanel.Dock="Top" Classes="bar slim">
-          <TextBlock Text="Prompt metadata" FontWeight="SemiBold" VerticalAlignment="Center" />
-        </Border>
-        <Panel>
-          <TextBlock Classes="muted" IsVisible="{Binding MadeUnsaid}" Text="The version shown says nothing of how it was made" HorizontalAlignment="Center"
-                     VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="200" />
-          <ScrollViewer IsVisible="{Binding HasRecipe}" HorizontalScrollBarVisibility="Disabled">
-            <views:RecipeView DataContext="{Binding Recipe}" Margin="16,12,16,16" />
-          </ScrollViewer>
         </Panel>
       </DockPanel>
     </Grid>

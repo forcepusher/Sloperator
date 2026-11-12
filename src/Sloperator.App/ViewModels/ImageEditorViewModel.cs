@@ -59,7 +59,7 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 /// <summary>
 /// The Image editor panel, beside the chat, a sibling of the Video editor for single pictures:
 /// the pictures in SloperatorData\pictures (a folder each, its versions the picture files in it), the picked one big
-/// with its versions under it, and how the version shown was made beside it (its Prompt metadata, as the
+/// with its versions under it, and how the version shown was made under it when Prompt metadata is on (as the
 /// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
 /// picture's folder, so a redo is a new version and the earlier ones stay. A click on a picture or a
 /// version picks it into the chat's box; a box dragged over the big picture picks that part, with a mask
@@ -77,7 +77,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
 
     // ---- the pictures -------------------------------------------------------------------------------
 
-    public override string Title => Selected is not { } p ? "Click a picture or a version to ask about it, or drag over a part of it to redraw that part."
+    public override string Title => Selected is not { } p ? "Pictures the agent makes and changes for you, each with its versions"
         : Shown is { } v ? $"{p.Name} · version {v.Number} of {p.Versions.Count}" : $"{p.Name} · not made yet";
 
     public override string EmptyText => Selected is { IsMade: false } ? "Not made yet. Say in the chat what it shows, and the agent makes it here."
