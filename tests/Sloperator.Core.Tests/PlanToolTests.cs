@@ -249,6 +249,17 @@ public sealed class PlanToolTests
         Assert.DoesNotContain(ended.Notices, n => n.Contains("carry on") || n.Contains("left at step"));
         // Its last step was the answer: the bar is done, rather than left on that step as a plan the run stopped short of.
         Assert.True(last.Plan!.Finished);
+
+        // Nor one that set its plan on the last step when only the answer was left: Sonnet 5.5, asked for a plan after
+        // its one call, set "Wait, Reply" with now=2 and answered "done", was told to carry on, and answered again.
+        var onLast = new ScriptedServer(List("l1", Folder(root, "a")), Sse.ToolCall("p1", "plan", Two.Replace("]}", """],"now":2}""")), Sse.Text("done"));
+        var once = new RecordingObserver();
+        var replied = NewContext();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(onLast), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), replied, "sys").RunAsync("go", once, CancellationToken.None);
+        Assert.Equal(3, onLast.Requests.Count);
+        Assert.DoesNotContain(once.Notices, n => n.Contains("carry on"));
+        Assert.True(replied.Plan!.Finished);
         Directory.Delete(root, recursive: true);
     }
 
