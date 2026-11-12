@@ -25,19 +25,44 @@ internal static partial class DeckSlides
     private sealed record Delete(List<int> Numbers) : Line;
     private sealed record Move(int Number, string Where, int? Other) : Line;
     private sealed record Duplicate(int Number) : Line;
+    /// <summary>A new slide: after slide After (0: at the start, -1: at the end), its title and its lines.</summary>
+    private sealed record Add(int After, string Title, List<string> Lines) : Line;
 
     /// <summary>The lines done to the deck and what was done; null when not every line of new_text is one of them.</summary>
     public static string? Edit(PartSet parts, string newText)
     {
         var lines = new List<Line>();
+        Add? adding = null;
         foreach (var raw in newText.Replace("\r\n", "\n").Split('\n'))
         {
-            var text = raw.Trim().TrimEnd('.');
+            var text = raw.Trim();
             if (text.Length == 0)
                 continue;
-            if (Of(text) is not { } line)
+            // "add slide after 2" (or "insert slide 3", "add slide at the end"), then the new slide's title and lines.
+            if (AddLine().Match(text.TrimEnd('.', ':')) is { Success: true } add)
+            {
+                var after = add.Groups["after"].Success ? int.Parse(add.Groups["after"].Value, CultureInfo.InvariantCulture)
+                    : add.Groups["at"].Success ? int.Parse(add.Groups["at"].Value, CultureInfo.InvariantCulture) - 1
+                    : add.Groups["start"].Success ? 0 : -1;
+                lines.Add(adding = new Add(after, "", []));
+                continue;
+            }
+            if (Of(text.TrimEnd('.')) is { } line)
+            {
+                adding = null;
+                lines.Add(line);
+                continue;
+            }
+            if (adding is null)
                 return null;
-            lines.Add(line);
+            var plain = Regex.Replace(text, @"^(?:#{1,6}|[-*+•]|\d{1,3}[.)])\s+", "").Replace("**", "").Trim();
+            if (adding.Title.Length == 0 && (text.StartsWith('#') || adding.Lines.Count == 0))
+            {
+                var index = lines.IndexOf(adding);
+                lines[index] = adding = adding with { Title = plain };
+            }
+            else
+                adding.Lines.Add(plain);
         }
         if (lines.Count == 0 || !parts.Exists(Presentation))
             return null;
@@ -104,6 +129,25 @@ internal static partial class DeckSlides
                     }
                     Sections(presentation, moving);
                     done.Add($"moved {was} to place {list.Elements(P + "sldId").ToList().IndexOf(moving) + 1}");
+                    break;
+                case Add a:
+                    if (a.Title.Length == 0)
+                        throw new InvalidOperationException("Give the new slide's title on the line after \"add slide after 2\" (\"# Next steps\"), and its points under it (\"- Open on Sundays\"). Nothing was changed.");
+                    var where = a.After < 0 ? slides.Count : a.After;
+                    if (where > slides.Count)
+                        throw new InvalidOperationException($"There is no slide {where}: the deck has {slides.Count}{(done.Count > 0 ? " by then" : "")}. Nothing was changed.");
+                    // Built on a slide with a title of its own (not the title slide's), the one before the place first.
+                    string? TitleKind(XElement slide) => (string?)parts.Get(PartOf(slide)).Descendants(P + "ph").FirstOrDefault(ph => (string?)ph.Attribute("type") is "title" or "ctrTitle")?.Attribute("type");
+                    var candidates = (where > 0 ? slides.Take(where).Reverse().Concat(slides.Skip(where)) : slides).ToList();
+                    var model = candidates.FirstOrDefault(sl => TitleKind(sl) == "title") ?? candidates.First();
+                    var made = Copy(parts, presentation, rels, model, PartOf(model), bare: true);
+                    made.Remove();
+                    if (where == 0) list.AddFirst(made);
+                    else slides[where - 1].AddAfterSelf(made);
+                    Sections(presentation, made);
+                    Fill(parts, presentation, PartOf(made), a.Title, a.Lines);
+                    done.Add($"added slide {list.Elements(P + "sldId").ToList().IndexOf(made) + 1} (\"{a.Title}\"){(a.Lines.Count > 0 ? $" with {a.Lines.Count} point{(a.Lines.Count == 1 ? "" : "s")}" : "")}");
+                    touched = true;
                     break;
                 case Duplicate c:
                     var source = SlideAt(c.Number);
@@ -187,7 +231,7 @@ internal static partial class DeckSlides
     /// A copy of a slide right after it: its part and relationships copied (the same layout and pictures), its charts
     /// copied with their workbooks so the two don't share one, and no speaker notes.
     /// </summary>
-    private static XElement Copy(PartSet parts, XDocument presentation, XDocument rels, XElement sldId, string part)
+    private static XElement Copy(PartSet parts, XDocument presentation, XDocument rels, XElement sldId, string part, bool bare = false)
     {
         string Unused(string pattern)
         {
@@ -206,6 +250,9 @@ internal static partial class DeckSlides
         {
             var copyRels = new XDocument(parts.Get(RelsOf(part)));
             copyRels.Root!.Elements(Rel + "Relationship").Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/notesSlide", StringComparison.Ordinal) == true).Remove();
+            // A new slide built on this one keeps only its layout.
+            if (bare)
+                copyRels.Root.Elements(Rel + "Relationship").Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/slideLayout", StringComparison.Ordinal) != true).Remove();
             foreach (var r in copyRels.Root.Elements(Rel + "Relationship").Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/chart", StringComparison.Ordinal) == true).ToList())
             {
                 var chart = PartSet.Resolve("ppt/slides", (string)r.Attribute("Target")!);
@@ -245,6 +292,49 @@ internal static partial class DeckSlides
         return copy;
     }
 
+    /// <summary>
+    /// A slide copied to be a new one made into it: its title the one given, its points in a content box, everything
+    /// else on it gone. The content box takes its place from the layout when the layout has one, else the place a
+    /// content box has on a slide of the deck's size.
+    /// </summary>
+    private static void Fill(PartSet parts, XDocument presentation, string part, string title, List<string> points)
+    {
+        XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+        var slide = parts.Get(part);
+        var tree = slide.Descendants(P + "spTree").First();
+        XElement Paragraph(string text) => new(a + "p", new XElement(a + "r", new XElement(a + "rPr", new XAttribute("lang", "en-US")), new XElement(a + "t", text)));
+        var titleShape = tree.Elements(P + "sp").FirstOrDefault(sp => (string?)sp.Descendants(P + "ph").FirstOrDefault()?.Attribute("type") is "title" or "ctrTitle");
+        foreach (var e in tree.Elements().Where(e => e.Name.LocalName is not ("nvGrpSpPr" or "grpSpPr") && e != titleShape).ToList())
+            e.Remove();
+        var id = 2;
+        if (titleShape is null)
+            tree.Add(titleShape = PptxWriter.Placeholder(id, "Title", new XElement(P + "ph", new XAttribute("type", "title")), null, [Paragraph(title)]));
+        else
+        {
+            var body = titleShape.Element(P + "txBody")!;
+            body.Elements(a + "p").Remove();
+            body.Add(Paragraph(title));
+        }
+        id = tree.Descendants(P + "cNvPr").Select(c => (int?)c.Attribute("id") ?? 0).DefaultIfEmpty(1).Max() + 1;
+        if (points.Count > 0)
+        {
+            // Where the layout puts its content box, or where one goes on a slide of this size.
+            var rels = parts.Get(RelsOf(part));
+            var layout = rels.Root!.Elements(Rel + "Relationship").FirstOrDefault(r => ((string?)r.Attribute("Type"))?.EndsWith("/slideLayout", StringComparison.Ordinal) == true) is { } l
+                ? PartSet.Resolve("ppt/slides", (string)l.Attribute("Target")!) : null;
+            var hasBody = layout is not null && parts.Exists(layout) && parts.Get(layout).Descendants(P + "ph").Any(ph => (string?)ph.Attribute("idx") == "1" || (string?)ph.Attribute("type") == "body");
+            XElement? place = null;
+            if (!hasBody)
+            {
+                var size = presentation.Root!.Element(P + "sldSz");
+                long cx = (long?)size?.Attribute("cx") ?? 12192000, cy = (long?)size?.Attribute("cy") ?? 6858000;
+                place = PptxWriter.Transform(cx * 687 / 10000, cy * 2662 / 10000, cx * 8625 / 10000, cy * 6345 / 10000);
+            }
+            tree.Add(PptxWriter.Placeholder(id, "Content", new XElement(P + "ph", new XAttribute("idx", 1)), place, points.Select(Paragraph)));
+        }
+        parts.Changed(part);
+    }
+
     /// <summary>A moved slide in the section of the slide now before it (the first section at the start), keeping each section's slides together.</summary>
     private static void Sections(XDocument presentation, XElement moved)
     {
@@ -269,6 +359,10 @@ internal static partial class DeckSlides
     // "move slide 4 to 1", "move slide 4 to the start", "move slide 2 to the end", "move slide 2 after slide 4", "move slide 5 before 2", "move slide 4 to position 2"
     [GeneratedRegex(@"^move\s+slide\s+(?<n>[0-9]+)\s+(?:(?:to\s+)?(?:the\s+)?(?<start>start|front|beginning|top|first)(?:\s+of\s+the\s+deck)?|(?:to\s+)?(?:the\s+)?(?<end>end|back|last)(?:\s+of\s+the\s+deck)?|(?<rel>after|behind|before)\s+(?:slide\s+)?(?<other>[0-9]+)|to\s+(?:position\s+|place\s+|slide\s+)?(?<to>[0-9]+))$", RegexOptions.IgnoreCase)]
     private static partial Regex MoveLine();
+
+    // "add slide after 2", "add a slide after slide 2", "insert slide 3", "add slide at the end", "new slide at the start"
+    [GeneratedRegex(@"^(?:add|insert|new|put)\s+(?:a\s+)?(?:new\s+)?slide\s*(?:(?:after|behind)\s+(?:slide\s+)?(?<after>[0-9]+)|(?:at\s+|as\s+)?(?:slide\s+|position\s+)?(?<at>[0-9]+)|(?:at\s+|to\s+)?(?:the\s+)?(?<end>end|back)|(?:at\s+|to\s+)?(?:the\s+)?(?<start>start|front|beginning))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AddLine();
 
     // "duplicate slide 2", "copy slide 2"
     [GeneratedRegex(@"^(?:duplicate|copy)\s+slide\s+(?<n>[0-9]+)$", RegexOptions.IgnoreCase)]
