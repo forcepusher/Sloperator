@@ -199,7 +199,15 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   bold cells of a workbook that is there.
 - `.pdf`: wrapped text, tables whose header row repeats on each page, and page numbers. Plain ASCII
   uses the reader's own Helvetica, a few KB; anything else embeds a system font with only the
-  letters used.
+  letters used. **Made of pages of other PDFs** (`PdfJoin`, 2026-11-13): content that is lines
+  `pages: C:\lease.pdf` and `pages: C:\inventory.pdf 2-5,8` joins those pages in that order, copied as they are
+  (PdfPig's `PdfDocumentBuilder.AddPage`), so joining, taking pages out, dropping and reordering them (`3,1`, `5-2`
+  backwards, `7-` to the end) are one thing; the same file may be named twice. Every line has to be one: with
+  Markdown among them it is refused, and a line of a document that only starts alike ("Pages: 12, as agreed") is
+  text. No new tool for it: the description of write_file says it in a sentence. *Why:* asked to join two PDFs,
+  Haiku found no PDF program on the PC (it looked for Python, pdfunite, qpdf, Ghostscript) and stopped to ask
+  whether to download one; Sonnet downloaded qpdf from GitHub into the tools folder, 134 s. After: 10 and 7 s;
+  the last page alone and the pages reversed, 13 and 9 s. On PDFs Word had made, a joined page drawn and looked at.
 
 An existing document isn't overwritten, since that would lose its formatting; `append` adds to one
 made in the same task. The refusal says it may be the user's own, names a new name to write to

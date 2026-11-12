@@ -221,6 +221,7 @@ public sealed class WriteFileTool : Tool
         "A line \"chart: bar Sales by month\" under a table draws it as a chart (bar, line, pie or area: the first column its labels, each other column a series; " +
         "\"chart: line A1:A13,E1:E13 Totals\" draws only those cells). " +
         "In .pptx a line --- starts the next slide, and a slide's first heading is its title; a chart: line under a table shows the table as that chart. " +
+        "A .pdf whose content is lines \"pages: C:\\a.pdf\" and \"pages: C:\\b.pdf 2-5,8\" is made of those pages of other PDFs, joined in that order. " +
         "An .svg is shown to the user as the picture it draws: write a design mockup as one. " +
         "To change an existing document, use edit_file, which keeps its formatting.";
     public override ToolRisk Risk => ToolRisk.Risky;

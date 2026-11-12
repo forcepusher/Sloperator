@@ -75,6 +75,18 @@ internal static partial class DocumentFiles
                 (kind == "pdf" ? "" : ", or change what needs changing in it with edit_file, which keeps the rest as it is") +
                 ". Replace or delete it only when the user asked for that.");
 
+        // A PDF made of pages of other PDFs ("pages: C:\lease.pdf", "pages: C:\inventory.pdf 2-3"): joined, not written.
+        if (kind == "pdf" && !append && PdfJoin.Parse(markdown, resolve) is { } pages)
+        {
+            if (pages.Any(p => string.Equals(Path.GetFullPath(p.File), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"{name} can't be made of its own pages: write to another name.");
+            var (joined, count, from) = PdfJoin.Build(pages);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            Save(path, joined);
+            Made.Set(path, (Hash(joined), null));
+            return $"{(existed ? "Overwrote" : "Created")} {path}: a PDF of {(count == 1 ? "1 page" : $"{count} pages")} ({from}).";
+        }
+
         var blocks = MarkdownDocument.Parse(markdown);
         var notes = new List<string>();
         var bytes = kind switch
