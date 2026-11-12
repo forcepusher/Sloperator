@@ -135,7 +135,7 @@ internal static partial class SheetChart
         return new Ask(kind, string.IsNullOrWhiteSpace(title) ? null : title, ranges);
     }
 
-    private static string? KindOf(string word) => word.Trim(',', ':', '.').ToLowerInvariant() switch
+    internal static string? KindOf(string word) => word.Trim(',', ':', '.').ToLowerInvariant() switch
     {
         "bar" or "bars" or "column" or "columns" or "histogram" => "bar",
         "line" or "lines" => "line",
@@ -397,6 +397,59 @@ internal static partial class SheetChart
         if (labels.Count > 0)
             line += " over " + string.Join(", ", labels.Take(2));
         return line;
+    }
+
+    /// <summary>A chart's kind, as one is asked for here ("bar", "line", "pie", "area"; another kind by Excel's name for it), and its title if it has one.</summary>
+    public static (string Kind, string? Title) About(XDocument chart)
+    {
+        var first = chart.Descendants(C + "plotArea").FirstOrDefault()?.Elements().FirstOrDefault(e => e.Name.LocalName.EndsWith("Chart", StringComparison.Ordinal))?.Name.LocalName;
+        var kind = first?[..^5] switch
+        {
+            "bar" or "bar3D" => "bar",
+            "line" or "line3D" => "line",
+            "pie" or "pie3D" or "doughnut" or "ofPie" => "pie",
+            "area" or "area3D" => "area",
+            { Length: > 0 } other => other,
+            _ => "a",
+        };
+        var title = string.Concat(chart.Descendants(C + "title").FirstOrDefault()?.Descendants(A + "t").Select(t => t.Value) ?? []).Trim();
+        return (kind, title.Length > 0 ? title : null);
+    }
+
+    /// <summary>
+    /// The series a chart that is there draws, read back from its part with the cells they name and the values kept
+    /// with them: to make it anew as another kind or under another title, of the same cells.
+    /// </summary>
+    public static List<Series> SeriesIn(XDocument chart)
+    {
+        static List<Value> Kept(XElement? source)
+        {
+            if (source?.Descendants().FirstOrDefault(e => e.Name.LocalName is "numCache" or "strCache") is not { } cache)
+                return [];
+            var count = (int?)cache.Element(C + "ptCount")?.Attribute("val") ?? cache.Elements(C + "pt").Count();
+            var values = new Value[Math.Clamp(count, 0, 100_000)];
+            foreach (var pt in cache.Elements(C + "pt"))
+            {
+                if ((int?)pt.Attribute("idx") is not { } i || i < 0 || i >= values.Length)
+                    continue;
+                var v = (string?)pt.Element(C + "v") ?? "";
+                values[i] = cache.Name.LocalName == "numCache" && double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? new Value(null, n) : new Value(v, null);
+            }
+            return [.. values];
+        }
+        var series = new List<Series>();
+        foreach (var ser in chart.Descendants(C + "ser"))
+        {
+            var values = ser.Element(C + "val") ?? ser.Element(C + "yVal");
+            if ((string?)values?.Descendants(C + "f").FirstOrDefault() is not { Length: > 0 } valuesRef)
+                continue;
+            var labels = ser.Element(C + "cat") ?? ser.Element(C + "xVal");
+            var tx = ser.Element(C + "tx");
+            var name = (string?)tx?.Descendants(C + "v").FirstOrDefault();
+            series.Add(new Series(string.IsNullOrEmpty(name) ? $"Series {series.Count + 1}" : name, (string?)tx?.Descendants(C + "f").FirstOrDefault(),
+                (string?)labels?.Descendants(C + "f").FirstOrDefault(), Kept(labels), valuesRef, Kept(values)));
+        }
+        return series;
     }
 
     /// <summary>"Sheet1!A2:A13" for "'Sheet1'!$A$2:$A$13": as read_file writes cells.</summary>

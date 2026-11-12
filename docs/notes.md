@@ -146,7 +146,34 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   refused, and it typed the totals in as plain numbers: hence the other-sheet formulas above and the number to
   come. And Haiku and Sonnet copied a row of totals into a column for a line chart, reading "the first column the
   labels" as columns only, where Qwen wrote `B1:D1,B6:D6`: the tools now say rows work too.
-  Not there: a chart can't be changed or deleted in place (the model adds another), and no scatter chart.
+  **Changed and deleted in place** (`SheetEdit.Charts.cs`, the same day). A chart named in old_text becomes the chart
+  line in new_text, where it is on the sheet: another kind, another title, other cells, each kept as it was when not
+  said (its cells are read back from its own part, `SheetChart.SeriesIn`); with new_text empty it is deleted, with
+  its part, its style and colours and what points at them. A chart is named by its number on its sheet (`chart 2`),
+  its title (`chart "Monthly totals"`, or the title alone), its kind when that tells it apart (`the bar chart`), the
+  line write_file took (`chart: bar Monthly totals`) or the one read_file shows; none or several fitting is refused
+  with the list of the workbook's charts. A line `delete chart 2` in new_text does the same beside other changes.
+  *Why:* the next request after "a chart of the monthly totals" is "make it a line chart", and both Haiku and Sonnet
+  answered it by writing the whole workbook again (Haiku after giving the chart's line as old_text and being told the
+  text wasn't in the cells; Sonnet deleted the file first), which can't be done to a workbook that isn't the model's
+  own. After: asked to turn the chart of an Excel-made workbook into a pie of February, Sonnet changed it in place
+  and Haiku deleted and added one (11 and 18 s). Three first tries in that round gave only the chart's title as
+  old_text, as "name it by chart 1, or its title" reads: taken as the title since. Checked in Excel 16: Excel's own
+  chart made a pie in its place at its size, and deleted, the file opening without repair.
+  Not there: no scatter chart, and a chart Excel styled by hand loses that styling when it is made anew.
+- **How cells look** (`SheetEdit.Formats.cs`, 2026-11-13). A line `format A1:E1 bold, yellow fill` in edit_file's
+  new_text gives cells bold, italic, a fill or a text colour (by name as Excel's palette has them, light and dark
+  ones too, or #RRGGBB; a colour with nothing said of it is the fill), `center`/`left`/`right`, `wrap` and `border`
+  (thin, all sides); `no fill`, `not bold` take them back. Each cell keeps the rest of its format (its number format,
+  its font's size): its format is copied with the change, and one just like it that is there already is used again,
+  so the same line twice adds nothing to the file. Empty cells in the range are made, so a fill runs across a whole
+  heading. After the cells of the same edit are set. At most 50,000 cells a line.
+  *Why:* edit_file set what cells hold, not how they look. Asked to make a header row stand out with a yellow
+  background in a workbook Excel had saved, Haiku looked for Python and openpyxl, then wrote the fill into
+  styles.xml by hand through PowerShell (3 tool errors, 43 s); Sonnet drove Excel from PowerShell, which a PC
+  without Office doesn't have. After: both one edit_file call, 16 and 10 s. Read back through Excel 16
+  (`.dev/night-test/excel-look.ps1`): fill, bold, italic, text colour, alignment and borders as asked, amounts still
+  shown as money.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide.

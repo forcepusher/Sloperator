@@ -287,8 +287,10 @@ public sealed class EditFileTool : Tool
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
         "with every formula pointing at them, and the new row is formatted like the one above; \"delete rows 3-4\" takes rows out. " +
+        "\"format A1:E1 bold, yellow fill\" sets how cells look (bold, italic, a fill or text colour by name or #RRGGBB, center, wrap, border). " +
         "A line \"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart of those cells (bar, line, pie or area): the first column the labels and each other " +
-        "a series named by its top cell, or the same by rows (\"A1:D1,A6:D6\").";
+        "a series named by its top cell, or the same by rows (\"A1:D1,A6:D6\"). To change a chart, name it in old_text (\"chart 1\", or its title) " +
+        "and give its new line in new_text (\"chart: line Monthly totals\"); with new_text empty it is deleted.";
     public override ToolRisk Risk => ToolRisk.Risky;
     public override JsonObject Parameters => Schema(
         ("path", Str("File path"), true),
