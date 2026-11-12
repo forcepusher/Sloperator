@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rename**, **Delete** and **Show in folder** for pictures and sounds, on a right-click in the Image and Audio
   editors' lists (F2 renames too), and **Delete** and **Show in folder** for a single version on a right-click on
   its button. What you delete goes to the Recycle Bin. Until now this took finding the folder in Explorer.
+- **Charts in Excel workbooks.** Ask for a spreadsheet with a chart, or for a chart in one you have, and the agent
+  puts a real Excel chart on the sheet (bar, line, pie or area) that follows its cells. Before, it could only fill
+  cells, and a chart asked for made it go looking for Python or other programs to draw a picture of one.
 - The agent can add text at the end of a Word document without naming the paragraph it goes after.
 - The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
   document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
@@ -129,6 +132,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Totals in a workbook that add up cells of another sheet show their values right away, in the preview and to the
+  agent. Before, they were empty until Excel opened the file.
 - **New picture** or **New sound** pressed while the agent was still making the one before put the next thing you
   asked for into that same picture, as its second version. It starts another one now.
 - The brush's ring in the Image editor has a dark edge, so it shows on a bright sky or a white page too.

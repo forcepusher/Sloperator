@@ -214,25 +214,42 @@ internal static class DocumentText
             // What else a person sees on the sheet: a title across merged cells, its charts.
             if (data.Element(S + "mergeCells")?.Elements(S + "mergeCell").Select(m => (string?)m.Attribute("ref")).OfType<string>().ToList() is { Count: > 0 } merged)
                 sb.Append("(merged: ").AppendJoin(", ", merged).AppendLine(")");
-            if (Optional(() => Charts(zip, target), 0) is > 0 and var charts)
-                sb.AppendLine(charts == 1 ? "(1 chart)" : $"({charts} charts)");
+            // Each chart with what it draws ("(chart: bar chart "Sales": Budget!B2:B13 over Budget!A2:A13)"), so one
+            // made is checked by reading and one of the user's is understood; one that can't be read is still counted.
+            var charts = Optional(() => Charts(zip, target), []);
+            foreach (var chart in charts.OfType<string>())
+                sb.Append("(chart: ").Append(chart).AppendLine(")");
+            if (charts.Count(c => c is null) is > 0 and var unread)
+                sb.AppendLine(unread == 1 ? "(1 chart)" : $"({unread} charts)");
         }
         return sb.ToString();
     }
 
-    /// <summary>The charts drawn on a sheet.</summary>
-    private static int Charts(ZipArchive zip, string sheet)
+    /// <summary>The charts drawn on a sheet, each as <see cref="Documents.SheetChart.Describe"/> says it, or null for one whose part can't be read.</summary>
+    private static List<string?> Charts(ZipArchive zip, string sheet)
     {
         var folder = sheet[..(sheet.LastIndexOf('/') + 1)];
         var rels = $"{folder}_rels/{sheet[folder.Length..]}.rels";
         if (zip.GetEntry(rels) is null)
-            return 0;
+            return [];
         XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
-        return Load(zip, rels).Root!.Elements(Pr + "Relationship")
+        var found = new List<string?>();
+        foreach (var drawing in Load(zip, rels).Root!.Elements(Pr + "Relationship")
             .Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/drawing", StringComparison.Ordinal) == true && r.Attribute("Target") is not null)
             .Select(r => Resolve(folder, (string)r.Attribute("Target")!))
-            .Where(d => zip.GetEntry(d) is not null)
-            .Sum(d => Load(zip, d).Descendants(c + "chart").Count());
+            .Where(d => zip.GetEntry(d) is not null))
+        {
+            var drawingFolder = drawing[..(drawing.LastIndexOf('/') + 1)];
+            var drawingRels = $"{drawingFolder}_rels/{drawing[drawingFolder.Length..]}.rels";
+            var targets = zip.GetEntry(drawingRels) is null ? [] : Optional(() => Load(zip, drawingRels).Root!.Elements(Pr + "Relationship")
+                .Where(r => r.Attribute("Id") is not null && r.Attribute("Target") is not null)
+                .ToDictionary(r => (string)r.Attribute("Id")!, r => Resolve(drawingFolder, (string)r.Attribute("Target")!)), []);
+            foreach (var chart in Load(zip, drawing).Descendants(c + "chart"))
+                found.Add((string?)chart.Attribute(R + "id") is { } id && targets.TryGetValue(id, out var part) && zip.GetEntry(part) is not null
+                    ? Optional<string?>(() => Documents.SheetChart.Describe(Load(zip, part)), null)
+                    : null);
+        }
+        return found;
     }
 
     private static string Cell(XElement c, List<string> shared, string? format)

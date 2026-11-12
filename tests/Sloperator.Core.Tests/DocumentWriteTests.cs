@@ -633,7 +633,7 @@ public class DocumentWriteTests : IDisposable
         Assert.Contains("E2 =ROUND(D2/D5*100, 1) → 56.7", text);
         Assert.Contains("E5 =AVERAGE(B2:C3) - (1 - 1) → 12125", text);
         Assert.Contains("D5 =SUM(D2:D3) → 48500", text);
-        // No value where it can't be worked out here: text added, a division by zero, another sheet's cell.
+        // No value where it can't be worked out here: text added, a division by zero, a cell of a sheet that isn't there.
         Assert.DoesNotMatch(@"D4 =B4\+C4 → \d", text);
         Assert.DoesNotMatch(@"E3 =D3/0 → \d", text);
         Assert.DoesNotMatch(@"E4 =Sheet2!A1 → \d", text);

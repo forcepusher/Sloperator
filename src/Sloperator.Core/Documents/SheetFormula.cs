@@ -4,12 +4,14 @@ using System.Xml.Linq;
 namespace Sloperator.Core.Documents;
 
 /// <summary>
-/// Works out the plain formulas of a sheet Sloperator writes: numbers, cells of the same sheet, + - * / and
-/// brackets, and SUM, AVERAGE, MIN, MAX, COUNT and ROUND over cells and ranges. Excel works every formula out
-/// again when it opens the file; this is the value it is written with, for what shows a file without working
-/// formulas out: Windows' preview, the File inspector, the chat's card, read_file. Written without one, a total
-/// showed as an empty cell there (2026-11-10). Anything else (another sheet, text, a function not here, a
-/// division by zero, a loop) has no value, as before.
+/// Works out the plain formulas of a workbook Sloperator writes: numbers, cells of the same sheet or another
+/// (Sales!B2, 'My sheet'!B2:B9), + - * / and brackets, and SUM, AVERAGE, MIN, MAX, COUNT and ROUND over cells and
+/// ranges. Excel works every formula out again when it opens the file; this is the value it is written with, for
+/// what shows a file without working formulas out: Windows' preview, the File inspector, the chat's card,
+/// read_file, a chart's own copy of its numbers. Written without one, a total showed as an empty cell there
+/// (2026-11-10). Anything else (text, a function not here, a division by zero, a loop) has no value, as before.
+/// Other sheets since 2026-11-13: a sheet of totals over a sheet of figures is how a summary is made, and its
+/// totals were all empty; Haiku, told its chart of them had no numbers, typed the totals in as plain values.
 /// </summary>
 internal sealed class SheetFormula
 {
@@ -34,51 +36,78 @@ internal sealed class SheetFormula
     /// Writes the value of each formula of a sheet's <paramref name="cells"/> that can be worked out here, in place of
     /// the one it had. A formula that can't keeps its own (Excel's last), and those that use it are left alone too.
     /// </summary>
-    public static void WriteValues(IEnumerable<XElement> cells)
+    public static void WriteValues(IEnumerable<XElement> cells) => WriteValues([("", cells, true)]);
+
+    /// <summary>
+    /// The same for a workbook's <paramref name="sheets"/>, whose formulas may refer to each other's cells. A sheet
+    /// not worked out (<c>Work</c> false: too many formulas to go over at each edit) is only read: its numbers and
+    /// text count, its formulas have no value here.
+    /// </summary>
+    public static void WriteValues(IReadOnlyList<(string Name, IEnumerable<XElement> Cells, bool Work)> sheets)
     {
-        var byReference = new Dictionary<string, XElement>(StringComparer.OrdinalIgnoreCase);
-        foreach (var c in cells)
-            if ((string?)c.Attribute("r") is { } r)
-                byReference[r] = c;
-        var values = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
-        var working = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        double? Of(string reference, XElement f)
+        var named = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var byReference = new List<Dictionary<string, XElement>>();
+        for (var i = 0; i < sheets.Count; i++)
         {
-            if (values.TryGetValue(reference, out var known))
+            named.TryAdd(sheets[i].Name, i);
+            var cells = new Dictionary<string, XElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in sheets[i].Cells)
+                if ((string?)c.Attribute("r") is { } r)
+                    cells[r] = c;
+            byReference.Add(cells);
+        }
+        var values = new Dictionary<(int, string), double?>();
+        var working = new HashSet<(int, string)>();
+        double? Of(int sheet, string reference, XElement f)
+        {
+            var key = (sheet, reference.ToUpperInvariant());
+            if (values.TryGetValue(key, out var known))
                 return known;
             // A shared formula is written out only in its first cell, an array formula fills others: Excel's to work out.
-            if (f.Attribute("t") is not null || f.Value.Trim().Length == 0)
-                return values[reference] = null;
+            if (f.Attribute("t") is not null || f.Value.Trim().Length == 0 || !sheets[sheet].Work)
+                return values[key] = null;
             // A loop, or a chain of formulas too long to follow here (each the one under it, thousands deep, would
             // overflow the stack): no value from here, not kept, as the cell may be worked out from nearer by.
-            if (working.Count >= MaxDepth || !working.Add(reference))
+            if (working.Count >= MaxDepth || !working.Add(key))
                 return null;
-            var value = Value(f.Value, Read);
-            working.Remove(reference);
-            return values[reference] = value;
+            var value = Value(f.Value, r => Read(sheet, r));
+            working.Remove(key);
+            return values[key] = value;
         }
-        Cell Read(string reference)
+        Cell Read(int sheet, string reference)
         {
-            if (!byReference.TryGetValue(reference, out var c))
+            // "Sales!B2": a cell of another sheet; one that isn't in the workbook has no value.
+            if (reference.LastIndexOf('!') is var bang and > 0)
+            {
+                if (!named.TryGetValue(reference[..bang], out sheet))
+                    return new(null, Error: true);
+                reference = reference[(bang + 1)..];
+            }
+            if (!byReference[sheet].TryGetValue(reference, out var c))
                 return Cell.Empty;
             if (c.Element(S + "f") is { } f)
-                return Of(reference, f) is { } worked ? new(worked) : new(null, Error: true);
+                return Of(sheet, reference, f) is { } worked ? new(worked) : new(null, Error: true);
             return (string?)c.Attribute("t") is null or "n" && double.TryParse((string?)c.Element(S + "v"), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)
                 ? new(n)
                 : c.Element(S + "v") is null && c.Element(S + "is") is null ? Cell.Empty : new(null, Text: true);
         }
-        foreach (var (reference, c) in byReference)
+        for (var i = 0; i < sheets.Count; i++)
         {
-            if (c.Element(S + "f") is not { } f || Of(reference, f) is not { } value)
+            if (!sheets[i].Work)
                 continue;
-            c.Elements(S + "v").Remove();
-            if ((string?)c.Attribute("t") is "str" or "e" or "b")
-                c.Attribute("t")!.Remove();
-            f.AddAfterSelf(new XElement(S + "v", value.ToString("R", CultureInfo.InvariantCulture)));
+            foreach (var (reference, c) in byReference[i])
+            {
+                if (c.Element(S + "f") is not { } f || Of(i, reference, f) is not { } value)
+                    continue;
+                c.Elements(S + "v").Remove();
+                if ((string?)c.Attribute("t") is "str" or "e" or "b")
+                    c.Attribute("t")!.Remove();
+                f.AddAfterSelf(new XElement(S + "v", value.ToString("R", CultureInfo.InvariantCulture)));
+            }
         }
     }
 
-    /// <summary>The value of <paramref name="formula"/> (its text after =), its cells read by <paramref name="cell"/> ("C7"); null where it can't be worked out here.</summary>
+    /// <summary>The value of <paramref name="formula"/> (its text after =), its cells read by <paramref name="cell"/> ("C7", or "Sales!C7" for one of another sheet); null where it can't be worked out here.</summary>
     public static double? Value(string formula, Func<string, Cell> cell)
     {
         try
@@ -151,12 +180,50 @@ internal sealed class SheetFormula
             while (_at < _text.Length && (char.IsDigit(_text[_at]) || _text[_at] == '.')) _at++;
             return double.TryParse(_text[start.._at], NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? n : throw new FormatException("number");
         }
+        var sheet = Sheet();
         var name = Word();
         if (name.Length == 0)
             throw new FormatException("nothing");
-        if (Take('('))
+        if (sheet is null && Take('('))
             return Function(name.ToUpperInvariant());
-        return Number(Reference(name));
+        return Number(sheet + Reference(name));
+    }
+
+    /// <summary>
+    /// The sheet a cell is named with, as "Sales!" (read by <see cref="WriteValues(IReadOnlyList{ValueTuple{string, IEnumerable{XElement}, bool}})"/>),
+    /// from "Sales!B2" or "'My sheet'!B2"; null, and nothing read, for a cell of the formula's own sheet.
+    /// </summary>
+    private string? Sheet()
+    {
+        Space();
+        var start = _at;
+        string name;
+        if (_at < _text.Length && _text[_at] == '\'')
+        {
+            var quoted = new System.Text.StringBuilder();
+            for (_at++; _at < _text.Length; _at++)
+            {
+                if (_text[_at] != '\'')
+                    quoted.Append(_text[_at]);
+                else if (_at + 1 < _text.Length && _text[_at + 1] == '\'')
+                    quoted.Append(_text[_at++]);
+                else
+                    break;
+            }
+            if (_at >= _text.Length)
+                throw new FormatException("no closing quote");
+            _at++;
+            name = quoted.ToString();
+        }
+        else
+            name = Word();
+        if (name.Length > 0 && _at < _text.Length && _text[_at] == '!')
+        {
+            _at++;
+            return name + "!";
+        }
+        _at = start;
+        return null;
     }
 
     private double Function(string name)
@@ -169,12 +236,13 @@ internal sealed class SheetFormula
             {
                 Space();
                 var start = _at;
+                var sheet = Sheet();
                 var word = Word();
                 if (word.Length > 0 && Take(':'))
                 {
                     var (from, to) = (Reference(word), Reference(Word()));
                     // Text in a range is left out, as Excel does; a formula without a value spoils it.
-                    foreach (var cell in Range(from, to).Select(_cell))
+                    foreach (var cell in Range(from, to).Select(r => _cell(sheet + r)))
                         if (cell.Error)
                             throw new FormatException("a cell without a value");
                         else if (cell is { Number: { } n, Text: false })
@@ -222,7 +290,7 @@ internal sealed class SheetFormula
         return cell.Text || cell.Error ? throw new FormatException("text, or no value") : cell.Number ?? 0;
     }
 
-    /// <summary>"B2" of "B2" or "$B$2"; anything else (another sheet's cell, a name) can't be worked out here.</summary>
+    /// <summary>"B2" of "B2" or "$B$2"; anything else (a name) can't be worked out here.</summary>
     private static string Reference(string word)
     {
         var plain = word.Replace("$", "").ToUpperInvariant();
