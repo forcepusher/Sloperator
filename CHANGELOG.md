@@ -139,6 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- Bullets the agent adds to a slide that had only a title and a chart or picture go beside it, as the slide's text.
+  They were put into the title itself.
 - A document the agent made and then changed can be written again by it. It was refused as "not one you wrote in
   this task", as if the file were yours.
 - A slide the agent shows you, or looks at to check its work, is the whole slide. It was cut down to what was on

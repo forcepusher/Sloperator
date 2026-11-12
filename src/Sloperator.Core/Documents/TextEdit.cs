@@ -516,6 +516,7 @@ internal static partial class TextEdit
         marker.Remove();
         foreach (var p in added.Prepend(first))
             Prune(p, format);
+        format.Settle(first, added);
 
         // A change that took whole paragraphs and put nothing in leaves no empty paragraph behind.
         if (lines.Count == 1 && MarkdownDocument.Plain(lines[0].Spans).Length == 0 && wholeParagraphs
@@ -558,6 +559,10 @@ internal static partial class TextEdit
         public abstract IEnumerable<XElement> NewRuns(Span span, XElement? properties);
         public abstract XElement NewParagraph(XElement like, int? heading);
         public abstract bool CanRemove(XElement paragraph);
+
+        /// <summary>Paragraphs <paramref name="added"/> after <paramref name="first"/> go where they belong, when that isn't right after it (a slide's title).</summary>
+        public virtual void Settle(XElement first, List<XElement> added) { }
+
         protected abstract XElement? SplitUnit(XElement unit, int count);
         protected abstract XName ParagraphProperties { get; }
         protected virtual bool IsEnd(XElement child) => false;
@@ -736,6 +741,65 @@ internal static partial class TextEdit
 
         // A text box needs a paragraph.
         public override bool CanRemove(XElement paragraph) => paragraph.Parent is { } parent && parent.Elements(A + "p").Count() > 1;
+
+        private static readonly XNamespace P = "http://schemas.openxmlformats.org/presentationml/2006/main";
+
+        private static string? PlaceholderOf(XElement shape) =>
+            shape.Element(P + "nvSpPr")?.Element(P + "nvPr")?.Element(P + "ph") is { } ph ? (string?)ph.Attribute("type") ?? "body" : null;
+
+        /// <summary>
+        /// Lines added under a slide's title are the slide's text, not more title: they go to the end of its text
+        /// box, and a slide that has none gets one, what it shows across its width (a chart, a table, a picture)
+        /// moved to the right of it, as a slide written with text beside a chart is laid out. Asked for two bullets
+        /// on a slide that held a title and a pie, Sonnet gave the title followed by the bullets; they came out
+        /// inside the title, in its type, and it took them out again (2026-11-13).
+        /// </summary>
+        public override void Settle(XElement first, List<XElement> added)
+        {
+            if (added.Count == 0 || first.Ancestors(P + "sp").FirstOrDefault() is not { Parent: { } tree } title || PlaceholderOf(title) is not ("title" or "ctrTitle"))
+                return;
+            foreach (var p in added)
+            {
+                p.Remove();
+                // Made like the title's paragraph and in its runs' look: neither is the text's.
+                p.Elements(A + "pPr").Remove();
+                foreach (var properties in p.Descendants(A + "rPr").Concat(p.Elements(A + "endParaRPr")))
+                    properties.Attributes().Where(a => a.Name.LocalName is "sz" or "b" or "cap").Remove();
+            }
+            if (tree.Elements(P + "sp").FirstOrDefault(s => s != title && s.Element(P + "txBody") is not null && PlaceholderOf(s) is "body" or "subTitle") is { } body)
+            {
+                var text = body.Element(P + "txBody")!;
+                // An empty box's one empty paragraph gives way to them.
+                if (text.Elements(A + "p").ToList() is [var only] && Units(only).All(u => UnitText(u).Length == 0))
+                    only.Remove();
+                text.Add(added);
+                return;
+            }
+            var id = tree.Descendants(P + "cNvPr").Select(e => (int?)e.Attribute("id") ?? 0).DefaultIfEmpty(1).Max() + 1;
+            XElement? place = null;
+            var shown = tree.Elements().Where(e => e.Name == P + "graphicFrame" || e.Name == P + "pic").ToList();
+            if (shown.Count == 1 && (shown[0].Name == P + "pic" ? shown[0].Element(P + "spPr")?.Element(A + "xfrm") : shown[0].Element(P + "xfrm")) is { } frame
+                && frame.Element(A + "off") is { } off && frame.Element(A + "ext") is { } ext
+                && (long?)ext.Attribute("cx") is { } cx && (long?)ext.Attribute("cy") is { } cy && (long?)off.Attribute("y") is { } y && cx >= PptxWriter.Width * 7 / 10)
+            {
+                var (to, wide) = (PptxWriter.Left + PptxWriter.Width * 41 / 100, PptxWriter.Width * 59 / 100);
+                off.SetAttributeValue("x", to);
+                ext.SetAttributeValue("cx", wide);
+                if (shown[0].Name == P + "pic")
+                {
+                    // A picture keeps its shape: as much lower as it is narrower, about its middle.
+                    var high = cy * wide / cx;
+                    ext.SetAttributeValue("cy", high);
+                    off.SetAttributeValue("y", y + (cy - high) / 2);
+                }
+                // A table's columns, each as much narrower.
+                foreach (var column in shown[0].Descendants(A + "gridCol"))
+                    if ((long?)column.Attribute("w") is { } w)
+                        column.SetAttributeValue("w", w * wide / cx);
+                place = PptxWriter.Transform(PptxWriter.Left, PptxWriter.Top, PptxWriter.Width * 38 / 100, PptxWriter.Height);
+            }
+            title.AddAfterSelf(PptxWriter.Placeholder(id, "Content", new XElement(P + "ph", new XAttribute("idx", 1)), place, added));
+        }
     }
 
     [GeneratedRegex(@"^(\s*(#{1,6}|[-*+•]|\d{1,3}[.)])\s+)")]

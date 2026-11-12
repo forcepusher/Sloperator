@@ -17,7 +17,7 @@ internal sealed class PptxWriter
 
     private const long SlideWidth = 12192000, SlideHeight = 6858000;
     // The content area of a Title and Content slide.
-    private const long Left = 838200, Top = 1825625, Width = 10515600, Height = 4351338;
+    internal const long Left = 838200, Top = 1825625, Width = 10515600, Height = 4351338;
 
     private readonly OfficePackage _package = new();
     private readonly Func<string, string> _resolve;
@@ -297,7 +297,7 @@ internal sealed class PptxWriter
         return rPr;
     }
 
-    private static XElement Placeholder(int id, string name, XElement ph, XElement? transform, IEnumerable<XElement> paragraphs) =>
+    internal static XElement Placeholder(int id, string name, XElement ph, XElement? transform, IEnumerable<XElement> paragraphs) =>
         new(P + "sp",
             new XElement(P + "nvSpPr",
                 new XElement(P + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"{name} {id - 1}")),
@@ -306,7 +306,7 @@ internal sealed class PptxWriter
             new XElement(P + "spPr", transform),
             new XElement(P + "txBody", new XElement(A + "bodyPr", new XElement(A + "normAutofit")), new XElement(A + "lstStyle"), paragraphs));
 
-    private static XElement Transform(long x, long y, long cx, long cy, bool group = false) =>
+    internal static XElement Transform(long x, long y, long cx, long cy, bool group = false) =>
         new(A + "xfrm",
             new XElement(A + "off", new XAttribute("x", x), new XAttribute("y", y)),
             new XElement(A + "ext", new XAttribute("cx", cx), new XAttribute("cy", cy)),
