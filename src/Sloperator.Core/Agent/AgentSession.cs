@@ -921,7 +921,7 @@ public sealed partial class AgentSession(
         "If more than one thing is still to be made or changed, or the work ahead is long, call plan now: the whole task as a handful of steps in order, any already done too, " +
         "one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan on as you start each step. " +
         "If only one thing and its check are left, or just the answer, make no plan: a plan of two steps tells the user nothing. " +
-        "Either way write nothing about the plan or this note, not even that you skip it: the user doesn't see this note, and the bar shows them the plan.";
+        "Either way write nothing in answer to this note: no word on the plan, on what is left or on skipping it. The user doesn't see this note, and the bar shows them the plan.";
 
     /// <summary>
     /// What the model is told, once a run, when it ends its turn right after the plan <see cref="PlanNote"/> asked
@@ -933,9 +933,24 @@ public sealed partial class AgentSession(
         $"[Sloperator] The plan is on the bar at step {plan.At + 1} of {plan.Steps.Count}, \"{plan.Steps[plan.At].Word}\", but you ended your turn with that step not done. " +
         "The user sees the plan and needs no word on it. Carry on with the task now, and end your turn only when it is finished or you need something from the user.";
 
-    /// <summary>Whether a reply ends in a question, as one put to the user does (closing quotes, brackets and emphasis aside).</summary>
-    internal static bool EndsInQuestion(string? text) =>
-        text?.TrimEnd().TrimEnd('*', '_', ')', '"', '\'', '`', (char)0x201D).EndsWith('?') == true;
+    /// <summary>
+    /// Whether a reply ends in a question, as one put to the user does: its last character (closing quotes, brackets
+    /// and emphasis aside), or a question in its last paragraph with a sentence after it. Haiku 5.5 ended "Do you
+    /// want me to install Python (with openpyxl) so the chart can be added? If you'd rather not install anything,
+    /// I'll make the workbook without the chart. Tell me which you prefer." and was told to carry on with its plan
+    /// (2026-11-12). A "?" inside an address or a pattern (one with no space after it) is no question.
+    /// </summary>
+    internal static bool EndsInQuestion(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        var said = text.Replace("\r", "").TrimEnd();
+        return said.TrimEnd('*', '_', ')', '"', '\'', '`', (char)0x201D).EndsWith('?') ||
+               AsksInside().IsMatch(said[(said.LastIndexOf("\n\n", StringComparison.Ordinal) + 1)..]);
+    }
+
+    [GeneratedRegex(@"\?(?=[\s""')*_”])")]
+    private static partial Regex AsksInside();
 
     /// <summary>What the model is asked, aside, when its plan fell behind its work (see <see cref="PlanBehindAsync"/>).</summary>
     internal static string PlanBehindNote(AgentPlan plan) =>

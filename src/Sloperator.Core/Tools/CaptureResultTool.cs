@@ -100,9 +100,9 @@ public sealed partial class CaptureResultTool : Tool
             ctx.Platform.Screen.BringToFront(under);
         // Fresh, without the pointer: the click marker and the log are never in a capture.
         RawImage frame;
+        var pages = 0;
         if (document)
         {
-            int pages;
             (frame, pages) = DrawDocument(shownFile!, page, ctx, ct);
             what = $"page {page} of {pages} of {Path.GetFileName(shownFile)}";
         }
@@ -128,7 +128,11 @@ public sealed partial class CaptureResultTool : Tool
                     { Window: not null } => "; with no window or box, the same window is taken again, wherever it is then",
                     _ => "; with no window or box, the same is taken again",
                 };
+                // Shown the first of five slides it had made, Sonnet 5.5 told the user "I didn't view slides 2-5, so check
+                // how their text fits", and Haiku 5.5 drew one slide and said the same (2026-11-12).
+                var rest = pages > 1 ? $"The document has {pages} pages and this shows only page {page}: any other page you made or changed is unchecked until you capture it too (page), so do that rather than leave it to the user. " : "";
                 var text = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}. " +
+                           rest +
                            $"The user sees it at full size under your final reply{captioned}, with your other captures: to them it is the picture below your words, not above. Taking the same again replaces it there. " +
                            $"If it doesn't show what they asked for, fix that and capture it again. Taken before a change, pass compare=[{number}] " +
                            $"when you capture the result, to show them side by side{again}.";

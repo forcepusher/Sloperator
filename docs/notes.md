@@ -1825,15 +1825,19 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   changed, or the work ahead is long, call plan now: the whole task as a handful of steps in order, any already done
   too, one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan
   on as you start each step. If only one thing and its check are left, or just the answer, make no plan: a plan of
-  two steps tells the user nothing. Either way write nothing about the plan or this note, not even that you skip it: the user doesn't see this note,
-  and the bar shows them the plan." The chat says "Asked the model to show its plan on the bar above the message
+  two steps tells the user nothing. Either way write nothing in answer to this note: no word on the plan, on what is
+  left or on skipping it. The user doesn't see this note, and the bar shows them the plan." The chat says "Asked the model to show its plan on the bar above the message
   box, if more than one thing is left to do." (without the condition it read as a promise the bar then broke for a
   small task). One note at a time: with another going out after that step (index the project, look an error up), it waits
   for the next. Never told: a run that called plan itself, one that goes on with the chat's unfinished plan, a side
   task (it has no plan tool).
 - A run that ends its turn right after the plan it was asked for, with no work since the note, is told once to
   carry on (`PlanGoOnNote`, "The model stopped after setting its plan; asked it to carry on with the task."), unless
-  its reply ends in a question to the user (`EndsInQuestion`).
+  its reply ends in a question to the user (`EndsInQuestion`). A question counts with a sentence after it too, anywhere
+  in the reply's last paragraph: Haiku 5.5 ended "Do you want me to install Python (with openpyxl) so the chart can
+  be added? If you'd rather not install anything, I'll make the workbook without the chart. Tell me which you
+  prefer.", was told by its plan to carry on, and thought "I'm still waiting on the user's answer… stopping without
+  further output" (2026-11-12).
 - Every plan call's result names the next move ("Step 1 of 4: Read. As you start step 2, "Edit", call plan with
   just now=2, along with that step's first call"; "just", as Haiku and Qwen sent all the steps again with each
   move), and a turn that ends on the plan's last step (no question, and the run moved the plan or worked) finishes
@@ -1899,6 +1903,9 @@ and one lookup:
   skipping it, to the user: "Only a fix and a check remain, so I'll skip the plan", "Only one thing is left, which
   is tomorrow's forecast, so I'll skip the plan" (2 of 9 everyday tasks through `.dev/night-test/cli-run.ps1`). With
   "write nothing about the plan or this note, not even that you skip it": 0 of 14, Sonnet and Haiku.
+  It still answered the note in other words now and then ("Only the check is left, so I'll verify the zip", 2 of 6
+  small tasks), hence "nothing in answer to this note: no word on the plan, on what is left or on skipping it"
+  (1 of 6).
 
 Two things seen in those runs and left as they are, as no wording moved them (Sonnet 5.5, 2026-11-12). Asked in
 English to translate a file to Russian, French or Spanish, it answers in that language (12 of 13 runs; Haiku and
@@ -3897,6 +3904,11 @@ words, not above"): the model sees its capture before it writes, and Haiku and S
 over a picture that sits below (2026-11-12). It holds for Sonnet 5.5, which then names no place at all; Haiku 5.5
 still writes "the picture above" in about half its replies with a capture (2 of 4), and saying it again in the
 caption that goes with the picture ("…below the words of your final reply:") changed nothing, so that was left out.
+A capture of one page of a document that has more says so ("The document has 5 pages and this shows only page 1:
+any other page you made or changed is unchecked until you capture it too (page), so do that rather than leave it
+to the user"): asked for five slides, Sonnet 5.5 looked at one and wrote "I didn't view slides 2-5, so check how
+their text fits". With it Haiku 5.5 drew all five in 3 of 3 runs that drew any (5 and 2 of 5 before); Sonnet still
+drew one (2 of 2 before and after).
 A capture of a document's page (`file`) keeps which file it shows
 (`ReplyCapture.Of`), and that file's card under the same reply shows without its peek
 (`FileCardPreview.PeekHidden`): a one-page Word document showed twice, the page full width and its first lines
