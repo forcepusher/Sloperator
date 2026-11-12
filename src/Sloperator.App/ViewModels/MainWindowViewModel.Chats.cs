@@ -106,7 +106,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>
     /// The next chat starts where a first message does: Auto on the daily driver, its effort not picked yet.
     /// A pick held into the next chat, a new one's ordinary task on the daily driver asked to "switch" up from
-    /// the evaluation model the last chat's question ran on.
+    /// the helper model the last chat's question ran on.
     /// </summary>
     private void ForgetAutoPick()
     {

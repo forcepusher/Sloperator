@@ -80,7 +80,7 @@ public sealed class CostEstimatesTests
     [Fact]
     public void A_row_picked_in_the_table_takes_its_own_prices()
     {
-        // On Auto the evaluation model answers too, and is never the model in use when the panel is looked at.
+        // On Auto the helper model answers too, and is never the model in use when the panel is looked at.
         const string Api = "https://api.anthropic.com/v1";
         var spent = new Spending();
         spent.Add(Api, "claude-sonnet-5-5", new ChatMessage { PromptTokens = 1_000_000, CompletionTokens = 0 });

@@ -35,11 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   worked, how many tool calls it made and which tools, and on Auto which model it used; **Show steps** unfolds
   them. Chats opened from History open folded.
 - **Auto** is the first row of the model and effort dropdowns, each on its own, and both start on it. Before each message the
-  evaluation model takes a short look at the task (reading files, never changing them) and picks the model
+  helper model takes a short look at the task (reading files, never changing them) and picks the model
   and effort for it; a card in the chat says what it picked, why, and what it found, which the picked model
   gets with your message. Before moving up to a dearer model it asks: **Switch** or stay, Switch after 10 seconds.
   Each new chat starts on the daily driver; a short reply ("yes, go on") goes on with the model in use, with no look.
-- **Auto model** in Settings: the evaluation, daily driver and complex task models Auto picks from, the newest
+  Once a chat is under way it only moves up, never back down, and its effort changes only with that move, as either
+  change makes the model read the whole chat again at full price. On the dearest model nothing more is picked.
+- **Auto model** in Settings > Advanced: the helper, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
 - Ask the agent to show you something in a side panel ("show it in the Web preview") and it opens that panel with
   the page, file or folder in it.

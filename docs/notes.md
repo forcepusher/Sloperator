@@ -2012,7 +2012,7 @@ Servers' lists unlike the dropdowns'):
   Watch are one control (`WatchToggles`, for any `IWatchPanel`: File changes, Code editor).
 - **Settings' tabs** (the user, 2026-10-30; it had General and Advanced tabs before 17 October too):
   General (the instructions, Notifications, Safety, Text recognition) and Advanced
-  (Updates, Screenshot size, MCP servers); the instructions and Updates went first on 2026-10-31,
+  (Updates, Screenshot size, Auto model since 2026-11-12, Cost estimates, System prompt, MCP servers); the instructions and Updates went first on 2026-10-31,
   as the user asked. One shared `TabControl` style: headers 20 SemiBold, the
   first one's word 16 in from the window's edge, where each tab's text starts; the Fluent yellow line
   under the picked one. Save with a broken MCP list turns to Advanced. Fluent sets the strip's margin
@@ -2737,9 +2737,13 @@ other)", first in both dropdowns, with three preferred models in Settings, and a
 prompt and switches to the model and effort it thinks viable, keeping itself for simple tasks, then gives what it
 found exploring the project.
 
-**The three models** (`AutoModels`, saved as `server.auto` in settings.json; Settings > General > Auto model):
-Evaluation model "Claude Haiku", Daily driver model "Claude Sonnet", Complex task model "Claude Opus", the user's
-defaults. Each is words or a name, found on the server in use as switch_model finds a model
+**The three models** (`AutoModels`, saved as `server.auto` in settings.json; Settings > Advanced > Auto model, moved
+from General on the user's word, 2026-11-12): Helper model "Claude Haiku", Daily driver model "Claude Sonnet",
+Complex task model "Claude Opus", the user's defaults. The helper model was the Evaluation model until the user
+renamed it, in code too, on 2026-11-12 ("Change the 'Evaluation' model naming to 'Helper' model", `AutoTier.Helper`,
+`AutoModels.Helper`, `server.auto.helper`, "helper" in the evaluation's request); `SettingsStore.Migrate` carries a
+saved `server.auto.evaluation` over. What it does is still called the evaluation (`EvaluateAsync`, "the evaluation
+failed"). Each is words or a name, found on the server in use as switch_model finds a model
 (`ModelChoice.Named`: the words in a row in a listed name, then the highest version; `ModelChoice.Like` and
 `Newest`, moved from `ModelTools`): "Claude Opus" is `claude-opus-5-5` on Anthropic's API and
 `anthropic/claude-opus-5.5` on OpenRouter. Words that fit no listed model take the model Sloperator picks itself
@@ -2769,13 +2773,13 @@ message sent during a run, not a short reply in a chat under way: five words or 
 context, "yes, go on", `AutoPick.IsShortReply`, which goes on with the model and effort in use, the user's pick of
 2026-11-09, as each took 2 to 7 s and a request) and Auto has something to pick (`AutoToPick`: the model on Auto with
 two of the three differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
-run's session: a side task on the evaluation model at low effort (the nearest it takes), with `read_file`,
+run's session: a side task on the helper model at low effort (the nearest it takes), with `read_file`,
 `list_directory`, `index_folder`, `web_search` and `fetch_page` only, 12 replies at most. It is told the three models
-(evaluation for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which
+(helper for simple tasks, daily for most, complex for hard ones), the levels, how big the chat is and which
 model it ran on (another reads it all anew at full price, so it switches only when the task needs it), the agent's
 last reply (for "yes, do it") and the message, and answers in four fields, `model:`, `effort:`, `why:` and `found:`,
 read plain or in Markdown, a model also by its name (`AutoPick.Read`). It runs in a session of its own made for the
-model in use, so its replies count in the chat's cost by the evaluation model, and its calls ask the user's OK as
+model in use, so its replies count in the chat's cost by the helper model, and its calls ask the user's OK as
 any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's
 session is made for it, and what it found goes with the message (`UserInput.Context`, after the user's words and any other context:
@@ -2789,22 +2793,42 @@ it wrote "I did not open any files, so I can't confirm the page's markup" under 
 were facts alone 3 times in 3 (a new page, a script's option, a question about a README). The pick holds until the next
 message's evaluation, or until another chat (New chat, one from History, `ForgetAutoPick`): that one starts on the
 daily driver, as a first message does. Held into a new chat, its first ordinary task asked to "switch" up from the
-evaluation model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
+helper model a one-line question in the last chat had ended on. Stopped during the evaluation, its card says
 Stopped and "claude-haiku-5-5 was picking the model for this message" (it read "Running…" for good: the run's end,
 which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
+
+**Up only in a chat under way** (the user, 2026-11-12: "I want the model only to escalate, not de-escalate";
+`AutoPick.Next`, `CanMoveUp`, `StepsUp`). A chat's first message takes what was picked, down to the helper model
+too. After that the chat stays on its model or moves up a tier, never back down, and the effort changes only with
+that move. Either change has the new request miss the prompt cache: the user's Unity chat (2026-11-11) went from
+Sonnet down to Haiku on "How do I start it connected to a local server", 190k tokens, a minute after Sonnet's last
+reply. Haiku wrote all 189,714 into its cache at $0.625/M (its rate past 100k tokens), about $0.12, where Sonnet
+would have read 193k from its cache at $0.10/M, about $0.03. Earlier in that chat Auto kept Sonnet but moved it from
+medium to low on "what's the delay?": Anthropic's `output_config.effort` changed, so that request read only the
+18,632 tokens of system prompt and tools from the cache and wrote the 125,684 of messages anew (about $0.31 where
+$0.01 would do). The two cost about $0.39 of the chat's $2.85. The evaluation's request then offers the model in use
+and the ones above it only ("The chat works with daily now. It stays on it or moves up to a stronger model; it never
+moves back down", "model: daily or complex"), and says the effort changes only with a move up; a pick below is kept
+at the model in use all the same, and an effort picked without a move is dropped. Stay on the Switch card keeps the
+effort too (it used to take the dearer pick's effort onto the model kept). On the dearest of the three, or with the
+model picked by hand and only the effort on Auto, a chat under way has nothing left to pick, and its messages go
+without an evaluation (`AutoToPick`). Checked off screen with a stand-in server that answers each evaluation from a
+mark in the message (`.dev/escalate-test`, run.ps1): helper at low on the first message, Switch to Sonnet at medium,
+"[evaluation low]" kept on Sonnet at medium with Haiku left out of the request, Switch to Opus at high, then no
+evaluation request at all.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
 (`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
 evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output, open, under
 "What it found", its Markdown shown as a reply's (`ToolCallItem.FoundText`; a tool's output is code, in the mono font). Up to a
-dearer model of the three than the one in use (evaluation, then daily, then complex: the user's own order, no
+dearer model of the three than the one in use (helper, then daily, then complex: the user's own order, no
 prices compared) the run asks first, on a card over the message box (`AutoSwitchQuestion`): "Switch to
 claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,
 "Switches in 7 s" and a bar running down; no answer in 10 s takes Auto's pick, Stop ends it with the run. The card
-says "Wants claude-opus-5-5 at High" meanwhile, and "(you stayed off claude-opus-5-5)" after Stay. Down or the same
-goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
+says "Wants claude-opus-5-5 at High" meanwhile, and "(you stayed off claude-opus-5-5)" after Stay. Down, on a
+chat's first message only, or the same goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
 
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
@@ -2986,7 +3010,7 @@ fields first put in Settings > Advanced) shows the same total big, a row per mod
 cost, and whether the server reported it or the prices gave it), the share of the prompt the cache
 served (and, with typed input and cached prices, what that saved), the price fields of the model in
 use (saved as typed) or of the row picked in the table (a list: picked, the row's model's prices show, under "Prices of a
-model this chat used", until another model is picked at the top; on Auto the evaluation model's replies could be
+model this chat used", until another model is picked at the top; on Auto the helper model's replies could be
 priced only by picking it by hand, the user's pick of 2026-11-09), and every saved chat's total with the five dearest, in the currency of the newest
 chat with a cost. That last part
 reads `spent` from each chat file's first 8 kB, where it is saved right after the title, as the History

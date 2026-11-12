@@ -16,16 +16,19 @@ public sealed partial class MainWindowViewModel
     /// What Auto has to pick for a message (the user, 2026-11-09), from the check that starts the run: the model
     /// where it is on Auto and the server has two of the three models in Settings that differ, the effort where it
     /// is on Auto and a model to pick from takes one. Null when there is nothing to pick, and the run starts at once.
+    /// In a chat under way (<paramref name="chatUnderWay"/>) the model only moves up and the effort only with it
+    /// (<see cref="AutoPick.Next"/>): on the dearest of the three, or with the model picked by the user, nothing is
+    /// left to pick, and no evaluation holds the message up.
     /// </summary>
-    private (AutoModelSet Set, bool Model, bool Effort)? AutoToPick(ProbeResult? probe)
+    private (AutoModelSet Set, bool Model, bool Effort)? AutoToPick(ProbeResult? probe, bool chatUnderWay)
     {
         var server = _settings.Server;
         if (probe is not { Reachable: true, Auto: { } set })
             return null;
-        var model = server.ModelOnAuto && set.Differ;
+        var model = server.ModelOnAuto && (chatUnderWay ? AutoPick.CanMoveUp(set, server.AutoTier) : set.Differ);
         var effort = server.EffortOnAuto && (model
-            ? set.Evaluation.Efforts.Count + set.Daily.Efforts.Count + set.Complex.Efforts.Count > 0
-            : server.EffortLevels.Count > 0);
+            ? set.Helper.Efforts.Count + set.Daily.Efforts.Count + set.Complex.Efforts.Count > 0
+            : !chatUnderWay && server.EffortLevels.Count > 0);
         return model || effort ? (set, model, effort) : null;
     }
 
@@ -64,7 +67,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>The name on the evaluation's card.</summary>
     internal const string AutoCardName = "Auto";
 
-    /// <summary>The card's line while the evaluation goes on, after the evaluation model's name.</summary>
+    /// <summary>The card's line while the evaluation goes on, after the helper model's name.</summary>
     private const string Picking = " picks the model for this message…";
 
     /// <summary>

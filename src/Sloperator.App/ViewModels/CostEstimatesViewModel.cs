@@ -156,7 +156,7 @@ public sealed partial class CostEstimatesViewModel : ObservableObject, ISidePane
 
     /// <summary>
     /// The row picked in the table, whose model's prices the fields show; null for the model in use until another
-    /// model is picked at the top. On Auto, the evaluation model's replies could be priced only by picking it by hand
+    /// model is picked at the top. On Auto, the helper model's replies could be priced only by picking it by hand
     /// (the user's pick, 2026-11-09).
     /// </summary>
     private (string BaseUrl, string Model)? _picked;

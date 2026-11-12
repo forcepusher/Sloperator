@@ -15,7 +15,7 @@ namespace Sloperator.Core.Agent;
 /// <param name="Effort">The effort picked; null when the effort isn't on Auto or the evaluation said none.</param>
 /// <param name="Why">One sentence on what the task is and why that fits; empty when it said none.</param>
 /// <param name="Found">What it learnt looking around, for the agent; empty when nothing.</param>
-/// <param name="By">The evaluation model.</param>
+/// <param name="By">The helper model.</param>
 /// <param name="Problem">Why the evaluation picked nothing (the server failed it, its answer had no pick); null when it worked.</param>
 public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why, string Found, string By, string? Problem = null)
 {
@@ -31,39 +31,87 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     /// <summary>
     /// A short reply in a chat under way ("thanks", "yes, go on", "do it"), with no file or panel pick: it goes
     /// on with the model and effort in use, with no look first (the user's pick, 2026-11-09: each such message
-    /// took 2 to 7 s and a request of the evaluation model). A first message is looked at however short.
+    /// took 2 to 7 s and a request of the helper model). A first message is looked at however short.
     /// </summary>
     public static bool IsShortReply(UserInput input, bool chatUnderWay) =>
         chatUnderWay && input.Files.Count == 0 && input.Cards is not { Count: > 0 } && input.Context is null &&
         input.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= ShortReplyWords;
 
     /// <summary>
-    /// What the evaluation model is asked. It picks the model where <paramref name="pickModel"/> and the effort
+    /// Whether <paramref name="to"/> is a move up from <paramref name="from"/>: a tier above it whose model is
+    /// another (two tiers can name the same one).
+    /// </summary>
+    public static bool StepsUp(AutoModelSet set, AutoTier from, AutoTier to) => to > from && set[to].Id != set[from].Id;
+
+    /// <summary>
+    /// Whether a chat under way on <paramref name="from"/> has a model to move up to. With none, there is nothing
+    /// for the evaluation to pick: the chat neither moves down nor changes its effort alone.
+    /// </summary>
+    public static bool CanMoveUp(AutoModelSet set, AutoTier from) => Enum.GetValues<AutoTier>().Any(to => StepsUp(set, from, to));
+
+    /// <summary>
+    /// The tier and effort a message runs on, from this pick (the user, 2026-11-12: "I want the model only to
+    /// escalate, not de-escalate"). A chat's first message takes what was picked, a dearer model only on the
+    /// user's Switch (<paramref name="stayed"/>: they stayed off it). Under way, the chat only moves up, and the
+    /// effort changes only with that move: either change has the model read the whole chat anew at its full price
+    /// (Sonnet to Haiku on a 190k chat cost about 4 times what Sonnet's cache did; Sonnet's effort from medium to low
+    /// alone had all 126k of its messages written anew, 2026-11-11).
+    /// </summary>
+    public (AutoTier Tier, string? Effort) Next(AutoModelSet set, AutoTier tier, string? effort, bool chatUnderWay, bool stayed)
+    {
+        if (Problem is not null)
+            return (tier, effort);
+        if (!chatUnderWay)
+            return (stayed ? tier : Tier, Effort ?? effort);
+        if (stayed || Tier <= tier)
+            return (tier, effort);
+        return (Tier, StepsUp(set, tier, Tier) ? Effort ?? effort : effort);
+    }
+
+    private static string Key(AutoTier tier) => tier switch
+    {
+        AutoTier.Helper => "helper",
+        AutoTier.Complex => "complex",
+        _ => "daily",
+    };
+
+    private static string Use(AutoTier tier) => tier switch
+    {
+        AutoTier.Helper => "For simple tasks: a question, a lookup, a small edit, one command or a few clicks.",
+        AutoTier.Complex => "For hard tasks: large changes across many files, hard bugs, careful design or research, long work where mistakes cost much.",
+        _ => "For most tasks: writing or fixing code, documents, working in apps on the screen, tasks of several steps.",
+    };
+
+    /// <summary>
+    /// What the helper model is asked. It picks the model where <paramref name="pickModel"/> and the effort
     /// where <paramref name="pickEffort"/>; <paramref name="chatTokens"/> and <paramref name="chatModel"/> say how
     /// big the chat is and which model it ran on last, as another reads it all anew; <paramref name="lastReply"/>
-    /// is the agent's last answer, for a message such as "yes, do it".
+    /// is the agent's last answer, for a message such as "yes, do it". <paramref name="floor"/>: the tier of a chat
+    /// under way, which it can only move up from (<see cref="Next"/>); null on a chat's first message.
     /// </summary>
     internal static string Request(string message, AutoModelSet set, bool pickModel, bool pickEffort, string inUse,
-        int chatTokens, string? chatModel, string? lastReply)
+        int chatTokens, string? chatModel, string? lastReply, AutoTier? floor = null)
     {
         var text = new StringBuilder();
         text.Append("Sloperator's agent is about to work on the user's message below. Before it starts, pick ")
             .Append(pickModel && pickEffort ? "the model it works with and how hard that model thinks" : pickModel ? "the model it works with" : "how hard its model thinks")
             .Append(". Look around only as far as that takes (a few calls at most: read a file, list a folder, search the web); change nothing, " +
                     "and don't do the task itself.\n\n");
+        var tiers = Enum.GetValues<AutoTier>().Where(t => floor is not { } from || t == from || StepsUp(set, from, t)).ToList();
         if (pickModel)
         {
-            text.Append("The models, the cheapest first:\n")
-                .Append($"- evaluation: {set.Evaluation.Id} (you). For simple tasks: a question, a lookup, a small edit, one command or a few clicks.\n")
-                .Append($"- daily: {set.Daily.Id}. For most tasks: writing or fixing code, documents, working in apps on the screen, tasks of several steps.\n")
-                .Append($"- complex: {set.Complex.Id}. For hard tasks: large changes across many files, hard bugs, careful design or research, " +
-                        "long work where mistakes cost much.\n");
+            if (floor is { } now)
+                text.Append($"The chat works with {Key(now)} now. It stays on it or moves up to a stronger model; it never moves back down.\n");
+            text.Append("The models, the cheapest first:\n");
+            foreach (var tier in tiers)
+                text.Append($"- {Key(tier)}: {set[tier].Id}{(tier == AutoTier.Helper ? " (you)" : "")}{(tier == floor ? " (in use)" : "")}. {Use(tier)}\n");
         }
         else
             text.Append($"The model is {inUse}.\n");
         if (pickEffort)
             text.Append("Efforts, least to most: low, medium, high, xhigh, max. More thinks longer: better on hard problems, slower and dearer. " +
-                        "Most tasks need medium; low for the simple ones.\n");
+                        "Most tasks need medium; low for the simple ones.")
+                .Append(floor is null ? "\n" : " The effort in use changes only with a move up: give the level for the model you pick.\n");
         if (chatTokens > 0 && chatModel is not null)
             text.Append($"\nThe chat so far holds about {chatTokens / 1000}k tokens and ran on {chatModel}. Any other model reads all of it anew at its " +
                         "full price, so pick another only when the task needs it.\n");
@@ -71,7 +119,11 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
             text.Append("\nThe agent's last reply in the chat, for what the message may refer to:\n<<<\n").Append(lastReply.Trim().Clip(1500)).Append("\n>>>\n");
         text.Append("\nThe user's message:\n<<<\n").Append(message.Trim()).Append("\n>>>\n\nAnswer in exactly this form:\n");
         if (pickModel)
-            text.Append("model: evaluation, daily or complex\n");
+            text.Append("model: ").Append(tiers.Count switch
+            {
+                1 => Key(tiers[0]),
+                _ => string.Join(", ", tiers.SkipLast(1).Select(Key)) + " or " + Key(tiers[^1]),
+            }).Append('\n');
         if (pickEffort)
             text.Append("effort: low, medium, high, xhigh or max\n");
         text.Append("why: one short sentence on what the task is and why that fits\n")
@@ -97,7 +149,7 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         {
             var named = model.ToLowerInvariant();
             tier = named.Contains("complex") || named.Contains(set.Complex.Id.ToLowerInvariant()) && set.Complex.Id != set.Daily.Id ? AutoTier.Complex
-                : named.Contains("evaluation") || named.Contains(set.Evaluation.Id.ToLowerInvariant()) && set.Evaluation.Id != set.Daily.Id ? AutoTier.Evaluation
+                : named.Contains("helper") || named.Contains(set.Helper.Id.ToLowerInvariant()) && set.Helper.Id != set.Daily.Id ? AutoTier.Helper
                 : named.Contains("daily") || named.Contains(set.Daily.Id.ToLowerInvariant()) ? AutoTier.Daily
                 : null;
         }

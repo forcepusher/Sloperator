@@ -9,7 +9,7 @@ namespace Sloperator.Core.Tests;
 
 /// <summary>
 /// Auto model and effort (the user, 2026-11-09): the three models in Settings found on a server by their words,
-/// and the evaluation before a message, a side task on the evaluation model that picks the model and effort.
+/// and the evaluation before a message, a side task on the helper model that picks the model and effort.
 /// </summary>
 public class AutoPickTests
 {
@@ -24,8 +24,8 @@ public class AutoPickTests
     {
         var set = Set(Anthropic);
 
-        Assert.Equal(("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"), (set.Evaluation.Id, set.Daily.Id, set.Complex.Id));
-        Assert.True(set.Evaluation.Named && set.Daily.Named && set.Complex.Named);
+        Assert.Equal(("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"), (set.Helper.Id, set.Daily.Id, set.Complex.Id));
+        Assert.True(set.Helper.Named && set.Daily.Named && set.Complex.Named);
         Assert.True(set.Differ);
         // OpenRouter writes them its own way.
         var openRouter = Set("anthropic/claude-haiku-5.5", "anthropic/claude-sonnet-5.5", "anthropic/claude-opus-5.5", "openai/gpt-6.1-sol");
@@ -37,13 +37,13 @@ public class AutoPickTests
     {
         var set = AutoModelSet.Resolve(new AutoModels(), [ModelChoice.FromName("qwen3.8-27b"), ModelChoice.FromName("gemma-4-31b")], "qwen3.8-27b", _ => [])!;
 
-        Assert.Equal(["qwen3.8-27b", "qwen3.8-27b", "qwen3.8-27b"], [set.Evaluation.Id, set.Daily.Id, set.Complex.Id]);
+        Assert.Equal(["qwen3.8-27b", "qwen3.8-27b", "qwen3.8-27b"], [set.Helper.Id, set.Daily.Id, set.Complex.Id]);
         Assert.False(set.Daily.Named);
         Assert.False(set.Differ);
         // Words of the user's own find any model, the same way for all.
-        var mine = AutoModelSet.Resolve(new AutoModels { Evaluation = "gemma", Daily = "qwen", Complex = "qwen" },
+        var mine = AutoModelSet.Resolve(new AutoModels { Helper = "gemma", Daily = "qwen", Complex = "qwen" },
             [ModelChoice.FromName("qwen3.8-27b"), ModelChoice.FromName("gemma-4-31b")], "qwen3.8-27b", _ => [])!;
-        Assert.Equal("gemma-4-31b", mine.Evaluation.Id);
+        Assert.Equal("gemma-4-31b", mine.Helper.Id);
         Assert.True(mine.Differ);
     }
 
@@ -74,6 +74,17 @@ public class AutoPickTests
     }
 
     [Fact]
+    public void The_evaluation_models_words_saved_before_the_rename_are_the_helper_models()
+    {
+        AutoModels Auto(string json) =>
+            System.Text.Json.JsonSerializer.Deserialize(SettingsStore.Migrate(json), SettingsJson.Default.AppSettings)!.Server.Auto;
+
+        Assert.Equal("gemma", Auto("""{ "server": { "auto": { "evaluation": "gemma", "daily": "qwen", "complex": "qwen" } } }""").Helper);
+        Assert.Equal("mistral", Auto("""{ "server": { "auto": { "evaluation": "gemma", "helper": "mistral" } } }""").Helper);
+        Assert.Equal("Claude Haiku", Auto("""{ "server": { "baseUrl": "http://localhost:1234/v1" } }""").Helper);
+    }
+
+    [Fact]
     public void The_effort_on_Auto_is_the_one_picked_or_medium_and_the_nearest_the_model_takes()
     {
         var server = new ServerSettings { Effort = Efforts.Auto, EffortLevels = ["low", "medium", "high"] };
@@ -85,11 +96,64 @@ public class AutoPickTests
         Assert.Null(server.EffortInUse);
     }
 
+    private static AutoPick Picked(AutoTier tier, string? effort) => new(tier, effort, "why", "", "claude-haiku-5-5");
+
+    [Fact]
+    public void A_chat_under_way_only_moves_up_and_its_effort_only_with_that()
+    {
+        var set = Set(Anthropic);
+
+        // A first message takes what was picked: down to the helper model, another effort.
+        Assert.Equal((AutoTier.Helper, "low"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, null, chatUnderWay: false, stayed: false));
+        Assert.Equal((AutoTier.Daily, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, null, chatUnderWay: false, stayed: true));
+        // Under way (the user's Sonnet to Haiku, 2026-11-11): never down, and no effort of its own.
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Daily, "low").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+        // Up, with the effort picked for the stronger model; Stay keeps both.
+        Assert.Equal((AutoTier.Complex, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: true));
+        // A failed evaluation changes nothing.
+        Assert.Equal((AutoTier.Daily, "medium"), (Picked(AutoTier.Complex, "high") with { Problem = "refused" }).Next(set, AutoTier.Daily, "medium", true, false));
+        // A tier above that names the same model is no move: the effort stays.
+        var same = AutoModelSet.Resolve(new AutoModels { Daily = "sonnet", Complex = "sonnet" }, Anthropic.Select(ModelChoice.FromName).ToList(), null, _ => Efforts.Levels)!;
+        Assert.Equal((AutoTier.Complex, "medium"), Picked(AutoTier.Complex, "high").Next(same, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+    }
+
+    [Fact]
+    public void A_chat_on_the_dearest_model_has_nothing_left_to_pick()
+    {
+        var set = Set(Anthropic);
+        Assert.True(AutoPick.CanMoveUp(set, AutoTier.Helper));
+        Assert.True(AutoPick.CanMoveUp(set, AutoTier.Daily));
+        Assert.False(AutoPick.CanMoveUp(set, AutoTier.Complex));
+        var same = AutoModelSet.Resolve(new AutoModels { Daily = "sonnet", Complex = "sonnet" }, Anthropic.Select(ModelChoice.FromName).ToList(), null, _ => Efforts.Levels)!;
+        Assert.False(AutoPick.CanMoveUp(same, AutoTier.Daily));
+    }
+
+    [Fact]
+    public void Under_way_the_helper_is_offered_the_model_in_use_and_the_ones_above()
+    {
+        var set = Set(Anthropic);
+        var first = AutoPick.Request("How do I start it?", set, true, true, "claude-sonnet-5-5", 0, null, null);
+        Assert.Contains("- helper: claude-haiku-5-5 (you).", first);
+        Assert.Contains("model: helper, daily or complex\n", first);
+        Assert.DoesNotContain("never moves back down", first);
+
+        var later = AutoPick.Request("How do I start it?", set, true, true, "claude-sonnet-5-5", 190_000, "claude-sonnet-5-5", "Done.", AutoTier.Daily);
+        Assert.DoesNotContain("claude-haiku-5-5", later);
+        Assert.Contains("- daily: claude-sonnet-5-5 (in use).", later);
+        Assert.Contains("- complex: claude-opus-5-5.", later);
+        Assert.Contains("it never moves back down", later);
+        Assert.Contains("changes only with a move up", later);
+        Assert.Contains("model: daily or complex\n", later);
+        Assert.Contains("about 190k tokens", later);
+    }
+
     [Theory]
     [InlineData("model: complex\neffort: high\nwhy: A refactor across 14 files.\nfound:\n- Settings live in SettingsWindow.axaml.cs\n- 3 tests", AutoTier.Complex, "high")]
     [InlineData("**Model:** daily\n**Effort:** Extra high\n**Why:** Writing code.\n**Found:** nothing", AutoTier.Daily, "xhigh")]
-    [InlineData("model: claude-haiku-5-5\neffort: low\nwhy: A question.\nfound: none", AutoTier.Evaluation, "low")]
-    [InlineData("model: evaluation\neffort: low\nwhy: A greeting.\nfound: nothing; I looked at nothing, since the message is self-contained.", AutoTier.Evaluation, "low")]
+    [InlineData("model: claude-haiku-5-5\neffort: low\nwhy: A question.\nfound: none", AutoTier.Helper, "low")]
+    [InlineData("model: helper\neffort: low\nwhy: A greeting.\nfound: nothing; I looked at nothing, since the message is self-contained.", AutoTier.Helper, "low")]
     public void The_answer_is_read_however_it_is_written(string answer, AutoTier tier, string effort)
     {
         var pick = AutoPick.Read(answer, Set(Anthropic), pickModel: true, pickEffort: true, AutoTier.Daily, "claude-haiku-5-5")!;
@@ -134,7 +198,7 @@ public class AutoPickTests
     }
 
     [Fact]
-    public async Task The_evaluation_runs_on_the_evaluation_model_with_tools_that_only_read_and_stays_out_of_the_chat()
+    public async Task The_evaluation_runs_on_the_helper_model_with_tools_that_only_read_and_stays_out_of_the_chat()
     {
         var folder = Directory.CreateTempSubdirectory("bb-auto-").FullName;
         File.WriteAllText(Path.Combine(folder, "notes.md"), "The settings code is in SettingsWindow.axaml.cs.");

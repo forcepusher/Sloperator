@@ -498,7 +498,7 @@ public class AnthropicTests
         Assert.True(probe.AutoPicked);
         // Auto: the daily driver, the newest Claude Sonnet by its default words.
         Assert.Equal("your daily driver model", probe.PickedAs);
-        Assert.Equal(("claude-haiku-5-5", "claude-opus-5-5"), (probe.Auto!.Evaluation.Id, probe.Auto.Complex.Id));
+        Assert.Equal(("claude-haiku-5-5", "claude-opus-5-5"), (probe.Auto!.Helper.Id, probe.Auto.Complex.Id));
         Assert.Equal(1_000_000, probe.LoadedContext);
         server.SetDetectedContext(probe.LoadedContext);
         Assert.Equal(1_000_000, server.ContextSize);

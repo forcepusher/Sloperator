@@ -49,27 +49,27 @@ public sealed partial class SettingsViewModel(AppSettings settings, AppPaths pat
     public IReadOnlyList<string> ServerModels { get; init; } = [];
 
     /// <summary>The three models the model dropdown's Auto picks from (see <see cref="AutoModels"/>), as words or names.</summary>
-    public string EvaluationModel
+    public string HelperModel
     {
-        get => Settings.Server.Auto.Evaluation;
-        set { Settings.Server.Auto.Evaluation = value.Trim(); OnPropertyChanged(nameof(EvaluationFound)); }
+        get => Settings.Server.Auto.Helper;
+        set { Settings.Server.Auto.Helper = value.Trim(); OnPropertyChanged(nameof(HelperFound)); }
     }
 
-    /// <inheritdoc cref="EvaluationModel"/>
+    /// <inheritdoc cref="HelperModel"/>
     public string DailyModel
     {
         get => Settings.Server.Auto.Daily;
         set { Settings.Server.Auto.Daily = value.Trim(); OnPropertyChanged(nameof(DailyFound)); }
     }
 
-    /// <inheritdoc cref="EvaluationModel"/>
+    /// <inheritdoc cref="HelperModel"/>
     public string ComplexModel
     {
         get => Settings.Server.Auto.Complex;
         set { Settings.Server.Auto.Complex = value.Trim(); OnPropertyChanged(nameof(ComplexFound)); }
     }
 
-    public string EvaluationFound => FoundHere(EvaluationModel);
+    public string HelperFound => FoundHere(HelperModel);
     public string DailyFound => FoundHere(DailyModel);
     public string ComplexFound => FoundHere(ComplexModel);
 
