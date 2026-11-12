@@ -170,12 +170,19 @@ internal static partial class DocumentFiles
                 {
                     if (newText.Trim().Length == 0)
                         throw new InvalidOperationException("Both old_text and new_text are empty: there is nothing to change.");
-                    // A table of contents after the title, its page numbers once the file is written.
-                    if (WordContents.Asks(newText))
+                    // A table of contents after the title, its page numbers once the file is written; with lines for every
+                    // page's header or footer too, as Haiku and Sonnet both first gave "page numbers at the bottom" and
+                    // "table of contents" in one edit (2026-11-13).
+                    if (newText.Replace("\r\n", "\n").Split('\n').Any(WordContents.Asks))
                     {
+                        var others = string.Join("\n", newText.Replace("\r\n", "\n").Split('\n').Where(l => !WordContents.Asks(l)));
+                        var pagesSaid = others.Trim().Length == 0 ? null
+                            : WordPages.Edit(parts, others) ?? throw new InvalidOperationException("\"table of contents\" goes in an edit by itself or with lines for every page's header or footer (\"page numbers at the bottom\"): " +
+                                $"\"{others.Trim().Split('\n')[0].Trim()}\" is neither. Nothing was changed.");
                         contents = WordContents.Insert(main, parts);
                         parts.Changed("word/document.xml");
-                        message = $"Added a table of contents after the title, listing {(contents.Count == 1 ? "its 1 heading" : $"its {contents.Count} headings")}";
+                        message = (pagesSaid is null ? "" : pagesSaid.TrimEnd('.') + "; then a")
+                            + $"{(pagesSaid is null ? "A" : "")}dded a table of contents after the title, listing {(contents.Count == 1 ? "its 1 heading" : $"its {contents.Count} headings")}";
                     }
                     // Lines for every page's header or footer ("page numbers at the bottom", "footer left: Confidential").
                     else if (WordPages.Edit(parts, newText) is { } pages)

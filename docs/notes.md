@@ -336,7 +336,10 @@ as a PDF through the converter (Office hidden, else LibreOffice) and each headin
 is just its text, in order; the numbers are then written in. Without a converter the entries have none and the answer
 says Word puts them in with Update Field. A field marked dirty for Word to fill in on opening was tried first: Word
 asked "update the fields?" every time it opened the file (Documents.Open blocked with alerts on). Checked in Word 16:
-a four-page report, opened visible with every alert on (no prompt), our numbers the same as Word's own update. Page lines mixed with
+a four-page report, opened visible with every alert on (no prompt), our numbers the same as Word's own update. Live,
+the request "page numbers at the bottom, a table of contents after the title, and the headings dark blue": Haiku 35 s
+and Sonnet 40 s, all through edit_file (they had rewritten the XML through PowerShell); the one error each was giving
+"page numbers at the bottom" and "table of contents" in one edit, which is taken since. Page lines mixed with
 other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
 format: dark blue", both had gone in at the end of the document as text.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
