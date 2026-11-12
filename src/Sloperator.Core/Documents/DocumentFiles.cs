@@ -164,9 +164,21 @@ internal static partial class DocumentFiles
                 }
                 else
                 {
-                    var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
-                    foreach (var part in changed) parts.Changed(part);
-                    message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was.";
+                    try
+                    {
+                        var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
+                        foreach (var part in changed) parts.Changed(part);
+                        message = count > 1 ? $"Replaced {count} occurrences." : "Replaced the text; the formatting around it is as it was.";
+                    }
+                    // Lines given after a slide's chart, as read_file shows it: no text to find, but where they go is
+                    // clear, and they are the slide's text as lines after its title are.
+                    catch (InvalidOperationException) when (kind == "pptx" && AfterSlideChart(parts, documents, oldText, newText) is not null)
+                    {
+                        var (slide, title, lines) = AfterSlideChart(parts, documents, oldText, newText)!.Value;
+                        TextEdit.Replace(new Dictionary<string, XDocument> { [slide] = documents[slide] }, slides: true, title, title + "\n" + lines, all: false);
+                        parts.Changed(slide);
+                        message = "Added the text to the chart's slide, as the slide's text beside the chart.";
+                    }
                 }
             }
             parts.Save();
@@ -183,6 +195,52 @@ internal static partial class DocumentFiles
         else
             Made.Remove(path);
         return $"Edited {path}: {message}";
+    }
+
+    /// <summary>
+    /// The slide a chart line given as old_text is on, with that slide's title and the lines new_text adds after
+    /// the chart's line; null when old_text is no slide's chart, or more than one's, or new_text isn't it followed
+    /// by more. Asked for two bullets beside a chart (2026-11-13), Haiku gave the chart's line as read_file shows
+    /// it, then the end of that line, each followed by the bullets, and was told twice the text wasn't in the
+    /// document; Sonnet rewrote the slide's XML with a script.
+    /// </summary>
+    private static (string Slide, string Title, string Lines)? AfterSlideChart(PartSet parts, Dictionary<string, XDocument> documents, string oldText, string newText)
+    {
+        var anchor = oldText.Replace("\r\n", "\n").Trim();
+        var replacement = newText.Replace("\r\n", "\n").Trim();
+        if (anchor.Length < 4 || anchor.Contains('\n') || !replacement.StartsWith(anchor, StringComparison.Ordinal))
+            return null;
+        var lines = replacement[anchor.Length..].Trim('\n', ' ');
+        var bare = anchor.Trim('(', ')', ' ');
+        if (lines.Length == 0 || bare.Length < 4)
+            return null;
+        XNamespace p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+        XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+        var asked = SheetChart.Parse(bare, colon: true);
+        var found = new List<(string Slide, string Title)>();
+        foreach (var slide in documents.Keys.Where(k => SlidePart().IsMatch(k)))
+        {
+            var folder = slide[..(slide.LastIndexOf('/') + 1)];
+            var rels = $"{folder}_rels/{slide[folder.Length..]}.rels";
+            if (!parts.Exists(rels))
+                continue;
+            var title = documents[slide].Descendants(p + "sp")
+                .FirstOrDefault(sp => (string?)sp.Element(p + "nvSpPr")?.Element(p + "nvPr")?.Element(p + "ph")?.Attribute("type") is "title" or "ctrTitle") is { } shape
+                ? string.Concat(shape.Descendants(a + "t").Select(t => t.Value)).Trim() : "";
+            foreach (var relation in parts.Get(rels).Root!.Elements().Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/chart", StringComparison.Ordinal) == true))
+            {
+                var chartPart = PartSet.Resolve(folder.TrimEnd('/'), (string?)relation.Attribute("Target") ?? "");
+                if (!parts.Exists(chartPart))
+                    continue;
+                var chart = parts.Get(chartPart);
+                var (kind, name) = SheetChart.About(chart);
+                // The line read_file shows for it, or a part of that line; or the line it was written with, by its kind and its title or its slide's.
+                if (("chart: " + SheetChart.DescribeData(chart)).Contains(bare, StringComparison.OrdinalIgnoreCase)
+                    || asked is not null && asked.Kind == kind && (asked.Title is null || string.Equals(asked.Title, name, StringComparison.OrdinalIgnoreCase) || string.Equals(asked.Title, title, StringComparison.OrdinalIgnoreCase)))
+                    found.Add((slide, title));
+            }
+        }
+        return found.Count == 1 && found[0].Title.Length > 0 ? (found[0].Slide, found[0].Title, lines) : null;
     }
 
     /// <summary>Writes the file through a temporary one, so a failure leaves the old one whole.</summary>
