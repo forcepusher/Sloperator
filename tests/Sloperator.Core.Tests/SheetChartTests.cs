@@ -272,6 +272,42 @@ public class SheetChartTests : IDisposable
     }
 
     [Fact]
+    public async Task Lines_added_under_a_slides_title_are_its_text_beside_what_it_shows()
+    {
+        Assert.False((await Write("deck.pptx", "# Update\nWeekly numbers\n\n---\n\n# Where Users Come From\n\n| Source | Share |\n|---|---|\n| Search | 45 |\n| Social | 30 |\n| Other | 25 |\n\nchart: pie\n\n---\n\n# Plans\n\n- Hire one more")).IsError);
+        // As Sonnet asked (2026-11-13): the title, then two bullets. They were put into the title itself.
+        var result = await Edit("deck.pptx", "Where Users Come From", "Where Users Come From\n- Search is our biggest channel at 45%\n- Social adds another 30%");
+        Assert.False(result.IsError, result.Text);
+        XNamespace p = "http://schemas.openxmlformats.org/presentationml/2006/main";
+        XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+        var slide = Part("deck.pptx", "ppt/slides/slide2.xml");
+        static string Text(XElement e) => string.Concat(e.Descendants().Where(t => t.Name.LocalName == "t").Select(t => t.Value));
+        var shapes = slide.Descendants(p + "sp").ToList();
+        Assert.Equal(2, shapes.Count);
+        // The title is the title alone, and the slide has a text box with the two lines, as bullets of the layout's.
+        Assert.Equal("Where Users Come From", Text(shapes[0]));
+        Assert.Single(shapes[0].Descendants(a + "p"));
+        Assert.Equal(["Search is our biggest channel at 45%", "Social adds another 30%"], shapes[1].Descendants(a + "p").Select(Text));
+        Assert.Equal("1", (string?)shapes[1].Descendants(p + "ph").Single().Attribute("idx"));
+        // The chart, which had the slide's width, is at the right of the text now.
+        var box = shapes[1].Element(p + "spPr")!.Element(a + "xfrm")!;
+        var chart = slide.Descendants(p + "graphicFrame").Single().Element(p + "xfrm")!;
+        long X(XElement f) => (long)f.Element(a + "off")!.Attribute("x")!;
+        long Wide(XElement f) => (long)f.Element(a + "ext")!.Attribute("cx")!;
+        Assert.True(X(box) + Wide(box) <= X(chart), $"text ends at {X(box) + Wide(box)}, the chart starts at {X(chart)}");
+        Assert.True(X(chart) + Wide(chart) <= 838200 + 10515600);
+        var text = await Read("deck.pptx");
+        Assert.Contains("Where Users Come From\nSearch is our biggest channel at 45%\nSocial adds another 30%\n(chart: pie chart", text);
+
+        // A slide that has its text box: the lines join it, after what it holds.
+        Assert.False((await Edit("deck.pptx", "Plans", "Plans\n- Open in March")).IsError);
+        var plans = Part("deck.pptx", "ppt/slides/slide3.xml").Descendants(p + "sp").ToList();
+        Assert.Equal(2, plans.Count);
+        Assert.Equal("Plans", Text(plans[0]));
+        Assert.Equal(["Hire one more", "Open in March"], plans[1].Descendants(a + "p").Select(Text));
+    }
+
+    [Fact]
     public async Task A_chart_with_nothing_to_draw_is_left_out_and_said()
     {
         var none = await Write("none.xlsx", "# Notes\nchart: bar Sales\n\nJust text.");
@@ -465,8 +501,11 @@ public class SheetChartTests : IDisposable
         await Ok(Edit("formatted.xlsx", "", "format A1:B1 bold, yellow fill\nformat B2:B5 red text, italic\nA6 Total | B6 =SUM(B2:B5)\nformat A6:B6 fill light blue, bold, border, centered"));
         // A deck: a chart alone on a slide, one beside text, a pie and a line of two series.
         await Ok(Write("deck.pptx", "# Q3 Sales Review\nSales results by region\n\n---\n\n# Q3 sales by region\n\n| Region | Q3 Sales |\n|---|---|\n| North | 120 |\n| South | 95 |\n| East | 143 |\n| West | 88 |\n\nchart: bar Q3 sales by region\n\n---\n\n# Where it went\n\n- Rent is most of it\n- Fun is the smallest part we can still cut\n\n| Item | Cost |\n|---|---|\n| Rent | 900 |\n| Food | 350 |\n| Transport | 80 |\n| Fun | 120 |\n\nchart: pie\n\n---\n\n# Two years\n\n| Month | 2025 | 2026 |\n|---|---|---|\n| Jan | 10 | 14 |\n| Feb | 12 | 13 |\n| Mar | 9 | 17 |\n| Apr | 15 | 19 |\n\nchart: line Units by month\n"));
+        // The deck again, with two lines added under the title of the slide that held only a chart.
+        File.Copy(Path.Combine(_dir, "deck.pptx"), Path.Combine(_dir, "deck-edited.pptx"));
+        await Ok(Edit("deck-edited.pptx", "Q3 sales by region", "Q3 sales by region\n- East leads with 143\n- West is where to look next"));
         Directory.CreateDirectory(output!);
-        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx", "changed.xlsx", "formatted.xlsx", "deck.pptx" })
+        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx", "changed.xlsx", "formatted.xlsx", "deck.pptx", "deck-edited.pptx" })
             File.Copy(Path.Combine(_dir, name), Path.Combine(output!, name), overwrite: true);
         // A workbook Excel saved with a chart of its own, put in the folder as excel.xlsx (cells A1:D5 on its first
         // sheet): a second chart goes into the drawing Excel made, under the first.

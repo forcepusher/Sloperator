@@ -211,7 +211,12 @@ line of it, went to write it again and was told it "isn't one you wrote in this 
 across Word's runs and paragraphs (copied from `read_file` with its `# ` and `**` marks or without),
 curly quotes match straight ones, and only what differs is replaced, so the rest keeps its
 formatting. A line break in the new text starts a paragraph like the one it is in, `# ` at its
-start makes a heading, and `**bold**` applies. A Word table's rows can be given as `read_file`
+start makes a heading, and `**bold**` applies. On a slide, lines added under its title are the slide's text, not
+more title (`SlideText.Settle`, 2026-11-13): they go to the end of the slide's text box, and a slide that has none
+gets one, with what it shows across its width (a chart, a table, a picture) moved to the right of it, as a slide
+written with text beside a chart is laid out. Asked for two bullets on a slide that held a title and a pie, Sonnet
+gave the title followed by the bullets; they came out inside the title, in its type, and it took them out again.
+A Word table's rows can be given as `read_file`
 shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
 cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
 2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from
