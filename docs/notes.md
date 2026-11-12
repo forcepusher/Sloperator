@@ -249,7 +249,11 @@ from memory, and those were often wrong, so the model doesn't work from memory h
   with `action=install` (which says so and downloads nothing when there is one): the portable build that suits the graphics card Windows lists (NVIDIA's, the
   CUDA 12.6 one for a GTX 10 series or older, AMD's for a Radeon RX 6000 or newer on Windows 11,
   Intel's for an Arc), else NVIDIA's run on the CPU (`--cpu`, as ComfyUI's README says; started
-  without it, its CUDA PyTorch crashed on the laptop's Iris Xe). It goes into `SloperatorData/tools`: the
+  without it, its CUDA PyTorch crashed on the laptop's Iris Xe). A `folder` given with it is another place to
+  install to, and skips the look for one the PC has; it starts at the home folder when it isn't a full path, and
+  Sloperator's own tools folder by its name ("SloperatorData\tools") counts as none given (`ComfyTool.Folder`): the
+  parameter's description said "else Sloperator's SloperatorData\tools", Nemotron passed that as the folder to draw
+  a chart for a spreadsheet, and 1.9 GB began to download under the folder the process ran in (2026-11-12). It goes into `SloperatorData/tools`: the
   latest release from GitHub (about 2 GB, checked against the SHA-256 GitHub gives, taken up again
   where it stopped after a cut), unpacked by the PC's 7-Zip or 7-Zip's own 7zr.exe fetched into
   `SloperatorData/tools` (Windows 10's tar can't unpack its LZMA2). On the CPU, the tool says so with every

@@ -735,6 +735,15 @@ public class ComfyModelToolTests : IDisposable
         Assert.Contains($"A ComfyUI runs already, at {_comfy.Url}; nothing was downloaded", install.Text);
         Assert.Contains($"Using the ComfyUI that already runs at {_comfy.Url} (from {_comfy.CodeDir}); it keeps running after this task.", install.Text);
         Assert.False(Directory.Exists(Path.Combine(_home, "SloperatorData", "tools", "ComfyUI_windows_portable")));
+
+        // Sloperator's own tools folder by its name is no other folder: it skipped this look and started a second
+        // install under the process's folder. Any other folder starts at the home folder.
+        var named = await Call(new ComfyTool(), """{"action": "install", "folder": "SloperatorData\\tools"}""");
+        Assert.Contains("nothing was downloaded", named.Text);
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = _home };
+        Assert.Null(ComfyTool.Folder(new JsonObject { ["folder"] = "SloperatorData/tools/" }, ctx));
+        Assert.Null(ComfyTool.Folder(new JsonObject(), ctx));
+        Assert.Equal(Path.Combine(_home, "Apps", "comfy"), ComfyTool.Folder(new JsonObject { ["folder"] = @"Apps\comfy" }, ctx));
     }
 
     [Fact]

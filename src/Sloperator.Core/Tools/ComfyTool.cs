@@ -46,7 +46,7 @@ public sealed partial class ComfyTool : Tool
         ("base", Str("find_models: the model it should be made for, e.g. \"SD 1.5\", \"SDXL\", \"Flux\""), false),
         ("url", Str("download: the model file's link, as find_models or a template gives it (a Civitai or Hugging Face page works too)"), false),
         ("model_folder", Str("download: the models folder it goes in (checkpoints, loras, vae, upscale_models, controlnet, embeddings, diffusion_models, text_encoders…); find_models gives it"), false),
-        ("folder", Str("ComfyUI's folder, if it isn't found by itself or another one should be used (install: where to install it, else Sloperator's SloperatorData\\tools)"), false));
+        ("folder", Str("ComfyUI's folder, if it isn't found by itself or another one should be used (install: another folder to install it in; left out, it goes with Sloperator's own tools)"), false));
 
     public override string Describe(JsonObject args)
     {
@@ -111,7 +111,7 @@ public sealed partial class ComfyTool : Tool
                 case "download" or "download_model":
                     return await DownloadAsync(args, hub, ctx, ct).ConfigureAwait(false);
             }
-            var api = await hub.ConnectAsync(GetString(args, "folder"), notes, ctx.Progress, ct).ConfigureAwait(false);
+            var api = await hub.ConnectAsync(Folder(args, ctx), notes, ctx.Progress, ct).ConfigureAwait(false);
             // Once a task, with its first call that reaches ComfyUI, not only in the status: a run that
             // never asked for it pip-installed Pillow into the PC's own Python to draw a sprite sheet.
             if (!_pythonNoted)
@@ -193,9 +193,21 @@ public sealed partial class ComfyTool : Tool
 
     // ---- install, find_models, download ------------------------------------------------------
 
+    /// <summary>
+    /// The folder a call names, from the home folder when it isn't a full path, as every path the model gives. The
+    /// name of Sloperator's own tools folder alone is no folder given: Nemotron copied it from this tool's
+    /// description ("else Sloperator's SloperatorData\tools"), which skipped the look for a ComfyUI the PC has
+    /// already and put a second one, 1.9 GB of it, under whatever folder the process ran in (2026-11-12).
+    /// </summary>
+    internal static string? Folder(JsonObject args, ToolContext ctx) =>
+        GetString(args, "folder")?.Trim().Replace('/', '\\').TrimEnd('\\') is { Length: > 0 } folder &&
+        !folder.Equals(@"SloperatorData\tools", StringComparison.OrdinalIgnoreCase)
+            ? ctx.ResolvePath(folder)
+            : null;
+
     private static async Task<ToolResult> InstallAsync(JsonObject args, ComfyHub hub, ToolContext ctx, CancellationToken ct)
     {
-        var said = await hub.InstallAsync(GetString(args, "folder"), ctx.Progress, ct).ConfigureAwait(false);
+        var said = await hub.InstallAsync(Folder(args, ctx), ctx.Progress, ct).ConfigureAwait(false);
         var notes = new List<string> { said };
         // Started at once, so a problem shows now rather than at the first job.
         var api = await hub.ConnectAsync(null, notes, ctx.Progress, ct).ConfigureAwait(false);
