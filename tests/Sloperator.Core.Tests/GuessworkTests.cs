@@ -475,6 +475,11 @@ public class GuessworkTests
         // Saying what it should have done is saying it isn't right.
         Assert.True(Guesswork.UserDoubts("The text fades in from black; it should fade from transparent, with the blue showing through."));
         Assert.False(Guesswork.UserDoubts("Great, now make a version 10 seconds long."));
+        // A change asked for with "instead of" (2026-11-13), and a result said to be wrong with it.
+        Assert.False(Guesswork.UserDoubts("Make the table slide's numbers a bar chart instead of a table."));
+        Assert.False(Guesswork.UserDoubts("Thanks. Now use euros instead of dollars, and put the total in bold."));
+        Assert.True(Guesswork.UserDoubts("The logo moves left instead of right."));
+        Assert.True(Guesswork.UserDoubts("Make it longer. It fades out instead of in."));
 
         // Without a try before it, a message is a new task, whatever it says.
         var fresh = new Guesswork();

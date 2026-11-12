@@ -229,7 +229,8 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   without Office doesn't have. *Checked:* the same edits on that workbook, opened in Excel 16
   (`.dev/night-test/layout-check.ps1`): rows by revenue, rows 1-2 frozen, the filter on the header under the merged,
   centred title, one rule `=$F3>3000` drawing the rows over 3000 red after the title went in, amounts as $9,120.00.
-  Not there: sorting by more than one column, data validation, protecting a sheet.
+  Not there: sorting by more than one column, data validation, protecting a sheet. A sheet of more formulas than
+  `MaxWorkedOut` is sorted by the values Excel saved, its formulas left to Excel, as any edit leaves them.
   **Rows on the sheet named** (the same night): in a workbook of more than one sheet, `insert row`/`delete rows` with
   no sheet named (by `on "Name"`, `'Name'!delete row 6` or a `# Sheet` line before it) is refused, nothing changed,
   with the sheets listed. Meaning the total row of a workbook's second sheet, Qwen wrote `delete rows 6` and a row of
@@ -5834,7 +5835,9 @@ presses for it at more points than errors:
   result isn't right ("Dude it's still a kid", "it should fade from transparent"): the first such failure before anything was looked
   up gets a note to search before the next try, and from the third since the last look-up every one
   does, as errors do. A try is a call that does something: a command, a script, a file written, a
-  ComfyUI job, a piece of a video.
+  ComfyUI job, a piece of a video. "Instead of" in a sentence that asks for a change ("Make the numbers a bar chart
+  instead of a table", `ChangeInsteadOf`) is no such message (2026-11-13): taken for one, Haiku and Sonnet were told
+  the result wasn't right after they had made the change, and searched the web, Haiku for python-pptx.
 - After ten minutes of runs with nothing looked up (three at least, and only time in a run: not
   while the user is away between messages), or four runs however quick (probing how Blender 5.2 sets
   a modifier's inputs, qwen3.8 ran 17 scripts in 7 minutes after its last search and ran out of

@@ -201,6 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The agent can no longer start a second ComfyUI download, about 2 GB, into a stray `SloperatorData\tools` folder
   beside whatever it was working in, when the PC has ComfyUI already: it took the name of Sloperator's own tools
   folder for a place to install to.
+- A follow-up such as "make it a bar chart instead of a table" is no longer taken as you saying the result is wrong,
+  which sent the agent to search the web before going on.
 - When the agent asks you to choose and ends on "Once you choose, I'll…" or "Let me know which…", it waits for your
   answer. It was told to carry on with its plan, and did part of the work before you had chosen.
 - A question the agent ends on is no longer followed by "asked it to carry on" when a sentence comes after the
