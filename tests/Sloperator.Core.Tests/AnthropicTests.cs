@@ -146,6 +146,56 @@ public class AnthropicTests
             Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
     }
 
+    private const string NotAllowed = """{"error":{"type":"forbidden","message":"Request not allowed"}}""";
+
+    [Fact]
+    public async Task A_request_Anthropic_does_not_allow_is_not_blamed_on_the_key_alone_nor_answered_with_the_address_in_the_box()
+    {
+        // 403 "Request not allowed": a network or country Anthropic doesn't serve (a VPN gone off mid-chat). The user's
+        // key was fine and their address Claude's own, yet they read "the API key may be wrong… That is an Anthropic
+        // API key: for Claude, the server address is https://api.anthropic.com" (2026-11-12).
+        var blocked = new AnswerAtModels(System.Net.HttpStatusCode.Forbidden, NotAllowed);
+        var probe = await ServerProbe.CheckAsync(new HttpClient(blocked), new ServerSettings { BaseUrl = "https://api.anthropic.com/v1", ApiKey = "sk-ant-mine" }, CancellationToken.None);
+        Assert.True(probe.KeyRefused);
+        Assert.True(probe.AccessRefused);
+        Assert.Equal("The server refused access (it says \"Request not allowed\"): the API key may be wrong or not allowed to use this model, "
+            + "or the server takes no requests from this network or country (a VPN that is off, for one).", probe.Message);
+
+        // The same from another address still gets Claude's, and a wrong key is still the key's.
+        var elsewhere = await ServerProbe.CheckAsync(new HttpClient(blocked), new ServerSettings { BaseUrl = "https://blocked.example.com/v1", ApiKey = "sk-ant-mine" }, CancellationToken.None);
+        Assert.Contains("the server address is https://api.anthropic.com", elsewhere.Message);
+        var wrong = await ServerProbe.CheckAsync(new HttpClient(new FakeAnthropic()), new ServerSettings { BaseUrl = "https://llm.example.com/v1", ApiKey = "sk-ant-wrong" }, CancellationToken.None);
+        Assert.False(wrong.AccessRefused);
+    }
+
+    [Fact]
+    public async Task A_refusal_that_names_no_header_leaves_a_server_known_to_speak_Messages_as_it_was()
+    {
+        var server = new ClaudeThenBlocked();
+        var client = new OpenAiChatClient(new HttpClient(server), "https://claude-then-blocked.example.com/v1", "sk-ant-mine");
+        await client.ListModelEntriesAsync(TestContext.Current.CancellationToken);
+        Assert.True(client.SpeaksMessages);
+
+        server.Blocked = true;
+        var refused = await Assert.ThrowsAsync<KeyRefusedException>(() => client.ListModelEntriesAsync(TestContext.Current.CancellationToken));
+        Assert.True(refused.Forbidden);
+        Assert.True(client.SpeaksMessages); // it made a stranger of the address, and the next request went out in OpenAI's format
+    }
+
+    /// <summary>Anthropic's model list, then its "Request not allowed" for whatever is asked.</summary>
+    private sealed class ClaudeThenBlocked : HttpMessageHandler
+    {
+        public bool Blocked { get; set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(Blocked
+                ? new HttpResponseMessage(System.Net.HttpStatusCode.Forbidden) { Content = new StringContent(NotAllowed) }
+                : new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"data":[{"id":"claude-sonnet-5-5","type":"model","display_name":"Claude Sonnet 5.5"}],"has_more":false,"first_id":"claude-sonnet-5-5","last_id":"claude-sonnet-5-5"}"""),
+                });
+    }
+
     [Fact]
     public async Task A_server_having_a_bad_moment_at_models_is_asked_again()
     {

@@ -19,6 +19,22 @@ public class ToolTests
     };
 
     [Fact]
+    public void A_call_sent_without_its_coordinates_has_a_card_line_without_them()
+    {
+        // Claude Sonnet called mouse_double_click with nothing in it; refused, its card read "Double-click at (, )" (2026-11-12).
+        Assert.Equal("Double-click", new MouseClickTool().Describe(new JsonObject { ["clicks"] = 2 }));
+        Assert.Equal("Click (right)", new MouseClickTool().Describe(new JsonObject { ["button"] = "right", ["x"] = 5 }));
+        Assert.Equal("Move mouse", new MouseMoveTool().Describe([]));
+        Assert.Equal("Drag from (1, 2)", new MouseDragTool().Describe(new JsonObject { ["x"] = 1, ["y"] = 2 }));
+        Assert.Equal("Scroll down x3", new ScrollTool().Describe(new JsonObject { ["direction"] = "down", ["x"] = 7 }));
+        // With them, as before.
+        Assert.Equal("Double-click at (10, 20.5)", new MouseClickTool().Describe(new JsonObject { ["clicks"] = 2, ["x"] = 10, ["y"] = 20.5 }));
+        Assert.Equal("Move mouse to (10, 20)", new MouseMoveTool().Describe(new JsonObject { ["x"] = 10, ["y"] = 20 }));
+        Assert.Equal("Drag from (1, 2) to (3, 4) holding Shift", new MouseDragTool().Describe(new JsonObject { ["x"] = 1, ["y"] = 2, ["to_x"] = 3, ["to_y"] = 4, ["modifiers"] = "shift" }));
+        Assert.Equal("Scroll up x5 at (7, 8)", new ScrollTool().Describe(new JsonObject { ["direction"] = "up", ["amount"] = 5, ["x"] = 7, ["y"] = 8 }));
+    }
+
+    [Fact]
     public void Screen_space_scales_down_and_maps_back()
     {
         var space = new ScreenSpace(new ScreenRect(0, 0, 2560, 1440), (1280, 720));

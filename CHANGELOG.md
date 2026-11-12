@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- The **plan bar** now shows for tasks of more than a step or two: tasks went by with no plan at all. Once the agent
+  has started on a task with nothing on the bar, Sloperator asks it for a short, readable plan (a handful of steps,
+  one word each) and to keep it moving; each move of the plan reminds it of the next, and the bar finishes when the
+  agent ends on its last step. A question it answers after one look still gets no plan.
 - The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too:
   a command that would end a program by name is not run while you have windows of it open.
 - The agent reads a PowerPoint table as rows, as it reads a Word table, rather than one cell a line.
@@ -95,6 +99,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A request the server doesn't allow from your network or country, such as Anthropic's "Request not allowed" while a
+  VPN is off, no longer says only that the API key may be wrong, nor tells you Claude's server address when you are
+  on it already. The title bar says **Access refused** rather than **Key refused**.
+- The card over a finished task no longer counts the price lookup Sloperator runs after the answer as a tool call
+  with a `side_task` chip: it says **price lookup**.
+- The card of a click, move, drag or scroll the model sent without its coordinates no longer reads "Double-click at (, )".
+- What the agent types right after its own click is no longer held back because you wrote to it, or clicked
+  somewhere, before that click: it clicked and typed a second time.
+- A plan left on its last step when the agent answered now shows as done, rather than as one it stopped short of.
 - `sloperator-cli` keeps each run's captures apart, so comparing with "capture 1" no longer takes another run's picture.
 - The plan bar moves on when the agent names its step in quotes ("2"), as some models do, rather than staying put.
 - Desktop tasks on the free model Sloperator starts with no longer end some 15 steps in on "input rejected by content

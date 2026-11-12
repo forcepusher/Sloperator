@@ -431,6 +431,10 @@ public sealed partial class AgentSession(
         var cutOffs = 0;
         var missChecked = false;
         var (planWork, planChecked) = (false, false);
+        // The plan nudge (see PlanNote): steps so far without a plan, whether the run needs no asking any more, whether
+        // it was asked, whether it was told to carry on after stopping at its plan, whether it made a plan call, and
+        // whether it has worked since it was asked.
+        var (planSteps, planAsked, planNudged, planPushed, planMoved, planNudgeWork) = (0, false, false, false, false, false);
         var pricesLooked = false;
         var loops = new LoopDetector();
         // Pointing at web_search only makes sense when the model has it. Kept for the chat: "still
@@ -545,6 +549,27 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
+                    // Ending right after the plan Sloperator asked for (PlanNote), with no work since the note: Haiku 5.5
+                    // set its four steps, said "The plan bar is now set… Next I'll add the parameters" and ended
+                    // there, the task not begun (2026-11-12). Told once to carry on; a question to the user stands.
+                    // Only then: pushed on after any plan call, it answered a finished task a second time.
+                    if (planNudged && !planPushed && planMoved && !planNudgeWork && toolContext.Plan is { Finished: false } going && !EndsInQuestion(reply.Content))
+                    {
+                        planPushed = true;
+                        observer.OnNotice("The model stopped after setting its plan; asked it to carry on with the task.");
+                        History.Add(ChatMessage.User(PlanGoOnNote(going)));
+                        continue;
+                    }
+                    // The turn ended on the plan's last step: the bar is done, without asking. Haiku 5.5 set now to 5
+                    // of 5 and answered (that step was the answer), and the bar stood on its last step in accent, as
+                    // a plan the run stopped short of; with work since the move it was asked aside where the plan
+                    // stood, for "all done" and a line in the chat every time (2026-11-12). A question to the user
+                    // leaves it, as does a run that neither moved the plan nor worked.
+                    if ((planMoved || planWork) && toolContext.Plan is { Finished: false, At: > 0 } ending && ending.At == ending.Steps.Count - 1 && !EndsInQuestion(reply.Content))
+                    {
+                        toolContext.Plan = ending with { At = ending.Steps.Count };
+                        toolContext.PlanChanged?.Invoke(toolContext.Plan);
+                    }
                     if (!planChecked && planWork && toolContext.Plan is { Finished: false })
                     {
                         planChecked = true;
@@ -599,6 +624,7 @@ public sealed partial class AgentSession(
                 // This reply's calls were decided on the screen in the last screenshot.
                 toolContext.Seen = toolContext.LastShot;
                 toolContext.UserPressesSeen = toolContext.LastShot?.UserPresses;
+                toolContext.ClickedAtPresses = null;
                 toolContext.ScreenStale = false;
                 var called = reply.ToolCalls!.Select(c => ToolCallRepair.ResolveTool(c.Name, tools)).ToList();
                 guesswork?.Read(reply, called);
@@ -617,9 +643,9 @@ public sealed partial class AgentSession(
                     var result = await RunToolAsync(call, observer, ct, calls.Token).ConfigureAwait(false);
                     // Work since the plan last moved: the plan may have fallen behind it (see PlanBehindAsync).
                     if (ToolCallRepair.ResolveTool(call.Name, tools) is not PlanTool)
-                        planWork = true;
+                        (planWork, planNudgeWork) = (true, planNudged);
                     else if (!result.IsError)
-                        planWork = false;
+                        (planWork, planMoved) = (false, true);
                     // A call Interrupt stopped failed for no fault of the model's.
                     // Each note the model is sent shows in the chat as a line of its own, as the
                     // user asked: what Sloperator tells the model is no secret.
@@ -656,6 +682,17 @@ public sealed partial class AgentSession(
                 // The whole calls ran; the cut one is said after their results.
                 if (cutCall && last is not null)
                     notes.Add(CutToolCallNote);
+                // The task begun with nothing on the user's plan bar: asked for a plan, once a run (see PlanNote).
+                // A run that kept one from the start, or that has no bar to show it on, is never asked.
+                if (!planAsked && (called.Any(t => t is PlanTool) || tools.Find(PlanTool.ToolName) is null))
+                    planAsked = true;
+                // One note at a time: with another to answer first (index the project, look an error up), this one waits a step.
+                else if (!planAsked && toolContext.Plan is not { Finished: false } && ++planSteps >= PlanAfterSteps && notes.Count == 0 && !calls.Interrupted(ct))
+                {
+                    planAsked = planNudged = true;
+                    notes.Add(PlanNote);
+                    observer.OnNotice("Asked the model to show its plan on the bar above the message box.");
+                }
 
                 // Most OpenAI-compatible servers only accept images in user messages,
                 // so the screenshot (or a picture read_file opened) is delivered right after the tool results.
@@ -754,6 +791,42 @@ public sealed partial class AgentSession(
     internal const string MissedEndNote =
         "[Sloperator] Your last click changed nothing on screen, so it probably missed, yet you ended there. Zoom in on what you meant to click: " +
         "if it isn't selected or changed, click it again; if it already was, say so.";
+
+    /// <summary>
+    /// How many steps (replies with tool calls) a run makes with no plan on the bar before the model is asked for one.
+    /// One: its first look at the task. At three, Haiku 5.5 and Sonnet 5.5, which read every file in one step and
+    /// write them all in the next, were asked when little was left: the plan showed for the last five seconds.
+    /// </summary>
+    internal const int PlanAfterSteps = 1;
+
+    /// <summary>
+    /// What the model is told once a run when it has begun a task with no plan on the user's bar (the user,
+    /// 2026-11-12: "I have yet to see a single plan built by the thing. User loves feedback and readable
+    /// non-congested visual progress, so we have to nudge the plan-building somehow"). The prompt's line on
+    /// keeping a plan had not been enough: their Unity chat on Sonnet 5.5 made 79 replies and over a hundred calls
+    /// without one plan call, and Haiku 5.5 made none in a task of nine calls. Said after the first step's results
+    /// like every note, the same to every model; a run that set a plan itself, or goes on with one that isn't
+    /// finished, is never told. It asks for few, plain steps: the bar is for reading at a glance.
+    /// </summary>
+    internal const string PlanNote =
+        "[Sloperator] You have started on this task and the user's plan bar is empty, so they can't see how far along you are. " +
+        "Unless the task is all but done, call plan now: the whole task as a handful of steps in order, any already done too, " +
+        "one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan on as you start each step. " +
+        "Say nothing of the plan to the user: they see the bar.";
+
+    /// <summary>
+    /// What the model is told, once a run, when it ends its turn right after the plan <see cref="PlanNote"/> asked
+    /// for, with nothing done since and the plan short of its end: the first wording of that note had Haiku 5.5 set
+    /// a plan, announce it ("The plan bar is now set with four steps… Next I'll add the parameters") and stop, where
+    /// the build before it had finished the task. Not after a reply that ends in a question to the user.
+    /// </summary>
+    internal static string PlanGoOnNote(AgentPlan plan) =>
+        $"[Sloperator] The plan is on the bar at step {plan.At + 1} of {plan.Steps.Count}, \"{plan.Steps[plan.At].Word}\", but you ended your turn with that step not done. " +
+        "The user sees the plan and needs no word on it. Carry on with the task now, and end your turn only when it is finished or you need something from the user.";
+
+    /// <summary>Whether a reply ends in a question, as one put to the user does (closing quotes, brackets and emphasis aside).</summary>
+    internal static bool EndsInQuestion(string? text) =>
+        text?.TrimEnd().TrimEnd('*', '_', ')', '"', '\'', '`', (char)0x201D).EndsWith('?') == true;
 
     /// <summary>What the model is asked, aside, when its plan fell behind its work (see <see cref="PlanBehindAsync"/>).</summary>
     internal static string PlanBehindNote(AgentPlan plan) =>

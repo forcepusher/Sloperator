@@ -98,6 +98,8 @@ public abstract class DesktopActionTool : Tool
             }
             ctx.UserPressesAtAct = ctx.Platform.UserInput.Presses;
             (text, check) = await ActAsync(args, ctx, ct).ConfigureAwait(false);
+            if (SetsFocus)
+                ctx.ClickedAtPresses = ctx.UserPressesAtAct;
         }
         // The screen now changes in ways the model hasn't seen; a later click in the same reply
         // is aimed at what it expects, not at what it saw.
@@ -130,6 +132,9 @@ public abstract class DesktopActionTool : Tool
 
     /// <summary>Whether the action moves the mouse: one that doesn't leaves the user's free, however long it takes.</summary>
     private protected virtual bool UsesMouse => true;
+
+    /// <summary>Whether the action puts the keyboard focus where it lands, as a click does (see <see cref="ToolContext.ClickedAtPresses"/>).</summary>
+    private protected virtual bool SetsFocus => false;
 
     /// <summary>
     /// Where on the screen the action lands, to look at again when the user pressed something since
@@ -184,13 +189,19 @@ public abstract class DesktopActionTool : Tool
     /// ahead on, in words for the model; null when nothing. Keys wait for a new look after any press
     /// of the user's: a click in the same window moves the focus too. A click waits only when the screen
     /// changed around where it lands, and can't be compared but for the reply's first action.
+    /// Keys right after a click of the same reply go ahead when the user pressed nothing since that click,
+    /// which put the focus where the model aimed: the user wrote to the agent, its next reply triple-clicked a
+    /// search box and typed, and the typing was held back as "the focus may have moved" (2026-11-12); it
+    /// clicked and typed again, into the text the first click had selected no more.
     /// </summary>
     private string? UserChangedScreen(JsonObject args, ToolContext ctx)
     {
         if (ctx.UserPressesSeen is not { } seen || ctx.Platform.UserInput.Presses == seen)
             return null;
         if (Aims(args, ctx) is not { } aims)
-            return "the user clicked, typed or scrolled since your last screenshot, so the focus may have moved";
+            return ctx.ClickedAtPresses == ctx.Platform.UserInput.Presses
+                ? null
+                : "the user clicked, typed or scrolled since your last screenshot, so the focus may have moved";
         if (ctx.Seen is not { } look)
             return "the user used the mouse or keyboard since your last screenshot";
         var now = ctx.Platform.Screen.Capture(look.Screen, includeCursor: false);
@@ -245,6 +256,13 @@ public abstract class DesktopActionTool : Tool
     // Invariant: with a German PC's culture an x of 512.5 read "(512,5, 300)", to the model as well.
     protected static string Fmt(JsonObject args, string xKey = "x", string yKey = "y") =>
         string.Create(System.Globalization.CultureInfo.InvariantCulture, $"({GetNumber(args, xKey)}, {GetNumber(args, yKey)})");
+
+    /// <summary>
+    /// " at (512, 300)" for a card's line, with another <paramref name="word"/> where it fits; nothing when a
+    /// number is missing: a call the model sent without them, refused for it, read "Double-click at (, )".
+    /// </summary>
+    protected static string At(JsonObject args, string word = "at", string xKey = "x", string yKey = "y") =>
+        GetNumber(args, xKey) is not null && GetNumber(args, yKey) is not null ? $" {word} {Fmt(args, xKey, yKey)}" : "";
 
     /// <summary>The schema of the keys a click or drag can hold, as a person does to select several things.</summary>
     protected static JsonObject ModifiersParameter() =>
@@ -329,10 +347,12 @@ public sealed class MouseClickTool : DesktopActionTool
         if (Modifiers(args) is { Count: > 0 } held)
             kind = Held(held) + "+" + kind.ToLowerInvariant();
         var button = GetString(args, "button") is { } b && b != "left" ? $" ({b})" : "";
-        return $"{kind}{button} at {Fmt(args)}";
+        return $"{kind}{button}{At(args)}";
     }
 
     private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
+
+    private protected override bool SetsFocus => true;
 
     private protected override async Task<Acted> ActAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {
@@ -364,7 +384,7 @@ public sealed class MouseMoveTool : DesktopActionTool
     public override string Name => "mouse_move";
     public override string Description => "Move the mouse to (x, y) in screenshot coordinates without clicking (e.g. to hover).";
     public override JsonObject Parameters => Schema(("x", Num("X in screenshot coordinates"), true), ("y", Num("Y in screenshot coordinates"), true));
-    public override string Describe(JsonObject args) => $"Move mouse to {Fmt(args)}";
+    public override string Describe(JsonObject args) => $"Move mouse{At(args, "to")}";
 
     private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx)];
 
@@ -386,7 +406,7 @@ public sealed class MouseDragTool : DesktopActionTool
         ("to_x", Num("End X"), true), ("to_y", Num("End Y"), true),
         ("modifiers", ModifiersParameter(), false));
     public override string Describe(JsonObject args) =>
-        $"Drag from {Fmt(args)} to {Fmt(args, "to_x", "to_y")}" + (Modifiers(args) is { Count: > 0 } held ? $" holding {Held(held)}" : "");
+        $"Drag{At(args, "from")}{At(args, "to", "to_x", "to_y")}" + (Modifiers(args) is { Count: > 0 } held ? $" holding {Held(held)}" : "");
 
     private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) => [Point(args, ctx), Point(args, ctx, "to_x", "to_y")];
 
@@ -430,7 +450,7 @@ public sealed class ScrollTool : DesktopActionTool
         ("x", Num("Optional X to scroll at"), false),
         ("y", Num("Optional Y to scroll at"), false));
     public override string Describe(JsonObject args) =>
-        $"Scroll {GetString(args, "direction")} x{GetNumber(args, "amount") ?? 3}" + (args["x"] is not null ? $" at {Fmt(args)}" : "");
+        $"Scroll {GetString(args, "direction")} x{GetNumber(args, "amount") ?? 3}" + At(args);
 
     private protected override (int X, int Y)[] Aims(JsonObject args, ToolContext ctx) =>
         [args["x"] is not null && args["y"] is not null ? Point(args, ctx) : ctx.Platform.Input.GetCursorPosition()];

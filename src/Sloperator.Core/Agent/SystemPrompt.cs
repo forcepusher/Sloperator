@@ -317,7 +317,9 @@ public static class SystemPrompt
         // and link: the group had no Geometry input, so not one cube was made.
         // The user's rules (2026-11-05): the plan tool draws the checklist as a bar above the message box.
         sb.AppendLine("- When the way to do a task isn't straightforward, plan first: set the steps with plan, list them in your reply, ask whether the plan suits the user, and stop until they answer.");
-        sb.AppendLine("- For a task of several steps, keep a plan with plan: move it on as you start each step.");
+        // "Keep a plan" alone was passed over: 79 replies of a Unity task on Sonnet 5.5 without one (the user, 2026-11-12).
+        sb.AppendLine("- For a task of several steps, set a plan with plan before your first step and move it on as you start each one: " +
+                      "the user follows your progress on it. Keep it easy to read: a handful of steps, one plain word each.");
         sb.AppendLine("- When the user questions something, answer first; don't act on it until they ask you to.");
         if (screen)
             sb.AppendLine("- When your work may change how something looks, look at the result yourself as your last step.");

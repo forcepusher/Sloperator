@@ -30,7 +30,8 @@ public class AgentSessionTests
         Assert.Equal(AgentStopReason.Completed, observer.StopReason);
         Assert.Equal(["list_directory"], observer.ToolsRun);
         Assert.Contains("notes.txt", observer.Results[0].Text);
-        Assert.Equal(4, session.History.Count); // user, assistant(tool call), tool, assistant
+        Assert.Equal(5, session.History.Count); // user, assistant(tool call), tool, Sloperator's note asking for a plan, assistant
+        Assert.Equal(AgentSession.PlanNote, session.History[3].Content);
         Assert.Equal(2, server.Requests.Count);
 
         // The second request carries the tool result back to the model.

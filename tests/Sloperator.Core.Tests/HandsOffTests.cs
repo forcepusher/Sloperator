@@ -142,6 +142,28 @@ public class HandsOffTests
     }
 
     [Fact]
+    public async Task Keys_right_after_the_agents_own_click_go_ahead_though_the_user_pressed_something_before_it()
+    {
+        // The user typed a message to the agent; its next reply triple-clicked a search box and typed into it. The
+        // click had put the focus where it aimed, yet the typing was held back as "the focus may have moved" (2026-11-12).
+        var (platform, user, ctx) = Setup();
+        platform.Desktop = Picture(200, 100);
+        Looked(ctx);
+        user.Press(); // somewhere else: a message to the agent
+
+        Assert.Equal("Triple-clicked.", (await new MouseClickTool().ExecuteAsync(new JsonObject { ["x"] = 150, ["y"] = 50, ["clicks"] = 3 }, ctx, CancellationToken.None)).Text);
+        var typed = await new TypeTextTool().ExecuteAsync(new JsonObject { ["text"] = "John" }, ctx, CancellationToken.None);
+        Assert.StartsWith("Typed", typed.Text);
+        Assert.Contains("type John", platform.Actions);
+
+        // A press of the user's after that click may have moved the focus again: the next keys wait for a new look.
+        user.Press();
+        var held = await new PressKeysTool().ExecuteAsync(new JsonObject { ["keys"] = "enter" }, ctx, CancellationToken.None);
+        Assert.StartsWith("Nothing was done: the user clicked, typed or scrolled since your last screenshot", held.Text);
+        Assert.DoesNotContain("keys enter", platform.Actions);
+    }
+
+    [Fact]
     public async Task A_click_goes_ahead_when_the_user_left_the_screen_where_it_lands_as_it_was()
     {
         var (platform, user, ctx) = Setup();

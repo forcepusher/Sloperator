@@ -17,9 +17,10 @@ namespace Sloperator.Core.Llm;
 /// <param name="Efforts">The effort levels <paramref name="Model"/> takes (see <see cref="ModelInfo.Efforts"/>); empty when it takes none or nothing says.</param>
 /// <param name="PickedAs">For a model chosen here, how it was chosen (<see cref="ModelChoice.Why"/>, or which of the user's three Auto models it is).</param>
 /// <param name="Auto">On Auto, the user's three models on this server (<see cref="AutoModelSet"/>); null otherwise.</param>
+/// <param name="AccessRefused">With <paramref name="KeyRefused"/>: refused without a word on the key (<see cref="KeyRefusedException.Forbidden"/>), which may be fine.</param>
 public sealed record ProbeResult(bool Reachable, IReadOnlyList<string> Models, int? LoadedContext, bool? Vision, string Message, bool? Loaded = null, string? BaseUrl = null,
     string? Model = null, bool AutoPicked = false, string? ModelDetails = null, bool ContextHosted = false, bool KeyRefused = false, IReadOnlyList<string>? Efforts = null, string? PickedAs = null,
-    AutoModelSet? Auto = null)
+    AutoModelSet? Auto = null, bool AccessRefused = false)
 {
     /// <summary>What the server said of <see cref="Model"/>, as <see cref="ServerProbe.TryContextAsync"/> gives it; null when it wasn't reached.</summary>
     public ModelFacts? Facts => Reachable && Model is not null ? new ModelFacts(LoadedContext, Loaded, Vision, ContextHosted) : null;
@@ -106,32 +107,38 @@ public static partial class ServerProbe
         }
         // A server that answered but turned the key down is reachable all right: that is what to fix.
         if (attempts.FirstOrDefault(a => a.Result.KeyRefused) is { } refused)
-            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(http, server, candidates[0]), KeyRefused: true);
+            return new ProbeResult(false, [], null, null, refused.Result.Error! + AnthropicKeyHint(http, server, candidates[0]), KeyRefused: true,
+                AccessRefused: refused.Result.Forbidden);
         // The plain-http error reads better than a failed TLS handshake.
         var http0 = Math.Max(0, candidates.ToList().FindIndex(c => c.StartsWith("http://", StringComparison.OrdinalIgnoreCase)));
         return new ProbeResult(false, [], null, null, "Can't reach the server: " + attempts[http0].Result.Error);
     }
 
-    /// <summary>An Anthropic key (sk-ant-…) given to another server: Claude's address is said.</summary>
-    private static string AnthropicKeyHint(HttpClient http, ServerSettings server, string address) =>
+    /// <summary>
+    /// An Anthropic key (sk-ant-…) given to another server: Claude's address is said. Not to the one who has
+    /// that address in the box already: refused there before its list ever showed what it speaks ("Request
+    /// not allowed"), the hint named the address they were on (2026-11-12).
+    /// </summary>
+    internal static string AnthropicKeyHint(HttpClient http, ServerSettings server, string address) =>
         server.ApiKey.Trim().StartsWith("sk-ant-", StringComparison.Ordinal) && !new OpenAiChatClient(http, address, server.ApiKey).SpeaksMessages
+        && !(Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.Host.Equals("api.anthropic.com", StringComparison.OrdinalIgnoreCase))
             ? " That is an Anthropic API key: for Claude, the server address is https://api.anthropic.com."
             : "";
 
-    private static async Task<(IReadOnlyList<JsonObject>? Models, string? Error, bool KeyRefused)> ListModelsAsync(HttpClient http, string baseUrl, string apiKey, CancellationToken ct)
+    private static async Task<(IReadOnlyList<JsonObject>? Models, string? Error, bool KeyRefused, bool Forbidden)> ListModelsAsync(HttpClient http, string baseUrl, string apiKey, CancellationToken ct)
     {
         try
         {
-            return (await new OpenAiChatClient(http, baseUrl, apiKey).ListModelEntriesAsync(ct).ConfigureAwait(false), null, false);
+            return (await new OpenAiChatClient(http, baseUrl, apiKey).ListModelEntriesAsync(ct).ConfigureAwait(false), null, false, false);
         }
         catch (KeyRefusedException ex)
         {
-            return (null, ex.Message, true);
+            return (null, ex.Message, true, ex.Forbidden);
         }
         // Anything from a web page where the model list should be to a timeout: not this address.
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            return (null, ex is OperationCanceledException ? "it did not answer in time." : ex.Message, false);
+            return (null, ex is OperationCanceledException ? "it did not answer in time." : ex.Message, false, false);
         }
     }
 

@@ -702,12 +702,15 @@ public sealed partial class WorkFold : ObservableObject
         _kept = [.. kept];
         // Auto's card is no call of the model's; folded away, its pick is said here (the user's pick, 2026-11-09):
         // nothing else in sight said which model had answered.
-        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto).ToList();
+        // Nor is the price lookup Sloperator runs after the answer: a question answered in one step read
+        // "1 tool call" over a "side_task" chip, for a call the model never made (2026-11-12). It is named instead.
+        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto && !c.IsAfterAnswer).ToList();
         Tools = calls.Select(c => c.Name).Distinct().ToList();
         Title = string.Join(" · ", new[]
         {
             took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
             calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
+            _lines.OfType<ToolCallItem>().Any(c => c.IsAfterAnswer) ? "price lookup" : null,
             _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null) is { } pick ? Unbroken(pick) : null,
         }.OfType<string>().DefaultIfEmpty("Thoughts"));
         foreach (var line in _lines)
@@ -716,7 +719,7 @@ public sealed partial class WorkFold : ObservableObject
             line.JoinFold(this, whole: false);
     }
 
-    /// <summary>"Worked for 3 min 12 s · 4 tool calls".</summary>
+    /// <summary>"Worked for 3 min 12 s · 4 tool calls", with "price lookup" when Sloperator looked the model's prices up after the answer, then Auto's pick.</summary>
     public string Title { get; }
 
     /// <summary>

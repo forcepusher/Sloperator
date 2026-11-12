@@ -40,7 +40,7 @@ public sealed class PlanToolTests
         Assert.Equal(3, told.Count);
 
         // A step written as a string moves it too.
-        Assert.Equal("Step 1 of 2: Read.", (await Call(ctx, """{"now":"1"}""")).Text);
+        Assert.Equal("Step 1 of 2: Read. As you start step 2, \"Build\", call plan with now=2 along with that step's first call.", (await Call(ctx, """{"now":"1"}""")).Text);
     }
 
     [Fact]
@@ -103,6 +103,105 @@ public sealed class PlanToolTests
         Assert.DoesNotContain(session.History, m => m.Content?.Contains("still says step") == true);
         Assert.Equal("Built the page.", session.History[^1].Content);
         Assert.Contains(observer.Notices, n => n.Contains("left at step 1 of 2") && n.EndsWith("all done."));
+    }
+
+    private static string Folder(string root, string name) => Directory.CreateDirectory(Path.Combine(root, name)).FullName;
+
+    private static string List(string id, string folder) => Sse.ToolCall(id, "list_directory", new JsonObject { ["path"] = folder }.ToJsonString());
+
+    [Fact]
+    public async Task A_task_begun_with_no_plan_gets_the_model_asked_for_one_once()
+    {
+        // The user never saw a plan: 79 replies of a Unity task on Sonnet 5.5 went by without one plan call (2026-11-12).
+        var root = Directory.CreateTempSubdirectory("plan-nudge").FullName;
+        var server = new ScriptedServer(List("l1", Folder(root, "a")), Sse.ToolCall("p1", "plan", Two), List("l2", Folder(root, "b")),
+            List("l3", Folder(root, "c")), List("l4", Folder(root, "d")), Sse.ToolCall("p2", "plan", """{"now":3}"""), Sse.Text("Done."));
+        var ctx = NewContext();
+        var observer = new RecordingObserver();
+        var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys");
+
+        await session.RunAsync("go", observer, CancellationToken.None);
+
+        // With the first step's results, and never again in the run.
+        Assert.DoesNotContain("plan bar is empty", server.Requests[0].ToJsonString());
+        Assert.Contains("You have started on this task", server.Requests[1].ToJsonString());
+        Assert.Contains("plan bar is empty", server.Requests[1].ToJsonString());
+        Assert.Single(session.History, m => m.Content?.Contains("plan bar is empty") == true);
+        Assert.Single(observer.Notices, n => n == "Asked the model to show its plan on the bar above the message box.");
+        Assert.True(ctx.Plan!.Finished);
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task A_run_that_stops_to_announce_the_plan_it_was_asked_for_is_told_to_carry_on_once()
+    {
+        // Haiku 5.5, live: the note, a plan of four steps, then "The plan bar is now set… Next I'll add the
+        // parameters", and the run ended with the task not begun (2026-11-12).
+        var root = Directory.CreateTempSubdirectory("plan-stop").FullName;
+        var server = new ScriptedServer(List("l1", Folder(root, "a")),
+            Sse.ToolCall("p1", "plan", Two), Sse.Text("The plan bar is now set with two steps. Next I'll build the page."),
+            List("l2", Folder(root, "b")), Sse.ToolCall("p2", "plan", """{"now":3}"""), Sse.Text("Built the page."));
+        var ctx = NewContext();
+        var observer = new RecordingObserver();
+        var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys");
+
+        await session.RunAsync("go", observer, CancellationToken.None);
+
+        Assert.Equal(6, server.Requests.Count);
+        Assert.Contains("you ended your turn with that step not done", server.Requests[3].ToJsonString());
+        Assert.Single(observer.Notices, n => n == "The model stopped after setting its plan; asked it to carry on with the task.");
+        Assert.Equal("Built the page.", session.History[^1].Content);
+        Assert.True(ctx.Plan!.Finished);
+
+        // A question to the user after the plan stands: the run ends there.
+        var asking = new ScriptedServer(List("l1", Folder(root, "a")),
+            Sse.ToolCall("p1", "plan", Two), Sse.Text("Two ways to build it: a table or cards. **Which do you want?**"));
+        var asked = new RecordingObserver();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(asking), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), NewContext(), "sys").RunAsync("go", asked, CancellationToken.None);
+        Assert.Equal(3, asking.Requests.Count);
+        Assert.DoesNotContain(asked.Notices, n => n.Contains("carry on"));
+
+        // Nor is a run pushed on that worked after the note and then answered: Haiku 5.5 moved its plan to the
+        // last step, answered, was told to carry on, and answered the finished task a second time.
+        var done = new ScriptedServer(List("l1", Folder(root, "a")), Sse.ToolCall("p1", "plan", Two), List("l2", Folder(root, "c")),
+            Sse.ToolCall("p2", "plan", """{"now":2}"""), Sse.Text("Built the page."));
+        var ended = new RecordingObserver();
+        var last = NewContext();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(done), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), last, "sys").RunAsync("go", ended, CancellationToken.None);
+        Assert.Equal(5, done.Requests.Count);
+        Assert.DoesNotContain(ended.Notices, n => n.Contains("carry on") || n.Contains("left at step"));
+        // Its last step was the answer: the bar is done, rather than left on that step as a plan the run stopped short of.
+        Assert.True(last.Plan!.Finished);
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task A_run_that_keeps_a_plan_or_goes_on_with_one_is_not_asked_for_it()
+    {
+        var root = Directory.CreateTempSubdirectory("plan-kept").FullName;
+        string[] work() => [List("l1", Folder(root, "a")), List("l2", Folder(root, "b")), List("l3", Folder(root, "c")), List("l4", Folder(root, "d"))];
+
+        // It set one itself as it started.
+        var planned = new ScriptedServer([Sse.ToolCall("p1", "plan", Two), .. work(), Sse.ToolCall("p2", "plan", """{"now":3}"""), Sse.Text("Done.")]);
+        var observer = new RecordingObserver();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(planned), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), NewContext(), "sys").RunAsync("go", observer, CancellationToken.None);
+        Assert.DoesNotContain(observer.Notices, n => n.Contains("show its plan"));
+
+        // The chat's plan from the message before is still under way.
+        var ctx = NewContext();
+        ctx.Plan = new AgentPlan([new PlanStep("Read", "Read the files"), new PlanStep("Build", "Write the page")], 0);
+        var carried = new ScriptedServer([.. work(), Sse.Text("Done."), Sse.ToolCall("p2", "plan", """{"now":3}""")]);
+        var later = new RecordingObserver();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(carried), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys").RunAsync("carry on", later, CancellationToken.None);
+        Assert.DoesNotContain(later.Notices, n => n.Contains("show its plan"));
+        Assert.DoesNotContain(carried.Requests, r => r.ToJsonString().Contains("plan bar is empty"));
+        Directory.Delete(root, recursive: true);
     }
 
     [Fact]
