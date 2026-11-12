@@ -1843,8 +1843,10 @@ to do… Carry on with it now rather than leave it to the user. If it can't be d
 stops you; if you are waiting for their answer, say nothing more." One line in the chat says both ("The plan was
 left at step 2 of 4; asked the model where it stands: step 3, "Check", is still to do. Asked it to carry on."), and
 the first answer folds with the work as words said on the way. Not when the answer ends in a question to the user,
-nor when the model left the plan untouched (that says nothing either way), nor twice in a run; a model that then
-says nothing more is waiting for the user, and the plan stays as it is. Five runs of the test task below on Haiku
+nor when the model left the plan untouched (that says nothing either way), nor twice in a run, nor for a plan the
+run neither set nor moved: one left on the bar by a task the user stopped isn't the next message's ("Commit it to
+a branch" would have sent the model back to the check it was stopped in). A model that then says nothing more is
+waiting for the user, and the plan stays as it is. Five runs of the test task below on Haiku
 and Sonnet with it: none pressed on (one asked aside, "all done"). Not yet seen live on a run that stops short:
 none of the test runs did.
 

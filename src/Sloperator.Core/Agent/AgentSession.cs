@@ -581,7 +581,7 @@ public sealed partial class AgentSession(
                         AgentPlan? left;
                         try
                         {
-                            left = await PlanBehindAsync(observer, carryOn: !planCarried && !EndsInQuestion(reply.Content), ct).ConfigureAwait(false);
+                            left = await PlanBehindAsync(observer, carryOn: !planCarried && planMoved && !EndsInQuestion(reply.Content), ct).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) when (ct.IsCancellationRequested)
                         {
@@ -590,7 +590,9 @@ public sealed partial class AgentSession(
                             return;
                         }
                         // By its own account steps are still to do: it carries on with them, once a run (see PlanLeftNote).
-                        // What it does then may leave the plan behind again, which is asked about as before.
+                        // What it does then may leave the plan behind again, which is asked about as before. Only for
+                        // a plan this run set or moved: one left on the bar by a task the user stopped isn't this
+                        // message's ("Commit it to a branch" would have sent it back to the check it was stopped in).
                         if (left is not null)
                         {
                             (planCarried, planChecked, planWork) = (true, false, false);
