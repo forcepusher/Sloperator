@@ -28,6 +28,46 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
     /// <summary>The negative prompt, if the file names one.</summary>
     public string? NegativePrompt => Texts.FirstOrDefault(t => t.Label == "Negative prompt")?.Text;
 
+    /// <summary>
+    /// What it shows in a few words, for a name where it has none of its own (the Image and Audio editors' "Untitled
+    /// picture"): the prompt up to its first comma, full stop or line break, a capital first; null with no prompt.
+    /// </summary>
+    public string? Title => TitleOf(Prompt);
+
+    /// <summary>The most characters a <see cref="Title"/> has: a longer start of a prompt is cut at a word, with "…".</summary>
+    internal const int TitleLength = 48;
+
+    /// <summary>
+    /// <see cref="Title"/> for a prompt: "a white lighthouse on a green cliff by the sea, blue sky, oil painting" is
+    /// "A white lighthouse on a green cliff by the sea". What stands before its first letter or digit (a bracket of a
+    /// weighted tag) is left out; less than three characters is no name.
+    /// </summary>
+    internal static string? TitleOf(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return null;
+        var start = 0;
+        while (start < prompt.Length && !char.IsLetterOrDigit(prompt[start]))
+            start++;
+        var clause = TitleEnd().Split(prompt[start..], 2)[0];
+        var title = TitleSpaces().Replace(clause, " ").Trim();
+        if (title.Length < 3)
+            return null;
+        if (title.Length > TitleLength)
+        {
+            var cut = title.LastIndexOf(' ', TitleLength);
+            title = title[..(cut > TitleLength / 2 ? cut : TitleLength)].TrimEnd() + "…";
+        }
+        return char.ToUpperInvariant(title[0]) + title[1..];
+    }
+
+    // Where a prompt's first clause ends: a comma, semicolon, colon, line break, bar or bracket, or a full stop that ends a sentence.
+    [GeneratedRegex(@"[,;:\r\n|()\[\]<>{}]|\.(?=\s|$)")]
+    private static partial Regex TitleEnd();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex TitleSpaces();
+
     /// <summary>The whole of it as text, to copy: each prompt under its label, then the settings one a line.</summary>
     public string Describe()
     {

@@ -42,11 +42,15 @@ public sealed partial class PictureItem(string folder) : MediaFolderItem(folder)
     }
 }
 
-/// <summary>A version of the picture shown: its number from 1, and whether it is the one in the big view.</summary>
+/// <summary>A version of the picture or sound shown: its number from 1, and whether it is the one in the big view.</summary>
 public sealed partial class VersionItem(int number, string path) : ObservableObject
 {
     public int Number { get; } = number;
     public string Path { get; } = path;
+
+    /// <summary>A picture's version small, for its button in the strip; null for a sound's, and until it is read.</summary>
+    [ObservableProperty]
+    private Bitmap? _thumbnail;
     public string Label => Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public string Tip => $"Version {Number} · {System.IO.Path.GetFileName(Path)}";
 
@@ -108,6 +112,53 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
     protected override void OnGone(PictureItem item) => item.Thumbnail?.Dispose();
 
     protected override void OnVersionsRead(PictureItem item) => item.LoadThumbnail();
+
+    /// <summary>How tall a version's small copy is read, in pixels: its button shows it 40 high, at up to 200%.</summary>
+    private const int ThumbHeight = 80;
+
+    /// <summary>
+    /// Each version's small copy for its button (the user's go-ahead, 2026-11-12): the strip was numbers, "1 2 3",
+    /// and which version was which took a click on each. Read one after another off the window's thread.
+    /// </summary>
+    protected override void VersionsListed(IReadOnlyList<VersionItem> versions)
+    {
+        if (versions.Count == 0)
+            return;
+        Task.Run(() =>
+        {
+            foreach (var version in versions)
+            {
+                Bitmap? bitmap = null;
+                try
+                {
+                    using var stream = File.OpenRead(version.Path);
+                    bitmap = Bitmap.DecodeToHeight(stream, ThumbHeight);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+                {
+                    continue;
+                }
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // Another picture is shown by now, or the panel has closed: its strip is gone.
+                    if (Closed || !Versions.Contains(version))
+                        bitmap.Dispose();
+                    else
+                        version.Thumbnail = bitmap;
+                });
+            }
+        });
+    }
+
+    protected override void VersionsGone(IReadOnlyList<VersionItem> versions)
+    {
+        foreach (var version in versions)
+        {
+            var old = version.Thumbnail;
+            version.Thumbnail = null;
+            old?.Dispose();
+        }
+    }
 
     /// <summary>A version into the big view, its Prompt metadata beside it.</summary>
     protected override void ShowVersion(VersionItem? version)
@@ -289,6 +340,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         base.Dispose();
         DropFiles();
         Picture?.Dispose();
+        VersionsGone(Versions.ToList());
         foreach (var picture in Items)
             picture.Thumbnail?.Dispose();
     }

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
 using Sloperator.App.Views;
 using Sloperator.Core.Media;
@@ -161,6 +162,13 @@ public sealed class AudioEditorTests : IDisposable
             window.Show();
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("No sounds yet", vm.EmptyText);
+            // The edits are a line under the sound and Prompt metadata a button, off: neither has a column of its own.
+            var panel = (AudioEditorPanel)window.Content!;
+            Assert.Equal(["Cut", "Keep only", "Fade in", "Fade out", "Louder", "Quieter"],
+                panel.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Classes.Contains("edits")).Children.OfType<Button>().Select(b => (string)b.Content!));
+            Assert.False(vm.ShowRecipe);
+            Assert.False(panel.FindControl<Border>("RecipeBox")!.IsVisible);
+            Assert.Equal("Pick a sound that has been made first", vm.PromptTip);
             window.Close();
             return 0;
         });

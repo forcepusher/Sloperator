@@ -45,6 +45,19 @@ public sealed class MediaFolders(string untitled, params string[] types)
         }
     }
 
+    /// <summary>
+    /// Whether <paramref name="folder"/> is still named as <see cref="New"/> named it ("Untitled picture", "Untitled
+    /// picture 2"): one the panel calls by what it shows instead, once it has a version that says.
+    /// </summary>
+    public bool IsUntitled(string folder)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(folder));
+        if (!name.StartsWith(untitled, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var rest = name[untitled.Length..];
+        return rest.Length == 0 || rest[0] == ' ' && rest.Length > 1 && rest[1..].All(char.IsAsciiDigit);
+    }
+
     /// <summary>A new folder in <paramref name="root"/>, made.</summary>
     public string New(string root)
     {

@@ -202,4 +202,29 @@ public sealed class MediaRecipeTests
         Assert.StartsWith("Prompt:\na knight in steel armour, pixel art\n\nNegative prompt:\nblurry, text\n\nModel: juggernautXL_ragnarok.safetensors\n", text);
         Assert.Contains("\nSeed: 7", text);
     }
+
+    [Theory]
+    [InlineData("a white lighthouse on a green cliff by the sea, blue sky, oil painting", "A white lighthouse on a green cliff by the sea")]
+    [InlineData("heavy rain on a tin roof, distant thunder, field recording", "Heavy rain on a tin roof")]
+    [InlineData("A bunny waves at the camera. It hops away.", "A bunny waves at the camera")]
+    [InlineData("  (masterpiece:1.2), a cat", "Masterpiece")]
+    [InlineData("a v1.5 style portrait\nof a sailor", "A v1.5 style portrait")]
+    [InlineData("an extremely detailed wide establishing shot of a mountain village at dawn with fog", "An extremely detailed wide establishing shot of…")]
+    [InlineData("ok", null)]
+    [InlineData("  ", null)]
+    [InlineData(null, null)]
+    public void A_prompt_gives_a_short_title_for_what_has_no_name(string? prompt, string? title) =>
+        Assert.Equal(title, MediaRecipe.TitleOf(prompt));
+
+    [Fact]
+    public void A_folder_still_named_as_new_named_it_is_untitled()
+    {
+        var folders = PictureFolder.Folders;
+        Assert.True(folders.IsUntitled(@"C:\p\Untitled picture"));
+        Assert.True(folders.IsUntitled(@"C:\p\Untitled picture 12\"));
+        Assert.False(folders.IsUntitled(@"C:\p\Untitled picture of a cat"));
+        Assert.False(folders.IsUntitled(@"C:\p\Untitled picture 2b"));
+        Assert.False(folders.IsUntitled(@"C:\p\Lighthouse"));
+        Assert.True(SoundFolder.Folders.IsUntitled(@"C:\s\Untitled sound 3"));
+    }
 }

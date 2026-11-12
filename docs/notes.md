@@ -630,10 +630,11 @@ picture's **versions** are the picture files in its folder, oldest first by when
 earlier ones stay, without anything to keep in step. A `FileSystemWatcher` on SloperatorData\pictures reads it again 250 ms
 after writing rests (`Refresh`), and a new version of the picture shown is shown.
 
-**The panel**: the pictures in a 180 column, the one changed last first (its newest version 160 wide, its name,
-"2 versions" or "not made yet"; the one shown grey, as the Code editor's tree); the version shown big in a
-`ZoomBox` (the wheel zooms, a right drag pans), its versions under it as small buttons in a foot bar (the one
-shown lighter, the others' numbers muted: not the yellow of a toggle that is on, which read as picked); and
+**The panel**: the pictures in a 180 column, the one changed last first (its newest version 160 wide, its name on
+up to two lines, "2 versions" or "not made yet"; the one shown grey, as the Code editor's tree); the version shown
+big in a `ZoomBox` (the wheel zooms, a right drag pans), its versions under it as buttons in a foot bar, each its
+number and a small copy of it (the one shown lighter, the others' numbers muted: not the yellow of a toggle that is
+on, which read as picked); and
 how that version was made, `MediaRecipe.Read` shown by the File inspector's `RecipeView` (prompts with Copy,
 then the settings: ComfyUI's PNGs carry their workflow), under the picture when **Prompt metadata** at the right
 of the foot bar is on (see below). The bar has the picture
@@ -656,8 +657,24 @@ the bar, at most half the height. The picture has the whole width (640 px of the
 what a click and a drag do showed only with no picture shown, so it moved to the foot bar ("Click to ask about
 it, drag to redraw a part", the whole of it on hover). And **New picture** pressed twice made two empty pictures,
 "Untitled picture 2" and "3", each "not made yet" in the list for good: one that isn't made yet is the new one, shown
-and picked again (`MediaEditorViewModel.New`; New sound the same). The Audio editor keeps Prompt metadata under its Edit
-buttons: that column is there for the buttons, and the room under them was free.
+and picked again (`MediaEditorViewModel.New`; New sound the same).
+
+Then, on the user's "Do what you think makes sense" the same day, three more. **Names**: every picture was
+"Untitled picture", "Untitled picture 2", in the list, the bar, on its card in the box and to the model. One still
+named as New named it (`MediaFolders.IsUntitled`) is called by what it shows: the first clause of its first
+version's prompt (`MediaRecipe.Title`: up to the first comma, bracket, line break or sentence's end, 48 characters
+at most, cut at a word, a capital first; "a white lighthouse on a green cliff by the sea, blue sky, oil painting"
+is "A white lighthouse on a green cliff by the sea"), read off the window's thread (`MediaEditorViewModel.ReadTitle`,
+`MediaFolderItem.Titled`). The first version's, as a later one can be a part redrawn, whose prompt says only what
+went there. Only the name shown changes: the folder keeps its own, since the agent saves the next version by the
+path it was told, and a folder renamed by hand keeps that name. A prompt that starts with a quality tag gives a poor
+name ("Masterpiece"); nothing is guessed about which clause is the subject. Sounds the same ("Heavy rain on a tin
+roof"). **Versions to look at**: the strip was numbers, and which version was which took a click on each; each
+button has a 40 px square of its version's middle now (`VersionItem.Thumbnail`, read 80 high one after another
+off the window's thread, let go when another picture is shown), every button one size so none moves as they are
+read. More versions than fit scroll with the wheel, with no bar in the foot, and the one shown is brought into
+sight, so the version the agent just made is there (`VersionStrip`, the Audio editor's numbers too: past the edge
+they were cut off). **The Audio editor's column** went the way of the Image editor's: see its section.
 
 **Picks** (through `MainWindowViewModel.Pick`, no card otherwise): a click on a picture or a version picks the
 version shown ("Version 2 · Lighthouse"; a picture not made yet as "New · Untitled picture", its folder the
@@ -704,9 +721,16 @@ screen's own pixels from 160 columns of lows and highs read off the window's thr
 its name; "3 versions"); the version shown as the File inspector shows a sound (`WaveformView` over an
 `InspectorSoundViewModel`: the ruler scrubs, a drag picks a stretch, a click sets the playhead, the wheel zooms down to
 the samples) with its player under it (play, the time, the stretch picked in yellow) and its versions in a foot bar as
-the Image editor's; and a 260 column with **Edit** (what the edits work on beside it: "the stretch picked" or "the
-whole sound") over six buttons, Cut, Keep only, Fade in, Fade out, Louder and Quieter, then **Prompt metadata** as
-the Image editor's. The bar has the sound and version, **New sound** ("Untitled sound", picked) and **Make again**
+the Image editor's. Until 2026-11-12 a 260 column at the right held **Edit** over six buttons, Cut, Keep only, Fade
+in, Fade out, Louder and Quieter, and under them **Prompt metadata**, always open: the waveform, whose width is
+its time, had 470 px of a 1070 px panel. Asked what made sense there after the Image editor lost its column (the
+user: "Do what you think makes sense"), the column went: the edits are a line of the foot over the versions' line,
+small buttons as the versions' are, "Edit" and "Versions" in one shared column so both lines' buttons start at one
+place (`Grid.IsSharedSizeScope`); Prompt metadata is the Image editor's button at the right of the versions' line,
+its box over both lines, which stay where they are when it opens; and what the edits work on is said in the
+player's line, at its right: the stretch picked in yellow, else "Drag over a stretch to edit it or ask about it".
+The waveform has the whole width (800 px of the same panel). At the panel's least width, 760, the six buttons end
+22 px short of the edge. The bar has the sound and version, **New sound** ("Untitled sound", picked) and **Make again**
 ("Make this sound again as a new version.", sent with the pick). Sound files dropped on the panel start a sound. The
 version on screen stays shown, stopped, until the next is read, so an edit doesn't blink the room empty, and the edits
 wait until the version shown is the one read. Space plays, Delete cuts the stretch picked, Esc lets go of a pick; on

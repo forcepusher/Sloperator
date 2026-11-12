@@ -51,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   width: **Prompt metadata** is a button under it now, as in the File inspector, in place of a column that was
   always open beside it. The Audio editor opens on your newest sound too.
 - **New picture** and **New sound** no longer make a second empty one when the one before isn't made yet.
+- Pictures and sounds are called by what they show ("A white lighthouse on a green cliff by the sea") rather than
+  "Untitled picture 2": the name is read from the prompt they were made with. A folder you named yourself keeps
+  its name.
+- The **Image editor**'s versions show a small copy of each beside its number, so you see which is which without
+  clicking through them. More versions than fit scroll with the mouse wheel.
+- The **Audio editor**'s waveform has the whole width of the panel: the Edit buttons are a line under the sound,
+  and **Prompt metadata** a button there, as in the Image editor, in place of a column beside it.
 - A wait, build or download of more than 5 minutes no longer makes the next step pay for the whole chat again on
   servers with a prompt cache that lapses (Anthropic, and Claude through OpenRouter and the like): Sloperator has
   the server read the chat from its cache every 4.5 minutes while the agent's tool calls run, for up to half an
