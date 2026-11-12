@@ -358,6 +358,13 @@ and Sonnet 40 s, all through edit_file (they had rewritten the XML through Power
 "page numbers at the bottom" and "table of contents" in one edit, which is taken since. Page lines mixed with
 other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
 format: dark blue", both had gone in at the end of the document as text.
+**A comment** (`TextEdit.Comments.cs`, the same night): new_text `comment: check the date with the council` on the words
+given as old_text puts Word's comment in the margin, as New Comment does: the words marked from start to end (runs split
+there), a reference run after them, the comment in comments.xml (made with its relationship and content type when the
+document has none) by "Sloperator", a fresh id. Found more than once, the one place that is a line of its own is taken;
+else it is refused. read_file already listed comments with the words they are on. Asked to comment on one word, Haiku
+and Sonnet had written comments.xml and the marks through PowerShell. Checked in Word 16, opened visible with every
+alert on: one comment on "roadworks" by Sloperator, nothing repaired.
 **A picture put in** (`WordPictures`, the same night): new_text lines `![The chart](C:\charts\sales.png)` after old_text
 as it is put the picture after the paragraph old_text ends in (before it, for lines before), or after the table whose
 row old_text gives as read_file shows it; with old_text empty, at the end of the body. Each a centred paragraph of its

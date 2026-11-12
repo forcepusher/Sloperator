@@ -161,6 +161,25 @@ public class WordPagesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_comment_goes_on_the_words_given_and_read_file_shows_it()
+    {
+        Assert.False((await Write("report.docx", Report)).IsError);
+        // As asked of Haiku and Sonnet (2026-11-13): a comment on one word.
+        var result = await Edit("report.docx", "best month", "comment: check the date with the council");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("Put a comment on \"best month\": \"check the date with the council\", by Sloperator.", result.Text);
+        Assert.Contains("Comments:\n- on \"best month\": check the date with the council", await Read("report.docx"));
+        var document = Part("report.docx", "word/document.xml");
+        Assert.Single(document.Descendants(W + "commentRangeStart"));
+        Assert.Single(document.Descendants(W + "commentReference"));
+        // The words are as they were, and a second comment gets an id of its own.
+        Assert.Contains("July was the best month.", await Read("report.docx"));
+        Assert.False((await Edit("report.docx", "Steady.", "comment: Why steady?")).IsError);
+        Assert.Equal(["0", "1"], Part("report.docx", "word/comments.xml").Descendants(W + "comment").Select(c => (string?)c.Attribute(W + "id")));
+        Assert.Contains("not found", (await Edit("report.docx", "nowhere at all", "comment: x")).Text);
+    }
+
+    [Fact]
     public async Task Headings_as_old_text_are_every_heading()
     {
         Assert.False((await Write("report.docx", Report)).IsError);

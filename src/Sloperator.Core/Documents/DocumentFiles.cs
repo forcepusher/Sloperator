@@ -211,6 +211,9 @@ internal static partial class DocumentFiles
                     }
                 }
                 // new_text "format: centered, dark blue": how the text given looks, not what it says.
+                // new_text "comment: …": a comment in the margin on the text given.
+                else if (kind == "docx" && TextEdit.Comment(parts, documents, oldText, newText) is { } commented)
+                    message = commented;
                 else if (TextEdit.Look(documents, slides: kind == "pptx", oldText, newText, all) is { } looked)
                 {
                     foreach (var part in looked.Parts) parts.Changed(part);
