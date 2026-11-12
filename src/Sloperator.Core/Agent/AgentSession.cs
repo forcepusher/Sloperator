@@ -553,17 +553,6 @@ public sealed partial class AgentSession(
                         History.Add(ChatMessage.User(MissedEndNote));
                         continue;
                     }
-                    // Ending right after the plan Sloperator asked for (PlanNote), with no work since the note: Haiku 5.5
-                    // set its four steps, said "The plan bar is now set… Next I'll add the parameters" and ended
-                    // there, the task not begun (2026-11-12). Told once to carry on; a question to the user stands.
-                    // Only then: pushed on after any plan call, it answered a finished task a second time.
-                    if (planNudged && !planPushed && planMoved && !planNudgeWork && toolContext.Plan is { Finished: false } going && !EndsInQuestion(reply.Content))
-                    {
-                        planPushed = true;
-                        observer.OnNotice("The model stopped after setting its plan; asked it to carry on with the task.");
-                        History.Add(ChatMessage.User(PlanGoOnNote(going)));
-                        continue;
-                    }
                     // The turn ended on the plan's last step: the bar is done, without asking. Haiku 5.5 set now to 5
                     // of 5 and answered (that step was the answer), and the bar stood on its last step in accent, as
                     // a plan the run stopped short of; with work since the move it was asked aside where the plan
@@ -574,6 +563,19 @@ public sealed partial class AgentSession(
                     {
                         toolContext.Plan = ending with { At = ending.Steps.Count };
                         toolContext.PlanChanged?.Invoke(toolContext.Plan);
+                    }
+                    // Ending right after the plan Sloperator asked for (PlanNote), with no work since the note: Haiku 5.5
+                    // set its four steps, said "The plan bar is now set… Next I'll add the parameters" and ended
+                    // there, the task not begun (2026-11-12). Told once to carry on; a question to the user stands.
+                    // Only then: pushed on after any plan call, it answered a finished task a second time. And after
+                    // the check above: asked for a plan when only the answer was left, Sonnet 5.5 set "Wait, Reply"
+                    // on its second step and answered, was told to carry on, and answered again.
+                    if (planNudged && !planPushed && planMoved && !planNudgeWork && toolContext.Plan is { Finished: false } going && !EndsInQuestion(reply.Content))
+                    {
+                        planPushed = true;
+                        observer.OnNotice("The model stopped after setting its plan; asked it to carry on with the task.");
+                        History.Add(ChatMessage.User(PlanGoOnNote(going)));
+                        continue;
                     }
                     if (!planChecked && planWork && toolContext.Plan is { Finished: false })
                     {

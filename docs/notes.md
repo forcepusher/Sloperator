@@ -1868,7 +1868,9 @@ LM Studio:
   begun. Hence "go straight on… say nothing of the plan", and the note to carry on.
 - That note first went to any turn that ended right after a plan call: Haiku moved its plan to the last step,
   answered, was told to carry on, read a file again and answered a second time. Hence only before any work since
-  the first note.
+  the first note. And only after the check that finishes a bar left on its last step: asked for a plan when only
+  the answer was left (one `wait`, then "done"), Sonnet 5.5 on Anthropic's API set "Wait, Reply" with now=2,
+  answered, was told to carry on, and answered "done" again.
 - Sonnet set its plan at once and then did the whole task with the bar on step 1 (asked aside at the end: "all
   done"). With the next move named in the plan call's result it moved the bar in 3 of 3 runs (now 2, 4; 2, 4;
   2, 3, 4), and Haiku in 2 of 2 (3, 4, 5; 3, 5).
