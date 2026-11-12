@@ -408,7 +408,7 @@ public sealed partial class MainWindowViewModel
             {
                 Kind = ChatEntryKind.Assistant, Text = a.Text, Reasoning = a.Reasoning, Ended = a.Ended, Sent = a.SentAt, FirstWords = a.FirstWords, Tokens = a.Tokens,
                 Handoff = a.IsHandoffNote ? true : null,
-                Captures = a.Captures.Count == 0 ? null : a.Captures.Select(c => new ReplyCapture { Path = c.Picture.Path, Caption = c.HasCaption ? c.Caption : null }).ToList(),
+                Captures = a.Captures.Count == 0 ? null : a.Captures.Select(c => new ReplyCapture { Path = c.Picture.Path, Caption = c.HasCaption ? c.Caption : null, Of = c.Of }).ToList(),
             },
             ToolCallItem t => new ChatEntry
             {
@@ -453,9 +453,9 @@ public sealed partial class MainWindowViewModel
             IsHandoffNote = e.Handoff == true,
         };
         if (e.Captures is { Count: > 0 } captures)
-            reply.ShowCaptures(captures.Select(c => (c.Path, c.Caption)), previews);
+            reply.ShowCaptures(captures.Select(c => (c.Path, c.Caption, c.Of)), previews);
         else if (e.Capture is { } capture)
-            reply.ShowCaptures([(capture, e.Caption)], previews);
+            reply.ShowCaptures([(capture, e.Caption, null)], previews);
         return reply;
     }
 

@@ -1821,10 +1821,11 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   plan"), not for Haiku or Sonnet, which begin by reading and never came back to it.
 - A run that has made its first step (`AgentSession.PlanAfterSteps`: replies with tool calls) with no plan on the
   bar is told once, after that step's results like every note (`PlanNote`): "You have started on this task and the
-  user's plan bar is empty, so they can't see how far along you are. Unless the task is all but done, call plan now:
-  the whole task as a handful of steps in order, any already done too, one plain word each, with now set to the step
-  you are on. Then go straight on with the task, moving the plan on as you start each step. Say nothing of the plan
-  to the user: they see the bar." The chat says "Asked the model to show its plan on the bar above the message
+  user's plan bar is empty, so they can't see how far along you are. If more than one thing is still to be made or
+  changed, or the work ahead is long, call plan now: the whole task as a handful of steps in order, any already done
+  too, one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan
+  on as you start each step. If only one thing and its check are left, or just the answer, make no plan: a plan of
+  two steps tells the user nothing. Either way say nothing of the plan to the user: they see the bar." The chat says "Asked the model to show its plan on the bar above the message
   box." One note at a time: with another going out after that step (index the project, look an error up), it waits
   for the next. Never told: a run that called plan itself, one that goes on with the chat's unfinished plan, a side
   task (it has no plan tool).
@@ -1862,7 +1863,7 @@ LM Studio:
 - The note after three steps: both Claude models read every file in one step and write them all in the next, so
   they were asked when little was left, and the plan showed for the last five seconds (call 8 of 11, 6 of 10, 7 of
   8). Hence after the first step, when the model has had its look. A one-step question ("What does this script do?")
-  still gets no plan from either: "unless the task is all but done".
+  still gets no plan from either.
 - The first wording ("call plan now, with your next step") had Haiku set four good steps, write "The plan bar is
   now set with four steps, and I'm on step 2, Edit. Next I'll add the parameters" and end its turn, the task not
   begun. Hence "go straight on… say nothing of the plan", and the note to carry on.
@@ -1880,6 +1881,18 @@ LM Studio:
 With all of it: 5 of 5 runs on Haiku and Sonnet set a plan of four steps at their second or third call (Read, Edit,
 Document, Test), moved it and ended with the bar done, with no line in the chat but the first; Qwen set five steps
 at its second call and ended done.
+
+**No plan for one thing** (2026-11-12). The note first read "Unless the task is all but done, call plan now", and
+every small task got a plan that said nothing: one spreadsheet "Create, Verify, Answer", one Word document "Write,
+Check", a version looked up on the web "Search, Read, Answer", on Haiku and Sonnet alike. Wordings tried on
+Anthropic's API, the test task above (four things: read, script, README, run) against one spreadsheet, one document
+and one lookup:
+- "Unless no more than a step or two is left": all still planned (Sonnet's document: "Write, Check").
+- "If three or more steps of work are still ahead of you… If less is left (a check, the answer), make no plan": the
+  small tasks got none, but neither did Sonnet on the test task, 0 of 4: it writes both files in one step and runs
+  the script in the next, two steps by its own count. Haiku planned, 3 of 3.
+- Counting things rather than steps, the wording above: the test task planned 4 of 4 (Sonnet "Read, Edit, Test" and
+  "Read, Edit, Docs, Test", Haiku five steps), the spreadsheet, the document and the lookup 0 of 5.
 
 `PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
 property with a transition, so the blob walks when the plan moves on and not when the window is
@@ -3845,6 +3858,12 @@ it (`ChatEntry.Captures`, so a reopened chat has them; chats from before keep th
 (`CaptureResultTool.UnderReply`): until 1 November 2026 only the run's last capture went there, so of
 three screens changed the user saw one. A "done" claim whose only
 calls are looks ends the turn, but not when one of them is `capture_result`.
+The tool's result says where the user sees it ("under your final reply… to them it is the picture below your
+words, not above"): the model sees its capture before it writes, and Haiku and Sonnet wrote "the screenshot above"
+over a picture that sits below (2026-11-12). A capture of a document's page (`file`) keeps which file it shows
+(`ReplyCapture.Of`), and that file's card under the same reply shows without its peek
+(`FileCardPreview.PeekHidden`): a one-page Word document showed twice, the page full width and its first lines
+again on the card right under it.
 
 **Comparisons**: each capture says its number (capture-N.png). `file` makes a picture file the result
 instead of the screen (an edit, an upscale): copied in as the next capture-N.png at its own size, on

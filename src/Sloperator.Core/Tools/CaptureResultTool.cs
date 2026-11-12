@@ -129,7 +129,7 @@ public sealed partial class CaptureResultTool : Tool
                     _ => "; with no window or box, the same is taken again",
                 };
                 var text = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}. " +
-                           $"The user sees it at full size in the chat and under your final reply{captioned}, with your other captures; taking the same again replaces it there. " +
+                           $"The user sees it at full size under your final reply{captioned}, with your other captures: to them it is the picture below your words, not above. Taking the same again replaces it there. " +
                            $"If it doesn't show what they asked for, fix that and capture it again. Taken before a change, pass compare=[{number}] " +
                            $"when you capture the result, to show them side by side{again}.";
                 return Task.FromResult(new ToolResult(text, ForModel(image, ctx.GetScreenSpace(screen)), ImageCaption: "What the user now sees of your work:", Files: [file]));
@@ -140,7 +140,7 @@ public sealed partial class CaptureResultTool : Tool
             using (var stream = File.Create(compared))
                 png.SaveTo(stream);
             var shown = $"{took} {what} as capture {number}, {frame.Width}x{frame.Height}, and put it after {string.Join(", ", earlier.Select(e => e.Name))}: " +
-                        $"the user sees them in one picture, labelled {string.Join(", ", labels.Select(l => $"\"{l}\""))}, under your final reply{captioned}, with your other captures. " +
+                        $"the user sees them in one picture, labelled {string.Join(", ", labels.Select(l => $"\"{l}\""))}, under your final reply{captioned}, with your other captures: to them it is the picture below your words, not above. " +
                         "If the change doesn't show, fix that and capture it again.";
             return Task.FromResult(new ToolResult(shown, ForModel(all, ctx.GetScreenSpace(screen)), ImageCaption: "What the user now sees of your work, compared:", Files: [compared]));
         }

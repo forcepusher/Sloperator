@@ -92,6 +92,9 @@ public sealed class ReplyCapture
 {
     public string Path { get; set; } = "";
     public string? Caption { get; set; }
+
+    /// <summary>The document or picture file the capture shows a page of (capture_result's file); null for one of the screen.</summary>
+    public string? Of { get; set; }
 }
 
 /// <summary>
