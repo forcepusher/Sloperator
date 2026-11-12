@@ -52,7 +52,8 @@ internal static partial class DocumentFiles
     /// Throws <see cref="InvalidOperationException"/> with the reason when it won't.
     /// </summary>
     /// <param name="resolve">Turns a picture's path as written into a full one.</param>
-    public static string Write(string path, string markdown, bool append, Func<string, string> resolve)
+    /// <param name="toPdf">Turns a Word, Excel or PowerPoint file into a PDF for a "pages:" line (see <see cref="PdfJoin.Build"/>).</param>
+    public static string Write(string path, string markdown, bool append, Func<string, string> resolve, Func<string, string>? toPdf = null)
     {
         var kind = WriteKind(path) ?? throw new ArgumentException("not a document", nameof(path));
         var name = Path.GetFileName(path);
@@ -80,7 +81,7 @@ internal static partial class DocumentFiles
         {
             if (pages.Any(p => string.Equals(Path.GetFullPath(p.File), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException($"{name} can't be made of its own pages: write to another name.");
-            var (joined, count, from) = PdfJoin.Build(pages);
+            var (joined, count, from) = PdfJoin.Build(pages, toPdf);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             Save(path, joined);
             Made.Set(path, (Hash(joined), null));

@@ -267,6 +267,13 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   Haiku found no PDF program on the PC (it looked for Python, pdfunite, qpdf, Ghostscript) and stopped to ask
   whether to download one; Sonnet downloaded qpdf from GitHub into the tools folder, 134 s. After: 10 and 7 s;
   the last page alone and the pages reversed, 13 and 9 s. On PDFs Word had made, a joined page drawn and looked at.
+  **Word, Excel and PowerPoint files too** (the same night): a line `pages: report.docx` (or .xlsx, .pptx,
+  the older kinds and OpenDocument's) turns the file into a PDF as it prints, through the converter capture_result
+  draws with (Office running hidden, else LibreOffice: `DocumentPictures.Converter`), into the scratch folder and
+  deleted after; its pages are then taken like a PDF's (`pages: deck.pptx 2`). Asked for a report as a PDF, Haiku
+  and Sonnet drove Word through PowerShell, which a PC with only LibreOffice doesn't have. Checked on the laptop: a
+  Word-made report, slide 2 of a deck and a lease joined into three pages, as Word and PowerPoint print them (15 s,
+  most of it Office starting).
 
 An existing document isn't overwritten, since that would lose its formatting; `append` adds to one
 made in the same task. The refusal says it may be the user's own, names a new name to write to
