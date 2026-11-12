@@ -110,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on it already. The title bar says **Access refused** rather than **Key refused**.
 - The card over a finished task no longer counts the price lookup Sloperator runs after the answer as a tool call
   with a `side_task` chip: it says **price lookup**.
-- The card of a click, move, drag, scroll or zoom the model sent without its coordinates no longer reads "Double-click at (, )".
+- The card of a click, move, drag, scroll or zoom the model sent without its coordinates no longer reads
+  "Double-click at (, )".
 - What the agent types right after its own click is no longer held back because you wrote to it, or clicked
   somewhere, before that click: it clicked and typed a second time.
 - A plan left on its last step when the agent answered now shows as done, rather than as one it stopped short of.
