@@ -336,18 +336,25 @@ public sealed class PlanToolTests
     {
         // Stopped in a task of four steps and asked for a haiku, Sonnet 5.5 wrote it with the task's plan still on
         // the bar at its first step, where it stayed.
+        // Stopped once the plan is set and the next step is under way: by the request that follows the plan's result,
+        // not by the clock.
+        using var stop = new CancellationTokenSource();
         var server = new ScriptedServer
         {
-            Responder = req => req["messages"]!.AsArray()[^1]!["content"]?.ToString() == "Write a haiku" ? Sse.Text("Rain.")
-                : req["messages"]!.AsArray().Any(m => m!["role"]!.ToString() == "tool") ? Sse.ToolCall("w1", "wait", """{"seconds":30}""")
-                : Sse.ToolCall("p1", "plan", Two),
+            Responder = req =>
+            {
+                if (req["messages"]!.AsArray()[^1]!["content"]?.ToString() == "Write a haiku")
+                    return Sse.Text("Rain.");
+                if (!req["messages"]!.AsArray().Any(m => m!["role"]!.ToString() == "tool"))
+                    return Sse.ToolCall("p1", "plan", Two);
+                stop.CancelAfter(TimeSpan.FromMilliseconds(200));
+                return Sse.ToolCall("w1", "wait", """{"seconds":30}""");
+            },
         };
         var ctx = NewContext();
         var session = new AgentSession(new OpenAiChatClient(new HttpClient(server), "http://test", null),
             new ChatRequestOptions(), ToolRegistry.CreateDefault(true), ctx, "sys");
         var observer = new RecordingObserver();
-        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));
-
         await session.RunAsync("go", observer, stop.Token);
         Assert.Equal(AgentStopReason.Cancelled, observer.StopReason);
         // Until they write again the bar shows where it was stopped, and the model is told what becomes of its plan.
