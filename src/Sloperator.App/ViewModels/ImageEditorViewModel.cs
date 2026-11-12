@@ -107,6 +107,36 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
     [ObservableProperty]
     private DocumentArea? _mark;
 
+    /// <summary>
+    /// A left drag paints with the brush; without it, a drag marks a box. The two ways to mark a part to redraw, in
+    /// the bar as the File inspector's Area and Text are (the user, 2026-11-12, "Do we support inpainting mask?":
+    /// only a box, which takes in whatever is around the thing meant).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsArea))]
+    private bool _isBrush;
+
+    /// <summary>A drag marks a box: on whenever the brush is off. Pressed while on, it stays on: one of the two always is.</summary>
+    public bool IsArea
+    {
+        get => !IsBrush;
+        set
+        {
+            if (value)
+                IsBrush = false;
+            else
+                OnPropertyChanged();
+        }
+    }
+
+    /// <summary>How wide the brush is, in parts of the picture's width.</summary>
+    [ObservableProperty]
+    private double _brushSize = BrushStroke.DefaultWidth;
+
+    /// <summary>What was painted on the big view, each stroke in parts of the picture; null with nothing painted.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<BrushStroke>? _strokes;
+
     protected override PictureItem NewItem(string folder) => new(folder);
 
     protected override void OnGone(PictureItem item) => item.Thumbnail?.Dispose();
@@ -167,6 +197,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
             v.IsShown = ReferenceEquals(v, version);
         Shown = version;
         Mark = null;
+        Strokes = null;
         Zoom = 1;
         var old = Picture;
         Picture = null;
@@ -198,7 +229,8 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
     // ---- what is picked, into the chat's box ------------------------------------------------------
 
     /// <summary>What is picked: the picture (its version shown, or none yet), or a part of the version with its mask.</summary>
-    private sealed record Picked(PictureItem Picture, VersionItem? Version, string File, string? Mask = null, string? Place = null);
+    /// <param name="Painted">The part was painted with the brush: the mask is its shape, and <paramref name="Place"/> the box around it.</param>
+    private sealed record Picked(PictureItem Picture, VersionItem? Version, string File, string? Mask = null, string? Place = null, bool Painted = false);
 
     private Picked? _pick;
 
@@ -210,6 +242,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         if (Selected is not { } picture)
             return;
         Mark = null;
+        Strokes = null;
         DropFiles();
         var file = Shown?.Path ?? picture.Folder;
         _pick = new Picked(picture, Shown, file);
@@ -231,6 +264,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         if (Selected is not { } picture || Shown is not { } version || _size.Width == 0)
             return;
         Mark = area;
+        Strokes = null;
         var (width, height) = _size;
         var dir = PicksDir;
         Task.Run(() =>
@@ -261,6 +295,49 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         });
     }
 
+    /// <summary>
+    /// Strokes painted over the big picture with the brush, the new one last: a mask of what they cover (white
+    /// there, soft at its edge) and a picture of the box around them are saved for the message, and the part goes
+    /// into the box as "Painted part of version 2 · Lighthouse"; the agent redraws only what was painted. Each
+    /// stroke more makes them again, the ones before deleted.
+    /// </summary>
+    public void PickPainted(IReadOnlyList<BrushStroke> strokes)
+    {
+        if (Selected is not { } picture || Shown is not { } version || _size.Width == 0 || strokes.Count == 0)
+            return;
+        Mark = null;
+        Strokes = strokes;
+        var dir = PicksDir;
+        Task.Run(() =>
+        {
+            try
+            {
+                var pixels = DocumentArea.Decode(version.Path) ?? throw new IOException("the picture can't be read");
+                var area = PictureFolder.AreaOf(strokes, pixels.Width, pixels.Height) ?? throw new IOException("nothing of the picture was painted");
+                var crop = DocumentArea.SaveNew(area.Crop(pixels), dir);
+                var mask = Path.Combine(dir, Path.GetFileNameWithoutExtension(crop).Replace("Area", "Mask", StringComparison.Ordinal) + ".png");
+                PictureFolder.SaveMask(strokes, pixels.Width, pixels.Height, mask);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // Another stroke, another version or nothing painted any more by now: these aren't the part.
+                    if (Closed || !ReferenceEquals(Strokes, strokes) || !ReferenceEquals(Shown, version))
+                    {
+                        PastedFiles.TryDelete(crop);
+                        PastedFiles.TryDelete(mask);
+                        return;
+                    }
+                    DropFiles();
+                    _pick = new Picked(picture, version, crop, mask, area.Place(pixels.Width, pixels.Height, "pixels"), Painted: true);
+                    Box.Put([(crop, $"Painted part of version {version.Number} · {picture.Name}")]);
+                });
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                Dispatcher.UIThread.Post(() => Chat?.AddNotice($"The painted part could not be saved: {ex.Message}", isError: true, ex));
+            }
+        });
+    }
+
     /// <summary>A part picked before goes: its picture and mask, which weren't sent, with it.</summary>
     private void DropFiles()
     {
@@ -272,10 +349,26 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         _pick = null;
     }
 
+    /// <summary>
+    /// Ctrl+Z: the stroke painted last is taken back, and the part is the ones before it; with none left, nothing is
+    /// painted or picked. False when nothing was painted.
+    /// </summary>
+    public bool UndoStroke()
+    {
+        if (Strokes is not { Count: > 0 } strokes)
+            return false;
+        if (strokes.Count == 1)
+            Unpick();
+        else
+            PickPainted([.. strokes.Take(strokes.Count - 1)]);
+        return true;
+    }
+
     /// <summary>Esc, a click away: what was picked leaves the box. False when nothing was.</summary>
     public bool Unpick()
     {
         Mark = null;
+        Strokes = null;
         if (_pick is null)
             return false;
         DropFiles();
@@ -290,6 +383,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
             return;
         DropFiles();
         Mark = null;
+        Strokes = null;
         RaiseUnpicked();
     }
 
@@ -313,9 +407,14 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         var version = pick.Version;
         var versions = string.Join(", ", picture.Versions.Select((v, i) => $"{i + 1}: {v}"));
         if (pick.Mask is { } mask)
-            return ($"Image editor · {picture.Name} · area of version {version.Number}",
-                opening + $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
-                $"The picture {pick.File} attached below is that part. Redraw only that part as they say, the rest kept: run the comfyui tool with " +
+            return ($"Image editor · {picture.Name} · {(pick.Painted ? "painted part" : "area")} of version {version.Number}",
+                opening + (pick.Painted
+                    // The box says where; the mask is the shape, and only what it covers is theirs to change.
+                    ? $"They painted with a brush over a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw. " +
+                      $"The mask has the shape they painted; the box around it is {pick.Place}, and the picture {pick.File} attached below is that box. " +
+                      "Redraw only what they painted as they say, the rest kept: run the comfyui tool with "
+                    : $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
+                      $"The picture {pick.File} attached below is that part. Redraw only that part as they say, the rest kept: run the comfyui tool with ") +
                 $"name=sloperator/redraw_area, set 4.image to \"{version.Path}\", 5.image to the mask \"{mask}\" (white where to redraw), 2.text to what goes there " +
                 $"in the picture's style (and 1.ckpt_name to the checkpoint it was made with, if its metadata says), and save_to \"{picture.Folder}\", " +
                 $"so it becomes the picture's next version. Its versions: {versions}.]");
@@ -332,6 +431,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
             return;
         _pick = null;
         Mark = null;
+        Strokes = null;
         RaiseUnpicked();
     }
 

@@ -14,6 +14,8 @@ public partial class ImageEditorPanel : UserControl
         InitializeComponent();
         // A drag over the big picture marks a part to redraw; a click picks the version whole.
         Big.Marked += area => (DataContext as ImageEditorViewModel)?.PickArea(area);
+        // With the brush, each stroke painted makes the part of all of them.
+        Big.Painted += strokes => (DataContext as ImageEditorViewModel)?.PickPainted(strokes);
         // A click on a picture in the list picks it, as a click on a clip does in the Video editor.
         List.AddHandler(TappedEvent, OnListTapped);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
@@ -34,10 +36,14 @@ public partial class ImageEditorPanel : UserControl
             vm.Pick(picture, version);
     }
 
-    /// <summary>Esc: what is picked leaves the box.</summary>
+    /// <summary>Esc: what is picked leaves the box. Ctrl+Z: the stroke painted last is taken back.</summary>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && (DataContext as ImageEditorViewModel)?.Unpick() == true)
+        if (DataContext is not ImageEditorViewModel vm)
+            return;
+        if (e.Key == Key.Escape && vm.Unpick())
+            e.Handled = true;
+        else if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control && e.Source is not TextBox && vm.UndoStroke())
             e.Handled = true;
     }
 }

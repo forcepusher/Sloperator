@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Sloperator.App.ViewModels"
              xmlns:views="using:Sloperator.App.Views"
+             xmlns:media="using:Sloperator.Core.Media"
              x:Class="Sloperator.App.Views.ImageEditorPanel"
              x:DataType="vm:ImageEditorViewModel"
              Background="{StaticResource BbBackground}">
@@ -45,6 +46,26 @@
             <TextBlock Text="New picture" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
+        <!-- Area and Brush, the two ways to mark a part to redraw, at the bar's left as the File inspector's Area and
+             Text are: a drag marks a box, or paints with the brush, whose size is beside it (greyed with Area on). -->
+        <ToggleButton DockPanel.Dock="Left" Classes="ghost" IsChecked="{Binding IsArea}" Margin="0,0,8,0"
+                      ToolTip.Tip="A drag over the picture marks a box to redraw" AutomationProperties.Name="Area">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M3 3h4v2H5v2H3zm14 0h4v4h-2V5h-2zM3 17h2v2h2v2H3zm16 0h2v4h-4v-2h2zM9 3h6v2H9zm0 16h6v2H9zM3 9h2v6H3zm16 0h2v6h-2z" />
+            <TextBlock Text="Area" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton DockPanel.Dock="Left" Classes="ghost" IsChecked="{Binding IsBrush}" Margin="0,0,8,0"
+                      ToolTip.Tip="A drag paints over the part to redraw, stroke on stroke. Ctrl+Z takes the last stroke back, Esc all of it" AutomationProperties.Name="Brush">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Width="14" Height="14" Data="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z" />
+            <TextBlock Text="Brush" VerticalAlignment="Center" />
+          </StackPanel>
+        </ToggleButton>
+        <!-- Fluent's slider is 50px tall with the track in its middle: these margins put the track on the bar's centre line. -->
+        <Slider DockPanel.Dock="Left" Width="88" Minimum="{x:Static media:BrushStroke.MinWidth}" Maximum="{x:Static media:BrushStroke.MaxWidth}" Value="{Binding BrushSize}"
+                IsEnabled="{Binding IsBrush}" VerticalAlignment="Stretch" Margin="0,-9,12,-9" ToolTip.Tip="How wide the brush is (Ctrl and the wheel over the picture too)"
+                ToolTip.ShowOnDisabled="True" AutomationProperties.Name="Brush size" />
         <TextBlock Classes.muted="{Binding !HasSelected}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
                    VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
       </DockPanel>
@@ -131,7 +152,8 @@
           <TextBlock Classes="muted" IsVisible="{Binding !HasPicture}" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center"
                      TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" />
           <views:ZoomBox x:Name="Big" Source="{Binding Picture}" IsVisible="{Binding HasPicture}" Margin="16" Zoom="{Binding Zoom}"
-                         Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" views:FileMenu.Image="{Binding Picture}"
+                         Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" Painting="{Binding IsBrush}"
+                         BrushSize="{Binding BrushSize, Mode=TwoWay}" Strokes="{Binding Strokes, Mode=TwoWay}" views:FileMenu.Image="{Binding Picture}"
                          views:FileMenu.File="{Binding Shown.Path, FallbackValue={x:Null}}" AutomationProperties.Name="Picture" />
         </Panel>
       </DockPanel>

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
@@ -253,6 +255,139 @@ public sealed class ImageEditorTests : IDisposable
             vm.Selected = vm.Items[1];
             Assert.All(left, v => Assert.Null(v.Thumbnail));
             Wait(() => vm.Versions.Count == 1 && vm.Versions[0].Thumbnail is not null);
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_part_painted_with_the_brush_goes_in_with_a_mask_of_its_shape()
+    {
+        // A part to redraw was a box only, which takes in whatever is around the thing meant.
+        var folder = Path.Combine(Root, "House");
+        Directory.CreateDirectory(folder);
+        var version = Path.Combine(folder, "v1.png");
+        Png(version, 1);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            Wait(() => vm.HasPicture);
+            // The two ways to mark a part: one of them is always on.
+            Assert.True(vm.IsArea);
+            vm.IsBrush = true;
+            Assert.False(vm.IsArea);
+            vm.IsArea = true;
+            Assert.False(vm.IsBrush);
+            vm.IsArea = false;
+            Assert.True(vm.IsArea);
+
+            // A stroke across the right of the 64x48 picture's middle, the brush a fifth of its width (12.8 pixels).
+            BrushStroke[] strokes = [new([(0.55, 0.5), (0.9, 0.5)], 0.2)];
+            vm.PickPainted(strokes);
+            Wait(() => vm.About(Directory.Exists(Picks) ? Directory.GetFiles(Picks) : []) is not null);
+            var crop = Directory.GetFiles(Picks, "Area *.png").Single();
+            var mask = Directory.GetFiles(Picks, "Mask *.png").Single();
+            // The picture that goes with the message is the box around the stroke; the mask is as big as the picture.
+            Assert.Equal((36, 14), PictureFolder.SizeOf(crop));
+            Assert.Equal((64, 48), PictureFolder.SizeOf(mask));
+            var (via, context) = vm.About([crop])!.Value;
+            Assert.Equal("Image editor · House · painted part of version 1", via);
+            Assert.Contains("They painted with a brush over a part of version 1", context);
+            Assert.Contains("the box around it is x 29-64, y 18-30 of the 64x48 pixels", context);
+            Assert.Contains("name=sloperator/redraw_area", context);
+            Assert.Contains($"5.image to the mask \"{mask}\"", context);
+            // The stroke's shape, not its box: white along it, dark in the box's corner beside its round end.
+            var pixels = DocumentArea.Decode(mask)!;
+            byte At(int x, int y) => pixels.Bgra[(y * pixels.Width + x) * 4 + 2];
+            Assert.InRange(At(46, 24), 250, 255);
+            Assert.InRange(At(29, 18), 0, 100);
+            Assert.Equal(0, At(10, 10));
+
+            // A stroke more: the part is both, and the files of the one before go.
+            BrushStroke[] more = [.. strokes, new([(0.2, 0.8)], 0.2)];
+            vm.PickPainted(more);
+            Wait(() => Directory.GetFiles(Picks, "Mask *.png") is [var only] && only != mask);
+            Assert.Contains("y 18-45 of the 64x48 pixels", vm.About(Directory.GetFiles(Picks))!.Value.Context);
+
+            // Ctrl+Z takes the last stroke back: the part is the first again.
+            Assert.True(vm.UndoStroke());
+            Assert.Single(vm.Strokes!);
+            Wait(() => vm.About(Directory.GetFiles(Picks)) is { } about && about.Context.Contains("y 18-30 of the 64x48 pixels"));
+
+            // Esc: nothing is painted or picked any more, and the files go.
+            Assert.True(vm.Unpick());
+            Assert.Null(vm.Strokes);
+            Assert.Empty(Directory.GetFiles(Picks));
+            Assert.False(vm.UndoStroke());
+            // The only stroke taken back leaves nothing painted either.
+            vm.PickPainted(strokes);
+            Assert.True(vm.UndoStroke());
+            Assert.Null(vm.Strokes);
+
+            // A box takes the place of what was painted, and painting the place of a box.
+            vm.PickPainted(strokes);
+            Assert.Same(strokes, vm.Strokes);
+            vm.PickArea(new DocumentArea(0, 0, 0.5, 0.5));
+            Assert.Null(vm.Strokes);
+            Assert.NotNull(vm.Mark);
+            vm.PickPainted(strokes);
+            Assert.Null(vm.Mark);
+            Wait(() => vm.About(Directory.GetFiles(Picks)) is { Via: "Image editor · House · painted part of version 1" });
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void With_the_brush_a_drag_over_the_picture_paints_and_without_it_marks_a_box()
+    {
+        var folder = Path.Combine(Root, "House");
+        Directory.CreateDirectory(folder);
+        Png(Path.Combine(folder, "v1.png"), 1);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var panel = new ImageEditorPanel { DataContext = vm };
+            var window = new Window { Width = 880, Height = 600, Content = panel };
+            window.Show();
+            Wait(() => vm.HasPicture);
+            Dispatcher.UIThread.RunJobs();
+            var big = panel.FindControl<ZoomBox>("Big")!;
+            // Points of the box, the 64x48 picture in its middle: a third and two thirds of the picture's width.
+            Avalonia.Point At(double dx, double dy) =>
+                big.TranslatePoint(new Avalonia.Point(big.Bounds.Width / 2 + dx, big.Bounds.Height / 2 + dy), window)!.Value;
+            void Drag(double fromX, double fromY, double toX, double toY)
+            {
+                window.MouseDown(At(fromX, fromY), Avalonia.Input.MouseButton.Left);
+                window.MouseMove(At((fromX + toX) / 2, (fromY + toY) / 2), Avalonia.Input.RawInputModifiers.LeftMouseButton);
+                window.MouseMove(At(toX, toY), Avalonia.Input.RawInputModifiers.LeftMouseButton);
+                window.MouseUp(At(toX, toY), Avalonia.Input.MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            // The brush: each drag is a stroke more, in parts of the picture, as wide as the brush is set.
+            vm.IsBrush = true;
+            vm.BrushSize = 0.2;
+            Dispatcher.UIThread.RunJobs();
+            Drag(-16, 0, 16, 0);
+            var stroke = Assert.Single(vm.Strokes!);
+            Assert.Equal(0.2, stroke.Width);
+            Assert.Equal(0.25, stroke.Points[0].X, 2);
+            Assert.Equal(0.75, stroke.Points[^1].X, 2);
+            Assert.All(stroke.Points, p => Assert.Equal(0.5, p.Y, 2));
+            Drag(0, -12, 0, 12);
+            Assert.Equal(2, vm.Strokes!.Count);
+            Assert.Null(vm.Mark);
+            // A press without a move is a dab.
+            Drag(10, 10, 10, 10);
+            Assert.Single(vm.Strokes![2].Points);
+
+            // Area: the same drag marks a box, and what was painted goes.
+            vm.IsArea = true;
+            Dispatcher.UIThread.RunJobs();
+            Drag(-16, -12, 16, 12);
+            Assert.Null(vm.Strokes);
+            Assert.Equal((0.25, 0.25, 0.75, 0.75), (Math.Round(vm.Mark!.Left, 2), Math.Round(vm.Mark.Top, 2), Math.Round(vm.Mark.Right, 2), Math.Round(vm.Mark.Bottom, 2)));
+            Wait(() => vm.About(Directory.Exists(Picks) ? Directory.GetFiles(Picks) : []) is not null);
+            window.Close();
             return 0;
         });
     }

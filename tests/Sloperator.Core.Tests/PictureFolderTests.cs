@@ -9,22 +9,7 @@ public sealed class PictureFolderTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-pictures-").FullName;
 
-    /// <summary>The folder goes; a file just written and read can still be held for a moment (mask.png, once in a run of the whole suite).</summary>
-    public void Dispose()
-    {
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                Directory.Delete(_dir, recursive: true);
-                return;
-            }
-            catch (IOException) when (attempt < 40)
-            {
-                Thread.Sleep(50);
-            }
-        }
-    }
+    public void Dispose() => TestFolder.Delete(_dir);
 
     [Fact]
     public void A_pictures_versions_are_its_picture_files_oldest_first()
@@ -61,6 +46,48 @@ public sealed class PictureFolderTests : IDisposable
         Assert.InRange(At(100, 150), 100, 160);
         Assert.Equal(0, At(90, 150));
         Assert.Equal(255, At(110, 150));
+    }
+
+    [Fact]
+    public void A_painted_mask_is_white_where_the_brush_went_and_soft_at_its_edge()
+    {
+        var mask = Path.Combine(_dir, "painted.png");
+        // On a 400x300 picture: a line across the middle with a brush 40 wide, and a dab 80 wide near the top.
+        BrushStroke[] strokes = [new([(0.25, 0.5), (0.75, 0.5)], 0.1), new([(0.5, 0.2)], 0.2)];
+        PictureFolder.SaveMask(strokes, 400, 300, mask);
+        Assert.Equal((400, 300), PictureFolder.SizeOf(mask));
+        var pixels = DocumentArea.Decode(mask)!;
+        byte At(int x, int y) => pixels.Bgra[(y * pixels.Width + x) * 4 + 2];
+        // The line: white along it and in its round ends, half way at its side, black a little way out.
+        Assert.Equal(255, At(200, 150));
+        Assert.Equal(255, At(90, 150));
+        Assert.InRange(At(200, 170), 90, 170);
+        Assert.Equal(0, At(200, 185));
+        Assert.Equal(0, At(65, 150));
+        // The dab: a disc.
+        Assert.Equal(255, At(200, 60));
+        Assert.Equal(255, At(225, 60));
+        Assert.Equal(0, At(250, 60));
+        Assert.Equal(0, At(240, 100));
+        // Nothing elsewhere, and all of it opaque: the mask is read from one colour.
+        Assert.Equal(0, At(20, 280));
+        Assert.Equal(255, pixels.Bgra[3]);
+    }
+
+    [Fact]
+    public void The_box_around_what_was_painted_takes_in_the_brush_and_stays_on_the_picture()
+    {
+        // A brush a tenth of a 400x300 picture's width is 40 pixels: 0.05 of the width each way, 0.0667 of the height.
+        var area = PictureFolder.AreaOf([new([(0.25, 0.5), (0.75, 0.5)], 0.1)], 400, 300)!;
+        Assert.Equal(0.20, area.Left, 6);
+        Assert.Equal(0.80, area.Right, 6);
+        Assert.Equal(0.5 - 20.0 / 300, area.Top, 6);
+        Assert.Equal(0.5 + 20.0 / 300, area.Bottom, 6);
+        // At the picture's corner: no further than its edge.
+        var corner = PictureFolder.AreaOf([new([(0, 0)], 0.2)], 400, 300)!;
+        Assert.Equal((0, 0), (corner.Left, corner.Top));
+        Assert.Equal((0, 0, 40, 40), corner.Pixels(400, 300));
+        Assert.Null(PictureFolder.AreaOf([], 400, 300));
     }
 
     private static string Write(string folder, string name, int minutes)
