@@ -3003,9 +3003,11 @@ of the limit from then on, after a handoff note; the cost grows
   no cost of its own where the server gives costs, so the total then shows as an estimate), and the chat says once
   a step: "Kept this chat in the server's prompt cache, which lapses after 5 minutes, so the next step doesn't pay
   for all of it again." Not done between runs, while the chat waits for the user's next message: only during the
-  agent's own work in progress. Tried live, Haiku 5.5 through OpenRouter, one `wait` of 330 seconds
-  (`.dev/night-test/live-plan.ps1 -Task wait`): without it the step after the wait read none of its 16.9k prompt
-  tokens from the cache; with it the chat said so at 4 min 30 s, and that step read 16.7k of 16.9k from the cache.
+  agent's own work in progress. Tried live, Haiku 5.5 through OpenRouter and on Anthropic's own API (the Messages
+  route, with thinking), one `wait` of 330 seconds each (`.dev/night-test/live-plan.ps1 -Task wait`): without it the
+  step after the wait read none of its 16.9k prompt tokens from the cache; with it the chat said so at 4 min 30 s,
+  and that step read 16.7k of 16.9k from the cache, on both. A read that fails for any reason ends the reads of that
+  step and never the run (`CacheWarmer.DisposeAsync` swallows whatever it threw).
 - Thinking: adaptive, its summaries shown as the reasoning (`display: "summarized"`; since Opus 4.7
   none are shown otherwise). Each reply's blocks are kept on the message and sent back unchanged
   with their signatures, as Claude requires; they aren't saved with the chat. Claude also checks

@@ -882,8 +882,9 @@ public sealed partial class AgentSession(
         public async ValueTask DisposeAsync()
         {
             _stop.Cancel();
+            // Whatever went wrong with a read, the run it was made for goes on: it only saves money.
             try { await _reads.ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
+            catch (Exception) { }
             _stop.Dispose();
         }
     }
