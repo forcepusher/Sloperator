@@ -303,7 +303,7 @@ public sealed class EditFileTool : Tool
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
         "with every formula pointing at them, and the new row is formatted like the one above; \"delete rows 3-4\" takes rows out. " +
-        "\"format A1:E1 bold, yellow fill\" sets how cells look (also text colour, center, wrap, border), \"column A width 20\" or \"autofit columns\" their widths, \"format E2:F73 as dollars\" how numbers show; \"insert column C\", \"sort A2:F73 by F descending\", \"freeze row 1\", \"filter A1:F73\", \"merge A1:F1\", \"highlight A2:F73 red where F > 3000\". " +
+        "\"format A1:E1 bold, yellow fill\" sets how cells look (also text colour, center, wrap, border), \"column A width 20\" or \"autofit columns\" their widths, \"format E2:F73 as dollars\" how numbers show; \"insert column C\", \"sort A2:F73 by F descending\", \"freeze row 1\", \"filter A1:F73\", \"merge A1:F1\", \"highlight A2:F73 red where F > 3000\", \"dropdown C2:C73: Yes, No\". " +
         "\"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart (bar, line, pie or area) of those cells: the first column the labels, each other " +
         "a series named by its top cell, or by rows (\"A1:D1,A6:D6\"). To change a chart give it as old_text (\"chart 1\" or its title) " +
         "and its new line as new_text (\"chart: line Totals\"), empty to delete it.";

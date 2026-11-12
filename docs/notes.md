@@ -229,7 +229,10 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   without Office doesn't have. *Checked:* the same edits on that workbook, opened in Excel 16
   (`.dev/night-test/layout-check.ps1`): rows by revenue, rows 1-2 frozen, the filter on the header under the merged,
   centred title, one rule `=$F3>3000` drawing the rows over 3000 red after the title went in, amounts as $9,120.00.
-  Not there: sorting by more than one column, data validation, protecting a sheet. A sheet of more formulas than
+  Not there: sorting by more than one column, protecting a sheet. **Dropdowns** (the same night): `dropdown C2:C73: Yes,
+  No, Maybe` or `dropdown C2:C73 from H2:H5` puts Excel's list validation on the cells (a rule already on any of them
+  goes: a cell has one), `no dropdown C2:C73` takes it off; a list written out is at most 255 characters, as Excel
+  holds it. read_file says `(dropdown: C2:C73: Yes, No, Maybe)`. Checked in Excel 16: the rule's list read back. A sheet of more formulas than
   `MaxWorkedOut` is sorted by the values Excel saved, its formulas left to Excel, as any edit leaves them.
   **Columns put in and taken out** (`SheetEdit.Columns.cs`, the same night): `insert column C`, `insert columns C:D`,
   `delete column D`, `delete columns B-C` (also "add"/"remove"), with the sheet named as for rows. The cells to the
