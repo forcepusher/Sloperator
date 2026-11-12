@@ -91,6 +91,19 @@ public sealed partial class MainWindowViewModel
         });
     }
 
+    void IAgentObserver.OnHandoffNote(ChatMessage note)
+    {
+        var usage = MeasureContext();
+        PostTimed(at =>
+        {
+            if (_runDetached) return;
+            if (_current is { } bubble)
+                bubble.IsHandoffNote = true;
+            FinishCurrent(at, note);
+            ShowContextUsage(usage);
+        });
+    }
+
     /// <summary>How full the context is; on the agent's thread, while it waits and its conversation holds still.</summary>
     private (int Used, int Size, int Reset) MeasureContext() =>
         _session is { } session ? (session.TokensInUse(), session.ContextTokens, session.ResetThreshold) : default;
@@ -354,7 +367,7 @@ public sealed partial class MainWindowViewModel
             if (reason == AgentStopReason.Error)
                 NotifyUser(FirstLine($"Stopped by an error: {detail ?? "Something went wrong."}"));
             else if (reason == AgentStopReason.Completed && !compacting && !HasQueued)
-                NotifyUser(Items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.HasText) is { } reply ? FirstLine(reply.ShownText) : "Done.");
+                NotifyUser(Items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.IsReplyText) is { } reply ? FirstLine(reply.ShownText) : "Done.");
         });
     }
 
@@ -366,7 +379,7 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public static void ShowCaptureInReply(IReadOnlyList<ChatItemViewModel> items, DateTime started, PreviewServices previews)
     {
-        if (items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.HasText) is not { } reply)
+        if (items.OfType<AssistantMessageItem>().LastOrDefault(m => m.At >= started && m.IsReplyText) is not { } reply)
             return;
         var captures = items.OfType<ToolCallItem>().Where(t => t.Name == "capture_result" && t.At >= started && t.State == ToolItemState.Done && t.SavedFiles is [_]).ToList();
         if (captures.Count == 0)

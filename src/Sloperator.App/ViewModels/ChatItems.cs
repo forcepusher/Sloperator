@@ -257,6 +257,15 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
     /// <summary>The Thoughts show: there are some, and they aren't folded with the run's work (the reply that ended it stays, its thinking folds).</summary>
     public bool ShowsThoughts => HasReasoning && Fold is not { IsOpen: false };
 
+    /// <summary>
+    /// The handoff note of a context reset (see <see cref="Core.Agent.IAgentObserver.OnHandoffNote"/>): the model's
+    /// words for its own next steps, no reply. Kept with the chat, so one opened from History knows it too.
+    /// </summary>
+    public bool IsHandoffNote { get; set; }
+
+    /// <summary>Words of the model's to the user: some text, and no handoff note.</summary>
+    public bool IsReplyText => HasText && !IsHandoffNote;
+
     internal override void FoldChanged()
     {
         base.FoldChanged();
@@ -433,6 +442,12 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
 
     /// <summary>Auto's evaluation (see <see cref="MainWindowViewModel.AutoCardName"/>): no call of the model's; what it found shows open.</summary>
     public bool IsAuto => Name == MainWindowViewModel.AutoCardName;
+
+    /// <summary>
+    /// A side task Sloperator ran itself once the model had answered (Auto pricing lookup's, see
+    /// <see cref="Core.Tools.SideTaskTool.AfterAnswerId"/>): no call of the model's, so the words before it are still the reply.
+    /// </summary>
+    public bool IsAfterAnswer => Name == Core.Tools.SideTaskTool.ToolName && CallId.StartsWith(Core.Tools.SideTaskTool.AfterAnswerId, StringComparison.Ordinal);
 
     /// <summary>The Output foldout's header: "What it found" on Auto's card.</summary>
     public string OutputHeader => IsAuto && !IsError ? "What it found" : "Output";
@@ -771,7 +786,7 @@ public sealed partial class WorkFold : ObservableObject
                     break;
                 case { RunTook: { } took }:
                     stretch.Add(line);
-                    Close(stretch, took, endsWith: line is NoticeItem);
+                    Close(stretch, took, endsWith: line is NoticeItem, answered: line is not (NoticeItem { IsError: true } or NoticeItem { Stopped: true }));
                     break;
                 case NoticeItem { IsError: true } or NoticeItem { Stopped: true }:
                     var stopped = Between(stretch, line);
@@ -792,20 +807,35 @@ public sealed partial class WorkFold : ObservableObject
         stretch.Count > 0 && stretch[0].At is { } from && next.At is { } to && to >= from ? to - from : null;
 
     /// <summary>
-    /// Folds the stretch, but for what it ended with: its reply (the last words of the model's with
-    /// no tool call after them) and anything after that, or with no reply, a last line that stays in
-    /// sight (<paramref name="endsWith"/>: a stop, an error).
+    /// Folds the stretch, but for what it ended with: its reply and the lines after it, or with no
+    /// reply, a last line that stays in sight (<paramref name="endsWith"/>: a stop, an error). The
+    /// reply is the model's last words to the user (not a handoff note, unless there are no others)
+    /// with no call of the model's after them: words before a call were said mid-work. Not so in a run
+    /// that ended answered (<paramref name="answered"/>, no stop, no error): its last steps said nothing,
+    /// and the words before their calls were the last it said (its answer, with capture_result). Work
+    /// after the reply folds with the rest: a side task Sloperator ran itself
+    /// (<see cref="ToolCallItem.IsAfterAnswer"/>, the price lookup), the model's last calls, a step with no
+    /// words, a handoff note; a notice stays. Each of them had folded the reply away (2026-11-12).
     /// </summary>
-    private static void Close(List<ChatItemViewModel> stretch, TimeSpan? took, bool endsWith)
+    private static void Close(List<ChatItemViewModel> stretch, TimeSpan? took, bool endsWith, bool answered = false)
     {
-        var reply = stretch.FindLastIndex(l => l is AssistantMessageItem { HasText: true });
-        if (reply < 0 || stretch.Skip(reply).Any(l => l is ToolCallItem))
+        var reply = stretch.FindLastIndex(l => l is AssistantMessageItem { IsReplyText: true });
+        if (reply < 0)
+            reply = stretch.FindLastIndex(l => l is AssistantMessageItem { HasText: true }); // Compact context's note, all it said
+        if (reply < 0 || !answered && stretch.Skip(reply).Any(l => l is ToolCallItem { IsAfterAnswer: false }))
             reply = endsWith ? stretch.Count - 1 : stretch.Count;
-        var (lines, kept) = (stretch[..reply], stretch[reply..]);
-        if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true }) || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
+        var lines = stretch[..reply];
+        var kept = new List<ChatItemViewModel>();
+        for (var i = reply; i < stretch.Count; i++)
+            (i > reply && IsWork(stretch[i]) ? lines : kept).Add(stretch[i]);
+        if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true } or AssistantMessageItem { IsHandoffNote: true })
+            || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
             _ = new WorkFold(lines, kept, took);
         stretch.Clear();
     }
+
+    /// <summary>A line after the reply that folds with the work: a tool call, a step with no words to the user, a handoff note.</summary>
+    private static bool IsWork(ChatItemViewModel line) => line is ToolCallItem or AssistantMessageItem { IsReplyText: false };
 }
 
 /// <summary>A picture of the work under a reply (see <see cref="AssistantMessageItem.Captures"/>), with the line the model gave it; empty for none.</summary>

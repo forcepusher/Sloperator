@@ -15,6 +15,14 @@ public interface IAgentObserver
     void OnStepStarted(int step);
     void OnDelta(StreamDelta delta);
     void OnAssistantMessage(ChatMessage message);
+
+    /// <summary>
+    /// In place of <see cref="OnAssistantMessage"/>, the handoff note the model wrote for a context reset (see
+    /// <see cref="AgentSession.AskReset"/>): words for its own next steps, no answer to the user. Written after the
+    /// answer when Compact context was pressed as the model answered, and taken for the reply there.
+    /// </summary>
+    void OnHandoffNote(ChatMessage note) => OnAssistantMessage(note);
+
     Task<bool> RequestApprovalAsync(ToolCall call, Tool tool, string summary, CancellationToken ct);
     void OnToolStarted(ToolCall call, string summary);
 
@@ -697,7 +705,7 @@ public sealed partial class AgentSession(
         var task = $"Look up the prices of {requestOptions.Model}";
         var card = new ToolCall
         {
-            Id = "side-" + Guid.NewGuid().ToString("N")[..8],
+            Id = SideTaskTool.AfterAnswerId + Guid.NewGuid().ToString("N")[..8],
             Name = SideTaskTool.ToolName,
             Arguments = new JsonObject { ["task"] = task, ["prompt"] = lookup, ["output"] = false }.ToJsonString(),
         };

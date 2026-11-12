@@ -238,7 +238,7 @@ public sealed partial class AgentSession
         observer.OnStepStarted(0);
         var guard = new RepetitionGuard(observer.OnDelta);
         var reply = await CompleteWithReconnectAsync(request, tools.Definitions(), options, observer, guard.OnDelta, ct).ConfigureAwait(false);
-        observer.OnAssistantMessage(new ChatMessage { Role = ChatRole.Assistant, Content = reply.Content, Reasoning = reply.Reasoning });
+        observer.OnHandoffNote(new ChatMessage { Role = ChatRole.Assistant, Content = reply.Content, Reasoning = reply.Reasoning });
 
         // A note cut off by the length limit is still worth keeping; a tool call instead of a
         // note is not.

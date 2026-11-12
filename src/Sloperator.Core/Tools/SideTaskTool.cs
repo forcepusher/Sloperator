@@ -14,6 +14,12 @@ public sealed class SideTaskTool : Tool
 {
     public const string ToolName = "side_task";
 
+    /// <summary>
+    /// How the id of a side task Sloperator runs itself once the model has answered begins (Auto pricing lookup's,
+    /// see <see cref="Agent.AgentSession.PriceLookup"/>): its card is no call of the model's, and comes after the reply.
+    /// </summary>
+    public const string AfterAnswerId = "side-";
+
     public override string Name => ToolName;
     public override string Description =>
         "Hand a self-contained job to a side task: you, in a fresh conversation of its own with your tools, whose steps stay out of your context " +

@@ -1574,6 +1574,22 @@ nothing in sight said which model had answered). It is read back from the card's
 opened from History says it too; a card stopped while it picked has none. The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
+What comes after the reply decides what the reply is, and three things there had folded it away with the work
+(2026-11-12, `WorkFold.Close`):
+- The side task Sloperator runs itself after the reply (Auto pricing lookup's, "Look up the prices of …", whose id
+  begins `side-`: `SideTaskTool.AfterAnswerId`, `ToolCallItem.IsAfterAnswer`) is no call of the model's after its
+  words. Counted as one, it made the reply read as words mid-work: in a long chat every run ended in a card with
+  nothing under it.
+- Compact context pressed as the model answered: the handoff note comes after the answer, and as the last words
+  it was taken for the reply. The note now comes through `IAgentObserver.OnHandoffNote` and is marked
+  (`AssistantMessageItem.IsHandoffNote`, saved as `handoff` with the chat): it is no reply, unless it is all a
+  stretch has (Compact context with no run going), nor what the notification says or a capture goes under.
+- The answer and a call in one message (capture_result, for the picture of the work), then a last step that said
+  nothing: words before a call read as mid-work. A run that ended answered (its last line no stop or error) keeps
+  its last words as the reply, whatever came after them; a stretch a stop or a message of the user's ended still
+  folds words before a call.
+Work after the reply (the price lookup, the model's last calls, a step with no words, a handoff note) folds with
+the rest, out of sight after it (after a plain answer, under a card in its own place); a notice there stays.
 
 While a run goes on every line shows; `WorkFold.FoldFinished` runs as it ends (in `Finished`, once the
 reply and "Worked for" are in) over the lines not folded yet, and only up to the last line a run ended
