@@ -126,6 +126,35 @@ public sealed class WorkFoldTests
     }
 
     [Fact]
+    public void The_plan_brought_up_to_date_after_the_answer_folds_with_the_work_unless_steps_are_left()
+    {
+        // With a plan in every task this line stood after the answer whenever the model did several steps in one go.
+        var work = Call("edit_file", 2);
+        var reply = Step(5, "Added the parameter.");
+        var settled = new NoticeItem("The plan was left at step 2 of 4; asked the model where it stands: all done.", isError: false)
+        { At = T0.AddSeconds(7), RunTook = TimeSpan.FromSeconds(7) };
+        ChatItemViewModel[] chat = [Message("Add it", 0), Step(1), work, reply, settled];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.True(reply.IsShown);
+        Assert.False(work.IsShown);
+        Assert.False(settled.IsShown);
+        Assert.Equal("Worked for 7.0 s · 1 tool call", reply.Fold!.Title);
+        reply.Fold.ToggleCommand.Execute(null); // Show steps: it is there, after the reply
+        Assert.True(settled.IsShown);
+
+        // With steps left the line says why the bar isn't done: it stays in sight.
+        var answer = Step(5, "Added the parameter.");
+        var left = new NoticeItem("The plan was left at step 2 of 4; asked the model where it stands: it left it there.", isError: false)
+        { At = T0.AddSeconds(7), RunTook = TimeSpan.FromSeconds(7) };
+        ChatItemViewModel[] open = [Message("Add it", 0), Step(1), Call("edit_file", 2), answer, left];
+        WorkFold.FoldFinished(open, toTheEnd: false);
+        Assert.True(answer.IsShown);
+        Assert.True(left.IsShown);
+    }
+
+    [Fact]
     public void An_answer_with_a_call_after_it_stays_when_the_last_step_said_nothing()
     {
         // The answer and a capture_result for the picture of the work in one message; the step after it said nothing

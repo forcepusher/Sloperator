@@ -1801,7 +1801,12 @@ aside, as one request of the conversation, its tools and `PlanBehindNote` ("Call
 stands … write nothing: your answer above stands"); only the plan calls of its reply run, and neither the note nor
 the reply joins the conversation or the chat, so the answer stays the run's last word, and what the run folds under
 (a reply to a note in the chat would have been the one kept, and the answer folded away). A line after the answer
-says so ("The plan was left at step 1 of 4; asked the model where it stands: all done."). A plan set and then put to
+says so ("The plan was left at step 1 of 4; asked the model where it stands: all done."). That line folds with the
+run's work when the plan came out all done or was taken away (`AgentSession.IsPlanSettledNotice`,
+`NoticeItem.FoldsWithWork`, `WorkFold.IsWork`): with a plan in every task it stood after the answer whenever Sonnet 5.5
+did several steps in one go, as on the user's own setup (Anthropic, Auto) the first time it was tried (2026-11-12).
+One that leaves steps to do ("it left it there", "step 3, "Check"") says why the bar isn't done, and stays in sight.
+A plan set and then put to
 the user ("does this suit you?") has no call after it, and stays. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
 last `now` lost that call, and the bar stopped a step short.
 
