@@ -280,6 +280,10 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   Haiku found no PDF program on the PC (it looked for Python, pdfunite, qpdf, Ghostscript) and stopped to ask
   whether to download one; Sonnet downloaded qpdf from GitHub into the tools folder, 134 s. After: 10 and 7 s;
   the last page alone and the pages reversed, 13 and 9 s. On PDFs Word had made, a joined page drawn and looked at.
+  The sentence in write_file's description starts with what it is for since ("To join, split or reorder PDFs, write
+  a .pdf of lines…", the same length): at the end of the night Kilo's free Nemotron, making a pack of a summary and a
+  lease, wrote the summary with write_file and then went looking for Ghostscript, pdftk and Acrobat's automation to
+  join them, the sentence that began "A .pdf of lines" passed over (one run; earlier it had used the lines at once).
   **Word, Excel and PowerPoint files too** (the same night): a line `pages: report.docx` (or .xlsx, .pptx,
   the older kinds and OpenDocument's) turns the file into a PDF as it prints, through the converter capture_result
   draws with (Office running hidden, else LibreOffice: `DocumentPictures.Converter`), into the scratch folder and
