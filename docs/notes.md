@@ -342,6 +342,15 @@ and Sonnet 40 s, all through edit_file (they had rewritten the XML through Power
 "page numbers at the bottom" and "table of contents" in one edit, which is taken since. Page lines mixed with
 other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
 format: dark blue", both had gone in at the end of the document as text.
+**Slides taken out, moved and copied** (`DeckSlides`, the same night): with old_text empty, a deck's new_text lines
+`delete slide 3` (`delete slides 2-3`, `2, 4`), `move slide 4 to 1` (`to the start`, `to the end`, `after slide 2`,
+`before slide 2`) and `duplicate slide 2`, every line by the numbers read_file showed before the edit. Taking one out
+drops its place in the slide list, its relationship, its part with its notes and their content types, and any
+PowerPoint section or custom show entry naming it; a deck keeps at least one slide. A moved slide joins the section of
+the slide now before it, so each section's slides stay together; a copy goes right after its slide, in its section,
+with its charts and their workbooks copied (`PartSet.CopyRaw`) and no speaker notes. Checked on a deck PowerPoint
+saved with two sections: copy, move and delete, then opened in PowerPoint 16: slides, sections and the copied chart
+as expected. Until then a deck that wasn't the model's own could only have its text changed.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
 is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
 says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell

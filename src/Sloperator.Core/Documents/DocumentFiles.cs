@@ -113,8 +113,9 @@ internal static partial class DocumentFiles
     {
         List<WordContents.Entry>? contents = null;
         var kind = EditKind(path);
-        if (kind == "pptx" && oldText.Length == 0)
-            throw new InvalidOperationException("old_text must not be empty. To add text, give the paragraph it goes after as old_text, and that paragraph followed by the new text as new_text.");
+        if (kind == "pptx" && oldText.Length == 0 && !newText.Replace("\r\n", "\n").Split('\n').Any(l => l.Trim().Length > 0 && Regex.IsMatch(l.Trim(), @"^(?:delete|remove|take\s+out|drop|move|duplicate|copy)\s", RegexOptions.IgnoreCase)))
+            throw new InvalidOperationException("old_text must not be empty. To add text, give the paragraph it goes after as old_text, and that paragraph followed by the new text as new_text; " +
+                "to take out, move or copy slides, lines \"delete slide 3\", \"move slide 4 to 1\", \"duplicate slide 2\".");
         if (kind == "pdf")
             throw new InvalidOperationException("A PDF can't be changed in place. Read it with read_file and write a new one with write_file " +
                 "(Markdown), or change the document it was made from and make the PDF again.");
@@ -150,6 +151,11 @@ internal static partial class DocumentFiles
                     }
                 if (documents.Count == 0)
                     throw new InvalidOperationException($"{Path.GetFileName(path)} has no text to change.");
+                // Slides taken out, moved or copied ("delete slide 3", "move slide 4 to 1", "duplicate slide 2").
+                string? slidesSaid = null;
+                if (kind == "pptx" && oldText.Length == 0)
+                    slidesSaid = DeckSlides.Edit(parts, newText) ?? throw new InvalidOperationException(
+                        "With old_text empty, each line of new_text is \"delete slide 3\", \"move slide 4 to 1\" (or \"to the end\", \"after slide 2\") or \"duplicate slide 2\". To change text, give it as old_text.");
                 // "--- slide 2 of 5 ---" before the text, as read_file shows a slide: the text on that slide and in its
                 // notes, which is how a title is told from the same words on another slide.
                 if (kind == "pptx" && SlideLine().Match(oldText.Replace("\r\n", "\n")) is { Success: true } on)
@@ -165,8 +171,10 @@ internal static partial class DocumentFiles
                     if (SlideLine().Match(newText.Replace("\r\n", "\n")) is { Success: true } same && same.Groups[1].Value == on.Groups[1].Value)
                         newText = same.Groups["rest"].Value;
                 }
+                if (slidesSaid is not null)
+                    message = slidesSaid;
                 // Nothing given to find, in a Word document: the new text goes at its end.
-                if (oldText.Length == 0 && documents.TryGetValue("word/document.xml", out var main))
+                else if (oldText.Length == 0 && documents.TryGetValue("word/document.xml", out var main))
                 {
                     if (newText.Trim().Length == 0)
                         throw new InvalidOperationException("Both old_text and new_text are empty: there is nothing to change.");
@@ -451,7 +459,7 @@ internal sealed class PartSet(ZipArchive zip)
 
     public IEnumerable<string> Names => zip.Entries.Select(e => e.FullName).Where(n => !_deleted.Contains(n)).ToList();
 
-    public bool Exists(string name) => !_deleted.Contains(name) && (_loaded.ContainsKey(name) || zip.GetEntry(name) is not null);
+    public bool Exists(string name) => !_deleted.Contains(name) && (_loaded.ContainsKey(name) || _raw.ContainsKey(name) || zip.GetEntry(name) is not null);
 
     public XDocument Get(string name)
     {
@@ -472,10 +480,28 @@ internal sealed class PartSet(ZipArchive zip)
 
     public void Delete(string name) => _deleted.Add(name);
 
+    private readonly Dictionary<string, byte[]> _raw = new(StringComparer.Ordinal);
+
+    /// <summary>A copy of a part as its bytes (a workbook kept in a deck), under another name.</summary>
+    public void CopyRaw(string from, string to)
+    {
+        using var stream = (zip.GetEntry(from) ?? throw new InvalidDataException($"{from} is missing")).Open();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        _raw[to] = memory.ToArray();
+        _deleted.Remove(to);
+    }
+
     public void Save()
     {
         foreach (var name in _deleted)
             zip.GetEntry(name)?.Delete();
+        foreach (var (name, bytes) in _raw.Where(r => !_deleted.Contains(r.Key)))
+        {
+            zip.GetEntry(name)?.Delete();
+            using var stream = zip.CreateEntry(name, CompressionLevel.Optimal).Open();
+            stream.Write(bytes);
+        }
         foreach (var name in _changed.Where(n => !_deleted.Contains(n)))
         {
             zip.GetEntry(name)?.Delete();
