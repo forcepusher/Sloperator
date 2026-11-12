@@ -26,7 +26,8 @@ internal static partial class SheetEdit
     private sealed record CellLine(string? Sheet, string Reference, string? Value);
 
     /// <summary>Rows inserted (made like the row above them, as Excel's Insert does) or deleted, before cells are set.</summary>
-    private sealed record RowChange(string? Sheet, bool Insert, int From, int Count);
+    /// <param name="Column">Columns, not rows: From and Count are columns (SheetEdit.Columns.cs).</param>
+    private sealed record RowChange(string? Sheet, bool Insert, int From, int Count, bool Column = false);
 
     public static string Edit(PartSet parts, string oldText, string newText, bool all)
     {
@@ -79,11 +80,17 @@ internal static partial class SheetEdit
         // Rows go or move on the sheet named: with more than one, the first is no guess to make. Meaning the total
         // row of a workbook's second sheet, Qwen wrote "delete rows 6" and a row of orders on the first went (2026-11-13).
         if (sheets.Count > 1 && rows.FirstOrDefault(r => r.Sheet is null) is { } unnamed)
-            throw new InvalidOperationException($"This workbook has {sheets.Count} sheets ({string.Join(", ", sheets.Select(s => $"\"{s.Name}\""))}): say which one the rows are " +
-                $"{(unnamed.Insert ? "inserted" : "deleted")} on, as in \"{(unnamed.Insert ? "insert" : "delete")} row {unnamed.From} on \"{sheets[^1].Name}\"\", or put a line # Sheet \"{sheets[^1].Name}\" before it. Nothing was changed.");
+            throw new InvalidOperationException($"This workbook has {sheets.Count} sheets ({string.Join(", ", sheets.Select(s => $"\"{s.Name}\""))}): say which one the {(unnamed.Column ? "columns" : "rows")} are " +
+                $"{(unnamed.Insert ? "inserted" : "deleted")} on, as in \"{(unnamed.Insert ? "insert" : "delete")} {(unnamed.Column ? $"column {Letters(unnamed.From)}" : $"row {unnamed.From}")} on \"{sheets[^1].Name}\"\", or put a line # Sheet \"{sheets[^1].Name}\" before it. Nothing was changed.");
         foreach (var change in rows)
         {
             var sheet = SheetOf(change.Sheet);
+            if (change.Column)
+            {
+                ChangeColumns(parts, sheets, sheet, change.Insert, change.From, change.Count);
+                done.Add($"{(change.Insert ? "inserted" : "deleted")} {(change.Count == 1 ? $"column {Letters(change.From)}" : $"columns {Letters(change.From)}-{Letters(change.From + change.Count - 1)}")} on sheet \"{sheet.Name}\"");
+                continue;
+            }
             ChangeRows(parts, sheets, sheet, change.Insert, change.From, change.Count);
             done.Add($"{(change.Insert ? "inserted" : "deleted")} {(change.Count == 1 ? $"row {change.From}" : $"rows {change.From}-{change.From + change.Count - 1}")} on sheet \"{sheet.Name}\"");
         }
@@ -235,6 +242,19 @@ internal static partial class SheetEdit
             string? rowSheet = null;
             if (LeadingSheet().Match(line) is { Success: true } lead && names.Contains(Unquoted(lead.Groups["sheet"].Value), StringComparer.OrdinalIgnoreCase) && RowLine().IsMatch(line[lead.Length..].TrimStart()))
                 (rowLine, rowSheet) = (line[lead.Length..].TrimStart(), Unquoted(lead.Groups["sheet"].Value));
+            if (LeadingSheet().Match(line) is { Success: true } colLead && names.Contains(Unquoted(colLead.Groups["sheet"].Value), StringComparer.OrdinalIgnoreCase) && ColumnLine().IsMatch(line[colLead.Length..].TrimStart()))
+                (rowLine, rowSheet) = (line[colLead.Length..].TrimStart(), Unquoted(colLead.Groups["sheet"].Value));
+            if (ColumnLine().Match(rowLine) is { Success: true } col)
+            {
+                static int Number(string letters) => letters.ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
+                var a = Number(col.Groups["from"].Value);
+                var b = col.Groups["to"].Success ? Number(col.Groups["to"].Value) : a;
+                if (a > 16384 || b > 16384)
+                    throw new InvalidOperationException($"{line}: a sheet ends at column XFD.");
+                var verb = col.Groups["verb"].Value.ToLowerInvariant();
+                rows.Add(new RowChange(col.Groups["sheet"].Success ? Unquoted(col.Groups["sheet"].Value) : rowSheet ?? sheet, verb is "insert" or "add", Math.Min(a, b), Math.Abs(b - a) + 1, Column: true));
+                continue;
+            }
             if (RowLine().Match(rowLine) is { Success: true } row)
             {
                 var from = int.Parse(row.Groups["from"].Value, CultureInfo.InvariantCulture);
