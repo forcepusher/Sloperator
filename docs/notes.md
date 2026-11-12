@@ -376,7 +376,15 @@ PowerPoint section or custom show entry naming it; a deck keeps at least one sli
 the slide now before it, so each section's slides stay together; a copy goes right after its slide, in its section,
 with its charts and their workbooks copied (`PartSet.CopyRaw`) and no speaker notes. Checked on a deck PowerPoint
 saved with two sections: copy, move and delete, then opened in PowerPoint 16: slides, sections and the copied chart
-as expected. Until then a deck that wasn't the model's own could only have its text changed.
+as expected. Until then a deck that wasn't the model's own could only have its text changed. **A new slide** (the same
+night): `add slide after 2` (`insert slide 3`, `add slide at the end`, `at the start`) followed by the slide's title
+("# Next steps", or the first line) and its points ("- Open on Sundays") on the lines under it. The new slide is built
+on a slide of the deck that has a title of its own (not the title slide's), the one before the place first: a copy of
+it keeping only its layout relationship, everything on it taken off but the title, a content box with the points
+(placed by the layout when it has one, else where a content box sits on a slide of the deck's size). Asked to add a
+"Next steps" slide with two bullets after the chart slide, Haiku had tried "---" inside edit_file and then "insert
+slide 3" with the lines under it, 89 s, 22 calls, 6 errors, before looking for python-pptx; Sonnet wrote the slide's
+XML by hand. Checked in PowerPoint 16 on a deck it made: the slide in the deck's Title and Content layout, bulleted.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
 is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
 says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell

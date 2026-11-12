@@ -114,9 +114,9 @@ internal static partial class DocumentFiles
     {
         List<WordContents.Entry>? contents = null;
         var kind = EditKind(path);
-        if (kind == "pptx" && oldText.Length == 0 && !newText.Replace("\r\n", "\n").Split('\n').Any(l => l.Trim().Length > 0 && Regex.IsMatch(l.Trim(), @"^(?:delete|remove|take\s+out|drop|move|duplicate|copy)\s", RegexOptions.IgnoreCase)))
+        if (kind == "pptx" && oldText.Length == 0 && !newText.Replace("\r\n", "\n").Split('\n').Any(l => l.Trim().Length > 0 && Regex.IsMatch(l.Trim(), @"^(?:delete|remove|take\s+out|drop|move|duplicate|copy|add|insert|new|put)\s", RegexOptions.IgnoreCase)))
             throw new InvalidOperationException("old_text must not be empty. To add text, give the paragraph it goes after as old_text, and that paragraph followed by the new text as new_text; " +
-                "to take out, move or copy slides, lines \"delete slide 3\", \"move slide 4 to 1\", \"duplicate slide 2\".");
+                "to take out, move or copy slides, lines \"delete slide 3\", \"move slide 4 to 1\", \"duplicate slide 2\"; a new slide is \"add slide after 2\" with its title and points under it.");
         if (kind == "pdf")
             throw new InvalidOperationException("A PDF can't be changed in place. Read it with read_file and write a new one with write_file " +
                 "(Markdown), or change the document it was made from and make the PDF again.");
@@ -156,7 +156,8 @@ internal static partial class DocumentFiles
                 string? slidesSaid = null;
                 if (kind == "pptx" && oldText.Length == 0)
                     slidesSaid = DeckSlides.Edit(parts, newText) ?? throw new InvalidOperationException(
-                        "With old_text empty, each line of new_text is \"delete slide 3\", \"move slide 4 to 1\" (or \"to the end\", \"after slide 2\") or \"duplicate slide 2\". To change text, give it as old_text.");
+                        "With old_text empty, each line of new_text is \"delete slide 3\", \"move slide 4 to 1\" (or \"to the end\", \"after slide 2\"), \"duplicate slide 2\", " +
+                        "or \"add slide after 2\" with the new slide's title and points on the lines under it. To change text, give it as old_text.");
                 // "--- slide 2 of 5 ---" before the text, as read_file shows a slide: the text on that slide and in its
                 // notes, which is how a title is told from the same words on another slide.
                 if (kind == "pptx" && SlideLine().Match(oldText.Replace("\r\n", "\n")) is { Success: true } on)

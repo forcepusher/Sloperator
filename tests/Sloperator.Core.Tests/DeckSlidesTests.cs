@@ -74,6 +74,23 @@ public class DeckSlidesTests : IDisposable
         Assert.Contains("Deleted slide 3 (\"Thank you\"), then moved slide 2 (\"Sales\") to place 1, then copied slide 1 (\"Sales\") to a new slide after it, then moved slide 2 (\"Sales\") to place 3", steps.Text);
         Assert.Equal(["Sales", "Q3", "Sales"], await Titles());
 
+        // A new slide with its title and points, after the chart slide, as Haiku tried to give one (2026-11-13).
+        var added = await Edit("add slide after 1\n# Next steps\n- Hire a second fitter\n- Open on Sundays");
+        Assert.False(added.IsError, added.Text);
+        Assert.Contains("Added slide 2 (\"Next steps\") with 2 points", added.Text);
+        Assert.Equal(["Sales", "Next steps", "Q3", "Sales"], await Titles());
+        var text = (await new ReadFileTool().ExecuteAsync(new JsonObject { ["path"] = "deck.pptx" }, Ctx(), CancellationToken.None)).Text.ReplaceLineEndings("\n");
+        Assert.Contains("Next steps\nHire a second fitter\nOpen on Sundays\n", System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^\d+\t", ""));
+        // Built on a slide with a title of its own, the chart left out.
+        using (var zip = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx")))
+        {
+            var count = zip.Entries.Count(e => e.FullName.StartsWith("ppt/charts/chart", StringComparison.Ordinal) && e.FullName.EndsWith(".xml", StringComparison.Ordinal));
+            Assert.Equal(2, count);
+        }
+        Assert.False((await Edit("add slide at the end\nThe end")).IsError);
+        Assert.Equal(["Sales", "Next steps", "Q3", "Sales", "The end"], await Titles());
+        Assert.False((await Edit("delete slides 2, 5")).IsError);
+
         // What can't be done is said, and nothing is changed: a later line's number past the deck as the lines before leave it too.
         Assert.Contains("There is no slide 9: the deck has 3", (await Edit("move slide 9 to 1")).Text);
         Assert.Contains("There is no slide 3: the deck has 2 by then", (await Edit("delete slide 1\nmove slide 3 to 1")).Text);
