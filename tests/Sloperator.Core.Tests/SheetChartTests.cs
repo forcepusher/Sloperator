@@ -237,6 +237,87 @@ public class SheetChartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_chart_is_changed_in_its_place_by_naming_it_in_old_text()
+    {
+        Assert.False((await Write("sales.xlsx", Sales + "\nchart: bar A1:A4,D1:D4 Monthly totals\nchart: bar A1:C4 Fruit\n")).IsError);
+        // As Haiku asked (2026-11-13), and was told the text wasn't in the cells: the chart's line as it was written,
+        // and the line it should be. Another kind and title, the same cells, the same place on the sheet.
+        var changed = await Edit("sales.xlsx", "chart: bar Monthly totals", "chart: line Total sales 2026");
+        Assert.False(changed.IsError, changed.Text);
+        Assert.Contains("Changed the bar chart \"Monthly totals\" on sheet \"Sales\" to a line chart \"Total sales 2026\": Total ('Sales'!D2:D4) over 'Sales'!A2:A4", changed.Text);
+        var chart = Part("sales.xlsx", "xl/charts/chart1.xml");
+        var line = Assert.Single(chart.Descendants(C + "lineChart").Single().Elements(C + "ser"));
+        Assert.Equal("'Sales'!$D$2:$D$4", line.Element(C + "val")!.Descendants(C + "f").Single().Value);
+        Assert.Equal(["200", "245", "230"], line.Element(C + "val")!.Descendants(C + "v").Select(v => v.Value));
+        Assert.Equal(["Jan", "Feb", "Mar"], line.Element(C + "cat")!.Descendants(C + "v").Select(v => v.Value));
+        Assert.Equal("'Sales'!$D$1", line.Element(C + "tx")!.Descendants(C + "f").Single().Value);
+        Assert.Empty(chart.Descendants(C + "barChart"));
+        var rows = Part("sales.xlsx", "xl/drawings/drawing1.xml").Descendants().Where(e => e.Name.LocalName == "row").Select(e => int.Parse(e.Value)).ToList();
+        Assert.Equal([1, 1 + SheetChart.RowsTall + 2], rows);
+
+        // By its number with other cells, and by the line read_file shows for it, its title kept when none is given.
+        Assert.False((await Edit("sales.xlsx", "chart 2", "chart: pie A1:B4")).IsError);
+        var pie = Part("sales.xlsx", "xl/charts/chart2.xml");
+        Assert.Single(pie.Descendants(C + "pieChart"));
+        var text = await Read("sales.xlsx");
+        Assert.Contains("(chart: line chart \"Total sales 2026\": 'Sales'!D2:D4 over 'Sales'!A2:A4)", text);
+        Assert.Contains("(chart: pie chart \"Fruit\": 'Sales'!B2:B4 over 'Sales'!A2:A4)", text);
+        var again = await Edit("sales.xlsx", "(chart: pie chart \"Fruit\": 'Sales'!B2:B4 over 'Sales'!A2:A4)", "(chart: area chart \"Fruit\")");
+        Assert.False(again.IsError, again.Text);
+        Assert.Single(Part("sales.xlsx", "xl/charts/chart2.xml").Descendants(C + "areaChart"));
+
+        // By its title alone, as "chart 1, or its title" was read by Haiku and Sonnet.
+        var byTitle = await Edit("sales.xlsx", "Total sales 2026", "chart: bar A1:A4,D1:D4 Totals as bars");
+        Assert.False(byTitle.IsError, byTitle.Text);
+        Assert.Contains("Changed the line chart \"Total sales 2026\" on sheet \"Sales\" to a bar chart \"Totals as bars\"", byTitle.Text);
+        Assert.False((await Edit("sales.xlsx", "\"Totals as bars\"", "chart: line Total sales 2026")).IsError);
+
+        // One that isn't there is said with those that are; a word in a cell is still a word in a cell.
+        var none = await Edit("sales.xlsx", "chart \"Costs\"", "chart: bar Costs");
+        Assert.True(none.IsError);
+        Assert.Contains("There is no such chart. The charts are: chart 1 on sheet \"Sales\", a line chart \"Total sales 2026\"; chart 2 on sheet \"Sales\", an area chart \"Fruit\".", none.Text);
+        Assert.False((await Edit("sales.xlsx", "", "F1 Chart")).IsError);
+        Assert.False((await Edit("sales.xlsx", "Chart", "Graph")).IsError);
+        Assert.Contains("F1 Graph", await Read("sales.xlsx"));
+    }
+
+    [Fact]
+    public async Task A_chart_is_deleted_with_what_belongs_to_it()
+    {
+        Assert.False((await Write("sales.xlsx", Sales + "\nchart: bar A1:A4,D1:D4 Monthly totals\nchart: bar A1:C4 Fruit\nchart: pie A1:B4 Apples\n")).IsError);
+        // Named in old_text with nothing in its place.
+        var deleted = await Edit("sales.xlsx", "chart \"Fruit\"", "");
+        Assert.False(deleted.IsError, deleted.Text);
+        Assert.Contains("Deleted the bar chart \"Fruit\" from sheet \"Sales\".", deleted.Text);
+        using (var zip = ZipFile.OpenRead(Path.Combine(_dir, "sales.xlsx")))
+        {
+            Assert.Null(zip.GetEntry("xl/charts/chart2.xml"));
+            Assert.NotNull(zip.GetEntry("xl/charts/chart1.xml"));
+            Assert.NotNull(zip.GetEntry("xl/charts/chart3.xml"));
+        }
+        Assert.DoesNotContain("chart2.xml", Part("sales.xlsx", "[Content_Types].xml").ToString());
+        Assert.DoesNotContain("chart2.xml", Part("sales.xlsx", "xl/drawings/_rels/drawing1.xml.rels").ToString());
+        Assert.Equal(2, Part("sales.xlsx", "xl/drawings/drawing1.xml").Root!.Elements().Count());
+
+        // With a line, as rows are deleted, beside other changes: the second chart now is the pie.
+        var line = await Edit("sales.xlsx", "", "delete chart 2\nA5 Apr | B5 90 | C5 70 | D5 =B5+C5\nadd chart line A1:A5,D1:D5 All four months");
+        Assert.False(line.IsError, line.Text);
+        Assert.Contains("deleted the pie chart \"Apples\" from sheet \"Sales\"", line.Text);
+        var text = await Read("sales.xlsx");
+        Assert.DoesNotContain("pie chart", text);
+        Assert.Contains("(chart: bar chart \"Monthly totals\"", text);
+        Assert.Contains("(chart: line chart \"All four months\": 'Sales'!D2:D5 over 'Sales'!A2:A5)", text);
+        // The part of the chart deleted first is free again, and the new chart took it.
+        Assert.Single(Part("sales.xlsx", "xl/charts/chart2.xml").Descendants(C + "lineChart"));
+
+        // Two of a kind: which one has to be said.
+        Assert.False((await Edit("sales.xlsx", "", "add chart bar A1:C5 Fruit again")).IsError);
+        var which = await Edit("sales.xlsx", "the bar chart", "");
+        Assert.True(which.IsError);
+        Assert.Contains("More than one chart fits that", which.Text);
+    }
+
+    [Fact]
     public async Task Edit_file_says_what_is_wrong_with_a_chart_it_cannot_draw()
     {
         Assert.False((await Write("sales.xlsx", Sales)).IsError);
@@ -299,8 +380,14 @@ public class SheetChartTests : IDisposable
         await Ok(Edit("edited.xlsx", "", "A8 Jul | B8 $2,300.00 | C8 $870.00 | D8 $440.00 | E8 =SUM(B8:D8)\nadd chart bar A1:D8 \"Fruit by month\""));
         await Ok(Write("across.xlsx", "# Year\n| Quarter | Q1 | Q2 | Q3 | Q4 |\n|---|---|---|---|---|\n| North | 10 | 14 | 9 | 17 |\n| South | 7 | 8 | 12 | 11 |\n\nchart: line By quarter"));
         await Ok(Write("budget.xlsx", "# Budget\n| Item | Cost |\n|---|---|\n| Rent | 900 |\n| Food | 350 |\n| Transport | 80 |\n| Fun | 120 |\n\nchart: pie Where the money goes\n"));
+        File.Copy(Path.Combine(_dir, "made.xlsx"), Path.Combine(_dir, "changed.xlsx"));
+        await Ok(Edit("changed.xlsx", "chart \"Sales by month\"", "chart: line A1:D7 Sales by month, as lines"));
+        await Ok(Edit("changed.xlsx", "", "delete chart \"Stacked up\""));
+        // How cells look, for Excel to show: a yellow bold header, red italic figures, a boxed centred total.
+        File.Copy(Path.Combine(_dir, "budget.xlsx"), Path.Combine(_dir, "formatted.xlsx"));
+        await Ok(Edit("formatted.xlsx", "", "format A1:B1 bold, yellow fill\nformat B2:B5 red text, italic\nA6 Total | B6 =SUM(B2:B5)\nformat A6:B6 fill light blue, bold, border, centered"));
         Directory.CreateDirectory(output!);
-        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx" })
+        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx", "changed.xlsx", "formatted.xlsx" })
             File.Copy(Path.Combine(_dir, name), Path.Combine(output!, name), overwrite: true);
         // A workbook Excel saved with a chart of its own, put in the folder as excel.xlsx (cells A1:D5 on its first
         // sheet): a second chart goes into the drawing Excel made, under the first.
@@ -310,6 +397,13 @@ public class SheetChartTests : IDisposable
             await Ok(Edit("excel-edited.xlsx", "", "add chart line A1:D5 \"Added here\""));
             Assert.Contains("\"Added here\"", await Read("excel-edited.xlsx"));
             File.Copy(Path.Combine(_dir, "excel-edited.xlsx"), Path.Combine(output!, "excel-edited.xlsx"), overwrite: true);
+            // Excel's own chart made a pie in its place, and in another copy deleted with its style and colours.
+            File.Copy(Path.Combine(output!, "excel.xlsx"), Path.Combine(_dir, "excel-changed.xlsx"));
+            await Ok(Edit("excel-changed.xlsx", "chart 1", "chart: pie Now a pie"));
+            File.Copy(Path.Combine(_dir, "excel-changed.xlsx"), Path.Combine(output!, "excel-changed.xlsx"), overwrite: true);
+            File.Copy(Path.Combine(_dir, "excel-edited.xlsx"), Path.Combine(_dir, "excel-deleted.xlsx"));
+            await Ok(Edit("excel-deleted.xlsx", "chart 1", ""));
+            File.Copy(Path.Combine(_dir, "excel-deleted.xlsx"), Path.Combine(output!, "excel-deleted.xlsx"), overwrite: true);
         }
     }
 }

@@ -13,8 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   editors' lists (F2 renames too), and **Delete** and **Show in folder** for a single version on a right-click on
   its button. What you delete goes to the Recycle Bin. Until now this took finding the folder in Explorer.
 - **Charts in Excel workbooks.** Ask for a spreadsheet with a chart, or for a chart in one you have, and the agent
-  puts a real Excel chart on the sheet (bar, line, pie or area) that follows its cells. Before, it could only fill
-  cells, and a chart asked for made it go looking for Python or other programs to draw a picture of one.
+  puts a real Excel chart on the sheet (bar, line, pie or area) that follows its cells, and changes or deletes a
+  chart that is there ("make it a line chart"). Before, it could only fill cells, and a chart asked for made it go
+  looking for Python or other programs to draw a picture of one.
+- **Cell formatting in Excel workbooks.** The agent can make cells bold or italic, give them a background or text
+  colour, centre them and put borders on them, in your own workbook too. Asked for a yellow header row, it used to
+  look for Python or rewrite the file's insides by hand.
 - The agent can add text at the end of a Word document without naming the paragraph it goes after.
 - The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
   document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
