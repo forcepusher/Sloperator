@@ -673,7 +673,7 @@ public sealed partial class AgentSession(
                     if (!calls.Interrupted(ct) && guesswork?.Check(ToolCallRepair.ResolveTool(call.Name, tools), result, call.Arguments) is { } lookItUp)
                     {
                         notes.Add(lookItUp);
-                        observer.OnNotice("Asked the model to look this up with web_search before its next try.");
+                        observer.OnNotice(Guesswork.NoticeFor(lookItUp));
                     }
                     if (_projects.Check(ToolCallRepair.ResolveTool(call.Name, tools), call.Arguments, result, toolContext, tools.Find("index_folder") is not null) is { } project)
                     {

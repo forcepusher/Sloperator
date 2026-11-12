@@ -114,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - What the agent types right after its own click is no longer held back because you wrote to it, or clicked
   somewhere, before that click: it clicked and typed a second time.
 - A plan left on its last step when the agent answered now shows as done, rather than as one it stopped short of.
+- The chat line for a note Sloperator sends the agent about looking things up says what it asked and why, such as
+  "The same error came up again; asked the model to look it up before trying again". It always read "Asked the
+  model to look this up with web_search before its next try", also after a folder listing or a key press.
 - `sloperator-cli` keeps each run's captures apart, so comparing with "capture 1" no longer takes another run's picture.
 - The plan bar moves on when the agent names its step in quotes ("2"), as some models do, rather than staying put.
 - Desktop tasks on the free model Sloperator starts with no longer end some 15 steps in on "input rejected by content

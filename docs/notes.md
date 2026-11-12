@@ -5449,6 +5449,13 @@ presses for it at more points than errors:
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that
   looks something up gets no note for what failed beside it.
+- The chat's line for a note says what that note asked (`Guesswork.NoticeFor`: "The same error came up again; asked
+  the model to look it up before trying again", "By the model's own account its last try didn't work; asked it to
+  look up how this is done before the next", "Many look-ups in a row; told the model to try it on the installed
+  version now", and so on). One line had served them all, "Asked the model to look this up with web_search before
+  its next try": a note on the model's own doubt goes out with the next call's result, so the line stood after a
+  key press in the user's Unity chat and after a folder listing in Qwen's Notepad task, where "this" was nothing
+  the user could see, and it stood for the note that says to stop searching too (2026-11-12).
 
 **What the notes did in the chats of 3 and 4 November 2026** (three folders from the user's real work, Sonnet 5.5 and
 Haiku 5.5, the 70 notes whose text is still in the chats): "Time to look" 49 with 4 searches after them, all after a

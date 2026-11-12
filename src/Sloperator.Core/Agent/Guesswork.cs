@@ -127,6 +127,28 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         "Search the web for guidance on what you are doing now (the official documentation, the makers' guides and examples, " +
         "for the version in use) before your next try: a better way is often one search away.";
 
+    /// <summary>
+    /// What the chat says of a note the model was sent, in the user's words. One line had served them all, "Asked the
+    /// model to look this up with web_search before its next try": it stood after a folder listing and after a key
+    /// press, which a note about the model's own doubt went out with ("this" was nothing the user could see), and
+    /// for the note that says to stop searching and try (2026-11-12).
+    /// </summary>
+    internal static string NoticeFor(string note) => note switch
+    {
+        QuestionNote => "The model wasn't sure how something is done; asked it to look that up rather than go by memory.",
+        IgnoredNote => "Another try failed with the error before it never looked up; asked the model to search for it before trying again.",
+        RepeatNote => "The same error came up again; asked the model to look it up before trying again.",
+        NameNote => "The error says a name doesn't exist here; asked the model to look up the right one for the version in use.",
+        FirstNote => "That failed with nothing looked up yet; asked the model to look up how it is done before trying again.",
+        DoubtNote => "By the model's own account its last try didn't work; asked it to look up how this is done before the next.",
+        UserDoubtNote => "You said the result isn't right yet; asked the model to look up how this is done before trying again.",
+        _ when note.Contains("look-ups since your last try", StringComparison.Ordinal) => "Many look-ups in a row; told the model to try it on the installed version now.",
+        _ when note.Contains("isn't a command here", StringComparison.Ordinal) => "A program it called isn't installed or isn't on the PATH; asked the model to find it or look up how to get it.",
+        _ when note.Contains("tries have failed since", StringComparison.Ordinal) => "Several tries have failed with nothing looked up; asked the model to search before the next one.",
+        _ when note.Contains("Time to look things up", StringComparison.Ordinal) => "Several tries with nothing looked up; asked the model to search for guidance before the next.",
+        _ => "Asked the model to look this up with web_search before its next try.",
+    };
+
     private readonly Func<DateTime> _now = clock ?? (() => DateTime.UtcNow);
     private readonly Dictionary<string, int> _seen = [];
     private readonly Queue<int> _failures = new();
