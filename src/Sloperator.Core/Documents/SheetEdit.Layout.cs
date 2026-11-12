@@ -61,6 +61,8 @@ internal static partial class SheetEdit
                 unmerge: merge.Groups["un"].Success, center: merge.Groups["center"].Success || merge.Groups["center2"].Success));
         if (SortLine().Match(text) is { Success: true } sort)
             return new LayoutLine(on, true, (parts, sheets, target, shared) => Sort(parts, sheets, target, shared, sort));
+        if (DropdownLine().Match(text) is { Success: true } dropdown)
+            return new LayoutLine(on, false, (parts, _, target, _) => Dropdown(parts, target, dropdown));
         if (HighlightOf(text) is { } highlight)
             return new LayoutLine(on, false, (parts, _, target, _) => Highlight(parts, target, highlight));
         return null;
@@ -352,6 +354,64 @@ internal static partial class SheetEdit
         var font = xf is null ? null : styles.Element(S + "fonts")?.Elements(S + "font").ElementAtOrDefault((int?)xf.Attribute("fontId") ?? 0);
         return font?.Element(S + "b") is { } b && (string?)b.Attribute("val") is not ("0" or "false");
     }
+
+    // ---- dropdowns -----------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A list to pick from in cells, as Excel's Data Validation has it: "dropdown C2:C73: Yes, No, Maybe", or the
+    /// list in other cells, "dropdown C2:C73 from H2:H5"; "no dropdown C2:C73" takes it off. Any other value typed in
+    /// is refused by Excel.
+    /// </summary>
+    private static string Dropdown(PartSet parts, (string Name, string Part) sheet, Match line)
+    {
+        var xml = parts.Get(sheet.Part);
+        var root = xml.Root!;
+        var (r1, c1, r2, c2) = line.Groups["b"].Success ? Box(line.Groups["a"].Value, line.Groups["b"].Value) : Box(line.Groups["a"].Value, line.Groups["a"].Value);
+        var range = r1 == r2 && c1 == c2 ? XlsxWriter.Reference(r1, c1) : $"{XlsxWriter.Reference(r1, c1)}:{XlsxWriter.Reference(r2, c2)}";
+        var list = root.Element(S + "dataValidations");
+        // What was said of these cells before goes: a cell has one rule.
+        foreach (var old in list?.Elements(S + "dataValidation").ToList() ?? [])
+            if (((string?)old.Attribute("sqref"))?.Split(' ').Any(r => r.Split(':') is var p && Box(p[0], p.Length > 1 ? p[1] : p[0]) is var (or1, oc1, or2, oc2)
+                    && or1 <= r2 && r1 <= or2 && oc1 <= c2 && c1 <= oc2) == true)
+                old.Remove();
+        parts.Changed(sheet.Part);
+        if (line.Groups["no"].Success)
+        {
+            if (list is { HasElements: false }) list.Remove();
+            else list?.SetAttributeValue("count", list.Elements().Count());
+            return $"took the dropdown off {range} on sheet \"{sheet.Name}\"";
+        }
+        string formula;
+        string said;
+        if (line.Groups["from"].Success)
+        {
+            var (fr1, fc1, fr2, fc2) = Box(line.Groups["from"].Value, line.Groups["to"].Success ? line.Groups["to"].Value : line.Groups["from"].Value);
+            formula = $"${Letters(fc1)}${fr1}:${Letters(fc2)}${fr2}";
+            said = $"the values in {XlsxWriter.Reference(fr1, fc1)}:{XlsxWriter.Reference(fr2, fc2)}";
+        }
+        else
+        {
+            var items = line.Groups["items"].Value.Split([',', ';', '/'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(i => i.Trim('"', '\'', '“', '”')).Where(i => i.Length > 0).ToList();
+            if (items.Count == 0)
+                throw new InvalidOperationException($"dropdown {range}: give its choices, \"dropdown {range}: Yes, No\", or the cells they are in, \"dropdown {range} from H2:H5\".");
+            formula = "\"" + string.Join(",", items).Replace("\"", "\"\"") + "\"";
+            // Excel's own limit for a list written into the rule.
+            if (formula.Length > 257)
+                throw new InvalidOperationException($"dropdown {range}: a list written out holds at most 255 characters; put the choices in cells and give them: \"dropdown {range} from H2:H40\".");
+            said = string.Join(", ", items);
+        }
+        if (list is null)
+            Place(root, list = new XElement(S + "dataValidations"));
+        list.Add(new XElement(S + "dataValidation", new XAttribute("type", "list"), new XAttribute("allowBlank", 1), new XAttribute("showInputMessage", 1),
+            new XAttribute("showErrorMessage", 1), new XAttribute("sqref", range), new XElement(S + "formula1", formula)));
+        list.SetAttributeValue("count", list.Elements().Count());
+        return $"put a dropdown on {range} on sheet \"{sheet.Name}\" with {said} to pick from";
+    }
+
+    // "dropdown C2:C73: Yes, No, Maybe", "add a dropdown to C2:C73 with Yes, No", "dropdown C2:C73 from H2:H5", "no dropdown C2:C73"
+    [GeneratedRegex(@"^(?:(?<no>no|remove(?:\s+the)?|take\s+off(?:\s+the)?|delete(?:\s+the)?)\s+)?(?:add\s+(?:a\s+)?|put\s+(?:a\s+)?)?(?:drop-?down(?:\s+list)?|pick\s*list|list\s+validation)\s+(?:to\s+|on\s+|in\s+|for\s+)?(?<a>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?::(?<b>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}))?(?:\s*(?::|with|of)\s*(?<items>.+)|\s+from\s+(?<from>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?::(?<to>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}))?)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex DropdownLine();
 
     // ---- highlight -----------------------------------------------------------------------------------------------
 

@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   colour, centre them and put borders on them, and set or fit column widths, in your own workbook too. Asked for a
   yellow header row, it used to look for Python or rewrite the file's insides by hand.
 - **Sorting, frozen rows, filters, merged cells, highlights and number formats in Excel workbooks.** The agent can
-  insert and delete columns, sort a table by a column, keep its header row in view, put filter buttons on it, merge a title across it, show
+  insert and delete columns, give cells a dropdown of choices, sort a table by a column, keep its header row in view, put filter buttons on it, merge a title across it, show
   amounts in dollars or as percentages, and colour the rows that meet a rule ("over $3,000 in red") the way Excel's
   conditional formatting does, in your own workbook too. It used to rewrite the file's insides by hand or need
   Excel itself.

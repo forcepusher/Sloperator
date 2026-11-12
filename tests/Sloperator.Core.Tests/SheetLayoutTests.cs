@@ -152,6 +152,25 @@ public class SheetLayoutTests : IDisposable
     }
 
     [Fact]
+    public async Task Cells_get_a_dropdown_of_choices_or_of_other_cells()
+    {
+        Assert.False((await Write("orders.xlsx", Orders)).IsError);
+        var made = await Edit("orders.xlsx", "G1 status\ndropdown G2:G6: Open, Paid, Late");
+        Assert.False(made.IsError, made.Text);
+        Assert.Contains("put a dropdown on G2:G6 on sheet \"Orders\" with Open, Paid, Late to pick from", made.Text);
+        var rule = Part("orders.xlsx", "xl/worksheets/sheet1.xml").Descendants(S + "dataValidation").Single();
+        Assert.Equal(("list", "G2:G6", "\"Open,Paid,Late\""), ((string?)rule.Attribute("type"), (string?)rule.Attribute("sqref"), rule.Element(S + "formula1")!.Value));
+        Assert.Contains("(dropdown: G2:G6: Open, Paid, Late)", await Read("orders.xlsx"));
+
+        // Another for the same cells takes its place; from other cells; and off again.
+        Assert.False((await Edit("orders.xlsx", "add a dropdown to G2:G6 from B2:B6")).IsError);
+        rule = Part("orders.xlsx", "xl/worksheets/sheet1.xml").Descendants(S + "dataValidation").Single();
+        Assert.Equal("$B$2:$B$6", rule.Element(S + "formula1")!.Value);
+        Assert.Contains("Took the dropdown off G2:G6", (await Edit("orders.xlsx", "no dropdown G2:G6")).Text);
+        Assert.Empty(Part("orders.xlsx", "xl/worksheets/sheet1.xml").Descendants(S + "dataValidation"));
+    }
+
+    [Fact]
     public async Task Cells_are_highlighted_while_what_they_hold_meets_a_rule()
     {
         Assert.False((await Write("orders.xlsx", Orders)).IsError);

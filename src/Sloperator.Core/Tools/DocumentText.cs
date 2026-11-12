@@ -248,6 +248,9 @@ internal static class DocumentText
             }
             if ((string?)data.Element(S + "autoFilter")?.Attribute("ref") is { } filter)
                 sb.Append("(filter: ").Append(filter).AppendLine(")");
+            foreach (var rule in data.Element(S + "dataValidations")?.Elements(S + "dataValidation").Where(v => (string?)v.Attribute("type") == "list") ?? [])
+                sb.Append("(dropdown: ").Append((string?)rule.Attribute("sqref")).Append(": ")
+                    .Append(((string?)rule.Element(S + "formula1"))?.Trim('"').Replace(",", ", ") ?? "").AppendLine(")");
             foreach (var rule in data.Elements(S + "conditionalFormatting").SelectMany(f => f.Elements(S + "cfRule").Select(r => (Range: (string?)f.Attribute("sqref"), Rule: r))))
                 sb.Append("(highlight: ").Append(rule.Range).Append(' ').Append(Rule(rule.Rule)).Append(highlights.ElementAtOrDefault((int?)rule.Rule.Attribute("dxfId") ?? -1) is { Length: > 0 } look ? ": " + look : "").AppendLine(")");
             // Each chart with what it draws ("(chart: bar chart "Sales": Budget!B2:B13 over Budget!A2:A13)"), so one
