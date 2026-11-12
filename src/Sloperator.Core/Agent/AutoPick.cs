@@ -158,7 +158,11 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
             : null;
         if ((!pickModel || tier is null) && (!pickEffort || effort is null))
             return null;
-        return new AutoPick(tier ?? before, effort, fields.GetValueOrDefault("why") ?? "", Nothing(fields.GetValueOrDefault("found")), by);
+        // One sentence was asked for: what follows a blank line is the helper thinking on. Haiku 5.5's went on "Hmm, but
+        // I'm changing my answer, so let me be precise: I'm not switching it. … daily fits better, at medium effort",
+        // all of it on the card under "claude-haiku-5-5 at Low" (2026-11-12).
+        var why = Regex.Split(fields.GetValueOrDefault("why") ?? "", @"\n\s*\n")[0].Trim();
+        return new AutoPick(tier ?? before, effort, why, Nothing(fields.GetValueOrDefault("found")), by);
     }
 
     /// <summary>
@@ -169,7 +173,11 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     private static string Nothing(string? found) =>
         found is null || Regex.IsMatch(found.Trim(), @"^(?:nothing|none|n/?a|-+)(?:$|\s*[.;:,(—–-])", RegexOptions.IgnoreCase) ? "" : found.Trim();
 
-    /// <summary>The answer's fields by their names; a field's text runs to the next field.</summary>
+    /// <summary>
+    /// The answer's fields by their names; a field's text runs to the next field. A field given twice counts as it
+    /// was given last: an answer started over is the helper's correction. In found, the last field, a line of the
+    /// notes can begin like a field ("- model: the data model is in models.py"), so there only a pick starts over.
+    /// </summary>
     private static Dictionary<string, string> Fields(string answer)
     {
         var fields = new Dictionary<string, string>();
@@ -178,7 +186,7 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         foreach (var line in answer.Replace("\r", "").Split('\n'))
         {
             var start = FieldStart().Match(line);
-            if (start.Success)
+            if (start.Success && (key != "found" || start.Groups[1].Value.Equals("model", StringComparison.OrdinalIgnoreCase) && TierWord().IsMatch(line[start.Length..])))
             {
                 Keep();
                 key = start.Groups[1].Value.ToLowerInvariant();
@@ -192,7 +200,7 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
 
         void Keep()
         {
-            if (key is not null && !fields.ContainsKey(key))
+            if (key is not null)
                 fields[key] = value.ToString().Trim().Trim('*', '_').Trim();
         }
     }
@@ -200,6 +208,9 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     // "model: complex", "**Model:** complex", "- effort: high".
     [GeneratedRegex(@"^\s*(?:[-*]\s*)?[*_]{0,2}(model|effort|why|found)[*_]{0,2}\s*:\s*[*_]{0,2}", RegexOptions.IgnoreCase)]
     private static partial Regex FieldStart();
+
+    [GeneratedRegex(@"^\W*(helper|daily|complex)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex TierWord();
 
     /// <summary>
     /// What the picked model is told with the message, after the user's words: who looked, and what it

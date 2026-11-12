@@ -101,7 +101,7 @@ public sealed partial class AgentSession
 
         // The user's messages, and where they stopped a task: without it the model took up a task
         // the user had stopped again after the reset, from its own note's "not done yet".
-        var userMessages = History.Where(m => m.FromUser || m.Content == StoppedNote).ToList();
+        var userMessages = History.Where(m => m.FromUser || m.Content?.StartsWith(StoppedNote, StringComparison.Ordinal) == true).ToList();
         // The last screenshot, not the last picture: a picture the user attached (kept with their
         // message anyway), one read_file opened or a ComfyUI job's result was put after the note
         // as "The screen right now:". The screen an earlier reset carried counts: a second reset
