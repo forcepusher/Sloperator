@@ -327,6 +327,11 @@ public class GuessworkTests
             "\nAt C:\\proj\\stats.ps1:4 char:1\n+ $text = [IO.File]::ReadAllText($Path).ToLowerInvariant()\n+ ~~~~~~~~\n    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException\n    + FullyQualifiedErrorId : FileNotFoundException\n");
         Assert.Equal(Thrown, Guesswork.ErrorLine(tests));
         Assert.False(Guesswork.Answerable(Shell, Guesswork.ErrorLine(tests)!));
+
+        // A long path is wrapped to a line of its own.
+        var wrapped = new ToolResult("Exit code 0\n1 failed\nException calling \"ReadAllText\" with \"1\" argument(s): \"Could not find a part of the path \n'C:\\Repos\\app\\tasks\\chat.json'.\"" +
+            "\nAt C:\\proj\\timeline.ps1:3 char:1\n+ $j = [IO.File]::ReadAllText($Chat) | ConvertFrom-Json\n+ ~~~~~~~~\n    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException\n    + FullyQualifiedErrorId : DirectoryNotFoundException\n");
+        Assert.False(Guesswork.Answerable(Shell, Guesswork.ErrorLine(wrapped)!));
     }
 
     [Theory]

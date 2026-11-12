@@ -2927,9 +2927,10 @@ model it ran on (another reads it all anew at full price, so it switches only wh
 last reply (for "yes, do it") and the message, and answers in four fields, `model:`, `effort:`, `why:` and `found:`,
 read plain or in Markdown, a model also by its name (`AutoPick.Read`). The why is its first paragraph: Haiku 5.5
 went on under it "Hmm, but I'm changing my answer, so let me be precise: I'm not switching it. … daily fits better,
-at medium effort", and all of it stood on the card under "claude-haiku-5-5 at Low" (2026-11-12). A field given twice
-counts as given last (an answer started over is the correction), but in found, the last field, only a `model:` line
-with a pick starts over: a note such as "- Model: the data model is in models.py" used to cut the notes short. It runs in a session of its own made for the
+at medium effort", and all of it stood on the card under "claude-haiku-5-5 at Low" (2026-11-12). A line that
+begins like a field is a line of the text when that field was given already or found, the last field, has begun: a
+note such as "- Model: the data model is in models.py" used to cut the notes short. Only a `model:` line with a
+pick starts the answer over there, and the answer given again is the one that counts. It runs in a session of its own made for the
 model in use, so its replies count in the chat's cost by the helper model, and its calls ask the user's OK as
 any side task's. A server's failure or an answer with no pick leaves the model as it was (`AutoPick.Problem`). Then
 the server is checked again for the picked model (its context, images, levels, and LM Studio loads it), the run's

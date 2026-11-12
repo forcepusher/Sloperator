@@ -352,7 +352,14 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
     private void HidePicturedPeeks()
     {
         foreach (var card in Previews.OfType<FileCardPreview>())
-            card.PeekHidden = Captures.Any(c => c.Of is { } of && string.Equals(System.IO.Path.GetFullPath(of), System.IO.Path.GetFullPath(card.Path), StringComparison.OrdinalIgnoreCase));
+            card.PeekHidden = Captures.Any(c => c.Of is { } of && SameFile(of, card.Path));
+    }
+
+    /// <summary>Whether two paths name one file. The first is as the model wrote it: one that is no path at all names none.</summary>
+    private static bool SameFile(string a, string b)
+    {
+        try { return string.Equals(System.IO.Path.GetFullPath(a), System.IO.Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.IO.IOException) { return false; }
     }
 
     public AssistantMessageItem() => Previews.CollectionChanged += (_, _) => HidePicturedPeeks();

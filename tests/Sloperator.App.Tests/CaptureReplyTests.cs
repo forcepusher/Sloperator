@@ -116,6 +116,26 @@ public sealed class CaptureReplyTests : IDisposable
     }
 
     [Fact]
+    public void A_capture_whose_file_is_no_path_hides_no_peek_and_breaks_nothing()
+    {
+        // The file is as the model wrote it in its call.
+        var page = Png("capture-1.png", 64, 80);
+        var doc = Path.Combine(_dir, "List.md");
+        File.WriteAllText(doc, "# List\n");
+        var services = new PreviewServices(null, () => null);
+
+        var hidden = HeadlessApp.Run(() =>
+        {
+            var reply = new AssistantMessageItem { Text = "Done.", IsStreaming = false };
+            reply.AddPreviews([doc], services);
+            reply.ShowCaptures([(page, null, "a\0b"), (page, null, " ")], services);
+            return reply.Previews.OfType<FileCardPreview>().Single().PeekHidden;
+        });
+
+        Assert.False(hidden);
+    }
+
+    [Fact]
     public void A_chat_saved_with_one_picture_under_a_reply_still_shows_it()
     {
         var picture = Png("capture-1.png", 64, 40);

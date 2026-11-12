@@ -174,9 +174,10 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         found is null || Regex.IsMatch(found.Trim(), @"^(?:nothing|none|n/?a|-+)(?:$|\s*[.;:,(—–-])", RegexOptions.IgnoreCase) ? "" : found.Trim();
 
     /// <summary>
-    /// The answer's fields by their names; a field's text runs to the next field. A field given twice counts as it
-    /// was given last: an answer started over is the helper's correction. In found, the last field, a line of the
-    /// notes can begin like a field ("- model: the data model is in models.py"), so there only a pick starts over.
+    /// The answer's fields by their names; a field's text runs to the next field. A line that begins like a field
+    /// is a line of the text when that field was given already or the notes (found, the last field) have begun
+    /// ("- model: the data model is in models.py", "effort: medium would be too much"). Only a pick ("model: daily")
+    /// starts the answer over there: an answer given again is the helper's correction, and counts.
     /// </summary>
     private static Dictionary<string, string> Fields(string answer)
     {
@@ -186,10 +187,14 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         foreach (var line in answer.Replace("\r", "").Split('\n'))
         {
             var start = FieldStart().Match(line);
-            if (start.Success && (key != "found" || start.Groups[1].Value.Equals("model", StringComparison.OrdinalIgnoreCase) && TierWord().IsMatch(line[start.Length..])))
+            var name = start.Success ? start.Groups[1].Value.ToLowerInvariant() : null;
+            var over = name == "model" && key is not null && TierWord().IsMatch(line[start.Length..]);
+            if (name is not null && (over || key != "found" && name != key && !fields.ContainsKey(name)))
             {
                 Keep();
-                key = start.Groups[1].Value.ToLowerInvariant();
+                if (over)
+                    fields.Clear();
+                key = name;
                 value.Clear().Append(line[start.Length..].Trim());
             }
             else if (key is not null)
