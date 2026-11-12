@@ -560,6 +560,15 @@ internal static partial class TextEdit
         public abstract XElement NewParagraph(XElement like, int? heading);
         public abstract bool CanRemove(XElement paragraph);
 
+        /// <summary>A run given the look asked for (TextEdit.Looks.cs); <paramref name="fill"/>: the fill is behind the text, not a table cell's.</summary>
+        public abstract void Style(XElement unit, DocumentLook look, bool fill);
+
+        /// <summary>A paragraph set left, center or right.</summary>
+        public abstract void Align(XElement paragraph, string align);
+
+        /// <summary>A table cell's background, RRGGBB, or none with "".</summary>
+        public abstract void FillCell(XElement cell, string colour);
+
         /// <summary>Paragraphs <paramref name="added"/> after <paramref name="first"/> go where they belong, when that isn't right after it (a slide's title).</summary>
         public virtual void Settle(XElement first, List<XElement> added) { }
 
@@ -690,6 +699,10 @@ internal static partial class TextEdit
         // A table cell needs a paragraph, and so does the end of the body.
         public override bool CanRemove(XElement paragraph) =>
             paragraph.Parent is { } parent && parent.Elements(W + "p").Count() > 1 && paragraph.Element(W + "pPr")?.Element(W + "sectPr") is null;
+
+        public override void Style(XElement unit, DocumentLook look, bool fill) => StyleWord(unit, look, fill);
+        public override void Align(XElement paragraph, string align) => AlignWord(paragraph, align);
+        public override void FillCell(XElement cell, string colour) => FillWordCell(cell, colour);
     }
 
     private sealed class SlideText : Format
@@ -741,6 +754,10 @@ internal static partial class TextEdit
 
         // A text box needs a paragraph.
         public override bool CanRemove(XElement paragraph) => paragraph.Parent is { } parent && parent.Elements(A + "p").Count() > 1;
+
+        public override void Style(XElement unit, DocumentLook look, bool fill) => StyleSlide(unit, look, fill);
+        public override void Align(XElement paragraph, string align) => AlignSlide(paragraph, align);
+        public override void FillCell(XElement cell, string colour) => FillSlideCell(cell, colour);
 
         private static readonly XNamespace P = "http://schemas.openxmlformats.org/presentationml/2006/main";
 
