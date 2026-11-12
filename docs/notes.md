@@ -203,6 +203,33 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   first sheet), then wrote the styles into the file's XML (46 calls, 10 errors); Sonnet's widths for the second
   sheet never applied; Kilo's free Nemotron went to write the whole workbook again. After: Haiku 29 calls and 1
   error (`Orders!autofit columns`, taken since), Sonnet 17 and none.
+- **Laying a sheet out** (`SheetEdit.Layout.cs`, 2026-11-13): lines of edit_file's new_text, beside cells, formats
+  and widths. `sort A2:F73 by F descending` (also `sort by revenue, largest first`: a column by its letter or its
+  heading; the rows under the table's header when no cells are given): each row's cells in the range move together
+  with their formats, a formula's references moving with its row as Excel's Sort does (`=D2*E2` moved to row 5 is
+  `=D5*E5`; shared formulas written out first), numbers before text, empty last, equal rows in their order; a first
+  row given that is frozen, bold over rows that aren't, or text over a column of numbers stays on top as the heading.
+  Formulas get their values first, to sort by them. `freeze row 1` / `freeze the header row` / `freeze panes at B2` /
+  `unfreeze` (the sheet view's frozen pane). `filter A1:F73`, `turn on filters` (the table's header row, below a
+  title across the top, to its last row; with Excel's hidden `_xlnm._FilterDatabase` name), `remove the filter`.
+  `merge A1:F1`, `merge and center A1:F1`, `unmerge A1:F1` (overlaps refused; what the other cells held is emptied
+  and said, as Excel does). `highlight A2:F73 red where F > 3000` (whole rows by one column: an expression rule
+  `$F2>3000`) or `highlight F2:F73 over 3000 in green` (each cell by its own value), `=`, `is`, `over`, `under`,
+  `at least`, `between 10 and 20`, a text value too: Excel's conditional formatting, with its own light-fill and
+  dark-text pairs for a colour said alone; `format F2:F73 red where …` is one only with its `where`. And a format
+  line takes how numbers show: `as dollars` (`"$"#,##0.00`), euros, pounds, `as percent`, `as dates`, `2 decimals`,
+  `with a thousands separator`, or Excel's own code; a column too narrow for the numbers as they now show is widened
+  (never narrowed), as Excel widens one, where Excel showed ##### for amounts in a column fitted to plain numbers.
+  Rows inserted or deleted move the rules' formulas with their ranges, and the rows kept in view grow with a row
+  inserted among them. read_file says each of them: `(frozen: row 1)`, `(filter: A1:F73)`, `(highlight: A2:F73
+  where $F2>3000: fill #FFC7CE, text #9C0006)`. *Why:* asked to sort a workbook Excel had saved by revenue, freeze and
+  filter its header, show two columns in dollars, make the orders over $3,000 stand out in red, then put a title row
+  across the table, Haiku rewrote the sheet's XML through PowerShell (30 calls, rebuilding the zip twice, once with
+  backslashes in its entry names, which Excel can't open) and Sonnet drove Excel through its automation, which a PC
+  without Office doesn't have. *Checked:* the same edits on that workbook, opened in Excel 16
+  (`.dev/night-test/layout-check.ps1`): rows by revenue, rows 1-2 frozen, the filter on the header under the merged,
+  centred title, one rule `=$F3>3000` drawing the rows over 3000 red after the title went in, amounts as $9,120.00.
+  Not there: sorting by more than one column, data validation, protecting a sheet.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide. **A chart on a slide** (2026-11-13): a line `chart: bar Sales by region` under a table shows the

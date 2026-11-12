@@ -44,27 +44,29 @@ internal static partial class SheetEdit
         var now = Lines(newText, names, out var unread);
         if (old?.Rows.Count > 0)
             throw new InvalidOperationException("Rows are inserted or deleted with a line in new_text (\"insert row 7\", \"delete rows 3-4\"), not in old_text.");
-        if (old?.Formats.Count > 0 || old?.Widths.Count > 0)
+        if (old?.Formats.Count > 0 || old?.Widths.Count > 0 || old?.Layouts.Count > 0)
             throw new InvalidOperationException("Cells are formatted and columns made wider with a line in new_text (\"format A1:E1 bold, yellow fill\", \"column A width 20\"), not in old_text.");
         if (old?.Charts.Count > 0 || old?.Gone.Count > 0)
             throw new InvalidOperationException("A chart is added or deleted with a line in new_text (\"add chart bar A1:D13 Sales by month\", \"delete chart 2\"), not in old_text; " +
                                                 "to change one, name it in old_text (\"chart 2\", or its title) and give its new line in new_text (\"chart: line Monthly totals\").");
         var cellMode = now is not null && (oldText.Trim().Length == 0 || old is not null)
-            && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Gone.Count > 0 || now.Value.Formats.Count > 0 || now.Value.Widths.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
+            && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Gone.Count > 0 || now.Value.Formats.Count > 0 || now.Value.Widths.Count > 0 || now.Value.Layouts.Count > 0
+                || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
         if (cellMode)
-            return SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats, now.Value.Widths);
+            return SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats, now.Value.Widths, now.Value.Layouts);
         // Nothing to find and a line that is none of what new_text can be: said with the line and the lines there are.
         // Told only to "give old_text", Haiku tried five spellings of a sheet's name in a row (2026-11-13).
         if (oldText.Trim().Length == 0 && unread is not null)
             throw new InvalidOperationException($"\"{(unread.Length > 80 ? unread[..80] + "…" : unread)}\" is no line edit_file knows for a workbook. With old_text empty, each line of new_text is a cell to set " +
-                "(\"B7 =SUM(B2:B6)\"), \"insert row 7\", \"delete rows 3-4\", \"format A1:E1 bold, yellow fill\", \"column A width 20\", \"autofit columns\", " +
+                "(\"B7 =SUM(B2:B6)\"), \"insert row 7\", \"delete rows 3-4\", \"format A1:E1 bold, yellow fill\", \"format E2:F73 as dollars\", \"column A width 20\", \"autofit columns\", " +
+                "\"sort A2:F73 by F descending\", \"freeze row 1\", \"filter A1:F73\", \"merge A1:F1\", \"highlight A2:F73 red where F > 3000\", " +
                 "\"add chart bar A1:D13 Title\" or \"delete chart 2\". Another sheet is named before the cells (\"'My sheet'!A1:B1\", \"Budget!C9 12.5\") or by a line # Sheet \"My sheet\" before them.");
         return ReplaceText(parts, sheets, oldText, newText, all);
     }
 
     // ---- cells -----------------------------------------------------------------------------------------
 
-    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows, List<ChartLine> charts, List<ChartTarget> gone, List<FormatLine> looks, List<WidthLine> widths)
+    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows, List<ChartLine> charts, List<ChartTarget> gone, List<FormatLine> looks, List<WidthLine> widths, List<LayoutLine> layouts)
     {
         (string Name, string Part) SheetOf(string? name) =>
             name is null ? sheets[0]
@@ -165,6 +167,9 @@ internal static partial class SheetEdit
         }
         if (changes.Count > 0)
             done.Add("set " + string.Join("; ", changes.GroupBy(c => c.Sheet.Name).Select(g => $"{string.Join(", ", g.Select(c => c.Cell))} on sheet \"{g.Key}\"")));
+        // Rows sorted ("sort A2:F73 by F descending") once the cells hold what this edit gives them, before how they look is set.
+        foreach (var layout in layouts.Where(l => l.Sort))
+            done.Add(layout.Apply(parts, sheets, SheetOf(layout.Sheet), shared));
         // How cells look ("format A1:E1 bold, yellow fill"), once they hold what this edit gives them.
         foreach (var format in looks)
             done.Add(ApplyFormat(parts, SheetOf(format.Sheet), format));
@@ -176,6 +181,9 @@ internal static partial class SheetEdit
                 done.AddRange(filled.Select(s => ApplyWidth(parts, s, width, shared)));
             else
                 done.Add(ApplyWidth(parts, SheetOf(width.Sheet), width, shared));
+        // What stays in view, filters, merged cells and highlights, in the order given.
+        foreach (var layout in layouts.Where(l => !l.Sort))
+            done.Add(layout.Apply(parts, sheets, SheetOf(layout.Sheet), shared));
         // Charts last, so one draws the cells as this edit leaves them. Those to delete ("delete chart 2") first, all
         // found before any goes, as deleting one moves the numbers of those after it.
         foreach (var chart in gone.Select(g => Find(Charts(parts, sheets), g)).ToList())
@@ -202,8 +210,9 @@ internal static partial class SheetEdit
     /// </summary>
     /// <param name="names">The workbook's sheets, to tell a sheet named without quotes.</param>
     /// <param name="unread">The first line that is none of them, when the text isn't made of them.</param>
-    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats, List<WidthLine> Widths)? Lines(string text, IReadOnlyList<string> names, out string? unread)
+    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats, List<WidthLine> Widths, List<LayoutLine> Layouts)? Lines(string text, IReadOnlyList<string> names, out string? unread)
     {
+        var layouts = new List<LayoutLine>();
         unread = null;
         var cells = new List<CellLine>();
         var rows = new List<RowChange>();
@@ -244,6 +253,12 @@ internal static partial class SheetEdit
                 gone.Add(target);
                 continue;
             }
+            // A highlight first: "format F2:F73 red where F > 3000" is a rule, not a fill for all of them.
+            if (LayoutOf(line, sheet, names) is { } layout)
+            {
+                layouts.Add(layout);
+                continue;
+            }
             if (FormatOf(line, sheet, names) is { } format)
             {
                 formats.Add(format);
@@ -275,7 +290,8 @@ internal static partial class SheetEdit
                 cells.Add(new CellLine(on, m.Groups["ref"].Value, value));
             }
         }
-        return cells.Count > 0 || rows.Count > 0 || charts.Count > 0 || gone.Count > 0 || formats.Count > 0 || widths.Count > 0 ? (cells, rows, charts, gone, formats, widths) : null;
+        return cells.Count > 0 || rows.Count > 0 || charts.Count > 0 || gone.Count > 0 || formats.Count > 0 || widths.Count > 0 || layouts.Count > 0
+            ? (cells, rows, charts, gone, formats, widths, layouts) : null;
     }
 
     /// <summary>What read_file shows of a cell: =formula, or the value.</summary>
@@ -454,6 +470,27 @@ internal static partial class SheetEdit
                 foreach (var list in sheet.Root.Elements().Where(e => e.Name.LocalName == "mergeCells").ToList())
                     if (!list.HasElements) list.Remove();
                     else list.SetAttributeValue("count", list.Elements().Count());
+                // The formulas of rules that colour cells and of validations are written for their range's first cell,
+                // and move with it: left as they were, a highlight of the rows over 3000 compared each row with the one
+                // above it once a title row was inserted (2026-11-13).
+                foreach (var formula in sheet.Root.Descendants().Where(e => e.Name.LocalName is "formula" or "formula1" or "formula2"
+                             && e.Ancestors().Any(a => a.Name.LocalName is "conditionalFormatting" or "dataValidation") && e.Value.Length > 0))
+                    formula.Value = Move(formula.Value, true);
+                // Rows kept in view grow with rows inserted among them, as in Excel: a title put above a frozen heading
+                // leaves the heading in view.
+                if (sheet.Root.Element(S + "sheetViews")?.Element(S + "sheetView")?.Element(S + "pane") is { } pane
+                    && ((string?)pane.Attribute("state"))?.StartsWith("frozen", StringComparison.Ordinal) == true && (int?)pane.Attribute("ySplit") is { } split && from <= split)
+                {
+                    var kept = insert ? split + count : split - Math.Min(count, split - from + 1);
+                    var columns = (int?)pane.Attribute("xSplit") ?? 0;
+                    if (kept <= 0 && columns == 0)
+                        pane.Parent!.Elements(S + "pane").Concat(pane.Parent.Elements(S + "selection")).Remove();
+                    else
+                    {
+                        pane.SetAttributeValue("ySplit", kept > 0 ? kept : null);
+                        pane.SetAttributeValue("topLeftCell", XlsxWriter.Reference(Math.Max(kept, 0) + 1, columns + 1));
+                    }
+                }
                 changed = true;
                 Dimension(sheet);
             }
@@ -575,24 +612,7 @@ internal static partial class SheetEdit
         if (xf is null || ((int?)xf.Attribute("numFmtId") ?? 0) != 0) return;
         if (!made.TryGetValue((current, format), out var index))
         {
-            var id = format switch { "0%" => 9, "0.00%" => 10, "#,##0" => 3, "#,##0.00" => 4, _ => -1 };
-            if (id < 0)
-            {
-                var numFmts = root.Element(S + "numFmts");
-                if (numFmts is null)
-                {
-                    numFmts = new XElement(S + "numFmts");
-                    root.AddFirst(numFmts);
-                }
-                var existing = numFmts.Elements(S + "numFmt").FirstOrDefault(n => (string?)n.Attribute("formatCode") == format);
-                if (existing is not null) id = (int)existing.Attribute("numFmtId")!;
-                else
-                {
-                    id = Math.Max(163, numFmts.Elements(S + "numFmt").Select(n => (int?)n.Attribute("numFmtId") ?? 0).DefaultIfEmpty(0).Max()) + 1;
-                    numFmts.Add(new XElement(S + "numFmt", new XAttribute("numFmtId", id), new XAttribute("formatCode", format)));
-                }
-                numFmts.SetAttributeValue("count", numFmts.Elements(S + "numFmt").Count());
-            }
+            var id = NumberFormatId(root, format);
             var copy = new XElement(xf);
             copy.SetAttributeValue("numFmtId", id);
             copy.SetAttributeValue("applyNumberFormat", 1);
@@ -601,6 +621,27 @@ internal static partial class SheetEdit
             made[(current, format)] = index = xfs.Elements(S + "xf").Count() - 1;
         }
         cell.SetAttributeValue("s", index);
+    }
+
+    /// <summary>The id of a number format in a workbook's styles: Excel's own for the plain ones, else one listed there or added.</summary>
+    private static int NumberFormatId(XElement styles, string format)
+    {
+        var id = format switch { "General" => 0, "0" => 1, "0.00" => 2, "#,##0" => 3, "#,##0.00" => 4, "0%" => 9, "0.00%" => 10, _ => -1 };
+        if (id >= 0)
+            return id;
+        var numFmts = styles.Element(S + "numFmts");
+        if (numFmts is null)
+        {
+            numFmts = new XElement(S + "numFmts");
+            styles.AddFirst(numFmts);
+        }
+        var existing = numFmts.Elements(S + "numFmt").FirstOrDefault(n => (string?)n.Attribute("formatCode") == format);
+        if (existing is not null)
+            return (int)existing.Attribute("numFmtId")!;
+        id = Math.Max(163, numFmts.Elements(S + "numFmt").Select(n => (int?)n.Attribute("numFmtId") ?? 0).DefaultIfEmpty(0).Max()) + 1;
+        numFmts.Add(new XElement(S + "numFmt", new XAttribute("numFmtId", id), new XAttribute("formatCode", format)));
+        numFmts.SetAttributeValue("count", numFmts.Elements(S + "numFmt").Count());
+        return id;
     }
 
     private static void Dimension(XDocument sheet)
