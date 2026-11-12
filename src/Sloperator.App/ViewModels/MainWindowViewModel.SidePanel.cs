@@ -438,4 +438,13 @@ public sealed partial class MainWindowViewModel
             return null;
         return ToolCallRepair.AsObject(call.Arguments) is { } args ? (args, call.Progress) : null;
     }
+
+    /// <summary>
+    /// Whether a tool call running in this chat now names <paramref name="path"/> in what it was given: a picture's
+    /// or a sound's folder it saves into (the comfyui tool's save_to), a version it edits (edit_sound's path).
+    /// </summary>
+    internal bool RunningCallNames(string path) =>
+        IsBusy && Items.OfType<ToolCallItem>().LastOrDefault(t => t.State == ToolItemState.Running) is { Arguments: { } given }
+        // As JSON holds a path, each backslash doubled, and as a model may write it, with slashes.
+        && given.Replace(@"\\", @"\", StringComparison.Ordinal).Replace('/', '\\').Contains(path, StringComparison.OrdinalIgnoreCase);
 }

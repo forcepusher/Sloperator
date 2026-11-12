@@ -22,6 +22,7 @@ public partial class ImageEditorPanel : UserControl
         // Prompt metadata takes at most half the room under the bar, as under a file in the File inspector.
         Middle.SizeChanged += (_, e) => RecipeBox.MaxHeight = Math.Max(120, e.NewSize.Height / 2);
         VersionStrip.Attach(this, VersionScroll, VersionList);
+        MediaEditorMenus.Attach<PictureItem>(this, List, VersionList, picture => picture.Thumbnail);
     }
 
     private void OnListTapped(object? sender, TappedEventArgs e)

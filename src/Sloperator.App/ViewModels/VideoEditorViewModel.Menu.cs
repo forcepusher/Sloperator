@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Sloperator.Core.Video;
-using Microsoft.VisualBasic.FileIO;
 
 namespace Sloperator.App.ViewModels;
 
@@ -11,7 +10,7 @@ public sealed partial class VideoEditorViewModel
     // reference to copy the file, or hit a generate button. Remove all that folder tab nonsense.")
 
     /// <summary>What right-clicking a row of the timeline away from its cards offers: Create, there.</summary>
-    public IReadOnlyList<VideoMenuItem?> MenuForRow(string row, double seconds, int soundLine)
+    public IReadOnlyList<PanelMenuItem?> MenuForRow(string row, double seconds, int soundLine)
     {
         var free = !Busy(_board.Folder);
         return row switch
@@ -24,10 +23,10 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>What right-clicking a card of the References row offers.</summary>
-    public IReadOnlyList<VideoMenuItem?> MenuFor(ReferenceCard card)
+    public IReadOnlyList<PanelMenuItem?> MenuFor(ReferenceCard card)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<VideoMenuItem?>
+        var items = new List<PanelMenuItem?>
         {
             new("File…", free && (card.Frame is null || !card.Frame.IsMade), () => _ = PickFileForAsync(card)),
             new("Generate", free && card.Frame is not null, () => Generate(card.Frame!)),
@@ -43,10 +42,10 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>What right-clicking a clip on the Video clips row offers.</summary>
-    public IReadOnlyList<VideoMenuItem?> MenuFor(ShotItem shot)
+    public IReadOnlyList<PanelMenuItem?> MenuFor(ShotItem shot)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<VideoMenuItem?>
+        var items = new List<PanelMenuItem?>
         {
             new("Generate", free, () => Generate(shot)),
             null,
@@ -59,10 +58,10 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>What right-clicking a clip's start or end frame offers; File… and Generate are on a slot not made too, when it has room.</summary>
-    public IReadOnlyList<VideoMenuItem?> MenuFor(FrameSlot slot)
+    public IReadOnlyList<PanelMenuItem?> MenuFor(FrameSlot slot)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<VideoMenuItem?>
+        var items = new List<PanelMenuItem?>
         {
             new("File…", free && slot.Frame is not { IsMade: true }, () => _ = PickFileForAsync(slot)),
             new("Generate", free, () => Generate(FrameFor(slot))),
@@ -73,11 +72,11 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>What right-clicking a sound on a sound line offers: File…, Foley and Music first, as a new one's buttons are.</summary>
-    public IReadOnlyList<VideoMenuItem?> MenuFor(SoundItem sound)
+    public IReadOnlyList<PanelMenuItem?> MenuFor(SoundItem sound)
     {
         var free = !Busy(_board.Folder);
         var generated = sound.Sound.Source != VideoSound.FromFile;
-        var items = new List<VideoMenuItem?>
+        var items = new List<PanelMenuItem?>
         {
             new("File…", free && (!generated || !sound.IsMade), () => _ = PickFileForAsync(sound)),
             new("Foley", free && generated, () => MakeFoley(sound)),
@@ -103,10 +102,10 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>What the video's name at the top offers: the videos to open, a new one, and this one renamed or deleted.</summary>
-    public IReadOnlyList<VideoMenuItem?> VideoMenu()
+    public IReadOnlyList<PanelMenuItem?> VideoMenu()
     {
         var idle = !Busy(_board.Folder);
-        var items = new List<VideoMenuItem?>();
+        var items = new List<PanelMenuItem?>();
         foreach (var video in Storyboard.Recent(_videosRoot).Append(_board.Folder).Distinct(StringComparer.OrdinalIgnoreCase)
                      .OrderBy(f => Path.GetRelativePath(_videosRoot, f), ByName))
         {
@@ -123,14 +122,14 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>A piece's earlier versions, as a submenu: picked, one is shown, to put back.</summary>
-    private void AddVersions(List<VideoMenuItem?> items, IVideoPiece piece)
+    private void AddVersions(List<PanelMenuItem?> items, IVideoPiece piece)
     {
         var versions = VideoVersions.List(_board, piece.Piece);
         if (versions.Count == 0)
             return;
         items.Add(new("Versions", true, () => { })
         {
-            Items = versions.Select(v => (VideoMenuItem?)new VideoMenuItem($"Version {v.Number} · {v.Made.ToLocalTime():d MMM, HH:mm}", true, () => ShowVersion(piece, v))).ToList(),
+            Items = versions.Select(v => (PanelMenuItem?)new PanelMenuItem($"Version {v.Number} · {v.Made.ToLocalTime():d MMM, HH:mm}", true, () => ShowVersion(piece, v))).ToList(),
         });
     }
 
@@ -552,16 +551,8 @@ public sealed partial class VideoEditorViewModel
 
     // ---- deleting, to the Recycle Bin ------------------------------------------------------------------------
 
-    /// <summary>A folder or file to the Recycle Bin, as Explorer's Delete puts it: it can be brought back from there.</summary>
-    private static void ToRecycleBin(string path)
-    {
-        if (!OperatingSystem.IsWindows())
-            throw new IOException("Only Windows has a Recycle Bin to put it in.");
-        if (Directory.Exists(path))
-            FileSystem.DeleteDirectory(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-        else if (File.Exists(path))
-            FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-    }
+    /// <summary>A folder or file to the Recycle Bin (<see cref="RecycleBin.Put"/>).</summary>
+    private static void ToRecycleBin(string path) => RecycleBin.Put(path);
 
     /// <summary>The open video to the Recycle Bin; the video changed last opens.</summary>
     private void DeleteVideo()

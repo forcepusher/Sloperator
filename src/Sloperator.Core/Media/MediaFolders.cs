@@ -58,14 +58,45 @@ public sealed class MediaFolders(string untitled, params string[] types)
         return rest.Length == 0 || rest[0] == ' ' && rest.Length > 1 && rest[1..].All(char.IsAsciiDigit);
     }
 
-    /// <summary>A new folder in <paramref name="root"/>, made.</summary>
-    public string New(string root)
+    /// <summary>
+    /// A new folder in <paramref name="root"/>, made: "Untitled picture", or named <paramref name="name"/> (made
+    /// safe as a file name) for one that has a name from the start, a file dropped on the panel; "name 2" when
+    /// that is taken.
+    /// </summary>
+    public string New(string root, string? name = null)
     {
         Directory.CreateDirectory(root);
-        var folder = Path.Combine(root, untitled);
-        for (var n = 2; Directory.Exists(folder); n++)
-            folder = Path.Combine(root, $"{untitled} {n}");
+        var called = Named(name, untitled);
+        var folder = Path.Combine(root, called);
+        for (var n = 2; Directory.Exists(folder) || File.Exists(folder); n++)
+            folder = Path.Combine(root, $"{called} {n}");
         Directory.CreateDirectory(folder);
         return folder;
     }
+
+    /// <summary>
+    /// Renames a picture's or sound's folder to <paramref name="name"/> (made safe as a file name), its versions
+    /// with it; the new folder. An <see cref="IOException"/> when another of that name is there already, or a file
+    /// in it is open somewhere.
+    /// </summary>
+    public static string Rename(string folder, string name)
+    {
+        folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        var safe = Named(name, Path.GetFileName(folder));
+        var to = Path.Combine(Path.GetDirectoryName(folder)!, safe);
+        if (string.Equals(to, folder, StringComparison.Ordinal))
+            return folder;
+        // Only the case changed: the same folder, renamed.
+        if (!string.Equals(to, folder, StringComparison.OrdinalIgnoreCase) && (Directory.Exists(to) || File.Exists(to)))
+            throw new IOException($"There is a {safe} there already.");
+        Directory.Move(folder, to);
+        return to;
+    }
+
+    /// <summary>
+    /// <paramref name="name"/> as a folder's name: no character Windows forbids, not a device's name
+    /// (<see cref="Video.Storyboard.Safe"/>); <paramref name="otherwise"/> for one of nothing but spaces and dots.
+    /// </summary>
+    private static string Named(string? name, string otherwise) =>
+        name is null || name.Trim('.', ' ', '\t').Length == 0 ? otherwise : Video.Storyboard.Safe(name);
 }

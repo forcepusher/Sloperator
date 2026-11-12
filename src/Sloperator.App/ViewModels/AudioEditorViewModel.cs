@@ -401,6 +401,19 @@ public sealed partial class AudioEditorViewModel : MediaEditorViewModel<AudioIte
         RaiseUnpicked();
     }
 
+    protected override void UnpickOf(AudioItem item)
+    {
+        if (ReferenceEquals(_pick?.Sound, item))
+            Unpick();
+    }
+
+    /// <summary>The sound shown stops and is let go of: its file is about to be moved or deleted.</summary>
+    protected override void Release()
+    {
+        Sound?.Pause();
+        DropSound();
+    }
+
     /// <summary>
     /// What a message sent with a pick carries: over its bubble the sound and what of it; for the model, the
     /// sound's folder and versions, how to edit it (edit_sound) and how to make the next one there (the comfyui
@@ -441,6 +454,7 @@ public sealed partial class AudioEditorViewModel : MediaEditorViewModel<AudioIte
     {
         if (_pick is null)
             return;
+        AskedFor(_pick.Sound);
         _pick = null;
         if (Sound is { HasRange: true } sound)
             sound.Range = null;

@@ -169,12 +169,15 @@ public sealed class ZoomBox : Control
         if (Painting && CanMark && _hover is { } hover && _panFrom is null)
         {
             var radius = BrushSize * rect.Width / 2;
+            // Dark under the yellow: on a sky or a sheet of paper the yellow line alone wasn't to be seen.
+            context.DrawEllipse(null, BrushRingUnder, hover, radius, radius);
             context.DrawEllipse(null, BrushRing, hover, radius, radius);
         }
     }
 
     private static readonly IBrush Accent = new SolidColorBrush(Color.FromRgb(0xFC, 0xC2, 0x1B));
     private static readonly IPen BrushRing = new Pen(Accent, 1);
+    private static readonly IPen BrushRingUnder = new Pen(new SolidColorBrush(Color.FromArgb(0xB0, 0, 0, 0)), 3);
 
     /// <summary>How see-through the painted part is: the picture under it stays in sight, as under a box's faint fill.</summary>
     private const double PaintOpacity = 0.45;

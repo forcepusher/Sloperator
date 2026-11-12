@@ -18,6 +18,7 @@ public partial class AudioEditorPanel : UserControl
         // Prompt metadata takes at most half the room over the foot's lines, as under a picture in the Image editor.
         Middle.SizeChanged += (_, e) => RecipeBox.MaxHeight = Math.Max(120, e.NewSize.Height / 2);
         VersionStrip.Attach(this, VersionScroll, VersionList);
+        MediaEditorMenus.Attach<AudioItem>(this, List, VersionList, _ => null);
     }
 
     private void OnListTapped(object? sender, TappedEventArgs e)
