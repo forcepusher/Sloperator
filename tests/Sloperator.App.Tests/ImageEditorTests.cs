@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Sloperator.App.ViewModels;
 using Sloperator.App.Views;
 using Sloperator.Core.Documents;
@@ -149,6 +150,45 @@ public sealed class ImageEditorTests : IDisposable
             window.Show();
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("No pictures yet", vm.EmptyText);
+            window.Close();
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void The_panel_opens_on_the_newest_picture_and_prompt_metadata_waits_for_its_button()
+    {
+        // It opened on "Pick a picture" beside the pictures, with a column for Prompt metadata a quarter of its width.
+        Directory.CreateDirectory(Path.Combine(Root, "Old"));
+        Png(Path.Combine(Root, "Old", "a.png"), minutesAgo: 30);
+        Directory.CreateDirectory(Path.Combine(Root, "New"));
+        Png(Path.Combine(Root, "New", "a.png"), minutesAgo: 9);
+        Png(Path.Combine(Root, "New", "b.png"), minutesAgo: 5);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var panel = new ImageEditorPanel { DataContext = vm };
+            var window = new Window { Width = 880, Height = 600, Content = panel };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            // Shown, its newest version; nothing goes into the message for it until it is clicked.
+            Assert.Equal("New", vm.Selected?.Name);
+            Assert.Equal(2, vm.Shown?.Number);
+            Assert.Null(vm.About([Path.Combine(Root, "New", "b.png")]));
+            Wait(() => vm.HasPicture);
+
+            // A plain picture says nothing of how it was made: the button is there, greyed, and says why.
+            Assert.False(vm.ShowRecipe);
+            var button = panel.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Prompt metadata");
+            Assert.False(button.IsEnabled);
+            Assert.Equal("This version doesn't say how it was made", vm.PromptTip);
+            Assert.False(panel.FindControl<Border>("RecipeBox")!.IsVisible);
+
+            // The one shown going leaves the next one shown.
+            Directory.Delete(Path.Combine(Root, "New"), recursive: true);
+            vm.Refresh();
+            Assert.Equal("Old", vm.Selected?.Name);
             window.Close();
             return 0;
         });

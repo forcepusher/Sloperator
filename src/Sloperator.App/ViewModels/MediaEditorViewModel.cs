@@ -81,15 +81,27 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
 
     /// <summary>The version shown; null before the one picked has one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(EmptyText), nameof(MadeUnsaid), nameof(PromptTip))]
     private VersionItem? _shown;
 
     /// <summary>How the version shown was made, as its file says (ComfyUI's prompt and settings, its workflow); null when it doesn't.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid))]
+    [NotifyPropertyChangedFor(nameof(HasRecipe), nameof(MadeUnsaid), nameof(PromptTip))]
     private MediaRecipe? _recipe;
 
     public bool HasRecipe => Recipe is not null;
+
+    /// <summary>
+    /// Prompt metadata is on: how the version shown was made shows under it, as under a file in the File inspector.
+    /// Off until asked for (the user, 2026-11-12: "is it even worth having an entirely separate prompt metadata
+    /// window?"): in the Image editor it had a column of its own, a quarter of the panel, beside every picture.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showRecipe;
+
+    /// <summary>What the Prompt metadata button says: there for every version, greyed with why for one that doesn't say how it was made.</summary>
+    public string PromptTip => HasRecipe ? "Prompts and settings it was made with"
+        : Shown is not null ? "This version doesn't say how it was made" : $"Pick a {_noun} that has been made first";
 
     /// <summary>A version is shown and says nothing of how it was made: said in the Prompt metadata column (with none shown, it said so of no version).</summary>
     public bool MadeUnsaid => Shown is not null && Recipe is null;
@@ -150,6 +162,10 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
                 if (ReferenceEquals(item, Selected))
                     NewVersions(item);
             });
+        // One is always shown when there is any, the one changed last: the panel opened on "Pick a picture" beside
+        // the only picture there was (2026-11-12). Shown, not picked into the box: that takes a click.
+        if (Selected is null && Items.Count > 0)
+            Selected = Items[0];
         OnPropertyChanged(nameof(HasItems));
         OnPropertyChanged(nameof(EmptyText));
         // The one picked may have been made meanwhile.
