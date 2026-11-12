@@ -725,6 +725,11 @@ public class ComfyModelToolTests : IDisposable
         Assert.Equal("7", (string?)prompt["8"]!["inputs"]!["latent_image"]![0]);
         Assert.Equal("9", (string?)prompt["8"]!["inputs"]!["model"]![0]);
         Assert.Equal(0.75, (double?)prompt["8"]!["inputs"]!["denoise"]);
+        // What is saved is the picture itself with the redrawn part put into it through the mask: the rest never
+        // went through the VAE, which changed every pixel a little with each redraw.
+        Assert.Equal("12", (string?)prompt["11"]!["inputs"]!["images"]![0]);
+        Assert.Equal("ImageCompositeMasked", (string?)prompt["12"]!["class_type"]);
+        Assert.Equal(("4", "10", "5"), ((string?)prompt["12"]!["inputs"]!["destination"]![0], (string?)prompt["12"]!["inputs"]!["source"]![0], (string?)prompt["12"]!["inputs"]!["mask"]![0]));
     }
 
     [Fact]

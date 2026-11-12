@@ -688,6 +688,29 @@ card is "Area of version 2 · Lighthouse", and the model is told the version's p
 mask's path, and to run **sloperator/redraw_area** with 4.image, 5.image, 2.text and save_to the folder.
 Esc, sending and another pick let it go; a part unpicked before sending has its picture and mask deleted.
 
+**The brush** (the user, 2026-11-12: "Do we support inpainting mask?"; only as a box, which takes in whatever is
+around the thing meant). The bar has **Area** and **Brush** at its left, the two ways to mark a part, as the File
+inspector's bar has Area and Text; one of them is always on (`IsArea`, `IsBrush`), Area at first. With Brush a left
+drag paints: a stroke is the points it went through and the brush's width, in parts of the picture
+(`BrushStroke`, so zoom and pan change nothing), drawn in the accent at one see-through level over the picture
+(`ZoomBox.Painting`, `Strokes`, `DrawStrokes`: one layer, so strokes that cross are no darker there), and a ring as
+big as the brush goes with the pointer. Strokes add up; a press without a move is a dab. The slider beside Brush
+sets the width (1 to 40 hundredths of the picture's width, 8 at first; greyed with Area on), and so does Ctrl with
+the wheel over the picture; the wheel alone still zooms. Ctrl+Z takes the last stroke back (`UndoStroke`), Esc all
+of it. Each stroke finished makes the part again off the window's thread (`PickPainted`): the mask is the strokes
+painted white on black by Skia at the picture's own size, softened as one shape by an eighth of the thinnest brush,
+4 px at least (`PictureFolder.SaveMask` for strokes; softened stroke by stroke they left a dip where two met), the
+picture for the card is the box around them (`AreaOf`), and the card reads "Painted part of version 2 · Lighthouse".
+The model is told it was painted with a brush, that the mask has its shape, the box around it in pixels, and the
+same redraw_area call as for a box. A box marked takes the place of what was painted and the other way round.
+Two things found on the way. Parts saved within the same second by strokes in quick succession were given one
+file name, and each then deleted the other's file with its own (`DocumentArea.SaveNew` is one at a time now). And
+a stroke follows only the pointer that began it (`_paints`): driven by posted mouse messages with the window off
+the screen, the real mouse's moves came in between while the box held the pointer and drew a line to where the real
+pointer stood with every one; a pen or a finger on the picture beside a mouse would have done the same. That also
+means the brush can't be tried with posted messages: the headless test presses the mouse through Avalonia
+(`With_the_brush_a_drag_over_the_picture_paints_and_without_it_marks_a_box`).
+
 **sloperator/redraw_area** (`ComfyBuiltins`, next to image_to_image): LoadImage the picture, LoadImageMask the
 mask (its red channel), VAEEncode, SetLatentNoiseMask, the model through DifferentialDiffusion, KSampler at
 denoise 0.75, so only the masked part is noised and redrawn and the soft edge blends (the seamless-loop guide's
@@ -702,6 +725,18 @@ tool; the panel showed it with its prompt and settings. A box over the second li
 balloon here" went to the model with the version, box and mask, and redraw_area made version 2 in 190 s: only
 the box changed, blended at its edge (at 10 CPU steps SD 1.5 painted sky and cloud there, not a balloon), and the
 panel showed version 2 with "Denoise 0.75" and "From Sloperator_00001_.png" in its metadata.
+
+**The rest pixel for pixel** (2026-11-12, measured while trying the brush's mask on the same ComfyUI). "Only the box
+changed" was by eye: the whole picture went through the VAE and back, and with a painted mask of 17,828 pixels on
+that 512x512 lighthouse, 243,876 of the 244,316 pixels outside it came out different (6.7 of 255 on average, 119
+at most, more with every redraw of a redraw). The workflow now ends in `ImageCompositeMasked`: the picture as it was
+loaded is the destination, the decoded one the source, through the same mask, and that is what is saved. Run again
+with the same mask and seed: 0 of the 244,316 pixels outside the mask changed, and the redrawn part has the painted
+shape, its soft edge blended. A picture whose sides aren't multiples of 8 also keeps its size now (VAEEncode crops
+it to one, evenly from both sides, so there the redrawn part can sit up to 3 px off; ComfyUI's own pictures are
+multiples of 8). The check: `.dev/night-test/brush-e2e` (a mask made by `PictureFolder.SaveMask` from strokes in a
+scratch console project, `sloperator-cli` with a stand-in agent whose one call is redraw_area, 150 s on the CPU,
+then a count of changed pixels inside and outside the mask).
 
 ### The Audio editor panel
 **Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the

@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **Brush** in the Image editor, beside **Area**: paint over the part of a picture you want redrawn, in any shape,
+  stroke on stroke, and say what goes there. The slider beside it, or Ctrl and the mouse wheel, sets the brush's
+  size; Ctrl+Z takes the last stroke back and Esc all of it. Until now a part was a box.
 - The agent can add text at the end of a Word document without naming the paragraph it goes after.
 - The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
   document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
@@ -51,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   width: **Prompt metadata** is a button under it now, as in the File inspector, in place of a column that was
   always open beside it. The Audio editor opens on your newest sound too.
 - **New picture** and **New sound** no longer make a second empty one when the one before isn't made yet.
+- Redrawing a part of a picture leaves the rest of it exactly as it was, pixel for pixel. Before, the whole picture
+  came out very slightly changed with every redraw.
 - Pictures and sounds are called by what they show ("A white lighthouse on a green cliff by the sea") rather than
   "Untitled picture 2": the name is read from the prompt they were made with. A folder you named yourself keeps
   its name.

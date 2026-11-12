@@ -87,10 +87,17 @@ public sealed record DocumentArea(double Left, double Top, double Right, double 
     /// </summary>
     public static string SaveNew(RawImage image, string dir)
     {
-        var file = Chats.PastedFiles.NewPath(dir, "Area", ".png");
-        SavePng(image, file);
-        return file;
+        // One at a time: two saved within a second, each off the window's thread (strokes of the Image editor's
+        // brush), were given one name, and each then took the other's file away with its own.
+        lock (Saving)
+        {
+            var file = Chats.PastedFiles.NewPath(dir, "Area", ".png");
+            SavePng(image, file);
+            return file;
+        }
     }
+
+    private static readonly Lock Saving = new();
 
     /// <summary>Writes <paramref name="image"/> to <paramref name="path"/> as a PNG.</summary>
     public static void SavePng(RawImage image, string path)

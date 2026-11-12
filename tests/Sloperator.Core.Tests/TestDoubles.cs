@@ -423,3 +423,31 @@ internal sealed class FrameOverlay : IInputOverlay
     public void Show(string text, (int X, int Y)? point = null) { }
     public void Frame(object owner, ScreenRect? screen) => Frames.Add(screen);
 }
+
+/// <summary>
+/// A test's own folder taken away when it ends, with patience: a picture just written and read is at times
+/// still held for a moment on this PC (mask.png, capture-2-compared.png, each once in a run of the whole suite on
+/// 2026-11-12), and the test that had passed failed in its clean-up.
+/// </summary>
+internal static class TestFolder
+{
+    public static void Delete(string folder)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Delete(folder, recursive: true);
+                return;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+            catch (IOException) when (attempt < 40)
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
+}

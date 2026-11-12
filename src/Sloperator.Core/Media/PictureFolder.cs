@@ -63,6 +63,65 @@ public static class PictureFolder
         }
     }
 
+    /// <summary>
+    /// The box around what <paramref name="strokes"/> painted on a picture <paramref name="width"/> by
+    /// <paramref name="height"/>, in parts of it and kept inside it; null when they painted nothing.
+    /// </summary>
+    public static DocumentArea? AreaOf(IReadOnlyList<BrushStroke> strokes, int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            return null;
+        double left = double.MaxValue, top = double.MaxValue, right = double.MinValue, bottom = double.MinValue;
+        foreach (var stroke in strokes)
+        {
+            // Half the brush each way: its width is in parts of the picture's width, so more parts of a lower height.
+            var (rx, ry) = (stroke.Width / 2, stroke.Width / 2 * width / height);
+            foreach (var (x, y) in stroke.Points)
+                (left, top, right, bottom) = (Math.Min(left, x - rx), Math.Min(top, y - ry), Math.Max(right, x + rx), Math.Max(bottom, y + ry));
+        }
+        return right < left ? null : DocumentArea.Between(left, top, right, bottom);
+    }
+
+    /// <summary>
+    /// The mask of what <paramref name="strokes"/> painted on a picture <paramref name="width"/> by
+    /// <paramref name="height"/>, saved as a PNG at <paramref name="path"/>: white where the brush went, black
+    /// elsewhere, its edge softened by an eighth of the thinnest brush (4 pixels at least), as the box's mask is,
+    /// so the redrawn part blends into what is kept.
+    /// </summary>
+    public static void SaveMask(IReadOnlyList<BrushStroke> strokes, int width, int height, string path)
+    {
+        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque));
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(SKColors.Black);
+            var thinnest = strokes.Count == 0 ? 0 : strokes.Min(s => s.Width) * width;
+            var soft = (float)Math.Max(4, thinnest / 8);
+            // All of it painted, then softened as one shape: softened stroke by stroke, where two met they left a dip.
+            using var blur = SKImageFilter.CreateBlur(soft / 2, soft / 2);
+            using var layer = new SKPaint { ImageFilter = blur };
+            canvas.SaveLayer(layer);
+            using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round };
+            foreach (var stroke in strokes)
+            {
+                var brush = (float)(stroke.Width * width);
+                if (stroke.Points.Count == 1)
+                {
+                    paint.Style = SKPaintStyle.Fill;
+                    canvas.DrawCircle((float)(stroke.Points[0].X * width), (float)(stroke.Points[0].Y * height), brush / 2, paint);
+                    continue;
+                }
+                // Each piece of the line with round ends, which meet as round corners.
+                paint.Style = SKPaintStyle.Stroke;
+                paint.StrokeWidth = brush;
+                canvas.DrawPoints(SKPointMode.Polygon, [.. stroke.Points.Select(p => new SKPoint((float)(p.X * width), (float)(p.Y * height)))], paint);
+            }
+            canvas.Restore();
+        }
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        using var file = File.Create(path);
+        data.SaveTo(file);
+    }
+
     /// <summary>A picture's size in pixels, read from its header; null when it can't be read.</summary>
     public static (int Width, int Height)? SizeOf(string path)
     {

@@ -13,11 +13,7 @@ public class CaptureResultTests : IDisposable
 {
     private readonly string _chat = Path.Combine(Path.GetTempPath(), "sloperator-capture-" + Guid.NewGuid().ToString("N")[..8]);
 
-    public void Dispose()
-    {
-        try { Directory.Delete(_chat, recursive: true); }
-        catch (DirectoryNotFoundException) { }
-    }
+    public void Dispose() => TestFolder.Delete(_chat);
 
     /// <summary>A 1600x896 screen goes to the model as it is (896 is on the 32 px grid); a 2000x1120 one at 80%, 1.25 screen pixels a screenshot pixel.</summary>
     private static readonly ScreenRect Plain = new(0, 0, 1600, 896), Scaled = new(1600, 0, 2000, 1120);

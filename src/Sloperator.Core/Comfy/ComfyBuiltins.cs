@@ -85,9 +85,10 @@ public static class ComfyBuiltins
             "Redraws only a marked part of a picture from a prompt, the rest kept as it is: a door made red, a figure added, a face fixed. " +
             "Any SD 1.5, SD 2 or SDXL checkpoint; light enough for a PC without a graphics card (SD 1.5 on the CPU).",
             CommonNotes + " 4.image is the picture (a full local path is uploaded). 5.image is its mask, as big as the picture: white where to redraw, " +
-            "black what to keep, soft at its edge (the Image editor panel writes one for the box the user marked). 2.text says what goes in the " +
-            "marked part, in the picture's style. The mask lets only that part change (SetLatentNoiseMask) and DifferentialDiffusion blends its soft edge " +
-            "into the rest; 8.denoise 0.75 redraws the part, 0.5 keeps its shapes with new details, 0.9 to 1 replaces it outright. The picture is worked " +
+            "black what to keep, soft at its edge (the Image editor panel writes one for the box the user marked or the part they painted). 2.text says what goes in the " +
+            "marked part, in the picture's style. The mask lets only that part change (SetLatentNoiseMask), DifferentialDiffusion blends its soft edge " +
+            "into the rest, and the redrawn part is then put into the picture itself (ImageCompositeMasked), so what the mask leaves black comes out " +
+            "pixel for pixel as it went in; 8.denoise 0.75 redraws the part, 0.5 keeps its shapes with new details, 0.9 to 1 replaces it outright. The picture is worked " +
             "on at its own size: SD 1.5 suits pictures up to about 768 pixels, SDXL about 1024. On the CPU, 20 steps of a 512 picture take three to five minutes.",
             $$$"""
             {
@@ -102,7 +103,9 @@ public static class ComfyBuiltins
               "8": {"class_type": "KSampler", "inputs": {"model": ["9", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["7", 0],
                     "seed": 42, "steps": 20, "cfg": 7, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 0.75}, "_meta": {"title": "Sampler"}},
               "10": {"class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 2]}},
-              "11": {"class_type": "SaveImage", "inputs": {"images": ["10", 0], "filename_prefix": "Sloperator_redraw"}}
+              "12": {"class_type": "ImageCompositeMasked", "inputs": {"destination": ["4", 0], "source": ["10", 0], "x": 0, "y": 0, "resize_source": false, "mask": ["5", 0]},
+                     "_meta": {"title": "The redrawn part put into the picture"}},
+              "11": {"class_type": "SaveImage", "inputs": {"images": ["12", 0], "filename_prefix": "Sloperator_redraw"}}
             }
             """,
             ["image", "inpaint", "inpainting", "redraw", "mask", "area", "part", "edit", "fix", "SD 1.5", "SDXL", "checkpoint", "cpu"]),

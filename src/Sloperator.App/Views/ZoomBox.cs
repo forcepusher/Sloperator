@@ -15,7 +15,8 @@ namespace Sloperator.App.Views;
 /// A picture in the File inspector panel that zooms and pans, and on which an area is marked to ask
 /// about it: a picture file, a video's frame, or what the panel showed frozen for marking (a text,
 /// Windows' previewer). At zoom 1 it fits, never shown bigger than it is. The wheel zooms about the
-/// mouse, a right or middle drag pans, a left drag marks an area (with <see cref="CanMark"/>);
+/// mouse, a right or middle drag pans, a left drag marks an area (with <see cref="CanMark"/>) or, with
+/// <see cref="Painting"/>, paints over a part with a brush (the Image editor's, for a mask of any shape);
 /// zoomed in far enough to see pixels, they are drawn as squares. An SVG (<see cref="Drawing"/>) is
 /// drawn as shapes at whatever size it shows, so it stays sharp however far it is zoomed.
 /// </summary>
@@ -31,6 +32,15 @@ public sealed class ZoomBox : Control
     public static readonly StyledProperty<DocumentArea?> MarkProperty = AvaloniaProperty.Register<ZoomBox, DocumentArea?>(nameof(Mark));
 
     public static readonly StyledProperty<bool> CanMarkProperty = AvaloniaProperty.Register<ZoomBox, bool>(nameof(CanMark));
+
+    public static readonly StyledProperty<bool> PaintingProperty = AvaloniaProperty.Register<ZoomBox, bool>(nameof(Painting));
+
+    public static readonly StyledProperty<double> BrushSizeProperty =
+        AvaloniaProperty.Register<ZoomBox, double>(nameof(BrushSize), BrushStroke.DefaultWidth, defaultBindingMode: Avalonia.Data.BindingMode.TwoWay,
+            coerce: (_, w) => Math.Clamp(w, BrushStroke.MinWidth, BrushStroke.MaxWidth));
+
+    public static readonly StyledProperty<IReadOnlyList<BrushStroke>?> StrokesProperty =
+        AvaloniaProperty.Register<ZoomBox, IReadOnlyList<BrushStroke>?>(nameof(Strokes), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
     /// <summary>How far it zooms in: a pixel of a small picture as a square of tens of the screen's.</summary>
     public const double MaxZoom = 32;
@@ -55,6 +65,21 @@ public sealed class ZoomBox : Control
     /// <summary>An area was marked by a drag (null: a click that marked nothing).</summary>
     public event Action<DocumentArea?>? Marked;
 
+    /// <summary>
+    /// A left drag paints with the brush in place of marking a box (the Image editor's Brush, with <see cref="CanMark"/>):
+    /// a part of any shape, stroke on stroke, where a box takes in what is around the thing meant.
+    /// </summary>
+    public bool Painting { get => GetValue(PaintingProperty); set => SetValue(PaintingProperty, value); }
+
+    /// <summary>How wide the brush is, in parts of the picture's width. Ctrl and the wheel change it.</summary>
+    public double BrushSize { get => GetValue(BrushSizeProperty); set => SetValue(BrushSizeProperty, value); }
+
+    /// <summary>What was painted, each stroke in parts of the picture; null or empty with nothing painted.</summary>
+    public IReadOnlyList<BrushStroke>? Strokes { get => GetValue(StrokesProperty); set => SetValue(StrokesProperty, value); }
+
+    /// <summary>A stroke was painted: all the strokes on the picture, the new one last.</summary>
+    public event Action<IReadOnlyList<BrushStroke>>? Painted;
+
     /// <summary>The point of the picture, in its pixels, at the middle of the box.</summary>
     private Point _center;
 
@@ -66,7 +91,7 @@ public sealed class ZoomBox : Control
 
     static ZoomBox()
     {
-        AffectsRender<ZoomBox>(SourceProperty, DrawingProperty, ZoomProperty, MarkProperty);
+        AffectsRender<ZoomBox>(SourceProperty, DrawingProperty, ZoomProperty, MarkProperty, PaintingProperty, BrushSizeProperty, StrokesProperty);
         ClipToBoundsProperty.OverrideDefaultValue<ZoomBox>(true);
         FocusableProperty.OverrideDefaultValue<ZoomBox>(true);
     }
@@ -139,6 +164,56 @@ public sealed class ZoomBox : Control
         if (Mark is { } mark)
             DrawMark(context, new Rect(rect.X + mark.Left * rect.Width, rect.Y + mark.Top * rect.Height,
                 (mark.Right - mark.Left) * rect.Width, (mark.Bottom - mark.Top) * rect.Height));
+        DrawStrokes(context, rect);
+        // The brush as big as it paints, where the pointer is: its size is seen before a stroke is made.
+        if (Painting && CanMark && _hover is { } hover && _panFrom is null)
+        {
+            var radius = BrushSize * rect.Width / 2;
+            context.DrawEllipse(null, BrushRing, hover, radius, radius);
+        }
+    }
+
+    private static readonly IBrush Accent = new SolidColorBrush(Color.FromRgb(0xFC, 0xC2, 0x1B));
+    private static readonly IPen BrushRing = new Pen(Accent, 1);
+
+    /// <summary>How see-through the painted part is: the picture under it stays in sight, as under a box's faint fill.</summary>
+    private const double PaintOpacity = 0.45;
+
+    /// <summary>
+    /// What was painted and the stroke being painted, in the accent over the picture: all of it at one
+    /// see-through level, so strokes that cross are no darker where they do.
+    /// </summary>
+    private void DrawStrokes(DrawingContext context, Rect picture)
+    {
+        var done = Strokes;
+        if (done is not { Count: > 0 } && _stroke is null)
+            return;
+        Point At((double X, double Y) p) => new(picture.X + p.X * picture.Width, picture.Y + p.Y * picture.Height);
+        using (context.PushClip(picture))
+        using (context.PushOpacity(PaintOpacity))
+        {
+            IEnumerable<BrushStroke> all = done ?? [];
+            if (_stroke is { } now)
+                all = all.Append(new BrushStroke(now, BrushSize));
+            foreach (var stroke in all)
+            {
+                var brush = stroke.Width * picture.Width;
+                if (stroke.Points.Count == 1)
+                {
+                    context.DrawEllipse(Accent, null, At(stroke.Points[0]), brush / 2, brush / 2);
+                    continue;
+                }
+                var line = new StreamGeometry();
+                using (var figure = line.Open())
+                {
+                    figure.BeginFigure(At(stroke.Points[0]), false);
+                    foreach (var point in stroke.Points.Skip(1))
+                        figure.LineTo(At(point));
+                    figure.EndFigure(false);
+                }
+                context.DrawGeometry(null, new Pen(Accent, brush, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), line);
+            }
+        }
     }
 
     private static readonly IBrush MarkFill = new SolidColorBrush(Color.FromArgb(0x33, 0xFC, 0xC2, 0x1B));
@@ -158,8 +233,37 @@ public sealed class ZoomBox : Control
         base.OnPointerWheelChanged(e);
         if (!Shows)
             return;
-        ZoomAt(Zoom * Math.Pow(Step, e.Delta.Y), e.GetPosition(this));
+        // With Ctrl the wheel sizes the brush; alone it zooms, as ever.
+        if (Painting && CanMark && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            BrushSize *= Math.Pow(BrushStep, e.Delta.Y);
+        else
+            ZoomAt(Zoom * Math.Pow(Step, e.Delta.Y), e.GetPosition(this));
         e.Handled = true;
+    }
+
+    /// <summary>How much a wheel notch with Ctrl widens or narrows the brush.</summary>
+    public const double BrushStep = 1.2;
+
+    /// <summary>A point of the picture, in its pixels, as parts of it, kept on it.</summary>
+    private (double X, double Y) Part(Point pixels) =>
+        (Math.Clamp(pixels.X / _size.Width, 0, 1), Math.Clamp(pixels.Y / _size.Height, 0, 1));
+
+    /// <summary>The stroke being painted, in parts of the picture; null between strokes.</summary>
+    private List<(double X, double Y)>? _stroke;
+
+    /// <summary>The pointer that paints it (a mouse, a pen, a finger): the others' moves are not its.</summary>
+    private IPointer? _paints;
+
+    /// <summary>Where the pointer is over the box while it paints, for the brush's ring; null when it is elsewhere.</summary>
+    private Point? _hover;
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        if (_hover is null)
+            return;
+        _hover = null;
+        InvalidateVisual();
     }
 
     /// <summary>Zooms to <paramref name="zoom"/> keeping the picture's point under <paramref name="at"/> where it is.</summary>
@@ -199,6 +303,12 @@ public sealed class ZoomBox : Control
             _panned = false;
             Cursor = new Cursor(StandardCursorType.SizeAll);
         }
+        else if (point.Properties.IsLeftButtonPressed && CanMark && Painting && _size.Width > 0)
+        {
+            _stroke = [Part(ToPicture(point.Position))];
+            _paints = e.Pointer;
+            InvalidateVisual();
+        }
         else if (point.Properties.IsLeftButtonPressed && CanMark)
             _markFrom = ToPicture(point.Position);
         else
@@ -212,6 +322,23 @@ public sealed class ZoomBox : Control
     {
         base.OnPointerMoved(e);
         var at = e.GetPosition(this);
+        if (Painting && CanMark)
+        {
+            _hover = at;
+            InvalidateVisual();
+        }
+        if (_stroke is { } painted)
+        {
+            // Only where the pointer that paints goes: with a pen or a finger on the picture, the mouse's own moves
+            // came in between and drew lines to wherever its pointer stood.
+            if (!ReferenceEquals(e.Pointer, _paints))
+                return;
+            // A point for each DIP moved or more: less adds nothing to see.
+            var (to, last) = (Part(ToPicture(at)), painted[^1]);
+            if ((Math.Abs(to.X - last.X) * _size.Width + Math.Abs(to.Y - last.Y) * _size.Height) * Scale >= 1)
+                painted.Add(to);
+            return;
+        }
         if (_panFrom is { } from)
         {
             _panned |= Math.Abs(at.X - _panStart.X) + Math.Abs(at.Y - _panStart.Y) >= 4;
@@ -241,6 +368,19 @@ public sealed class ZoomBox : Control
             e.Handled = true;
             return;
         }
+        if (_stroke is { } painted && ReferenceEquals(e.Pointer, _paints))
+        {
+            _stroke = null;
+            _paints = null;
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            // With the strokes before it: the part to redraw is all of them. A box marked before goes.
+            List<BrushStroke> all = [.. Strokes ?? [], new BrushStroke(painted, BrushSize)];
+            Mark = null;
+            Strokes = all;
+            Painted?.Invoke(all);
+            return;
+        }
         if (_markFrom is not { } start)
             return;
         _markFrom = null;
@@ -259,6 +399,13 @@ public sealed class ZoomBox : Control
     {
         base.OnPointerCaptureLost(e);
         _panFrom = null;
+        if (_stroke is not null)
+        {
+            // Cut off (Alt+Tab, another window in front): the stroke isn't kept, the ones before are.
+            _stroke = null;
+            _paints = null;
+            InvalidateVisual();
+        }
         if (_markFrom is not null)
         {
             _markFrom = null;
