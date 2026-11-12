@@ -167,9 +167,15 @@ internal static partial class DocumentFiles
                 {
                     if (newText.Trim().Length == 0)
                         throw new InvalidOperationException("Both old_text and new_text are empty: there is nothing to change.");
-                    TextEdit.AppendToBody(main, newText.Replace("\r\n", "\n"));
-                    parts.Changed("word/document.xml");
-                    message = "Added the text at the end of the document, looking like its last paragraph.";
+                    // Lines for every page's header or footer ("page numbers at the bottom", "footer left: Confidential").
+                    if (WordPages.Edit(parts, newText) is { } pages)
+                        message = pages;
+                    else
+                    {
+                        TextEdit.AppendToBody(main, newText.Replace("\r\n", "\n"));
+                        parts.Changed("word/document.xml");
+                        message = "Added the text at the end of the document, looking like its last paragraph.";
+                    }
                 }
                 // new_text "format: centered, dark blue": how the text given looks, not what it says.
                 else if (TextEdit.Look(documents, slides: kind == "pptx", oldText, newText, all) is { } looked)

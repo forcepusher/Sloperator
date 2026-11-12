@@ -27,6 +27,30 @@ internal static partial class TextEdit
             throw new InvalidOperationException($"{newText.Trim()}: say how it should look: {DocumentLook.Words}.");
         var format = slides ? SlideFormat : WordFormat;
 
+        // Every heading at once ("headings", "all the slide titles"): asked to make a report's headings dark blue,
+        // Haiku and Sonnet rewrote its XML rather than give each heading as old_text (2026-11-13).
+        if (AllHeadings().IsMatch(oldText.Trim()))
+        {
+            var headings = parts.Where(p => slides ? p.Key.Contains("/slides/", StringComparison.Ordinal) : p.Key == "word/document.xml")
+                .SelectMany(p => p.Value.Descendants(format.Paragraph).Select(q => (Part: p.Key, Paragraph: q)))
+                .Where(h => slides
+                    ? h.Paragraph.Ancestors(P + "sp").FirstOrDefault()?.Descendants(P + "ph").Any(ph => (string?)ph.Attribute("type") is "title" or "ctrTitle") == true
+                    : ((string?)h.Paragraph.Element(W + "pPr")?.Element(W + "pStyle")?.Attribute(W + "val")) is { } style
+                      && (style.StartsWith("Heading", StringComparison.OrdinalIgnoreCase) || style.Equals("Title", StringComparison.OrdinalIgnoreCase)))
+                .Where(h => format.Units(h.Paragraph).Any(u => format.UnitText(u).Trim().Length > 0)).ToList();
+            if (headings.Count == 0)
+                throw new InvalidOperationException(slides ? "The deck's slides have no titles to format." : "The document has no headings (paragraphs in a Heading or Title style) to format: give the text as old_text.");
+            foreach (var (_, paragraph) in headings)
+            {
+                foreach (var unit in format.Units(paragraph).ToList())
+                    format.Style(unit, look, fill: true);
+                if (look.Align is { } align)
+                    format.Align(paragraph, align);
+            }
+            return (headings.Count, headings.Select(h => h.Part).Distinct().ToList(),
+                $"Formatted {(headings.Count == 1 ? "the 1 " + (slides ? "title" : "heading") : $"all {headings.Count} {(slides ? "slide titles" : "headings")}")} ({look.Said}); what they say is as it was.");
+        }
+
         if (Rows(oldText) is { } rows && MatchRows(parts, rows) is { Count: > 0 } tables)
         {
             look = DocumentLook.Parse(line.Groups[1].Value);
@@ -244,6 +268,10 @@ internal static partial class TextEdit
         if (properties.Elements().LastOrDefault(e => e.Name.LocalName.StartsWith("ln", StringComparison.Ordinal) || e.Name.LocalName == "cell3D") is { } lines) lines.AddAfterSelf(SlideColour("solidFill", colour));
         else properties.AddFirst(SlideColour("solidFill", colour));
     }
+
+    // "headings", "all headings", "the headings", "every heading", "all slide titles", "the titles"
+    [GeneratedRegex(@"^(?:all\s+(?:of\s+)?(?:the\s+)?|every\s+|each\s+|the\s+)?(?:slide\s+)?(?:headings?|titles?|section\s+headings?)(?:\s+and\s+(?:the\s+)?(?:title|headings?))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AllHeadings();
 
     // "format: centered, dark blue", "Format: bold, size 20"
     [GeneratedRegex(@"^format\s*:\s*([^\n]+)$", RegexOptions.IgnoreCase)]
