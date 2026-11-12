@@ -1574,6 +1574,10 @@ nothing in sight said which model had answered). It is read back from the card's
 opened from History says it too; a card stopped while it picked has none. The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
+Nor is the price lookup Sloperator runs after the answer (`ToolCallItem.IsAfterAnswer`) counted or shown as a
+`side_task` chip: the card names it, "Worked for 25 s · price lookup · claude-haiku-5-5 at Low", where a question
+answered in one step had read "1 tool call" over a `side_task` chip, for a call the model never made (2026-11-12).
+The time is still the whole run's, the lookup in it, which the words now account for.
 What comes after the reply decides what the reply is, and three things there had folded it away with the work
 (2026-11-12, `WorkFold.Close`):
 - The side task Sloperator runs itself after the reply (Auto pricing lookup's, "Look up the prices of …", whose id
@@ -1800,6 +1804,56 @@ the reply joins the conversation or the chat, so the answer stays the run's last
 says so ("The plan was left at step 1 of 4; asked the model where it stands: all done."). A plan set and then put to
 the user ("does this suit you?") has no call after it, and stays. A plan call doesn't count as a look at the end of a run (`LooksFinished`): "All done." with the
 last `now` lost that call, and the bar stopped a step short.
+
+**A task with no plan at all** (the user, 2026-11-12: "I have yet to see a single plan built by the thing. User
+loves feedback and readable non-congested visual progress, so we have to nudge the plan-building somehow"). The
+prompt's line ("For a task of several steps, keep a plan with plan") was passed over: their Unity chat on Sonnet 5.5
+made 79 replies and over a hundred tool calls without one plan call, and Haiku 5.5 none in a task of nine calls
+(the test task below). Now, the same for every model:
+- The prompt line says when and why: "set a plan with plan before your first step and move it on as you start each
+  one: the user follows your progress on it. Keep it easy to read: a handful of steps, one plain word each", and the
+  tool's description says the same. Alone it was enough for Qwen 3.8 ("I can see the files. Let me make a quick
+  plan"), not for Haiku or Sonnet, which begin by reading and never came back to it.
+- A run that has made its first step (`AgentSession.PlanAfterSteps`: replies with tool calls) with no plan on the
+  bar is told once, after that step's results like every note (`PlanNote`): "You have started on this task and the
+  user's plan bar is empty, so they can't see how far along you are. Unless the task is all but done, call plan now:
+  the whole task as a handful of steps in order, any already done too, one plain word each, with now set to the step
+  you are on. Then go straight on with the task, moving the plan on as you start each step. Say nothing of the plan
+  to the user: they see the bar." The chat says "Asked the model to show its plan on the bar above the message
+  box." One note at a time: with another going out after that step (index the project, look an error up), it waits
+  for the next. Never told: a run that called plan itself, one that goes on with the chat's unfinished plan, a side
+  task (it has no plan tool).
+- A run that ends its turn right after the plan it was asked for, with no work since the note, is told once to
+  carry on (`PlanGoOnNote`, "The model stopped after setting its plan; asked it to carry on with the task."), unless
+  its reply ends in a question to the user (`EndsInQuestion`).
+- Every plan call's result names the next move ("Step 1 of 4: Read. As you start step 2, "Edit", call plan with
+  now=2 along with that step's first call"), and a turn that ends on the plan's last step (no question, and the run
+  moved the plan or worked) finishes the bar without asking. The aside question of "A plan left behind its work"
+  is still asked when the turn ends on an earlier step.
+
+What was tried, on one task through `sloperator-cli` (add two parameters to a PowerShell script, describe them in
+its README, run it; `.dev/night-test/live-plan.ps1`), Haiku 5.5 and Sonnet 5.5 through OpenRouter and Qwen 3.8 on
+LM Studio:
+- Before: Haiku, 9 calls, no plan.
+- The note after three steps: both Claude models read every file in one step and write them all in the next, so
+  they were asked when little was left, and the plan showed for the last five seconds (call 8 of 11, 6 of 10, 7 of
+  8). Hence after the first step, when the model has had its look. A one-step question ("What does this script do?")
+  still gets no plan from either: "unless the task is all but done".
+- The first wording ("call plan now, with your next step") had Haiku set four good steps, write "The plan bar is
+  now set with four steps, and I'm on step 2, Edit. Next I'll add the parameters" and end its turn, the task not
+  begun. Hence "go straight on… say nothing of the plan", and the note to carry on.
+- That note first went to any turn that ended right after a plan call: Haiku moved its plan to the last step,
+  answered, was told to carry on, read a file again and answered a second time. Hence only before any work since
+  the first note.
+- Sonnet set its plan at once and then did the whole task with the bar on step 1 (asked aside at the end: "all
+  done"). With the next move named in the plan call's result it moved the bar in 3 of 3 runs (now 2, 4; 2, 4;
+  2, 3, 4), and Haiku in 2 of 2 (3, 4, 5; 3, 5).
+- A turn that ended on the last step was asked aside where the plan stood, for "all done" and a line in the chat
+  each time; with no work since the move it wasn't asked, and the bar stood on its last step in accent, as a plan
+  the run stopped short of. Hence finished without asking.
+With all of it: 5 of 5 runs on Haiku and Sonnet set a plan of four steps at their second or third call (Read, Edit,
+Document, Test), moved it and ended with the bar done, with no line in the chat but the first; Qwen set five steps
+at its second call and ended done.
 
 `PlanBar` (Views/PlanBar.cs) lays out its children itself. `Spot`, the blob's place in steps, is a
 property with a transition, so the blob walks when the plan moves on and not when the window is
@@ -2437,7 +2491,16 @@ failed (401): {"error":{"message":"User not found.","code":401}}`. A gateway's e
 provider behind it said in `error.metadata.raw` (OpenRouter, Kilo), which goes after its own words
 (`ErrorText`); a 403 with it is the provider's refusal, not the key's: "The model's provider turned the
 request down (it says "Provider returned error: sakana/fugu-max is not available in your region: …"). Pick
-another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Any other failed
+another model at the top", where "Provider returned error" alone had blamed the key (2026-11-10). Any other 403 says the
+key may be wrong or not allowed to use the model, *or* that the server takes no requests from this network or country:
+Anthropic answers 403 "Request not allowed" to a network it doesn't serve, and when the user's VPN went off mid-chat
+they read "the API key may be wrong… That is an Anthropic API key: for Claude, the server address is
+https://api.anthropic.com", on that very address with a good key (2026-11-12). The title bar then says "Access
+refused", not "Key refused" (`KeyRefusedException.Forbidden`, `ProbeResult.AccessRefused`); the address hint is left out
+for the one who has api.anthropic.com in the box; and a refusal (401, 403) that names no header of Anthropic's no
+longer says what the address speaks (`Speakers`, see Claude through Anthropic's own API): what was known stays, and
+what wasn't is asked again by the next client. It had made a stranger of Anthropic's address, and until the next
+check that went through, requests would have gone out in OpenAI's format. Any other failed
 request says the server's words too, not its JSON ("Chat request failed (404): No endpoints found that support image
 input"), as the Messages route already did. A message sent while the server can't be reached stops with that and Continue
 ("Can't reach the server: … Check the server address at the top and that the server is running"), where it asked to enter
@@ -3518,7 +3581,9 @@ begin a path of its own ("C:\a folder with a long name\b.txt"). Left as they are
 addresses. Relative to the chat's work folder was weighed and not taken: a chat has a project folder
 only once it changed a file, so the first cards (a list, a read) would still show whole paths. What a running card
 says it is doing at its top right goes through it too: Auto's card said "Read C:\Repos\…\proj\index.html" there and cut its
-own line to "claude-haiku-5-5 pi…" in a narrow chat (2026-11-10).
+own line to "claude-haiku-5-5 pi…" in a narrow chat (2026-11-10). A click, move, drag or scroll the model sent
+without its coordinates has a line without them (`DesktopActionTool.At`: "Double-click"): Claude Sonnet's
+`mouse_double_click` with no arguments, refused for it, read "Double-click at (, )" (2026-11-12).
 
 How the call ended in how long stays at the card's top right, without the clock time it had before
 it ("Done in 1.2 s"; the time it began to run is the tooltip): too many times in the chat, the user
@@ -5733,6 +5798,12 @@ own, so your keys landed between them, and a Shift you held changed its letters.
   a new look. The rest of a reply after an action held back does nothing either (`ScreenStale`, as when
   another window's agent acted). Mouse moves count for the wait but not here: the lock keeps them from
   a click. Each clash costs the model one screenshot more, none while you leave the PC alone.
+  Keys right after a click of the same reply go ahead when you pressed nothing since that click
+  (`ToolContext.ClickedAtPresses`, `DesktopActionTool.SetsFocus`): the click put the focus where the model
+  aimed, so what you pressed before it no longer says where the keys land. The user wrote two messages to
+  the agent; its next reply triple-clicked Unity's search box and typed, the typing was held back ("the focus
+  may have moved"), and it clicked and typed again into text the first click no longer had selected
+  (2026-11-12). A press after that click still holds the keys back.
 - A 4 px frame in the accent colour round the screen the agent works on tells you it has the mouse and
   keyboard, from its first action until the task ends: four strips of `WindowsInputOverlay`,
   click-through and left out of the screenshots like the click log, placed only when it shows or moves.

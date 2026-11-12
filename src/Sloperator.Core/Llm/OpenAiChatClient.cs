@@ -139,6 +139,12 @@ public sealed class KeyRefusedException(string message, bool outOfCredit = false
     /// </summary>
     public bool OutOfCredit { get; } = outOfCredit;
 
+    /// <summary>
+    /// Refused without a word on the key (403): it may be fine. Anthropic answers "Request not allowed" to a
+    /// network or country it doesn't serve, so a VPN that went off mid-chat read as a wrong key (2026-11-12).
+    /// </summary>
+    public bool Forbidden { get; init; }
+
     internal static KeyRefusedException? For(int status, string body, bool keySent)
     {
         var said = OpenAiChatClient.ErrorText(body).ReplaceLineEndings(" ").Clip(300);
@@ -150,8 +156,10 @@ public sealed class KeyRefusedException(string message, bool outOfCredit = false
             402 => new($"The account behind the API key has run out of credits{said}. Add credits there, or pick a free model at the top.", outOfCredit: true),
             // The provider behind a gateway, not the key: "not available in your region".
             403 when OpenAiChatClient.FromProvider(body) => new($"The model's provider turned the request down{said}. Pick another model at the top."),
-            403 when keySent =>new($"The server refused access{said}: the API key may be wrong, or not allowed to use this model."),
-            403 => new($"The server refused access{said}: it may want an API key, next to the server address at the top."),
+            403 when keySent => new($"The server refused access{said}: the API key may be wrong or not allowed to use this model, " +
+                                    "or the server takes no requests from this network or country (a VPN that is off, for one).") { Forbidden = true },
+            403 => new($"The server refused access{said}: it may want an API key, next to the server address at the top, " +
+                       "or take no requests from this network or country.") { Forbidden = true },
             _ => null,
         };
     }
@@ -295,7 +303,11 @@ public sealed partial class OpenAiChatClient
         var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         // A server having a bad moment says nothing of what it speaks.
         var answered = (int)resp.StatusCode is not (408 or 429 or >= 500);
-        if (answered)
+        // Nor does a refusal (401, 403) that names no header of Anthropic's: its 403 "Request not allowed" (a
+        // network it doesn't serve) made a stranger of its own address, and every request after it went out in
+        // OpenAI's format until a check got through. What was known stays, and what wasn't is asked again.
+        var silentRefusal = (int)resp.StatusCode is 401 or 403 && !IsClaudeAnswer(body);
+        if (answered && !silentRefusal)
             Speakers[_baseUrl] = IsClaudeAnswer(body);
         if (answered && SpeaksMessages)
             return await ListClaudeModelsAsync(resp.IsSuccessStatusCode ? body : null, ct).ConfigureAwait(false);

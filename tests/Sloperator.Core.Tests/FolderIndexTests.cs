@@ -710,7 +710,7 @@ public class FolderIndexTests : IDisposable
         // Said after the result, in a message of its own.
         var c1 = session.History.FindIndex(m => m.ToolCallId == "c1");
         Assert.Equal(ProjectNudge.Note(project, "a git repository"), session.History[c1 + 1].Content);
-        Assert.Single(session.History, m => m.Content?.StartsWith("[Sloperator]") == true);
+        Assert.Single(session.History, m => m.Content?.StartsWith("[Sloperator]") == true && m.Content != AgentSession.PlanNote); // the plan note aside
         Assert.DoesNotContain(session.History, m => m.Role == Llm.ChatRole.Tool && m.Content!.Contains("[Sloperator]"));
         Assert.Contains($"Asked the model to index {project} before going through its files.", observer.Notices);
     }
@@ -743,7 +743,7 @@ public class FolderIndexTests : IDisposable
         var c1 = session.History.FindIndex(m => m.ToolCallId == "c1");
         Assert.Equal(ProjectNudge.Note(project, "a git repository", ProjectOverview.ProjectNotes(project), index: false), session.History[c1 + 1].Content);
         Assert.Contains("- Run it with python -X utf8.", session.History[c1 + 1].Content);
-        Assert.Single(session.History, m => m.Content?.StartsWith("[Sloperator]") == true);
+        Assert.Single(session.History, m => m.Content?.StartsWith("[Sloperator]") == true && m.Content != AgentSession.PlanNote); // the plan note aside
         Assert.Equal([$"Gave the model the notes for AI agents in {project}."], observer.Notices.Where(n => n.Contains(project)));
     }
 
@@ -822,7 +822,7 @@ public class FolderIndexTests : IDisposable
             Sse.ToolCall("c3", "read_file", Json(told, "f2.txt")),
             Sse.ToolCall("c4", "read_file", Json(indexed, "f2.txt")),
             Sse.Text("Both say hello.")).RunAsync("And f2 in both?", new RecordingObserver(), CancellationToken.None);
-        Assert.Single(history, m => m.Content?.StartsWith("[Sloperator]") == true);
+        Assert.Single(history, m => m.Content?.StartsWith("[Sloperator]") == true && m.Content != AgentSession.PlanNote); // the plan note aside
     }
 
     [Fact]

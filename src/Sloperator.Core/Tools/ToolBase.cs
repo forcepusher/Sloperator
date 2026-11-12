@@ -112,6 +112,14 @@ public sealed class ToolContext
     /// <summary>The user's presses as the action going on started: one that takes a while stops at another (see <see cref="DesktopActionTool"/>).</summary>
     internal long UserPressesAtAct { get; set; }
 
+    /// <summary>
+    /// The user's presses as the last click of this reply went ahead; null before one. That click put the
+    /// focus where the model aimed, so keys after it in the reply go ahead while this still is the count:
+    /// whatever the user pressed before it (a message typed to the agent) no longer says where they land.
+    /// Cleared by the agent with <see cref="Seen"/>.
+    /// </summary>
+    public long? ClickedAtPresses { get; set; }
+
     /// <summary>The run's watch on the user's input, from its first look or action until it ends; null before.</summary>
     internal IDisposable? UserWatch { get; set; }
 

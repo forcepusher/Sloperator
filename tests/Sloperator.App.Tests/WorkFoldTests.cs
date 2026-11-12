@@ -86,7 +86,9 @@ public sealed class WorkFoldTests
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
         var fold = auto.Card!;
-        Assert.Equal("Worked for 25 s · 1 tool call · " + WorkFold.Unbroken("claude-haiku-5-5 at Low"), fold.Title);
+        // Nor does the card count it as one: "1 tool call" over a "side_task" chip, for a question answered in one step.
+        Assert.Equal("Worked for 25 s · price lookup · " + WorkFold.Unbroken("claude-haiku-5-5 at Low"), fold.Title);
+        Assert.Empty(fold.Tools);
         Assert.True(reply.IsShown);
         Assert.False(reply.ShowsThoughts);
         Assert.False(lookup.IsShown);
@@ -109,6 +111,8 @@ public sealed class WorkFoldTests
         Assert.True(checkedReply.IsShown);
         Assert.False(work.IsShown);
         Assert.False(lookedUp.IsShown);
+        Assert.Equal("Worked for 29 s · 1 tool call · price lookup", work.Fold!.Title);
+        Assert.Equal(["mouse_click"], work.Fold.Tools);
 
         // A side task the model called itself after its words is more work: stopped there, those words were no reply.
         var words = Step(3, "Now the prices.");
@@ -198,7 +202,8 @@ public sealed class WorkFoldTests
 
         Assert.True(reply.IsShown);
         Assert.Null(reply.Card);
-        Assert.Equal("Worked for 12 s · 1 tool call", lookup.Card!.Title); // the card in the lookup's place, after the answer
+        Assert.Equal("Worked for 12 s · price lookup", lookup.Card!.Title); // the card in the lookup's place, after the answer
+        Assert.False(lookup.Card.HasTools);
         Assert.False(lookup.IsShown);
         Assert.True(lookup.InChat);
     }

@@ -458,7 +458,8 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         var kilo = KiloGateway.Is(server.BaseUrl);
         if (probe.KeyRefused)
         {
-            SetStatus(ServerState.Failed, "Key refused", probe.Message);
+            // A 403 says nothing of the key, which may be fine (a network the server doesn't take requests from).
+            SetStatus(ServerState.Failed, probe.AccessRefused ? "Access refused" : "Key refused", probe.Message);
             return probe;
         }
         if (!probe.Reachable)

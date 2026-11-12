@@ -23,6 +23,7 @@ public sealed class PlanTool : Tool
     public override string Name => ToolName;
     public override string Description =>
         "Show your plan to the user as a progress bar above their message box, one point per step, and move it on as you work. " +
+        "Set it as you start any task of several steps, and keep it easy to read: a handful of steps, one plain word each. " +
         "steps sets or replaces the plan; now is the step you are on, from 1, or one past the last when all are done. " +
         "With neither, it gives you the plan as it stands. steps=[] takes the plan away.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
@@ -84,8 +85,18 @@ public sealed class PlanTool : Tool
         return steps;
     }
 
+    /// <summary>
+    /// Where the plan stands, and the call that moves it on next: Sonnet 5.5, asked for a plan, set four steps and
+    /// did them all with the bar on the first (2026-11-12). Said with every plan call, it costs nothing between them.
+    /// Nothing more on the last step: a run that ends its turn there has the bar finished for it (see
+    /// <see cref="Agent.AgentSession"/>), and a plan call with the answer would make a call of the answer's reply.
+    /// </summary>
     private static string Position(AgentPlan plan) =>
-        plan.Finished ? "All steps of the plan are done." : $"Step {plan.At + 1} of {plan.Steps.Count}: {plan.Steps[plan.At].Word}.";
+        plan.Finished ? "All steps of the plan are done."
+        : $"Step {plan.At + 1} of {plan.Steps.Count}: {plan.Steps[plan.At].Word}." +
+          (plan.At + 1 < plan.Steps.Count
+              ? $" As you start step {plan.At + 2}, \"{plan.Steps[plan.At + 1].Word}\", call plan with now={plan.At + 2} along with that step's first call."
+              : "");
 
     private static string Listed(AgentPlan plan) =>
         string.Join('\n', plan.Steps.Select((s, i) => $"{i + 1}. {s.Word}: {s.Detail}")) + '\n' + Position(plan);
