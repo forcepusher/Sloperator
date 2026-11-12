@@ -161,6 +161,45 @@ public sealed class DocumentCaptureTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_dir, "third.pdf")));
     }
 
+    [Fact]
+    public async Task A_table_of_contents_goes_after_the_title_with_the_pages_its_headings_are_on()
+    {
+        // As asked of Haiku and Sonnet (2026-11-13): a table of contents after the title. The converter is faked: its
+        // PDF has the contents on page 1, A on page 2, B and C on page 3.
+        DocumentPictures.Converter = (_, pdf, _, _) =>
+            DocumentFiles.Write(pdf, "Annual review\n\nContents\n\nA 2\n\n\\newpage\n\n# A\n\nText of A.\n\n\\newpage\n\n# B\n\nText of B.\n\n## C\n\nText of C.", append: false, p => p);
+        var ctx = Ctx();
+        Task<ToolResult> Edit(string oldText, string newText) =>
+            new EditFileTool().ExecuteAsync(new JsonObject { ["path"] = "review.docx", ["old_text"] = oldText, ["new_text"] = newText }, ctx, CancellationToken.None);
+        Task<ToolResult> Read() => new ReadFileTool().ExecuteAsync(new JsonObject { ["path"] = "review.docx" }, ctx, CancellationToken.None);
+        Assert.False((await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "review.docx", ["content"] = "# Annual review\n\nThe year in short.\n\n## A\n\nText of A.\n\n## B\n\nText of B.\n\n### C\n\nText of C." }, ctx, CancellationToken.None)).IsError);
+
+        var result = await Edit("", "table of contents after the title");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("Added a table of contents after the title, listing its 3 headings, with the page each is on.", result.Text);
+        var text = System.Text.RegularExpressions.Regex.Replace((await Read()).Text.ReplaceLineEndings("\n"), @"(?m)^\d+\t", "");
+        Assert.Contains("# Annual review\n**Contents**\nA\t2\nB\t3\nC\t3\nThe year in short.\n## A", text);
+        Assert.Empty(Directory.EnumerateFiles(ctx.ScratchDirectory!, "*.pdf"));
+        // Word's own field, listing levels 2 and 3 as the title is the one Heading 1, each entry a link to its heading.
+        using (var zip = System.IO.Compression.ZipFile.OpenRead(Path.Combine(_dir, "review.docx")))
+        using (var stream = zip.GetEntry("word/document.xml")!.Open())
+        {
+            var xml = System.Xml.Linq.XDocument.Load(stream).ToString();
+            Assert.Contains("TOC \\o \"2-3\" \\h \\z \\u", xml);
+            Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(xml, "w:anchor=\"_Toc").Count);
+            Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(xml, "<w:bookmarkStart").Count);
+            Assert.DoesNotContain("w:dirty", xml);
+        }
+
+        // One there already is said; nothing to lay the pages out leaves the numbers to Word.
+        Assert.Contains("has a table of contents already", (await Edit("", "table of contents")).Text);
+        Assert.False((await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "review.docx", ["content"] = "# Annual review\n\n## A\n\nText." }, ctx, CancellationToken.None)).IsError);
+        DocumentPictures.Converter = (_, _, _, _) => throw new DocumentPictures.NoProgramException("No program on this PC turns review.docx into pages: Microsoft Office or LibreOffice does.");
+        var bare = await Edit("", "add a table of contents");
+        Assert.False(bare.IsError, bare.Text);
+        Assert.Contains("without page numbers, as they need the pages laid out (No program on this PC turns review.docx into pages: Microsoft Office or LibreOffice does): Word puts them in with Update Field", bare.Text);
+    }
+
 #if WINDOWS
     /// <summary>
     /// Opt-in (set BB_OFFICE_TESTS=1, starts Word and Excel hidden for a few seconds): the real Office
