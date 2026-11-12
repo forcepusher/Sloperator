@@ -27,6 +27,8 @@ public class ToolTests
         Assert.Equal("Move mouse", new MouseMoveTool().Describe([]));
         Assert.Equal("Drag from (1, 2)", new MouseDragTool().Describe(new JsonObject { ["x"] = 1, ["y"] = 2 }));
         Assert.Equal("Scroll down x3", new ScrollTool().Describe(new JsonObject { ["direction"] = "down", ["x"] = 7 }));
+        Assert.Equal("Zoom in", new ZoomTool().Describe([]));
+        Assert.Equal("Zoom in at (10, 20)", new ZoomTool().Describe(new JsonObject { ["x"] = 10, ["y"] = 20 }));
         // With them, as before.
         Assert.Equal("Double-click at (10, 20.5)", new MouseClickTool().Describe(new JsonObject { ["clicks"] = 2, ["x"] = 10, ["y"] = 20.5 }));
         Assert.Equal("Move mouse to (10, 20)", new MouseMoveTool().Describe(new JsonObject { ["x"] = 10, ["y"] = 20 }));

@@ -163,6 +163,18 @@ public sealed class PlanToolTests
         Assert.Equal(5, silent.Requests.Count);
         Assert.Single(quiet.Notices, n => n.EndsWith("Asked it to carry on."));
         Assert.False(left.Plan!.Finished);
+
+        // A plan left on the bar by a task the user stopped isn't this message's: asked for a commit, the model is
+        // not sent back to the check that task was stopped in.
+        var old = NewContext();
+        old.Plan = new AgentPlan([new PlanStep("Read", "Read the prefab"), new PlanStep("Fix", "Change the frame"), new PlanStep("Check", "Look at it in the editor")], 1);
+        var other = new ScriptedServer(List("l1", Folder(root, "c")), Sse.Text("Committed to a new branch."), Sse.ToolCall("p1", "plan", """{"now":3}"""));
+        var later = new RecordingObserver();
+        await new AgentSession(new OpenAiChatClient(new HttpClient(other), "http://test", null),
+            new ChatRequestOptions(), ToolRegistry.CreateDefault(true), old, "sys").RunAsync("Commit it to a separate branch", later, CancellationToken.None);
+        Assert.Equal(3, other.Requests.Count);
+        Assert.DoesNotContain(later.Notices, n => n.Contains("carry on"));
+        Assert.Contains(later.Notices, n => n.EndsWith("step 3, \"Check\"."));
         Directory.Delete(root, recursive: true);
     }
 

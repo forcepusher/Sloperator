@@ -37,8 +37,9 @@ public sealed class ZoomTool : Tool
         ("y", Num("Y of the region's centre, in screenshot coordinates"), true),
         ("width", Num("The region's width in screenshot coordinates. Default: a quarter of the screenshot's"), false),
         ("height", Num("The region's height in screenshot coordinates. Default: a quarter of the screenshot's"), false));
-    public override string Describe(JsonObject args) =>
-        string.Create(CultureInfo.InvariantCulture, $"Zoom in at ({GetNumber(args, "x")}, {GetNumber(args, "y")})");
+    // Without them when the call came without them, as a click's line (DesktopActionTool.At): it read "Zoom in at (, )".
+    public override string Describe(JsonObject args) => GetNumber(args, "x") is null || GetNumber(args, "y") is null ? "Zoom in"
+        : string.Create(CultureInfo.InvariantCulture, $"Zoom in at ({GetNumber(args, "x")}, {GetNumber(args, "y")})");
 
     public override Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
     {

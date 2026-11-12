@@ -175,7 +175,7 @@ public class GuessworkTests
             Assert.Equal(web, session.History[r1 + 1].Role == ChatRole.User && session.History[r1 + 1].Content!.Contains("with web_search"));
             Assert.DoesNotContain(session.History, m => m.Role == ChatRole.Tool && m.Content!.Contains("web_search"));
             // The chat shows a line where the note was sent.
-            Assert.Equal(web, observer.Notices.Contains("Asked the model to look this up with web_search before its next try."));
+            Assert.Equal(web, observer.Notices.Contains("The error says a name doesn't exist here; asked the model to look up the right one for the version in use."));
         }
     }
 
@@ -592,5 +592,19 @@ public class GuessworkTests
         Assert.Single(session.History, m => m.Content == Guesswork.QuestionNote);
         Assert.DoesNotContain(session.History, m => m.Role == ChatRole.Tool && m.Content!.Contains("[Sloperator]"));
         Assert.DoesNotContain(observer.Notices, n => n.Contains("Looked up"));
+    }
+
+    [Fact]
+    public void The_chat_says_what_each_note_asked_for()
+    {
+        // One line stood for every note: after a folder listing a note on the model's own doubt went out with, and for the
+        // note that says to stop searching and try.
+        const string old = "Asked the model to look this up with web_search before its next try.";
+        string[] notes = [Guesswork.QuestionNote, Guesswork.IgnoredNote, Guesswork.RepeatNote, Guesswork.NameNote, Guesswork.FirstNote, Guesswork.DoubtNote,
+            Guesswork.UserDoubtNote, Guesswork.LongSearchNote(8), Guesswork.ProgramNote("python"), Guesswork.TriesNote(3), Guesswork.CheckNote(TimeSpan.FromMinutes(12), 4)];
+        var lines = notes.Select(Guesswork.NoticeFor).ToList();
+        Assert.DoesNotContain(old, lines);
+        Assert.Equal(lines.Count, lines.Distinct().Count());
+        Assert.Equal("Many look-ups in a row; told the model to try it on the installed version now.", Guesswork.NoticeFor(Guesswork.LongSearchNote(8)));
     }
 }

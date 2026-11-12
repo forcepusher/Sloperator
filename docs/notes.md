@@ -1843,8 +1843,10 @@ to do… Carry on with it now rather than leave it to the user. If it can't be d
 stops you; if you are waiting for their answer, say nothing more." One line in the chat says both ("The plan was
 left at step 2 of 4; asked the model where it stands: step 3, "Check", is still to do. Asked it to carry on."), and
 the first answer folds with the work as words said on the way. Not when the answer ends in a question to the user,
-nor when the model left the plan untouched (that says nothing either way), nor twice in a run; a model that then
-says nothing more is waiting for the user, and the plan stays as it is. Five runs of the test task below on Haiku
+nor when the model left the plan untouched (that says nothing either way), nor twice in a run, nor for a plan the
+run neither set nor moved: one left on the bar by a task the user stopped isn't the next message's ("Commit it to
+a branch" would have sent the model back to the check it was stopped in). A model that then says nothing more is
+waiting for the user, and the plan stays as it is. Five runs of the test task below on Haiku
 and Sonnet with it: none pressed on (one asked aside, "all done"). Not yet seen live on a run that stops short:
 none of the test runs did.
 
@@ -3003,9 +3005,11 @@ of the limit from then on, after a handoff note; the cost grows
   no cost of its own where the server gives costs, so the total then shows as an estimate), and the chat says once
   a step: "Kept this chat in the server's prompt cache, which lapses after 5 minutes, so the next step doesn't pay
   for all of it again." Not done between runs, while the chat waits for the user's next message: only during the
-  agent's own work in progress. Tried live, Haiku 5.5 through OpenRouter, one `wait` of 330 seconds
-  (`.dev/night-test/live-plan.ps1 -Task wait`): without it the step after the wait read none of its 16.9k prompt
-  tokens from the cache; with it the chat said so at 4 min 30 s, and that step read 16.7k of 16.9k from the cache.
+  agent's own work in progress. Tried live, Haiku 5.5 through OpenRouter and on Anthropic's own API (the Messages
+  route, with thinking), one `wait` of 330 seconds each (`.dev/night-test/live-plan.ps1 -Task wait`): without it the
+  step after the wait read none of its 16.9k prompt tokens from the cache; with it the chat said so at 4 min 30 s,
+  and that step read 16.7k of 16.9k from the cache, on both. A read that fails for any reason ends the reads of that
+  step and never the run (`CacheWarmer.DisposeAsync` swallows whatever it threw).
 - Thinking: adaptive, its summaries shown as the reasoning (`display: "summarized"`; since Opus 4.7
   none are shown otherwise). Each reply's blocks are kept on the message and sent back unchanged
   with their signatures, as Claude requires; they aren't saved with the chat. Claude also checks
@@ -5447,6 +5451,13 @@ presses for it at more points than errors:
   error is a record's own line (`Get-Content : …`, in any language), then a line that says something went
   wrong and isn't source code; with neither, the command didn't fail (`Guesswork.ErrorLine`). A reply that
   looks something up gets no note for what failed beside it.
+- The chat's line for a note says what that note asked (`Guesswork.NoticeFor`: "The same error came up again; asked
+  the model to look it up before trying again", "By the model's own account its last try didn't work; asked it to
+  look up how this is done before the next", "Many look-ups in a row; told the model to try it on the installed
+  version now", and so on). One line had served them all, "Asked the model to look this up with web_search before
+  its next try": a note on the model's own doubt goes out with the next call's result, so the line stood after a
+  key press in the user's Unity chat and after a folder listing in Qwen's Notepad task, where "this" was nothing
+  the user could see, and it stood for the note that says to stop searching too (2026-11-12).
 
 **What the notes did in the chats of 3 and 4 November 2026** (three folders from the user's real work, Sonnet 5.5 and
 Haiku 5.5, the 70 notes whose text is still in the chats): "Time to look" 49 with 4 searches after them, all after a
