@@ -1230,6 +1230,15 @@ lets go of what the viewer plays first: Windows doesn't move a folder a file in 
 Delete (the video changed last opens) and Show in Explorer. Nothing is renamed or deleted while the
 chat is at work on the video. The line in the bar under the timeline says what right-click and dropping do, until
 the status line has something to say: nothing showed the menu was there (the user, 2026-10-24).
+F2 renames what is picked, a card of References or a sound (`AskRenamePicked`, 2026-11-13): the menus had shown
+"F2" beside Rename since they were made, and the key did nothing (a menu's `InputGesture` only shows a key). The
+card or sound is found by its id, not as the item picked: the rows are made anew when the video is saved, and
+the pick kept the old item, so a first try compared two different objects for the same card and found none. The
+same day: a card's tooltip is its whole name and its kind ("Moon over the bay · Generated image"; the card cuts a
+name at about 12 letters and the tooltip said only "Generated image"), and a file of the user's picked on a card
+has "Your picture: name.png" in the column beside the viewer, which said "Click a clip, frame or sound to see how
+it was made" beside the picture just clicked. The menus' record and their opening are shared with the Image and
+Audio editors since then (`PanelMenuItem`, `PanelMenu`).
 
 **Looks as the other panels** (2026-10-31, a review asked for by the user through the coordinator, after
 the File inspector's and Code editor's bars: grey buttons, a bar's buttons always there, nothing coming,

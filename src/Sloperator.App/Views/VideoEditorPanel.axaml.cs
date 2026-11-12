@@ -138,6 +138,9 @@ public partial class VideoEditorPanel : UserControl
             Vm.Clear();
             e.Handled = true;
         }
+        // The key its menu shows beside Rename.
+        else if (e.Key == Key.F2 && e.KeyModifiers == KeyModifiers.None && Vm.AskRenamePicked())
+            e.Handled = true;
     }
 
     // ---- menus: the videos, a row, a card, a clip, a sound, a sound line ---------------------------------------------

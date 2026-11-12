@@ -132,6 +132,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- **F2** renames the picture or sound you picked in the Video editor. Its right-click menu showed the key beside
+  Rename, but pressing it did nothing.
+- In the Video editor, pointing at a card shows its whole name, which the card cuts short, and a picture of yours
+  picked on a card is named beside the viewer rather than "Click a clip, frame or sound".
 - Totals in a workbook that add up cells of another sheet show their values right away, in the preview and to the
   agent. Before, they were empty until Excel opened the file.
 - **New picture** or **New sound** pressed while the agent was still making the one before put the next thing you

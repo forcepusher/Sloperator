@@ -70,6 +70,9 @@ public sealed partial class ReferenceCard(string path, FrameItem? frame) : Obser
     /// <summary>"Generated image", "Image file" or "Video file".</summary>
     public string Kind => Frame is not null ? "Generated image" : IsVideo ? "Video file" : "Image file";
 
+    /// <summary>Its tooltip: its name whole, which the card cuts short ("Moon over th…"), and its kind.</summary>
+    public string Tip => $"{Name} · {Kind}";
+
     /// <summary>A video file of the user's: a shot moves as it does, starts where it ends, or keeps its look.</summary>
     public bool IsVideo => Frame is null && Storyboard.IsVideoFile(Path);
 
@@ -96,6 +99,7 @@ public sealed partial class ReferenceCard(string path, FrameItem? frame) : Obser
     public void Refresh()
     {
         OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Tip));
         OnPropertyChanged(nameof(IsNew));
     }
 }
