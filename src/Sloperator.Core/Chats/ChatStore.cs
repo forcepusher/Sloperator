@@ -80,6 +80,9 @@ public sealed class ChatEntry
     /// <summary>For a reply: its tokens, when its server reported them. Never sent to the model. Chats saved before have none.</summary>
     public ReplyTokens? Tokens { get; set; }
 
+    /// <summary>For a reply: true when it is a context reset's handoff note (see <see cref="Agent.IAgentObserver.OnHandoffNote"/>), no answer to the user; else left out.</summary>
+    public bool? Handoff { get; set; }
+
     /// <summary>On the line a run ended with: how long the run took, from the message that started it.</summary>
     public TimeSpan? RunTook { get; set; }
 }

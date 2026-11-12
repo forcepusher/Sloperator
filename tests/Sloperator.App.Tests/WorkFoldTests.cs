@@ -110,13 +110,80 @@ public sealed class WorkFoldTests
         Assert.False(work.IsShown);
         Assert.False(lookedUp.IsShown);
 
-        // A side task the model called itself after its words is more work: those words were no reply.
+        // A side task the model called itself after its words is more work: stopped there, those words were no reply.
         var words = Step(3, "Now the prices.");
-        var own = new ToolCallItem("toolu_01", "side_task", "Look up the prices") { At = T0.AddSeconds(4), State = ToolItemState.Done, RunTook = TimeSpan.FromSeconds(9) };
-        ChatItemViewModel[] called = [Message("Find the prices", 0), Call("read_file", 1), words, own];
+        var own = new ToolCallItem("toolu_01", "side_task", "Look up the prices") { At = T0.AddSeconds(4), State = ToolItemState.Stopped };
+        var stop = new NoticeItem("Stopped with Pause/Break.", isError: false, carryOn: () => { }) { At = T0.AddSeconds(9), RunTook = TimeSpan.FromSeconds(9) };
+        ChatItemViewModel[] called = [Message("Find the prices", 0), Call("read_file", 1), words, own, stop];
         WorkFold.FoldFinished(called, toTheEnd: false);
         Assert.False(words.IsShown);
         Assert.False(own.IsShown);
+        Assert.True(stop.IsShown);
+    }
+
+    [Fact]
+    public void An_answer_with_a_call_after_it_stays_when_the_last_step_said_nothing()
+    {
+        // The answer and a capture_result for the picture of the work in one message; the step after it said nothing
+        // (an empty step leaves no line, a thinking one does). The answer was the last words, and folded with the call.
+        var answer = Step(3, "The frames fit now; here is the chat.");
+        var capture = Call("capture_result", 4);
+        var last = Step(6, thoughts: "Done.");
+        last.RunTook = TimeSpan.FromSeconds(8);
+        ChatItemViewModel[] chat = [Message("Fix the frames", 0), Step(1, thoughts: "Look first."), Call("screenshot", 2), answer, capture, last];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.True(answer.IsShown);
+        Assert.False(capture.IsShown);
+        Assert.False(last.IsShown);
+        Assert.Equal("Worked for 8.0 s · 2 tool calls", chat[1].Card!.Title);
+
+        // The same in a stretch the user's message ended mid-run: words before a call are mid-work.
+        var midWork = Step(3, "Let me click Save.");
+        var click = Call("mouse_click", 4);
+        ChatItemViewModel[] steered = [Message("Save it", 0), Call("screenshot", 1), midWork, click, Message("Wait", 5)];
+        WorkFold.FoldFinished(steered, toTheEnd: false);
+        Assert.False(midWork.IsShown);
+    }
+
+    [Fact]
+    public void A_handoff_note_after_the_answer_folds_and_the_answer_stays()
+    {
+        // Compact context pressed while the model answered: the note comes after the answer, between its notices.
+        var answer = Step(4, "Done: both buttons are in the scene.");
+        var compacting = new NoticeItem("Compacting the context: asking the model for a handoff note, then starting fresh…", isError: false) { At = T0.AddSeconds(5) };
+        var note = new AssistantMessageItem { At = T0.AddSeconds(6), Text = "Task: darken the title screen. Done so far: …", IsStreaming = false, IsHandoffNote = true };
+        var reset = new NoticeItem("Context reset: about 90k tokens replaced by a handoff note; the context is now about 12k.", isError: false)
+        { At = T0.AddSeconds(20), RunTook = TimeSpan.FromSeconds(20) };
+        ChatItemViewModel[] chat = [Message("Darken it", 0), Call("edit_file", 2), answer, compacting, note, reset];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.True(answer.IsShown);
+        Assert.False(note.IsShown);
+        Assert.True(compacting.IsShown);
+        Assert.True(reset.IsShown);
+
+        // Compact context with no run going: the note is all there is, and it stays.
+        var alone = new AssistantMessageItem { At = T0.AddSeconds(31), Text = "Task: …", Reasoning = "Sum it up.", IsStreaming = false, IsHandoffNote = true };
+        var done = new NoticeItem("Context reset: …", isError: false) { At = T0.AddSeconds(40), RunTook = TimeSpan.FromSeconds(10) };
+        ChatItemViewModel[] compacted = [new NoticeItem("Compacting the context: …", isError: false) { At = T0.AddSeconds(30) }, alone, done];
+        WorkFold.FoldFinished(compacted, toTheEnd: false);
+        Assert.True(alone.IsShown);
+        Assert.False(alone.ShowsThoughts);
+    }
+
+    [Fact]
+    public void A_handoff_note_is_kept_with_the_chat()
+    {
+        var note = new AssistantMessageItem { Text = "Task: …", IsStreaming = false, IsHandoffNote = true };
+        var reply = new AssistantMessageItem { Text = "Done.", IsStreaming = false };
+
+        Assert.True(MainWindowViewModel.ToEntry(note).Handoff);
+        Assert.Null(MainWindowViewModel.ToEntry(reply).Handoff); // left out of the file
+        Assert.True(MainWindowViewModel.ReplyFrom(MainWindowViewModel.ToEntry(note), new PreviewServices(null, () => null)).IsHandoffNote);
+        Assert.False(MainWindowViewModel.ReplyFrom(MainWindowViewModel.ToEntry(reply), new PreviewServices(null, () => null)).IsHandoffNote);
     }
 
     [Fact]

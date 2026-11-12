@@ -15,6 +15,14 @@ public interface IAgentObserver
     void OnStepStarted(int step);
     void OnDelta(StreamDelta delta);
     void OnAssistantMessage(ChatMessage message);
+
+    /// <summary>
+    /// In place of <see cref="OnAssistantMessage"/>, the handoff note the model wrote for a context reset (see
+    /// <see cref="AgentSession.AskReset"/>): words for its own next steps, no answer to the user. Written after the
+    /// answer when Compact context was pressed as the model answered, and taken for the reply there.
+    /// </summary>
+    void OnHandoffNote(ChatMessage note) => OnAssistantMessage(note);
+
     Task<bool> RequestApprovalAsync(ToolCall call, Tool tool, string summary, CancellationToken ct);
     void OnToolStarted(ToolCall call, string summary);
 
