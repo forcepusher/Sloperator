@@ -9,6 +9,7 @@ namespace Sloperator.Core.Documents;
 /// from the top, their header row bold and frozen; other lines go in column A. A cell starting
 /// with = is a formula, and numbers, percentages, amounts of money, dates and TRUE/FALSE become
 /// real values with a matching format, so they add up. Excel works the formulas out on opening.
+/// A line "chart: bar Sales by month" draws the table above it as a chart (<see cref="SheetChart"/>).
 /// </summary>
 internal static partial class XlsxWriter
 {
@@ -25,6 +26,10 @@ internal static partial class XlsxWriter
         public bool FreezeHeader;
         /// <summary>Whether a cell holds a number written without $, % or as a date (see <see cref="Write"/>).</summary>
         public bool PlainNumbers;
+        /// <summary>The table written last, its first and last row and how many columns: what a "chart:" line under it draws.</summary>
+        public (int Row1, int Row2, int Columns)? Table;
+        /// <summary>The charts asked for on it ("chart: bar Sales by month"), each with the cells it draws.</summary>
+        public readonly List<(SheetChart.Ask Ask, IReadOnlyList<SheetChart.Cells> Cells)> Charts = [];
     }
 
     public static byte[] Write(IReadOnlyList<Block> blocks, List<string> notes)
@@ -53,12 +58,15 @@ internal static partial class XlsxWriter
                     var sheet = Current();
                     if (sheet.Rows.Count > 0) sheet.Next++;
                     if (t.Header && sheet.Rows.Count == 0) sheet.FreezeHeader = true;
+                    var top = sheet.Next;
                     for (var r = 0; r < t.Rows.Count; r++)
                     {
                         for (var c = 0; c < t.Rows[r].Count; c++)
                             Set(sheet, sheet.Next, c + 1, t.Rows[r][c], styles, header: t.Header && r == 0);
                         sheet.Next++;
                     }
+                    if (t.Rows.Count > 0)
+                        sheet.Table = (top, sheet.Next - 1, t.Columns);
                     break;
                 case ParagraphBlock or ListItemBlock or QuoteBlock or CodeBlock:
                     sheet = Current();
@@ -71,7 +79,20 @@ internal static partial class XlsxWriter
                         _ => [],
                     };
                     foreach (var line in SplitLines(text))
+                    {
+                        // "chart: bar Sales by month": the table above it as a chart, or the cells it names.
+                        if (block is ParagraphBlock or ListItemBlock && SheetChart.Parse(MarkdownDocument.Plain(line), colon: true) is { } chart)
+                        {
+                            if (chart.Ranges.Count > 0)
+                                sheet.Charts.Add((chart, chart.Ranges));
+                            else if (sheet.Table is { } above)
+                                sheet.Charts.Add((chart, [new SheetChart.Cells(null, above.Row1, 1, above.Row2, above.Columns)]));
+                            else
+                                notes.Add($"The {chart.Kind} chart was left out: its line has no table above it on the sheet, and names no cells (chart: {chart.Kind} A1:B13 Title).");
+                            continue;
+                        }
                         Set(sheet, sheet.Next++, 1, line, styles, header: false);
+                    }
                     break;
                 case ImageBlock image:
                     notes.Add($"The picture {image.Source} was left out: a workbook made here holds text and numbers only.");
@@ -80,8 +101,8 @@ internal static partial class XlsxWriter
         }
         if (sheets.Count == 0)
             sheets.Add(new Sheet("Sheet1"));
-        foreach (var sheet in sheets)
-            SheetFormula.WriteValues(sheet.Rows.Values.SelectMany(r => r.Values));
+        // All the sheets at once: a formula of one may refer to another's cells (a sheet of totals over a sheet of figures).
+        SheetFormula.WriteValues([.. sheets.Select(s => (s.Name, s.Rows.Values.SelectMany(r => r.Values), true))]);
         // Asked for amounts in dollars, Kilo's free Nemotron wrote plain numbers and then took the
         // workbook apart to add the format by hand, twice, though the tool said how; said here, it
         // comes when it is needed.
@@ -93,12 +114,14 @@ internal static partial class XlsxWriter
         package.AddRelationships("", [("rId1", OfficePackage.OfficeDocument, "xl/workbook.xml", false), ("rId2", OfficePackage.CoreProperties, "docProps/core.xml", false)]);
         var rels = new List<(string, string, string, bool)>();
         var workbookSheets = new XElement(S + "sheets");
+        var charts = 0;
         for (var i = 0; i < sheets.Count; i++)
         {
             var id = $"rId{i + 1}";
             rels.Add((id, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet", $"worksheets/sheet{i + 1}.xml", false));
             workbookSheets.Add(new XElement(S + "sheet", new XAttribute("name", sheets[i].Name), new XAttribute("sheetId", i + 1), new XAttribute(OfficePackage.R + "id", id)));
-            package.Add($"xl/worksheets/sheet{i + 1}.xml", Worksheet(sheets[i]), "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
+            var drawn = Charts(package, sheets, i, ref charts, notes);
+            package.Add($"xl/worksheets/sheet{i + 1}.xml", Worksheet(sheets[i], drawn), "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
         }
         rels.Add(($"rId{sheets.Count + 1}", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles", "styles.xml", false));
         package.Add("xl/workbook.xml", new XDocument(new XElement(S + "workbook",
@@ -210,7 +233,48 @@ internal static partial class XlsxWriter
         return (text, null);
     }
 
-    private static XDocument Worksheet(Sheet sheet)
+    /// <summary>
+    /// The charts of sheet <paramref name="index"/> as parts of the package: each chart, the sheet's drawing that
+    /// holds them, to the right of its cells, one under another. False when it has none. A chart whose cells
+    /// can't be drawn is left out and said.
+    /// </summary>
+    /// <param name="made">How many charts the workbook has so far: their parts are numbered through it.</param>
+    private static bool Charts(OfficePackage package, List<Sheet> sheets, int index, ref int made, List<string> notes)
+    {
+        var sheet = sheets[index];
+        if (sheet.Charts.Count == 0)
+            return false;
+        SheetChart.Value Cell(string name, int row, int column) =>
+            sheets.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } on
+            && on.Rows.TryGetValue(row, out var cells) && cells.TryGetValue(column, out var cell) ? SheetChart.ValueOf(cell, []) : default;
+        var right = (sheet.Rows.Count == 0 ? 1 : sheet.Rows.Values.Max(r => r.Keys.Max())) + 2;
+        var anchors = new List<XElement>();
+        var relations = new List<(string, string, string, bool)>();
+        foreach (var (ask, cells) in sheet.Charts)
+        {
+            try
+            {
+                var series = SheetChart.SeriesOf(sheet.Name, cells, Cell);
+                made++;
+                package.Add($"xl/charts/chart{made}.xml", SheetChart.Chart(ask.Kind, ask.Title, series), SheetChart.ChartType);
+                relations.Add(($"rId{anchors.Count + 1}", SheetChart.ChartRel, $"../charts/chart{made}.xml", false));
+                anchors.Add(SheetChart.Anchor(anchors.Count + 1, $"rId{anchors.Count + 1}", 2 + anchors.Count * (SheetChart.RowsTall + 2), right));
+            }
+            catch (InvalidOperationException ex)
+            {
+                notes.Add($"The {ask.Kind} chart{(ask.Title is null ? "" : $" \"{ask.Title}\"")} was left out. {ex.Message}");
+            }
+        }
+        if (anchors.Count == 0)
+            return false;
+        package.Add($"xl/drawings/drawing{index + 1}.xml", SheetChart.Drawing(anchors), SheetChart.DrawingType);
+        package.AddRelationships($"xl/drawings/drawing{index + 1}.xml", relations);
+        package.AddRelationships($"xl/worksheets/sheet{index + 1}.xml", [("rId1", SheetChart.DrawingRel, $"../drawings/drawing{index + 1}.xml", false)]);
+        return true;
+    }
+
+    /// <param name="drawing">The sheet has charts: its drawing is its relationship rId1.</param>
+    private static XDocument Worksheet(Sheet sheet, bool drawing)
     {
         var rows = sheet.Rows.Select(r => new XElement(S + "row", new XAttribute("r", r.Key), r.Value.Values)).ToList();
         var lastColumn = sheet.Rows.Count == 0 ? 1 : sheet.Rows.Values.Max(r => r.Keys.Max());
@@ -226,7 +290,8 @@ internal static partial class XlsxWriter
             sheet.Widths.Count == 0 ? null : new XElement(S + "cols", sheet.Widths.OrderBy(w => w.Key).Select(w => new XElement(S + "col",
                 new XAttribute("min", w.Key), new XAttribute("max", w.Key),
                 new XAttribute("width", Math.Clamp(w.Value * 1.1 + 2, 8, 60).ToString("0.##", CultureInfo.InvariantCulture)), new XAttribute("customWidth", 1)))),
-            new XElement(S + "sheetData", rows)));
+            new XElement(S + "sheetData", rows),
+            drawing ? new XElement(S + "drawing", new XAttribute(OfficePackage.R + "id", "rId1")) : null));
     }
 
     /// <summary>"C7" for row 7, column 3.</summary>

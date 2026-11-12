@@ -109,13 +109,44 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   a plain row). A cell starting with `=` is a formula, and numbers, `12%`, `$1,200` and `2026-10-16`
   become values shown that way; a formula under amounts of money shows money. Excel works the
   formulas out on opening. Plain ones are written with their value too (`SheetFormula`: numbers, cells of the
-  sheet, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file without working
-  formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value"): a total showed as
-  an empty cell there (2026-11-10). Anything else (another sheet's cell, text, other functions, a division by zero, a
-  loop) has none, as before. An edit (`SheetEdit`) works them out again on every sheet of up to 5,000 formulas (more
+  sheet or of another, `Sales!B2`, + - * / and brackets, SUM, AVERAGE, MIN, MAX, COUNT, ROUND), for what shows a file
+  without working formulas out (Windows' previewer in the File inspector, the chat's card, read_file's "→ value", a
+  chart's own copy of its numbers): a total showed as an empty cell there (2026-11-10). Anything else (text, other
+  functions, a division by zero, a loop) has none, as before. Cells of another sheet since 2026-11-13
+  (`WriteValues` takes the workbook's sheets together): a sheet of totals over a sheet of figures is how a summary is
+  made, and its totals were all empty. An edit (`SheetEdit`) works them out again on every sheet of up to 5,000 formulas (more
   are left to Excel, as each edit would go over them all), so a total over a number
   changed shows its new value; one that can't be worked out here keeps Excel's last, and so do those that use it. A
   chain of formulas over 200 deep is left to Excel (`SheetFormula.MaxDepth`): followed from the top, 5,000 would overflow the stack.
+- **Charts in a workbook** (`SheetChart`, 2026-11-13). A line `chart: bar Sales by month` under a table draws that
+  table as a chart, and `chart: line A1:A13,E1:E13 Monthly totals` the cells it names; in `edit_file`, a line
+  `add chart pie A2:B6 Where the money goes` in new_text adds one to a workbook that is there (after the cells of
+  the same edit are set, so it can draw them). Bar (standing up, what people mean by a bar chart; "column" is the
+  same), line, pie (the first series, slices with their percentages) and area (stacked). The cells are laid out as
+  Excel lays a selection out: the first column the labels and each other column a series named by its top cell when
+  that is text, or by rows for cells wider than tall; blocks joined by commas are side by side with the same rows
+  or one under another with the same columns, the first the labels (`SeriesOf`). A real chart of Excel's own kind,
+  which follows the cells: the chart part (`xl/charts/chartN.xml`) names the cells and carries their values as
+  they are now, for what draws it without reading the cells; the sheet's drawing holds it 15 by 9 cm
+  (`oneCellAnchor`, so the columns' widths don't stretch it), two columns right of the sheet's cells, the next one
+  under it. Colours, a light frame and grid, grey text and a 14 pt title are written out, as a workbook made here has
+  no theme and the defaults without one are black lines and an 18 pt title. A chart whose cells hold no numbers is
+  left out and said (`write_file`) or refused (`edit_file`); a formula without a value here (one only Excel works out)
+  counts as a number to come. `read_file` says each chart with what it draws, `(chart: bar chart "Sales by month":
+  'Sales'!B2:B13 over 'Sales'!A2:A13)`, where it said `(1 chart)`.
+  *Why:* a workbook made here held cells only, and "a chart of the monthly totals" sent every model elsewhere: Haiku
+  and Sonnet looked for Python and matplotlib and wrote an SVG beside the workbook, Kilo's free Nemotron set about
+  installing ComfyUI, 2 GB, to generate a picture of a chart. *Checked:* in Excel 16 on the laptop through its
+  automation (`.dev/night-test/excel-check.ps1`: every chart there, its series, values and labels as written, each
+  exported as a picture; nothing repaired), on workbooks made here and on one Excel saved, and in LibreOffice (the
+  rig's, `--convert-to png`). Live, the same request ("12 months of made-up sales for three products, and a chart of
+  the monthly totals"): Haiku 20 s, Sonnet 17 s, Kilo's free Nemotron 337 s, each with a real chart in one write;
+  two charts added to an Excel-made workbook: Haiku, Sonnet 15 s, Qwen 114 s. Two things the runs changed. Haiku
+  put its totals on a second sheet by formulas across the two; they had no values here, its chart of them was
+  refused, and it typed the totals in as plain numbers: hence the other-sheet formulas above and the number to
+  come. And Haiku and Sonnet copied a row of totals into a column for a line chart, reading "the first column the
+  labels" as columns only, where Qwen wrote `B1:D1,B6:D6`: the tools now say rows work too.
+  Not there: a chart can't be changed or deleted in place (the model adds another), and no scatter chart.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide.

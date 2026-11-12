@@ -12,7 +12,8 @@ namespace Sloperator.Core.Documents;
 /// are emptied. Without cell addresses, old_text is text to find in the cells and replace. Values
 /// are typed as in Excel: formulas, numbers, percentages, money and dates keep their meaning, and a
 /// cell's own formatting stays. Lines "insert row 7" and "delete rows 3-4" in new_text change the
-/// rows first, as Excel does; asked to add a budget line above its total without them, qwen3.8
+/// rows first, as Excel does; a line "add chart bar A1:D13 Sales by month" adds a chart of those cells
+/// (SheetEdit.Charts.cs). Asked to add a budget line above its total without the row lines, qwen3.8
 /// wrote the new line over the total and the total below it, the new line in the total's bold.
 /// Excel works the formulas out again when it opens the file.
 /// </summary>
@@ -34,14 +35,16 @@ internal static partial class SheetEdit
         var now = Lines(newText);
         if (old?.Rows.Count > 0)
             throw new InvalidOperationException("Rows are inserted or deleted with a line in new_text (\"insert row 7\", \"delete rows 3-4\"), not in old_text.");
+        if (old?.Charts.Count > 0)
+            throw new InvalidOperationException("A chart is added with a line in new_text (\"add chart bar A1:D13 Sales by month\"), not in old_text.");
         var cellMode = now is not null && (oldText.Trim().Length == 0 || old is not null)
-            && (now.Value.Rows.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
-        return cellMode ? SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows) : ReplaceText(parts, sheets, oldText, newText, all);
+            && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
+        return cellMode ? SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts) : ReplaceText(parts, sheets, oldText, newText, all);
     }
 
     // ---- cells -----------------------------------------------------------------------------------------
 
-    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows)
+    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows, List<ChartLine> charts)
     {
         (string Name, string Part) SheetOf(string? name) =>
             name is null ? sheets[0]
@@ -130,17 +133,21 @@ internal static partial class SheetEdit
             Recalculate(parts);
             // Plain formulas get their new values here, for what shows the file without working them out. A sheet of
             // more formulas than a hand-made one has is left to Excel: each edit would go over all of them.
-            foreach (var sheet in sheets)
+            // The sheets together, as a formula of one may refer to another's cells; the ones left to Excel are only read.
+            var worked = sheets.Select(sheet => (sheet, Xml: parts.Get(sheet.Part)))
+                .Select(s => (s.sheet, s.Xml, Work: s.Xml.Descendants(S + "f").Take(MaxWorkedOut + 1).Count() is > 0 and <= MaxWorkedOut)).ToList();
+            if (worked.Any(w => w.Work))
             {
-                var xml = parts.Get(sheet.Part);
-                if (xml.Descendants(S + "f").Take(MaxWorkedOut + 1).Count() is 0 or > MaxWorkedOut)
-                    continue;
-                SheetFormula.WriteValues(xml.Descendants(S + "c"));
-                parts.Changed(sheet.Part);
+                SheetFormula.WriteValues([.. worked.Select(w => (w.sheet.Name, w.Xml.Descendants(S + "c"), w.Work))]);
+                foreach (var w in worked.Where(w => w.Work))
+                    parts.Changed(w.sheet.Part);
             }
         }
         if (changes.Count > 0)
             done.Add("set " + string.Join("; ", changes.GroupBy(c => c.Sheet.Name).Select(g => $"{string.Join(", ", g.Select(c => c.Cell))} on sheet \"{g.Key}\"")));
+        // Last, so a chart draws the cells as this edit leaves them: on the sheet named before its line, else the one its cells are on.
+        foreach (var chart in charts)
+            done.Add(AddChart(parts, sheets, SheetOf(chart.Sheet ?? chart.Ask.Ranges.FirstOrDefault()?.Sheet), chart.Ask, shared));
         var said = string.Join(", then ", done);
         return char.ToUpperInvariant(said[0]) + said[1..] + (formulas || rows.Count > 0 || others
             ? ". Plain formulas were worked out here; Excel works out the rest when it opens the file, and until then read_file shows the values they had."
@@ -158,10 +165,11 @@ internal static partial class SheetEdit
     /// "delete rows 3-4"), or null when the text isn't made of them. A line # Sheet "Name" sets the
     /// sheet of what follows it.
     /// </summary>
-    private static (List<CellLine> Cells, List<RowChange> Rows)? Lines(string text)
+    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts)? Lines(string text)
     {
         var cells = new List<CellLine>();
         var rows = new List<RowChange>();
+        var charts = new List<ChartLine>();
         string? sheet = null;
         foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
         {
@@ -182,6 +190,11 @@ internal static partial class SheetEdit
                 rows.Add(new RowChange(on, insert, from, to - from + 1));
                 continue;
             }
+            if (SheetChart.Parse(line, colon: false) is { } chart)
+            {
+                charts.Add(new ChartLine(sheet, chart));
+                continue;
+            }
             if (SheetHeader().Match(line) is { Success: true } header)
             {
                 sheet = header.Groups[1].Value.Trim();
@@ -200,7 +213,7 @@ internal static partial class SheetEdit
                 cells.Add(new CellLine(on, m.Groups["ref"].Value, value));
             }
         }
-        return cells.Count > 0 || rows.Count > 0 ? (cells, rows) : null;
+        return cells.Count > 0 || rows.Count > 0 || charts.Count > 0 ? (cells, rows, charts) : null;
     }
 
     /// <summary>What read_file shows of a cell: =formula, or the value.</summary>

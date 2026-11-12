@@ -241,6 +241,14 @@ internal sealed class PartSet(ZipArchive zip)
 
     public void Changed(string name) => _changed.Add(name);
 
+    /// <summary>A part the file doesn't have yet (a chart added to a workbook), saved with the changed ones.</summary>
+    public void Add(string name, XDocument xml)
+    {
+        _loaded[name] = xml;
+        _changed.Add(name);
+        _deleted.Remove(name);
+    }
+
     public void Delete(string name) => _deleted.Add(name);
 
     public void Save()
