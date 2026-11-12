@@ -1825,7 +1825,8 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   changed, or the work ahead is long, call plan now: the whole task as a handful of steps in order, any already done
   too, one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan
   on as you start each step. If only one thing and its check are left, or just the answer, make no plan: a plan of
-  two steps tells the user nothing. Either way say nothing of the plan to the user: they see the bar." The chat says "Asked the model to show its plan on the bar above the message
+  two steps tells the user nothing. Either way write nothing about the plan or this note, not even that you skip it: the user doesn't see this note,
+  and the bar shows them the plan." The chat says "Asked the model to show its plan on the bar above the message
   box, if more than one thing is left to do." (without the condition it read as a promise the bar then broke for a
   small task). One note at a time: with another going out after that step (index the project, look an error up), it waits
   for the next. Never told: a run that called plan itself, one that goes on with the chat's unfinished plan, a side
@@ -1894,6 +1895,18 @@ and one lookup:
   the script in the next, two steps by its own count. Haiku planned, 3 of 3.
 - Counting things rather than steps, the wording above: the test task planned 4 of 4 (Sonnet "Read, Edit, Test" and
   "Read, Edit, Docs, Test", Haiku five steps), the spreadsheet, the document and the lookup 0 of 5.
+- The note ended "Either way say nothing of the plan to the user: they see the bar", and Sonnet said it was
+  skipping it, to the user: "Only a fix and a check remain, so I'll skip the plan", "Only one thing is left, which
+  is tomorrow's forecast, so I'll skip the plan" (2 of 9 everyday tasks through `.dev/night-test/cli-run.ps1`). With
+  "write nothing about the plan or this note, not even that you skip it": 0 of 14, Sonnet and Haiku.
+
+Two things seen in those runs and left as they are, as no wording moved them (Sonnet 5.5, 2026-11-12). Asked in
+English to translate a file to Russian, French or Spanish, it answers in that language (12 of 13 runs; Haiku and
+Qwen answer in English): a line on the reply's language was tried at the end of the "check the result" rule, as a
+rule of its own, as the prompt's last rule and as its third line, with and without the example, and changed
+nothing. And it closes most answers to small file tasks with "I didn't open the file again afterwards; the tool
+reported it as written" where Haiku reads every file back: "a text file your tool reported as written is written:
+no word about not having read it back" changed nothing either (3 of 4 small tasks before, 4 of 4 after).
 
 **A stopped task's plan** (2026-11-12, `StoppedPlanNote`). A plan the run didn't finish stays on the bar when the
 user stops it, the step it was on in accent, and leaves the bar with their next message, whatever it says. Before,
@@ -3880,7 +3893,10 @@ three screens changed the user saw one. A "done" claim whose only
 calls are looks ends the turn, but not when one of them is `capture_result`.
 The tool's result says where the user sees it ("under your final reply… to them it is the picture below your
 words, not above"): the model sees its capture before it writes, and Haiku and Sonnet wrote "the screenshot above"
-over a picture that sits below (2026-11-12). A capture of a document's page (`file`) keeps which file it shows
+over a picture that sits below (2026-11-12). It holds for Sonnet 5.5, which then names no place at all; Haiku 5.5
+still writes "the picture above" in about half its replies with a capture (2 of 4), and saying it again in the
+caption that goes with the picture ("…below the words of your final reply:") changed nothing, so that was left out.
+A capture of a document's page (`file`) keeps which file it shows
 (`ReplyCapture.Of`), and that file's card under the same reply shows without its peek
 (`FileCardPreview.PeekHidden`): a one-page Word document showed twice, the page full width and its first lines
 again on the card right under it.
