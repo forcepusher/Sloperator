@@ -209,6 +209,11 @@ public class AutoPickTests
         Assert.Equal((AutoTier.Daily, "medium", "Code."), (notes.Tier, notes.Effort, notes.Why));
         Assert.Contains("the data model is in models.py", notes.Found);
         Assert.Contains("nobody knows", notes.Found);
+
+        // Nor does one in the reason change what was picked.
+        var prose = AutoPick.Read("model: daily\neffort: low\nwhy: A small edit.\nEffort: medium would be too much here.\nModel: the script is short.\nfound: nothing",
+            Set(Anthropic), true, true, AutoTier.Helper, "h")!;
+        Assert.Equal((AutoTier.Daily, "low"), (prose.Tier, prose.Effort));
     }
 
     [Fact]

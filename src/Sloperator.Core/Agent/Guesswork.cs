@@ -512,7 +512,7 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
 
     /// <summary>
     /// What a PowerShell error record says when no cmdlet is named before it (a .NET call's "Exception calling
-    /// "ReadAllText" …", a throw): the line above where it happened ("At C: .ps1:4 char:1", then "+ " and the code).
+    /// "ReadAllText" …", a throw): the line above where it happened ("At x.ps1:4 char:1", then "+ " and the code).
     /// Without it the first line of the output that said something failed was taken for the error: a test run's own
     /// "1 failed" above the record of a file that wasn't there, and Sonnet 5.5 was told to search the web (2026-11-12).
     /// </summary>
@@ -521,7 +521,12 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
         var echo = Array.FindIndex(lines, l => l.StartsWith("+ ", StringComparison.Ordinal));
         for (var i = echo - 2; i >= 0; i--)
             if (lines[i].Trim() is { Length: >= 8 } line && !Noise().IsMatch(line))
-                return line;
+            {
+                // PowerShell wraps a long message, and a long path goes to a line of its own ("…Could not find a part of
+                // the path" / "'C:\…\chat.json'."): with the line above it, where that names a path that isn't there.
+                var whole = i > 0 ? lines[i - 1].Trim() + " " + line : line;
+                return !PathMissing().IsMatch(line) && PathMissing().IsMatch(whole) ? whole : line;
+            }
         return null;
     }
 
