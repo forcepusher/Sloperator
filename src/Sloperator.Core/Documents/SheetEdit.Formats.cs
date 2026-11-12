@@ -153,7 +153,7 @@ internal static partial class SheetEdit
     }
 
     // "number format #,##0.00", "format code 0.0%", or the code alone: "#,##0", "0.00%", "$#,##0.00"
-    [GeneratedRegex(@"(?:\bnumber\s+format(?:\s+code)?|\bformat\s+code|\bcode)\s*[:=]?\s*(?<code>""[^""]+""|'[^']+'|\S+)|(?<![\w#$€£])(?<code>[$€£]?[#0](?:[#0,]*[#0])?(?:\.0+)?%?)(?![\w#])", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:\bnumber\s+format(?:\s+code)?|\bformat\s+code|\bcode)\s*[:=]?\s*(?<code>""[^""]+""|'[^']+'|\S+)|(?<![\w#$€£])(?!#[0-9a-f]{6}\b)(?<code>[$€£]?[#0](?:[#0,]*[#0])?(?:\.0+)?%?)(?![\w#])", RegexOptions.IgnoreCase)]
     private static partial Regex NumberCode();
 
     [GeneratedRegex(@"\b(?:(?:shown\s+|show\s+)?(?:in|as)\s+)?(?:us\s+)?(?:dollars?|usd)\b|\b(?:(?:in|as)\s+)?(?:currency|money)\b|(?:\bas\s+)?(?<![\w$])\$(?![\w#0-9])", RegexOptions.IgnoreCase)]
