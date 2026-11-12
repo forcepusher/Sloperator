@@ -364,7 +364,8 @@ there), a reference run after them, the comment in comments.xml (made with its r
 document has none) by "Sloperator", a fresh id. Found more than once, the one place that is a line of its own is taken;
 else it is refused. read_file already listed comments with the words they are on. Asked to comment on one word, Haiku
 and Sonnet had written comments.xml and the marks through PowerShell. Checked in Word 16, opened visible with every
-alert on: one comment on "roadworks" by Sloperator, nothing repaired.
+alert on: one comment on "roadworks" by Sloperator, nothing repaired. After, the same ask: Haiku 6 s and Sonnet 7 s,
+one edit_file each (24 and 25 s through PowerShell before).
 **A picture put in** (`WordPictures`, the same night): new_text lines `![The chart](C:\charts\sales.png)` after old_text
 as it is put the picture after the paragraph old_text ends in (before it, for lines before), or after the table whose
 row old_text gives as read_file shows it; with old_text empty, at the end of the body. Each a centred paragraph of its
