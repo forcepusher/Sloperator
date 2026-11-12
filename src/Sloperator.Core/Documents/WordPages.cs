@@ -27,17 +27,30 @@ internal static partial class WordPages
     public static string? Edit(PartSet parts, string newText)
     {
         var lines = new List<PageLine>();
+        var others = new List<string>();
+        string? first = null;
         foreach (var raw in newText.Replace("\r\n", "\n").Split('\n'))
         {
             var line = raw.Trim().TrimEnd('.');
             if (line.Length == 0)
                 continue;
-            if (Of(line) is not { } page)
-                return null;
-            lines.Add(page);
+            if (Of(line) is { } page)
+            {
+                lines.Add(page);
+                first ??= line;
+            }
+            else
+                others.Add(line);
         }
         if (lines.Count == 0 || !parts.Exists(Main))
             return null;
+        // Mixed with other lines, those went at the end of the document as text, the page lines with them: Haiku gave
+        // "page numbers at the bottom" and "headings: format: dark blue" together and had to take both out again (2026-11-13).
+        if (others.Count > 0)
+            throw new InvalidOperationException($"\"{first}\" sets every page's header or footer, and \"{others[0]}\" is no such line: give them in edits of their own. " +
+                (others[0].Contains("format:", StringComparison.OrdinalIgnoreCase)
+                    ? "To change how text looks, old_text is the text (\"headings\" for every heading) and new_text \"format: dark blue\"."
+                    : "Text to add at the end of the document goes in an edit by itself.") + " Nothing was changed.");
         var done = new List<string>();
         foreach (var group in lines.GroupBy(l => l.Header))
         {

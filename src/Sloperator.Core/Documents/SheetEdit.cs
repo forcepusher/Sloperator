@@ -76,6 +76,11 @@ internal static partial class SheetEdit
         if (rows.Count > 0 && oldCells.Count > 0)
             throw new InvalidOperationException("When inserting or deleting rows, leave old_text empty and give the cells to set, at their places after the change, in new_text.");
         var done = new List<string>();
+        // Rows go or move on the sheet named: with more than one, the first is no guess to make. Meaning the total
+        // row of a workbook's second sheet, Qwen wrote "delete rows 6" and a row of orders on the first went (2026-11-13).
+        if (sheets.Count > 1 && rows.FirstOrDefault(r => r.Sheet is null) is { } unnamed)
+            throw new InvalidOperationException($"This workbook has {sheets.Count} sheets ({string.Join(", ", sheets.Select(s => $"\"{s.Name}\""))}): say which one the rows are " +
+                $"{(unnamed.Insert ? "inserted" : "deleted")} on, as in \"{(unnamed.Insert ? "insert" : "delete")} row {unnamed.From} on \"{sheets[^1].Name}\"\", or put a line # Sheet \"{sheets[^1].Name}\" before it. Nothing was changed.");
         foreach (var change in rows)
         {
             var sheet = SheetOf(change.Sheet);
@@ -225,7 +230,12 @@ internal static partial class SheetEdit
         {
             var line = raw.Trim();
             if (line.Length == 0) continue;
-            if (RowLine().Match(line) is { Success: true } row)
+            // A row line with its sheet before it, as a format line has it: "'Revenue by region'!delete row 6".
+            var rowLine = line;
+            string? rowSheet = null;
+            if (LeadingSheet().Match(line) is { Success: true } lead && names.Contains(Unquoted(lead.Groups["sheet"].Value), StringComparer.OrdinalIgnoreCase) && RowLine().IsMatch(line[lead.Length..].TrimStart()))
+                (rowLine, rowSheet) = (line[lead.Length..].TrimStart(), Unquoted(lead.Groups["sheet"].Value));
+            if (RowLine().Match(rowLine) is { Success: true } row)
             {
                 var from = int.Parse(row.Groups["from"].Value, CultureInfo.InvariantCulture);
                 var to = row.Groups["to"].Success ? int.Parse(row.Groups["to"].Value, CultureInfo.InvariantCulture) : from;
@@ -239,7 +249,7 @@ internal static partial class SheetEdit
                 // 2-9999999" ran for minutes and out of memory, past where Excel's sheets end anyway.
                 if (to > MaxRow || insert && to - from + 1 > MaxInsert)
                     throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture, $"{line}: a sheet ends at row {MaxRow:N0}, and one line inserts at most {MaxInsert:N0} rows."));
-                var on = row.Groups["sheet"].Success ? Unquoted(row.Groups["sheet"].Value) : sheet;
+                var on = row.Groups["sheet"].Success ? Unquoted(row.Groups["sheet"].Value) : rowSheet ?? sheet;
                 rows.Add(new RowChange(on, insert, from, to - from + 1));
                 continue;
             }
