@@ -231,6 +231,15 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   centred title, one rule `=$F3>3000` drawing the rows over 3000 red after the title went in, amounts as $9,120.00.
   Not there: sorting by more than one column, data validation, protecting a sheet. A sheet of more formulas than
   `MaxWorkedOut` is sorted by the values Excel saved, its formulas left to Excel, as any edit leaves them.
+  **Columns put in and taken out** (`SheetEdit.Columns.cs`, the same night): `insert column C`, `insert columns C:D`,
+  `delete column D`, `delete columns B-C` (also "add"/"remove"), with the sheet named as for rows. The cells to the
+  right move over; every reference to them moves on any sheet (formulas, defined names, charts), as do merged cells,
+  the filter, highlight rules and their formulas, column widths (a new column as wide as the one to its left) and the
+  columns kept in view; a reference to a deleted column becomes #REF!. A new column's cells take the look of the
+  column to their left, as Excel's Insert does. A sheet with a table over the place is refused (a table names its
+  columns). Before, a column added mid-table meant writing every cell to its right one place over. Checked on the
+  Excel-saved orders workbook with a frozen header, a filter and a highlight: column C put in, then in Excel 16 the
+  filter A1:G73, the rule `=$G2>3000` over A2:G73, `=E2*F2` in G2 and the big orders still red.
   **Rows on the sheet named** (the same night): in a workbook of more than one sheet, `insert row`/`delete rows` with
   no sheet named (by `on "Name"`, `'Name'!delete row 6` or a `# Sheet` line before it) is refused, nothing changed,
   with the sheets listed. Meaning the total row of a workbook's second sheet, Qwen wrote `delete rows 6` and a row of
