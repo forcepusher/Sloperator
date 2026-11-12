@@ -191,6 +191,17 @@ public sealed class DocumentCaptureTests : IDisposable
             Assert.DoesNotContain("w:dirty", xml);
         }
 
+        // With page numbers in the same edit, as both models first gave them; "headings" among them is said to be another edit.
+        Assert.False((await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "second.docx", ["content"] = "# Annual review\n\n## A\n\nText of A.\n\n## B\n\nText." }, ctx, CancellationToken.None)).IsError);
+        Task<ToolResult> EditSecond(string newText) =>
+            new EditFileTool().ExecuteAsync(new JsonObject { ["path"] = "second.docx", ["old_text"] = "", ["new_text"] = newText }, ctx, CancellationToken.None);
+        var mixed = await EditSecond("page numbers at the bottom\ntable of contents\nheadings");
+        Assert.True(mixed.IsError);
+        Assert.Contains("old_text is the text (\"headings\" for every heading)", mixed.Text);
+        var both = await EditSecond("page numbers at the bottom\ntable of contents");
+        Assert.False(both.IsError, both.Text);
+        Assert.Contains("Set the footer of every page to: \"{page}\" on the centre; then added a table of contents after the title, listing its 2 headings", both.Text);
+
         // One there already is said; nothing to lay the pages out leaves the numbers to Word.
         Assert.Contains("has a table of contents already", (await Edit("", "table of contents")).Text);
         Assert.False((await new WriteFileTool().ExecuteAsync(new JsonObject { ["path"] = "review.docx", ["content"] = "# Annual review\n\n## A\n\nText." }, ctx, CancellationToken.None)).IsError);

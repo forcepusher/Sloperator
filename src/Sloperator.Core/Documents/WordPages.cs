@@ -48,7 +48,7 @@ internal static partial class WordPages
         // "page numbers at the bottom" and "headings: format: dark blue" together and had to take both out again (2026-11-13).
         if (others.Count > 0)
             throw new InvalidOperationException($"\"{first}\" sets every page's header or footer, and \"{others[0]}\" is no such line: give them in edits of their own. " +
-                (others[0].Contains("format:", StringComparison.OrdinalIgnoreCase)
+                (others[0].Contains("format:", StringComparison.OrdinalIgnoreCase) || Regex.IsMatch(others[0], @"^(?:all\s+)?(?:the\s+)?headings?\b", RegexOptions.IgnoreCase)
                     ? "To change how text looks, old_text is the text (\"headings\" for every heading) and new_text \"format: dark blue\"."
                     : "Text to add at the end of the document goes in an edit by itself.") + " Nothing was changed.");
         var done = new List<string>();
