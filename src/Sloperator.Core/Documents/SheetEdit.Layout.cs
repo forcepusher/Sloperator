@@ -236,8 +236,11 @@ internal static partial class SheetEdit
     {
         var xml = parts.Get(sheet.Part);
         var data = xml.Root!.Element(S + "sheetData") ?? throw new InvalidOperationException($"Sheet \"{sheet.Name}\" has no cells to sort.");
-        // Formulas get their values first, to sort by them.
-        SheetFormula.WriteValues([.. sheets.Select(s => (s.Name, parts.Get(s.Part).Descendants(S + "c"), s.Part == sheet.Part))]);
+        // Formulas get their values first, to sort by them: a sheet of more than a hand-made one has keeps the ones
+        // Excel saved, as an edit leaves such a sheet's formulas to Excel (MaxWorkedOut).
+        var work = xml.Descendants(S + "f").Take(MaxWorkedOut + 1).Count() <= MaxWorkedOut;
+        if (work)
+            SheetFormula.WriteValues([.. sheets.Select(s => (s.Name, parts.Get(s.Part).Descendants(S + "c"), s.Part == sheet.Part))]);
         var table = TableBox(xml, shared);
         int r1, c1, r2, c2;
         if (line.Groups["a"].Success)
@@ -331,7 +334,8 @@ internal static partial class SheetEdit
         Dimension(xml);
         parts.Changed(sheet.Part);
         Recalculate(parts);
-        SheetFormula.WriteValues([.. sheets.Select(s => (s.Name, parts.Get(s.Part).Descendants(S + "c"), s.Part == sheet.Part))]);
+        if (work)
+            SheetFormula.WriteValues([.. sheets.Select(s => (s.Name, parts.Get(s.Part).Descendants(S + "c"), s.Part == sheet.Part))]);
         var heading2 = data.Elements(S + "row").Where(r => (int?)r.Attribute("r") < (headed ? r1 + 1 : r1)).Reverse().SelectMany(r => r.Elements(S + "c"))
             .FirstOrDefault(c => Parse((string)c.Attribute("r")!).Column == column) is { } h && Shown(h, shared) is { Length: > 0 } named && !named.StartsWith('=') ? $" ({named})" : "";
         return $"sorted rows {(headed ? r1 + 1 : r1)}-{r2} of sheet \"{sheet.Name}\" by column {Letters(column)}{heading2}, {(descending ? "largest first" : "smallest first")}" +

@@ -465,7 +465,20 @@ internal sealed partial class Guesswork(Func<DateTime>? clock = null)
     internal static bool SaysItFailed(string text) => Doubts().IsMatch(Plain(text));
 
     /// <summary>Whether the user's message says the last result isn't right.</summary>
-    internal static bool UserDoubts(string text) => SaysItFailed(text) || UserSaysWrong().IsMatch(Plain(text));
+    /// <remarks>
+    /// "Instead of" in a sentence that asks for a change ("Make the numbers a bar chart instead of a table") is no
+    /// doubt: taken for one, Haiku and Sonnet were told the result wasn't right and searched the web, Haiku for
+    /// python-pptx, after they had made the change (2026-11-13). "It moves left instead of right" still is one.
+    /// </remarks>
+    internal static bool UserDoubts(string text)
+    {
+        var plain = ChangeInsteadOf().Replace(Plain(text), m => Regex.Replace(m.Value, @"\binstead of\b", "in place of", RegexOptions.IgnoreCase));
+        return SaysItFailed(plain) || UserSaysWrong().IsMatch(plain);
+    }
+
+    // A sentence that starts by asking for a change and has "instead of" in it.
+    [GeneratedRegex(@"(?:^|[.!?\n]\s*)(?:(?:please|now|also|and|then|ok|okay|great|thanks)[,!]?\s+)*(?:make|use|put|show|change|turn|set|add|write|give|convert|draw|display|switch|replace|move|keep|have|let|create|format|colou?r|do|go\s+with|try|swap|render|plot|chart|list|sort|send)\b[^.!?\n]*\binstead\s+of\b", RegexOptions.IgnoreCase)]
+    private static partial Regex ChangeInsteadOf();
 
     /// <summary>
     /// Tools that run code report its errors as their output: an MCP server's "Error executing
