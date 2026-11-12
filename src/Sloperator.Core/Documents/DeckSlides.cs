@@ -7,8 +7,8 @@ namespace Sloperator.Core.Documents;
 /// <summary>
 /// edit_file's lines that take slides out of a deck, move them or copy them, old_text empty: "delete slide 3",
 /// "delete slides 2-3", "move slide 4 to 1", "move slide 2 after slide 4", "move slide 5 to the end", "duplicate slide 2".
-/// Slides are numbered as read_file shows them, in the deck's order, and every line goes by that numbering as it was
-/// before the edit. Until then a deck that wasn't the model's own could only be changed slide by slide's text: taking
+/// Slides are numbered as read_file shows them, in the deck's order, each line by the numbering the line before left.
+/// Until then a deck that wasn't the model's own could only be changed slide by slide's text: taking
 /// one out meant rewriting presentation.xml, its relationships and content types by hand.
 /// </summary>
 internal static partial class DeckSlides
@@ -44,9 +44,6 @@ internal static partial class DeckSlides
 
         var presentation = parts.Get(Presentation);
         var list = presentation.Root!.Element(P + "sldIdLst") ?? throw new InvalidOperationException("The deck lists no slides.");
-        var slides = list.Elements(P + "sldId").ToList();
-        XElement SlideAt(int number) => number >= 1 && number <= slides.Count ? slides[number - 1]
-            : throw new InvalidOperationException($"There is no slide {number}: the deck has {slides.Count}. Nothing was changed.");
         var rels = parts.Get(PresentationRels);
         string PartOf(XElement sldId) => rels.Root!.Elements(Rel + "Relationship").FirstOrDefault(r => (string?)r.Attribute("Id") == (string?)sldId.Attribute(R + "id")) is { } r
             ? PartSet.Resolve("ppt", (string)r.Attribute("Target")!) : throw new InvalidOperationException("A slide of the deck has no part.");
@@ -58,56 +55,68 @@ internal static partial class DeckSlides
             return text.Length == 0 ? "" : $" (\"{text}\")";
         }
 
-        // Every line by the numbers as they were, resolved first.
+        // One line after the other, each by the slides' numbers as the line before left them, as a person does them:
+        // Haiku gave "delete slide 3", "move slide 2 to 1" and "duplicate slide 1" in one edit, meaning the chart slide
+        // it had just moved to the front (2026-11-13). The numbers within one line ("delete slides 2, 4") are as they
+        // were before that line.
         var done = new List<string>();
-        var deleting = lines.OfType<Delete>().SelectMany(d => d.Numbers).Distinct().Select(SlideAt).ToList();
-        if (deleting.Count >= slides.Count)
-            throw new InvalidOperationException("A deck keeps at least one slide: that would take out all of them. Nothing was changed.");
-        var plan = lines.Select(l => l switch
+        var touched = false;
+        foreach (var line in lines)
         {
-            Move m => (Line: l, Slide: SlideAt(m.Number), Other: m.Other is { } o ? SlideAt(o) : null),
-            Duplicate d => (Line: l, Slide: SlideAt(d.Number), Other: (XElement?)null),
-            _ => (Line: l, Slide: (XElement?)null, Other: (XElement?)null),
-        }).ToList();
-        var said = slides.ToDictionary(s => s, s => $"slide {slides.IndexOf(s) + 1}{TitleOf(s)}");
-
-        foreach (var (line, slide, other) in plan)
+            var slides = list.Elements(P + "sldId").ToList();
+            XElement SlideAt(int number) => number >= 1 && number <= slides.Count ? slides[number - 1]
+                : throw new InvalidOperationException($"There is no slide {number}: the deck has {slides.Count}{(done.Count > 0 ? " by then" : "")}. Nothing was changed.");
+            string Said(XElement slide) => $"slide {slides.IndexOf(slide) + 1}{TitleOf(slide)}";
             switch (line)
             {
+                case Delete d:
+                    var going = d.Numbers.Distinct().Select(SlideAt).ToList();
+                    if (going.Count >= slides.Count)
+                        throw new InvalidOperationException("A deck keeps at least one slide: that would take out all of them. Nothing was changed.");
+                    foreach (var slide in going)
+                    {
+                        var said = Said(slide);
+                        Remove(parts, presentation, rels, slide, PartOf(slide));
+                        done.Add($"deleted {said}");
+                    }
+                    touched = true;
+                    break;
                 case Move m:
-                    if (deleting.Contains(slide!) || other is not null && deleting.Contains(other))
-                        throw new InvalidOperationException("A slide is both taken out and moved: give one or the other. Nothing was changed.");
-                    slide!.Remove();
+                    var moving = SlideAt(m.Number);
+                    var other = m.Other is { } o ? SlideAt(o) : null;
+                    var was = Said(moving);
+                    if (other == moving)
+                        break;
+                    moving.Remove();
                     var now = list.Elements(P + "sldId").ToList();
                     switch (m.Where)
                     {
-                        case "start": list.AddFirst(slide); break;
-                        case "end": list.Add(slide); break;
-                        case "after": other!.AddAfterSelf(slide); break;
-                        case "before": other!.AddBeforeSelf(slide); break;
+                        case "start": list.AddFirst(moving); break;
+                        case "end": list.Add(moving); break;
+                        case "after": other!.AddAfterSelf(moving); break;
+                        case "before": other!.AddBeforeSelf(moving); break;
                         default:
                             // "to 3": the place it takes among the others.
                             var at = Math.Clamp(int.Parse(m.Where, CultureInfo.InvariantCulture), 1, now.Count + 1);
-                            if (at > now.Count) list.Add(slide);
-                            else now[at - 1].AddBeforeSelf(slide);
+                            if (at > now.Count) list.Add(moving);
+                            else now[at - 1].AddBeforeSelf(moving);
                             break;
                     }
-                    Sections(presentation, slide);
-                    done.Add($"moved {said[slide]} to place {list.Elements(P + "sldId").ToList().IndexOf(slide) + 1}");
+                    Sections(presentation, moving);
+                    done.Add($"moved {was} to place {list.Elements(P + "sldId").ToList().IndexOf(moving) + 1}");
                     break;
-                case Duplicate:
-                    Copy(parts, presentation, rels, slide!, PartOf(slide!));
-                    done.Add($"copied {said[slide!]} to a new slide after it");
+                case Duplicate c:
+                    var source = SlideAt(c.Number);
+                    var from = Said(source);
+                    Copy(parts, presentation, rels, source, PartOf(source));
+                    done.Add($"copied {from} to a new slide after it");
+                    touched = true;
                     break;
             }
-        foreach (var slide in deleting)
-        {
-            Remove(parts, presentation, rels, slide, PartOf(slide));
-            done.Add($"deleted {said[slide]}");
         }
         parts.Changed(Presentation);
         parts.Changed(PresentationRels);
-        if (deleting.Count > 0 || plan.Any(p => p.Line is Duplicate))
+        if (touched)
             parts.Changed("[Content_Types].xml");
         var count = list.Elements(P + "sldId").Count();
         var text2 = string.Join(", then ", done);

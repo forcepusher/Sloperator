@@ -344,7 +344,10 @@ other lines in one new_text are refused, nothing changed: as Haiku gave "page nu
 format: dark blue", both had gone in at the end of the document as text.
 **Slides taken out, moved and copied** (`DeckSlides`, the same night): with old_text empty, a deck's new_text lines
 `delete slide 3` (`delete slides 2-3`, `2, 4`), `move slide 4 to 1` (`to the start`, `to the end`, `after slide 2`,
-`before slide 2`) and `duplicate slide 2`, every line by the numbers read_file showed before the edit. Taking one out
+`before slide 2`) and `duplicate slide 2`, one line after the other, each by the numbers as the line before left them
+(the numbers of one line, "delete slides 2, 4", as they were before it): resolved all against the deck as it was,
+Haiku's "delete slide 3", "move slide 2 to 1", "duplicate slide 1" in one edit copied the title slide where it meant
+the chart slide it had just moved to the front, and it took four more edits to put right. Taking one out
 drops its place in the slide list, its relationship, its part with its notes and their content types, and any
 PowerPoint section or custom show entry naming it; a deck keeps at least one slide. A moved slide joins the section of
 the slide now before it, so each section's slides stay together; a copy goes right after its slide, in its section,
