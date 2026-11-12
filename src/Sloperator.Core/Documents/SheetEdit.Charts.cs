@@ -306,6 +306,10 @@ internal static partial class SheetEdit
     private static Func<string, int, int, SheetChart.Value> CellReader(PartSet parts, List<(string Name, string Part)> sheets, List<string> shared)
     {
         var read = new Dictionary<string, Dictionary<string, XElement>>(StringComparer.OrdinalIgnoreCase);
+        // Which cell formats are bold, for headings that are numbers (see SheetChart.SeriesOf).
+        var styles = parts.Exists("xl/styles.xml") ? parts.Get("xl/styles.xml").Root : null;
+        var fonts = styles?.Element(S + "fonts")?.Elements(S + "font").Select(f => f.Element(S + "b") is { } b && (string?)b.Attribute("val") is not ("0" or "false")).ToList() ?? [];
+        var bold = styles?.Element(S + "cellXfs")?.Elements(S + "xf").Select(xf => (int?)xf.Attribute("fontId") is { } font && font >= 0 && font < fonts.Count && fonts[font]).ToList() ?? [];
         return (name, row, column) =>
         {
             if (!read.TryGetValue(name, out var cells))
@@ -318,7 +322,9 @@ internal static partial class SheetEdit
                     if ((string?)c.Attribute("r") is { } at)
                         cells[at] = c;
             }
-            return SheetChart.ValueOf(cells.GetValueOrDefault(XlsxWriter.Reference(row, column)), shared);
+            if (!cells.TryGetValue(XlsxWriter.Reference(row, column), out var cell))
+                return default;
+            return SheetChart.ValueOf(cell, shared) with { Bold = (int?)cell.Attribute("s") is { } style && style >= 0 && style < bold.Count && bold[style] };
         };
     }
 

@@ -232,3 +232,104 @@ internal static partial class SheetEdit
     [GeneratedRegex(@"^\s*(?:fill|background|bg|highlight|shading)\b")]
     private static partial Regex FillAfter();
 }
+
+internal static partial class SheetEdit
+{
+    // ---- how wide columns are: "column A width 20", "autofit columns" --------------------------------------------------
+    // Asked to make column A about twice as wide (2026-11-13), Haiku wrote the width into the sheet's XML through
+    // PowerShell and Sonnet looked for Python, then drove Excel.
+
+    /// <summary>Columns <paramref name="Column1"/> to <paramref name="Column2"/> (0: to the last one used) made <paramref name="Width"/> characters wide, or (null) as wide as what they hold.</summary>
+    private sealed record WidthLine(string? Sheet, int Column1, int Column2, double? Width);
+
+    private static WidthLine? WidthOf(string line, string? sheet)
+    {
+        var text = line.Trim().TrimEnd('.');
+        static int Column(string letters) => letters.ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
+        if (ColumnWidth().Match(text) is { Success: true } m)
+        {
+            var on = m.Groups["sheet"].Success ? m.Groups["sheet"].Value.Trim('\'').Replace("''", "'") : sheet;
+            var (a, b) = (Column(m.Groups["a"].Value), m.Groups["b"].Success ? Column(m.Groups["b"].Value) : Column(m.Groups["a"].Value));
+            double? width = m.Groups["w"].Success ? double.Parse(m.Groups["w"].Value, CultureInfo.InvariantCulture) : null;
+            if (width is < 0 or > 255)
+                throw new InvalidOperationException($"{text}: a column is 0 to 255 characters wide (Excel's own are 8.43).");
+            return new WidthLine(on, Math.Min(a, b), Math.Max(a, b), width);
+        }
+        return FitAll().IsMatch(text) ? new WidthLine(sheet, 1, 0, null) : null;
+    }
+
+    /// <summary>The columns of a width line given their width in the sheet's column list, the ones around them left as they are; what was done.</summary>
+    private static string ApplyWidth(PartSet parts, (string Name, string Part) sheet, WidthLine line, List<string> shared)
+    {
+        var xml = parts.Get(sheet.Part);
+        var root = xml.Root!;
+        var data = root.Element(S + "sheetData") ?? throw new InvalidOperationException($"Sheet \"{sheet.Name}\" has no cells part.");
+        // How long what each column holds is, for a fit: a number shown with its format is a little longer than it is kept.
+        var longest = new Dictionary<int, int>();
+        foreach (var c in data.Elements(S + "row").Elements(S + "c"))
+        {
+            if ((string?)c.Attribute("r") is not { } at)
+                continue;
+            var column = Parse(at).Column;
+            var shown = c.Element(S + "f") is not null ? ((string?)c.Element(S + "v") ?? "").Length + 3 : Shown(c, shared).Split('\n').Max(l => l.Length) + (c.Attribute("t") is null ? 3 : 0);
+            longest[column] = Math.Max(longest.GetValueOrDefault(column), shown);
+        }
+        var last = line.Column2 > 0 ? line.Column2 : longest.Count > 0 ? longest.Keys.Max() : 1;
+        if (last - line.Column1 > 2000)
+            throw new InvalidOperationException("One line sets the width of at most 2,000 columns.");
+        var cols = root.Element(S + "cols");
+        if (cols is null)
+        {
+            cols = new XElement(S + "cols");
+            data.AddBeforeSelf(cols);
+        }
+        for (var column = line.Column1; column <= last; column++)
+        {
+            var width = line.Width ?? Math.Clamp(longest.GetValueOrDefault(column) * 1.1 + 2, 8.43, 60);
+            // The entry that covers this column, cut down to it: what it said of the columns beside it stays theirs.
+            var over = cols.Elements(S + "col").FirstOrDefault(c => ((int?)c.Attribute("min") ?? 0) <= column && column <= ((int?)c.Attribute("max") ?? 0));
+            XElement own;
+            if (over is null)
+                cols.Add(own = new XElement(S + "col", new XAttribute("min", column), new XAttribute("max", column)));
+            else
+            {
+                var (min, max) = ((int)over.Attribute("min")!, (int)over.Attribute("max")!);
+                own = over;
+                if (min < column)
+                {
+                    var before = new XElement(over);
+                    before.SetAttributeValue("max", column - 1);
+                    over.AddBeforeSelf(before);
+                }
+                if (max > column)
+                {
+                    var after = new XElement(over);
+                    after.SetAttributeValue("min", column + 1);
+                    over.AddAfterSelf(after);
+                }
+                own.SetAttributeValue("min", column);
+                own.SetAttributeValue("max", column);
+            }
+            own.SetAttributeValue("width", width.ToString("0.##", CultureInfo.InvariantCulture));
+            own.SetAttributeValue("customWidth", 1);
+            own.Attribute("hidden")?.Remove();
+        }
+        var sorted = cols.Elements(S + "col").OrderBy(c => (int?)c.Attribute("min") ?? 0).ToList();
+        cols.ReplaceNodes(sorted);
+        parts.Changed(sheet.Part);
+        var named = line.Column1 == last ? $"column {Letters(line.Column1)}" : $"columns {Letters(line.Column1)}-{Letters(last)}";
+        return line.Width is { } set
+            ? $"made {named} of sheet \"{sheet.Name}\" {set.ToString("0.##", CultureInfo.InvariantCulture)} wide"
+            : $"fitted {named} of sheet \"{sheet.Name}\" to what {(line.Column1 == last ? "it holds" : "they hold")}";
+    }
+
+    private static string Letters(int column) => XlsxWriter.Reference(1, column).TrimEnd('1');
+
+    // "column A width 20", "columns B:D width 12.5", "set column A to width 18", "column C autofit", "Budget!A width 30"
+    [GeneratedRegex(@"^(?:set\s+|make\s+)?(?:the\s+)?(?:width\s+of\s+)?columns?\s+(?:(?<sheet>'(?:[^']|'')+'|[^\s!'|""]+)!)?(?<a>[A-Za-z]{1,3})(?:\s*(?::|-|to)\s*(?<b>[A-Za-z]{1,3}))?\s*(?:to\s+|:\s*|=\s*)?(?:(?:a\s+)?width\s*(?:of\s+|to\s+|=\s*|:\s*)?(?<w>[0-9]+(?:\.[0-9]+)?)|(?<w>[0-9]+(?:\.[0-9]+)?)\s*(?:wide|characters?(?:\s+wide)?)|auto-?fit(?:ted)?|fit(?:ted)?(?:\s+to\s+(?:its|their)\s+(?:content|text)s?)?|auto(?:matic)?\s+width)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ColumnWidth();
+
+    // "autofit columns", "fit all columns", "auto-fit the columns"
+    [GeneratedRegex(@"^(?:auto-?fit|fit|autosize)\s+(?:all\s+)?(?:the\s+)?columns?(?:\s+to\s+(?:their\s+)?(?:content|text)s?)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FitAll();
+}

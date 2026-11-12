@@ -66,6 +66,8 @@ internal sealed class OfficePackage
                 "png" => "image/png",
                 "jpg" or "jpeg" => "image/jpeg",
                 "gif" => "image/gif",
+                // A chart's own workbook, kept in a deck for PowerPoint's Edit Data.
+                "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 _ => "application/octet-stream",
             })));
         foreach (var part in _parts.Where(p => p.ContentType is not null && !p.Name.EndsWith(".rels", StringComparison.Ordinal)))

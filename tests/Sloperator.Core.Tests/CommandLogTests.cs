@@ -10,7 +10,7 @@ public sealed class CommandLogTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-commands-").FullName;
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    public void Dispose() => TestFolder.Delete(_dir);
 
     private ToolContext Ctx(CommandLog log) => new() { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = _dir, Commands = log };
 

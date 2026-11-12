@@ -22,7 +22,7 @@ internal sealed class PptxWriter
     private readonly OfficePackage _package = new();
     private readonly Func<string, string> _resolve;
     private readonly List<string> _notes;
-    private int _media;
+    private int _media, _charts;
 
     private PptxWriter(Func<string, string> resolve, List<string> notes) => (_resolve, _notes) = (resolve, notes);
 
@@ -130,6 +130,8 @@ internal sealed class PptxWriter
             tree.Add(Placeholder(shapeId++, "Title", new XElement(P + "ph", new XAttribute("type", titleSlide ? "ctrTitle" : "title")), null,
                 [Paragraph(title.Text, 0, rels, bullet: null, size: null)]));
 
+        var charts = new List<(TableBlock Table, SheetChart.Ask Ask)>();
+        content = Charts(content, charts);
         var texts = content.Where(b => b is ParagraphBlock or ListItemBlock or QuoteBlock or CodeBlock or HeadingBlock).ToList();
         var tables = content.OfType<TableBlock>().Where(t => t.Columns > 0).ToList();
         var pictures = content.OfType<ImageBlock>().Select(LoadPicture).OfType<(DocPicture Picture, string Alt)>().ToList();
@@ -145,6 +147,8 @@ internal sealed class PptxWriter
             // Text on the left when there is a picture or a table too; the table under it when there is room.
             var (textArea, sideArea) = texts.Count == 0 ? ((0L, 0L, 0L, 0L), (Left, Top, Width, Height))
                 : pictures.Count > 0 ? ((Left, Top, Width * 55 / 100, Height), (Left + Width * 58 / 100, Top, Width * 42 / 100, Height))
+                // A chart beside its text takes the wider part: its bars and their labels need the room.
+                : charts.Count > 0 && tables.Count == 0 ? ((Left, Top, Width * 38 / 100, Height), (Left + Width * 41 / 100, Top, Width * 59 / 100, Height))
                 : tables.Count > 0 ? ((Left, Top, Width, Height * 35 / 100), (Left, Top + Height * 38 / 100, Width, Height * 62 / 100))
                 : ((Left, Top, Width, Height), (0L, 0L, 0L, 0L));
             if (texts.Count > 0)
@@ -157,7 +161,7 @@ internal sealed class PptxWriter
                 tree.Add(Placeholder(shapeId++, "Content", new XElement(P + "ph", new XAttribute("idx", 1)), place, paragraphs));
             }
             var area = sideArea;
-            var items = tables.Count + pictures.Count;
+            var items = tables.Count + pictures.Count + charts.Count;
             if (items > 0)
             {
                 // Side by side when they are pictures beside text, else one under the other.
@@ -179,6 +183,18 @@ internal sealed class PptxWriter
                     rels.Add((id, OfficePackage.ImageRel, media, false));
                     _package.Add($"ppt/media/image{_media}.{picture.Picture.Extension}", picture.Picture.Data);
                     tree.Add(Picture(shapeId++, id, picture, x, y, w, h));
+                    k++;
+                }
+                foreach (var (table, ask) in charts)
+                {
+                    var (x, y, w, h) = across ? (area.Item1 + k * (each + gap), area.Item2, each, area.Item4) : (area.Item1, area.Item2 + k * (each + gap), area.Item3, each);
+                    // A chart called what its slide is called says it once: the slide's title is right above it.
+                    var named = title is not null && string.Equals(ask.Title, MarkdownDocument.Plain(title.Text).Trim(), StringComparison.OrdinalIgnoreCase) ? ask with { Title = null } : ask;
+                    if (Chart(shapeId, table, named, x, y, w, h, rels) is { } frame)
+                    {
+                        tree.Add(frame);
+                        shapeId++;
+                    }
                     k++;
                 }
             }
@@ -332,6 +348,93 @@ internal sealed class PptxWriter
                 new XElement(P + "nvPr")),
             new XElement(P + "xfrm", new XElement(A + "off", new XAttribute("x", x), new XAttribute("y", y)), new XElement(A + "ext", new XAttribute("cx", width), new XAttribute("cy", rowHeight * t.Rows.Count))),
             new XElement(A + "graphic", new XElement(A + "graphicData", new XAttribute("uri", "http://schemas.openxmlformats.org/drawingml/2006/table"), table)));
+    }
+
+    // ---- charts ----------------------------------------------------------------------------------------
+    // "chart: bar Sales by region" under a table, as in a workbook's Markdown: asked for a deck with a bar chart
+    // (2026-11-13), Haiku and Sonnet both wrote exactly that, and the line came out as text on the slide. Haiku then
+    // stopped to ask whether to install Python; Sonnet got there through PowerPoint's automation in 82 s and 22 calls.
+
+    /// <summary>
+    /// The slide's blocks without its chart lines and without the tables they draw, which go into
+    /// <paramref name="charts"/>: on a slide the chart stands for its table, whose numbers it shows.
+    /// </summary>
+    private List<Block> Charts(List<Block> content, List<(TableBlock Table, SheetChart.Ask Ask)> charts)
+    {
+        var kept = new List<Block>();
+        TableBlock? above = null;
+        foreach (var block in content)
+        {
+            if (block is TableBlock { Columns: > 0 } table)
+                above = table;
+            if (block is not (ParagraphBlock or ListItemBlock))
+            {
+                kept.Add(block);
+                continue;
+            }
+            var text = block is ParagraphBlock p ? p.Text : ((ListItemBlock)block).Text;
+            var lines = new List<IReadOnlyList<Span>>();
+            foreach (var line in XlsxWriter.SplitLines(text))
+            {
+                if (SheetChart.Parse(MarkdownDocument.Plain(line), colon: true) is not { } ask)
+                    lines.Add(line);
+                else if (above is null)
+                    _notes.Add($"The {ask.Kind} chart was left out: its line has no table above it on the slide to draw.");
+                else
+                {
+                    charts.Add((above, ask));
+                    kept.Remove(above);
+                }
+            }
+            if (lines.Count == 0)
+                continue;
+            var spans = lines.SelectMany((l, i) => i == 0 ? l : l.Prepend(new Span("\n"))).ToList();
+            kept.Add(block is ListItemBlock item ? item with { Text = spans } : new ParagraphBlock(spans));
+        }
+        return kept;
+    }
+
+    /// <summary>
+    /// A table of the slide as a chart of PowerPoint's own kind (<see cref="SheetChart"/>): its part, and the workbook
+    /// of its numbers kept with it, which Edit Data in PowerPoint opens. Null, and said, when the table has no numbers.
+    /// </summary>
+    private XElement? Chart(int id, TableBlock table, SheetChart.Ask ask, long x, long y, long width, long height, List<(string Id, string Type, string Target, bool External)> rels)
+    {
+        SheetChart.Value Cell(string sheet, int row, int column)
+        {
+            if (row > table.Rows.Count || column > table.Rows[row - 1].Count)
+                return default;
+            var text = MarkdownDocument.Plain(table.Rows[row - 1][column - 1]).Trim();
+            // The table's heading row counts as bold: years over figures are their columns' names, not their first values.
+            var heading = row == 1 && table.Header;
+            return text.Length == 0 ? default : XlsxWriter.Value(text).Value is double number ? new SheetChart.Value(null, number, Bold: heading) : new SheetChart.Value(text, null, Bold: heading);
+        }
+        List<SheetChart.Series> series;
+        try
+        {
+            series = SheetChart.SeriesOf("Sheet1", [new SheetChart.Cells(null, 1, 1, table.Rows.Count, table.Columns)], Cell);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _notes.Add($"The {ask.Kind} chart{(ask.Title is null ? "" : $" \"{ask.Title}\"")} was left out. {ex.Message}");
+            return null;
+        }
+        var number = ++_charts;
+        _package.Add($"ppt/charts/chart{number}.xml", SheetChart.Chart(ask.Kind, ask.Title, series, workbook: "rId1", points: 14), SheetChart.ChartType);
+        _package.Add($"ppt/embeddings/Microsoft_Excel_Sheet{number}.xlsx", XlsxWriter.Write([table], []));
+        _package.AddRelationships($"ppt/charts/chart{number}.xml",
+            [("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package", $"../embeddings/Microsoft_Excel_Sheet{number}.xlsx", false)]);
+        var relation = $"rId{rels.Count + 1}";
+        rels.Add((relation, SheetChart.ChartRel, $"../charts/chart{number}.xml", false));
+        XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+        return new XElement(P + "graphicFrame",
+            new XElement(P + "nvGraphicFramePr",
+                new XElement(P + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Chart {id - 1}")),
+                new XElement(P + "cNvGraphicFramePr", new XElement(A + "graphicFrameLocks", new XAttribute("noGrp", 1))),
+                new XElement(P + "nvPr")),
+            new XElement(P + "xfrm", new XElement(A + "off", new XAttribute("x", x), new XAttribute("y", y)), new XElement(A + "ext", new XAttribute("cx", width), new XAttribute("cy", height))),
+            new XElement(A + "graphic", new XElement(A + "graphicData", new XAttribute("uri", c.NamespaceName),
+                new XElement(c + "chart", new XAttribute(XNamespace.Xmlns + "c", c), new XAttribute(R + "id", relation)))));
     }
 
     private (DocPicture Picture, string Alt)? LoadPicture(ImageBlock image)

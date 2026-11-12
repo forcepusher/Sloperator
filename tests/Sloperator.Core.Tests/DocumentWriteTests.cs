@@ -419,6 +419,18 @@ public class DocumentWriteTests : IDisposable
         Assert.Contains("First part.\nSecond part.", (await Read("notes.docx")).ReplaceLineEndings("\n"));
 
         Assert.True((await Write("theirs.docx", "More.", append: true)).IsError);
+
+        // One made here and then changed with edit_file is still the model's own to write again whole (Sonnet's
+        // deck, 2026-11-13: "isn't one you wrote in this task"), though no longer to append to; one of the user's
+        // doesn't become the model's by being edited.
+        Assert.False((await Edit("notes.docx", "First part.", "First part, changed.")).IsError);
+        var again = await Write("notes.docx", "# Notes\n\nAll of it anew.");
+        Assert.False(again.IsError, again.Text);
+        Assert.Contains("Overwrote", again.Text);
+        Assert.False((await Edit("notes.docx", "All of it anew.", "All of it, edited.")).IsError);
+        Assert.True((await Write("notes.docx", "A third part.", append: true)).IsError);
+        Assert.False((await Edit("theirs.docx", "Theirs", "Theirs still")).IsError);
+        Assert.True((await Write("theirs.docx", "# Mine")).IsError);
     }
 
     private async Task<string> Make(string name, string markdown)

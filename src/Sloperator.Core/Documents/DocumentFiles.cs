@@ -39,7 +39,13 @@ internal static partial class DocumentFiles
     /// its file was. The last ones made: kept for the process's life, every document's whole text
     /// only added up.
     /// </summary>
-    private static readonly RecentMap<string, (string Hash, string Markdown)> Made = new(64, StringComparer.OrdinalIgnoreCase);
+    /// <remarks>
+    /// Without its Markdown once edit_file has changed it: still the model's own to write again whole, but no
+    /// longer what its Markdown said, so not to append to. Until 2026-11-13 an edit made it a stranger's: Sonnet
+    /// made a deck, changed a line of it with edit_file, went to write it again and was told the file "isn't one
+    /// you wrote in this task, so it may be the user's own".
+    /// </remarks>
+    private static readonly RecentMap<string, (string Hash, string? Markdown)> Made = new(64, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Makes the document at <paramref name="path"/> from Markdown; returns what to tell the model.
@@ -51,11 +57,11 @@ internal static partial class DocumentFiles
         var kind = WriteKind(path) ?? throw new ArgumentException("not a document", nameof(path));
         var name = Path.GetFileName(path);
         var existed = File.Exists(path);
-        (string Hash, string Markdown) made = ("", "");
+        (string Hash, string? Markdown) made = ("", "");
         var ours = existed && Made.TryGet(path, out made) && made.Hash == Hash(File.ReadAllBytes(path));
         if (append)
         {
-            if (!ours)
+            if (!ours || made.Markdown is null)
                 throw new InvalidOperationException($"append adds to a document write_file made in this task, unchanged since. To add to {name}, " +
                     (kind == "pdf" ? "write it again whole." : "use edit_file: old_text its last paragraph, new_text that paragraph and what comes after it."));
             markdown = made.Markdown.TrimEnd() + "\n\n" + markdown;
@@ -151,8 +157,13 @@ internal static partial class DocumentFiles
         {
             throw new InvalidOperationException($"{Path.GetFileName(path)} could not be read as a document: {ex.Message}", ex);
         }
-        Save(path, buffer.ToArray());
-        Made.Remove(path);
+        var edited = buffer.ToArray();
+        Save(path, edited);
+        // One made here stays the model's own after its own edit, to write again whole; a file that was there doesn't become it.
+        if (Made.TryGet(path, out var made) && made.Hash == Hash(original))
+            Made.Set(path, (Hash(edited), null));
+        else
+            Made.Remove(path);
         return $"Edited {path}: {message}";
     }
 

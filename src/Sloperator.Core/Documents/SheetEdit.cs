@@ -43,19 +43,19 @@ internal static partial class SheetEdit
         var now = Lines(newText);
         if (old?.Rows.Count > 0)
             throw new InvalidOperationException("Rows are inserted or deleted with a line in new_text (\"insert row 7\", \"delete rows 3-4\"), not in old_text.");
-        if (old?.Formats.Count > 0)
-            throw new InvalidOperationException("Cells are formatted with a line in new_text (\"format A1:E1 bold, yellow fill\"), not in old_text.");
+        if (old?.Formats.Count > 0 || old?.Widths.Count > 0)
+            throw new InvalidOperationException("Cells are formatted and columns made wider with a line in new_text (\"format A1:E1 bold, yellow fill\", \"column A width 20\"), not in old_text.");
         if (old?.Charts.Count > 0 || old?.Gone.Count > 0)
             throw new InvalidOperationException("A chart is added or deleted with a line in new_text (\"add chart bar A1:D13 Sales by month\", \"delete chart 2\"), not in old_text; " +
                                                 "to change one, name it in old_text (\"chart 2\", or its title) and give its new line in new_text (\"chart: line Monthly totals\").");
         var cellMode = now is not null && (oldText.Trim().Length == 0 || old is not null)
-            && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Gone.Count > 0 || now.Value.Formats.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
-        return cellMode ? SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats) : ReplaceText(parts, sheets, oldText, newText, all);
+            && (now.Value.Rows.Count > 0 || now.Value.Charts.Count > 0 || now.Value.Gone.Count > 0 || now.Value.Formats.Count > 0 || now.Value.Widths.Count > 0 || now.Value.Cells.Concat(old?.Cells ?? []).Any(c => c.Value is not null));
+        return cellMode ? SetCells(parts, sheets, old?.Cells ?? [], now!.Value.Cells, now.Value.Rows, now.Value.Charts, now.Value.Gone, now.Value.Formats, now.Value.Widths) : ReplaceText(parts, sheets, oldText, newText, all);
     }
 
     // ---- cells -----------------------------------------------------------------------------------------
 
-    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows, List<ChartLine> charts, List<ChartTarget> gone, List<FormatLine> looks)
+    private static string SetCells(PartSet parts, List<(string Name, string Part)> sheets, List<CellLine> oldCells, List<CellLine> newCells, List<RowChange> rows, List<ChartLine> charts, List<ChartTarget> gone, List<FormatLine> looks, List<WidthLine> widths)
     {
         (string Name, string Part) SheetOf(string? name) =>
             name is null ? sheets[0]
@@ -159,6 +159,9 @@ internal static partial class SheetEdit
         // How cells look ("format A1:E1 bold, yellow fill"), once they hold what this edit gives them.
         foreach (var format in looks)
             done.Add(ApplyFormat(parts, SheetOf(format.Sheet), format));
+        // And how wide their columns are ("column A width 20", "autofit columns"), fitted to what the cells hold now.
+        foreach (var width in widths)
+            done.Add(ApplyWidth(parts, SheetOf(width.Sheet), width, shared));
         // Charts last, so one draws the cells as this edit leaves them. Those to delete ("delete chart 2") first, all
         // found before any goes, as deleting one moves the numbers of those after it.
         foreach (var chart in gone.Select(g => Find(Charts(parts, sheets), g)).ToList())
@@ -183,13 +186,14 @@ internal static partial class SheetEdit
     /// "delete rows 3-4"), or null when the text isn't made of them. A line # Sheet "Name" sets the
     /// sheet of what follows it.
     /// </summary>
-    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats)? Lines(string text)
+    private static (List<CellLine> Cells, List<RowChange> Rows, List<ChartLine> Charts, List<ChartTarget> Gone, List<FormatLine> Formats, List<WidthLine> Widths)? Lines(string text)
     {
         var cells = new List<CellLine>();
         var rows = new List<RowChange>();
         var charts = new List<ChartLine>();
         var gone = new List<ChartTarget>();
         var formats = new List<FormatLine>();
+        var widths = new List<WidthLine>();
         string? sheet = null;
         foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
         {
@@ -225,6 +229,11 @@ internal static partial class SheetEdit
                 formats.Add(format);
                 continue;
             }
+            if (WidthOf(line, sheet) is { } width)
+            {
+                widths.Add(width);
+                continue;
+            }
             if (SheetHeader().Match(line) is { Success: true } header)
             {
                 sheet = header.Groups[1].Value.Trim();
@@ -243,7 +252,7 @@ internal static partial class SheetEdit
                 cells.Add(new CellLine(on, m.Groups["ref"].Value, value));
             }
         }
-        return cells.Count > 0 || rows.Count > 0 || charts.Count > 0 || gone.Count > 0 || formats.Count > 0 ? (cells, rows, charts, gone, formats) : null;
+        return cells.Count > 0 || rows.Count > 0 || charts.Count > 0 || gone.Count > 0 || formats.Count > 0 || widths.Count > 0 ? (cells, rows, charts, gone, formats, widths) : null;
     }
 
     /// <summary>What read_file shows of a cell: =formula, or the value.</summary>

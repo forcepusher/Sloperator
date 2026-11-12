@@ -174,9 +174,29 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   without Office doesn't have. After: both one edit_file call, 16 and 10 s. Read back through Excel 16
   (`.dev/night-test/excel-look.ps1`): fill, bold, italic, text colour, alignment and borders as asked, amounts still
   shown as money.
+  **Column widths** the same day: `column A width 20`, `columns B:D width 12.5`, `column C autofit`, `autofit
+  columns` (`WidthOf`/`ApplyWidth`). The sheet's column list is cut around the columns named, so the widths of
+  those beside them stay; a fit is the longest text of the column times 1.1 plus 2, between 8.43 and 60, as a
+  workbook written here sizes its own. Asked for column A "about twice as wide", Haiku had written the width into
+  the sheet's XML through PowerShell and Sonnet had gone to Excel by way of Python; after, one line each.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
-  is a title slide.
+  is a title slide. **A chart on a slide** (2026-11-13): a line `chart: bar Sales by region` under a table shows the
+  table as that chart, in the table's place (`PptxWriter.Charts`/`Chart`, the workbook's `SheetChart`): a chart of
+  PowerPoint's own kind with its numbers in it and the table as a small workbook kept with it
+  (`ppt/embeddings/Microsoft_Excel_SheetN.xlsx`, which PowerPoint's Edit Data opens), text at 14 pt, nothing drawn
+  around it, beside the slide's text when it has any (the chart takes 59% of the width). A chart called what its
+  slide is called has no title of its own under the slide's. read_file says a slide's chart with its numbers
+  (`(chart: bar chart: Q3 Sales: North 120, South 95, East 143, West 88)`, `SheetChart.DescribeData`): they are
+  nowhere else on the slide. *Why:* asked for "3 slides on Q3 sales with a bar chart of sales by region", Haiku
+  and Sonnet both wrote exactly that line under a table, as in a workbook, and it came out as text on the slide;
+  Haiku then stopped to ask whether to install Python, and Sonnet got a chart through PowerPoint's automation in
+  82 s and 22 calls, leaving a script and a picture in the user's folder. After: one write_file, 7 and 9 s; a
+  line chart beside two bullets and a pie, 11 s. Opened in PowerPoint 16 (`.dev/night-test/ppt-check.ps1`):
+  charts there, Edit Data opens the workbook, slides exported and looked at.
+  Headings that are numbers: "Month | 2025 | 2026" drew 2025 and 2026 as each line's first value. A heading is
+  text over the values, or (`Value.Bold`) bold over cells that aren't: the heading row of a table written here,
+  bold cells of a workbook that is there.
 - `.pdf`: wrapped text, tables whose header row repeats on each page, and page numbers. Plain ASCII
   uses the reader's own Helvetica, a few KB; anything else embeds a system font with only the
   letters used.
@@ -184,7 +204,10 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
 An existing document isn't overwritten, since that would lose its formatting; `append` adds to one
 made in the same task. The refusal says it may be the user's own, names a new name to write to
 (`letter (2).docx`), and to replace it only when the user asked: it used to say "delete it first",
-and Nemotron, asked for a cover letter on the Desktop, deleted the one already there without asking. `edit_file` changes Word and PowerPoint files in place: the text is matched
+and Nemotron, asked for a cover letter on the Desktop, deleted the one already there without asking.
+One made in the task stays the model's own after its own `edit_file` (`DocumentFiles.Made` keeps the edited file's
+hash, without its Markdown, so it can be written again whole but not appended to): Sonnet made a deck, changed a
+line of it, went to write it again and was told it "isn't one you wrote in this task" (2026-11-13). `edit_file` changes Word and PowerPoint files in place: the text is matched
 across Word's runs and paragraphs (copied from `read_file` with its `# ` and `**` marks or without),
 curly quotes match straight ones, and only what differs is replaced, so the rest keeps its
 formatting. A line break in the new text starts a paragraph like the one it is in, `# ` at its
@@ -4133,7 +4156,9 @@ open, only a fresh hidden one is quit: Quit and Close are called bare, as PowerS
 for their by-reference arguments, and the first try left Word running hidden. A file marked as
 downloaded from the internet isn't opened (Office would open it in Protected View only: a remote
 template can send the sign-in hash). Pages are cut to what is on them, 24 px of white around, so a short
-table isn't a sheet of paper. The capture keeps the file and page (`capture-N.json`), so the after of a
+table isn't a sheet of paper; a slide is drawn whole (`DocumentPictures.Slides`, 2026-11-13: cut to what it showed,
+a pie in the middle of its slide was a pie at the right of a picture that began at the title's left edge, and Sonnet
+set about filling "the empty left half", putting bullets into the title). The capture keeps the file and page (`capture-N.json`), so the after of a
 before is `compare` alone: the same page of the same document drawn again. Why a document can't be drawn
 (no Office or LibreOffice, a page it hasn't) is an argument error for the model.
 LibreOffice is found installed (Program Files, its App Paths entry) or unpacked into Sloperator's tools
