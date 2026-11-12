@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Joining and splitting PDFs.** The agent can join PDFs into one, take pages out of one, or put them in another
   order, by itself, and make a PDF of a Word document, a workbook or slides as they print (with Office or
   LibreOffice on the PC). It used to ask whether to download a program for it, or download one.
+- **Pictures in Word documents you have.** The agent can put a picture after a paragraph or a table, or at the end.
 - **Formatting in Word documents and slides.** The agent can centre a title, change the size and colour of text,
   make it bold, italic or underlined, and shade the rows of a table, in a document or deck that is already there.
   It used to take the file apart and rewrite its insides by hand.

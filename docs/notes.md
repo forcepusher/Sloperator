@@ -354,6 +354,13 @@ and Sonnet 40 s, all through edit_file (they had rewritten the XML through Power
 "page numbers at the bottom" and "table of contents" in one edit, which is taken since. Page lines mixed with
 other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
 format: dark blue", both had gone in at the end of the document as text.
+**A picture put in** (`WordPictures`, the same night): new_text lines `![The chart](C:\charts\sales.png)` after old_text
+as it is put the picture after the paragraph old_text ends in (before it, for lines before), or after the table whose
+row old_text gives as read_file shows it; with old_text empty, at the end of the body. Each a centred paragraph of its
+own, as wide as the text at most and no taller than 60% of the page, as write_file puts one in: its media part, its
+relationship, a content type for its kind and a drawing with a fresh id. Text changed in the same edit is refused, as
+is a path that is no picture, nothing changed. Checked in Word 16: a chart picture after the Word-made report's first
+paragraph, on its one page.
 **Slides taken out, moved and copied** (`DeckSlides`, the same night): with old_text empty, a deck's new_text lines
 `delete slide 3` (`delete slides 2-3`, `2, 4`), `move slide 4 to 1` (`to the start`, `to the end`, `after slide 2`,
 `before slide 2`) and `duplicate slide 2`, one line after the other, each by the numbers as the line before left them

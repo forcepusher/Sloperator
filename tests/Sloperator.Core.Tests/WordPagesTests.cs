@@ -115,6 +115,52 @@ public class WordPagesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_picture_goes_after_the_paragraph_given_or_at_the_end()
+    {
+        Assert.False((await Write("report.docx", Report)).IsError);
+        var png = Path.Combine(_dir, "chart.png");
+        using (var bitmap = new SkiaSharp.SKBitmap(800, 400))
+        {
+            bitmap.Erase(SkiaSharp.SKColors.SteelBlue);
+            using var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(png, data.ToArray());
+        }
+        // After a paragraph, as the paragraph with the picture's line under it.
+        var after = await Edit("report.docx", "July was the best month.", "July was the best month.\n![Sales by month](chart.png)");
+        Assert.False(after.IsError, after.Text);
+        Assert.Contains("Put the picture chart.png (", after.Text);
+        Assert.Contains("after the paragraph given", after.Text);
+        var document = Part("report.docx", "word/document.xml");
+        var paragraphs = document.Root!.Element(W + "body")!.Elements(W + "p").ToList();
+        var at = paragraphs.FindIndex(p => string.Concat(p.Descendants(W + "t").Select(t => t.Value)) == "July was the best month.");
+        Assert.NotNull(paragraphs[at + 1].Descendants().FirstOrDefault(e => e.Name.LocalName == "drawing"));
+        Assert.Equal("Sales by month", (string?)document.Descendants().First(e => e.Name.LocalName == "docPr").Attribute("descr"));
+        using (var zip = ZipFile.OpenRead(Path.Combine(_dir, "report.docx")))
+        {
+            Assert.NotNull(zip.GetEntry("word/media/image1.png"));
+            using var types = new StreamReader(zip.GetEntry("[Content_Types].xml")!.Open());
+            Assert.Contains("Extension=\"png\"", types.ReadToEnd());
+        }
+        // After a table, given by its last row as read_file shows it.
+        Assert.False((await Write("table.docx", "# Sales\n\n| Month | Bikes |\n|---|---|\n| July | 41 |\n| August | 47 |\n\nSteady.")).IsError);
+        var table = await Edit("table.docx", "| August | 47 |", "| August | 47 |\n![Bikes](chart.png)");
+        Assert.False(table.IsError, table.Text);
+        Assert.Contains("after the table given", table.Text);
+        var tbl = Part("table.docx", "word/document.xml").Descendants(W + "tbl").Single();
+        Assert.NotNull(tbl.ElementsAfterSelf().First().Descendants().FirstOrDefault(e => e.Name.LocalName == "drawing"));
+
+        // At the end, old_text empty; a path that is no picture is said and nothing changes.
+        Assert.Contains("at the end of the document", (await Edit("report.docx", "", "![Again](chart.png)")).Text);
+        Assert.Equal(2, Part("report.docx", "word/document.xml").Descendants().Count(e => e.Name.LocalName == "drawing"));
+        var missing = await Edit("report.docx", "", "![Gone](nowhere.png)");
+        Assert.True(missing.IsError);
+        Assert.Contains("can't be put in", missing.Text);
+        var changed = await Edit("report.docx", "Steady.", "Steady and calm.\n![x](chart.png)");
+        Assert.True(changed.IsError);
+        Assert.Contains("change the text in an edit of its own", changed.Text);
+    }
+
+    [Fact]
     public async Task Headings_as_old_text_are_every_heading()
     {
         Assert.False((await Write("report.docx", Report)).IsError);

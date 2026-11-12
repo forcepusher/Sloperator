@@ -109,7 +109,8 @@ internal static partial class DocumentFiles
     /// changed. Throws <see cref="InvalidOperationException"/> with what to tell the model when it can't.
     /// </summary>
     /// <param name="toPdf">Draws a Word, Excel or PowerPoint file as a PDF, its path: for a table of contents' page numbers.</param>
-    public static string Edit(string path, string oldText, string newText, bool all, Func<string, string>? toPdf = null)
+    /// <param name="resolve">Turns a picture's path as written into a full one.</param>
+    public static string Edit(string path, string oldText, string newText, bool all, Func<string, string>? toPdf = null, Func<string, string>? resolve = null)
     {
         List<WordContents.Entry>? contents = null;
         var kind = EditKind(path);
@@ -171,8 +172,14 @@ internal static partial class DocumentFiles
                     if (SlideLine().Match(newText.Replace("\r\n", "\n")) is { Success: true } same && same.Groups[1].Value == on.Groups[1].Value)
                         newText = same.Groups["rest"].Value;
                 }
+                // Pictures put in a Word document ("![The chart](C:\chart.png)" after a paragraph, or at the end).
+                string? picturesSaid = null;
+                if (kind == "docx" && documents.TryGetValue("word/document.xml", out var pictured) && newText.Replace("\r\n", "\n").Split('\n').Any(WordPictures.IsPicture))
+                    picturesSaid = WordPictures.Edit(parts, pictured, oldText, newText, resolve ?? (p => p));
                 if (slidesSaid is not null)
                     message = slidesSaid;
+                else if (picturesSaid is not null)
+                    message = picturesSaid;
                 // Nothing given to find, in a Word document: the new text goes at its end.
                 else if (oldText.Length == 0 && documents.TryGetValue("word/document.xml", out var main))
                 {
@@ -481,6 +488,13 @@ internal sealed class PartSet(ZipArchive zip)
     public void Delete(string name) => _deleted.Add(name);
 
     private readonly Dictionary<string, byte[]> _raw = new(StringComparer.Ordinal);
+
+    /// <summary>A new part of bytes (a picture put into a document).</summary>
+    public void AddRaw(string name, byte[] bytes)
+    {
+        _raw[name] = bytes;
+        _deleted.Remove(name);
+    }
 
     /// <summary>A copy of a part as its bytes (a workbook kept in a deck), under another name.</summary>
     public void CopyRaw(string from, string to)
