@@ -127,6 +127,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A script that fails on a file that isn't there no longer gets the agent sent to search the web when a line of
   its output above the error says something failed, such as a test run's "1 failed".
 - The agent no longer tells you it is skipping the plan ("Only one thing is left, so I'll skip the plan").
+- A question the agent ends on is no longer followed by "asked it to carry on" when a sentence comes after the
+  question ("Do you want me to install it? Tell me which you prefer.").
+- Shown one page of a document it made, the agent is told how many pages there are and to look at the others too,
+  rather than leave them to you ("I didn't view slides 2-5").
 - The **Auto** card gives the helper model's reason as the one sentence it is, without its second thoughts after it
   ("Hmm, but I'm changing my answer…"), and its notes are no longer cut short at a line such as "Model: …". When
   the helper picks itself, the card no longer says its notes go from that model to that model.

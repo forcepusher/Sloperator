@@ -288,6 +288,18 @@ public sealed class PlanToolTests
         Directory.Delete(root, recursive: true);
     }
 
+    [Theory]
+    [InlineData("Does this suit you?", true)]
+    [InlineData("Shall I go on with **step 3?**", true)]
+    // The question, then how to answer it.
+    [InlineData("I found no Excel.\n\nDo you want me to install Python so the chart can be added? If you'd rather not, I'll make the workbook without it. Tell me which you prefer.", true)]
+    [InlineData("All four steps are done.", false)]
+    [InlineData("Why did it fail? The path was relative.\n\nI fixed it and the tests pass.", false)]
+    [InlineData("The page is at http://localhost:3000/?tab=2 and it loads.", false)]
+    [InlineData("", false)]
+    public void A_reply_that_asks_the_user_something_at_its_end_is_a_question(string reply, bool asks) =>
+        Assert.Equal(asks, AgentSession.EndsInQuestion(reply));
+
     [Fact]
     public async Task A_plan_asked_about_before_any_work_stays_as_it_is()
     {

@@ -74,6 +74,8 @@ public sealed class DocumentCaptureTests : IDisposable
         var before = await Capture(ctx, new JsonObject { ["file"] = report, ["page"] = 2 });
         Assert.Contains("page 2 of 2 of report.pdf as capture 1", before.Text);
         Assert.Contains("the same page of the same document is drawn again", before.Text);
+        // One page of several: the others it made are still to look at.
+        Assert.Contains("The document has 2 pages and this shows only page 2", before.Text);
         // Cut to what is on it (the page's number at its foot keeps its height), not a whole sheet of
         // paper at 150 dpi (1275 x 1650 for Letter, 1240 x 1754 for A4).
         using (var png = SkiaSharp.SKBitmap.Decode(Path.Combine(ctx.ChatDirectory!, "capture-1.png")))
@@ -111,6 +113,7 @@ public sealed class DocumentCaptureTests : IDisposable
         var result = await Capture(ctx, new JsonObject { ["file"] = budget });
         Assert.Equal([budget], asked);
         Assert.Contains("page 1 of 1 of budget.xlsx as capture 1", result.Text);
+        Assert.DoesNotContain("this shows only page", result.Text);
         Assert.Empty(Directory.EnumerateFiles(ctx.ScratchDirectory!, "*.pdf"));
 
         // Why the converter couldn't is the model's to read.
