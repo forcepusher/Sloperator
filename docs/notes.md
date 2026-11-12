@@ -216,7 +216,22 @@ more title (`SlideText.Settle`, 2026-11-13): they go to the end of the slide's t
 gets one, with what it shows across its width (a chart, a table, a picture) moved to the right of it, as a slide
 written with text beside a chart is laid out. Asked for two bullets on a slide that held a title and a pie, Sonnet
 gave the title followed by the bullets; they came out inside the title, in its type, and it took them out again.
-A Word table's rows can be given as `read_file`
+**How text looks** (`TextEdit.Looks.cs`, `DocumentLook`, 2026-11-13): new_text `format: centered, dark blue, size 20`
+keeps what old_text says and changes how it looks: bold, italic, underlined, a size, a text colour and a fill behind
+it on the words matched (the runs break around them), left, center or right on their paragraphs. A table's rows given
+as read_file shows them (`| Month | Bikes |`) get the fill as their cells' background and the rest on their text.
+For a Word document and a slide alike (run and paragraph properties in the order Word wants them; a slide's as
+attributes and fills). A colour with nothing said of it is the text's here and the fill for rows and for a
+workbook's cells, whose `format A1:E1 …` line reads its words the same way (`DocumentLook.Parse`). *Why:* edit_file
+changed what a document says, not how it looks. Asked to centre a title, make it dark blue, give the table's header
+row a grey background and add an italic line, in a document Word had saved: Haiku and Sonnet unzipped it and rewrote
+document.xml through PowerShell (35 and 25 s, 12 and 9 calls, Haiku by way of a script left in the folder above the
+user's); Kilo's free Nemotron did the same in 152 s, 28 calls and 4 errors, zipping the file flat once, and left its
+work in the user's Documents\Sloperator\scratch. After: three edit_file calls, 23 and 13 s. Read back through Word
+16 (`.dev/night-test/word-look.ps1`): alignment, colours, size, shading and bold as asked, nothing repaired.
+Not there: read_file marks bold text and not italic, so a model can't read its italics back (Sonnet said so).
+A Word table's rows
+ can be given as `read_file`
 shows them (`| North | 140 |` to `| North | 150 |`, part of a row, or several rows): they are matched
 cell by cell and each cell that differs is changed as above (`TextEdit.ReplaceCells`). Until 2 November
 2026 that was refused as text crossing cells: Haiku was refused twice, then rewrote document.xml from

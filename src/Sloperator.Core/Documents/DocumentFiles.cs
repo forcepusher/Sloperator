@@ -144,6 +144,12 @@ internal static partial class DocumentFiles
                     parts.Changed("word/document.xml");
                     message = "Added the text at the end of the document, looking like its last paragraph.";
                 }
+                // new_text "format: centered, dark blue": how the text given looks, not what it says.
+                else if (TextEdit.Look(documents, slides: kind == "pptx", oldText, newText, all) is { } looked)
+                {
+                    foreach (var part in looked.Parts) parts.Changed(part);
+                    message = looked.Said;
+                }
                 else
                 {
                     var (count, changed) = TextEdit.Replace(documents, slides: kind == "pptx", oldText, newText, all);
