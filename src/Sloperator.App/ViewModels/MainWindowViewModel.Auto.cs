@@ -141,7 +141,8 @@ public sealed partial class MainWindowViewModel
         var at = (effort is null ? model : $"{model} at {Efforts.Label(effort)}") + (declined is null ? "" : $"{StayedOff}{declined})");
         var line = pick.Problem is not null ? $"{at}{Failed}" : pick.Why.Length > 0 ? $"{at}{Because}{pick.Why}" : at;
         var output = pick.Problem is not null ? $"{pick.By} couldn't pick: {pick.Problem}"
-            : pick.Found.Length > 0 ? $"{pick.Found}\n\nFound by {pick.By}. These notes go to {model} with your message." : "";
+            // The helper picking itself: "Found by claude-haiku-5-5. These notes go to claude-haiku-5-5" read as a slip.
+            : pick.Found.Length > 0 ? $"{pick.Found}\n\nFound by {pick.By}. These notes go {(pick.By == model ? "" : $"to {model} ")}with your message." : "";
         IAgentObserver observer = this;
         // The line, then the end: both are posted, in this order, after the start.
         Dispatcher.UIThread.Post(() =>

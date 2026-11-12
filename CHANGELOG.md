@@ -128,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its output above the error says something failed, such as a test run's "1 failed".
 - The agent no longer tells you it is skipping the plan ("Only one thing is left, so I'll skip the plan").
 - The **Auto** card gives the helper model's reason as the one sentence it is, without its second thoughts after it
-  ("Hmm, but I'm changing my answer…"), and its notes are no longer cut short at a line such as "Model: …".
+  ("Hmm, but I'm changing my answer…"), and its notes are no longer cut short at a line such as "Model: …". When
+  the helper picks itself, the card no longer says its notes go from that model to that model.
 - A document the agent made no longer shows twice under its answer, its page as a picture and the same page again
   on the file's card: the card shows just the name.
 - The chat line for a note Sloperator sends the agent about looking things up says what it asked and why, such as
