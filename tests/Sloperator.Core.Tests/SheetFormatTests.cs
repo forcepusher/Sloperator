@@ -113,6 +113,33 @@ public class SheetFormatTests : IDisposable
     }
 
     [Fact]
+    public async Task Columns_are_made_wider_by_a_line_or_fitted_to_what_they_hold()
+    {
+        Assert.False((await Write("budget.xlsx", Budget)).IsError);
+        // As asked of Haiku and Sonnet (2026-11-13): column A about twice as wide.
+        var result = await Edit("budget.xlsx", "", "column A width 17");
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("Made column A of sheet \"Sheet1\" 17 wide.", result.Text);
+        List<(int Min, int Max, string? Width)> Cols() => Part("budget.xlsx", "xl/worksheets/sheet1.xml").Root!.Element(S + "cols")!.Elements(S + "col")
+            .Select(c => ((int)c.Attribute("min")!, (int)c.Attribute("max")!, (string?)c.Attribute("width"))).ToList();
+        Assert.Equal((1, 1, "17"), Cols()[0]);
+        // The columns beside it keep the widths the file gave them.
+        var others = Cols().Skip(1).ToList();
+        Assert.Equal([2, 3], others.Select(c => c.Min));
+
+        // A long name in a cell, then every column fitted: A grows to it, with the cells set in the same edit.
+        var fitted = await Edit("budget.xlsx", "", "A2 Rent for the flat on Harbour Street\nautofit columns\ncolumns B:C width 12.5");
+        Assert.False(fitted.IsError, fitted.Text);
+        Assert.Contains("fitted columns A-C of sheet \"Sheet1\" to what they hold, then made columns B-C of sheet \"Sheet1\" 12.5 wide", fitted.Text);
+        var cols = Cols();
+        Assert.InRange(double.Parse(cols[0].Width!, System.Globalization.CultureInfo.InvariantCulture), 40, 45);
+        Assert.Equal(["12.5", "12.5"], cols.Skip(1).Select(c => c.Width));
+        // A width past what a column can be is refused, and other lines that start alike are still cells.
+        Assert.True((await Edit("budget.xlsx", "", "column A width 900")).IsError);
+        Assert.False((await Edit("budget.xlsx", "", "A7 column A is the items")).IsError);
+    }
+
+    [Fact]
     public async Task A_format_line_that_says_no_look_or_too_many_cells_is_refused()
     {
         Assert.False((await Write("budget.xlsx", Budget)).IsError);

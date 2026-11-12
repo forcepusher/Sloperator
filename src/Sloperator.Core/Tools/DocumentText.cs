@@ -355,6 +355,10 @@ internal static class DocumentText
                         sb.Append("| ").AppendJoin(" | ", row.Elements(A + "tc").Select(c => string.Join(" ", c.Descendants(A + "p").Select(Text)).Trim())).AppendLine(" |");
                 else if (Text(block) is { Length: > 0 } text)
                     sb.AppendLine(text);
+            // Its charts, with the numbers they draw: nothing of a chart is text on the slide, and a slide read back
+            // showed none of it (Haiku took its chart for missing, 2026-11-13).
+            foreach (var chart in Optional(() => SlideCharts(zip, target), []))
+                sb.Append("(chart: ").Append(chart).AppendLine(")");
             // The speaker notes, which went unseen: asked to change them, the model had nothing to go on.
             if (Optional(() => Notes(zip, target), []) is { Count: > 0 } notes)
             {
@@ -364,6 +368,21 @@ internal static class DocumentText
             }
         }
         return sb.ToString();
+    }
+
+    /// <summary>The charts on a slide, each as <see cref="Documents.SheetChart.DescribeData"/> says it.</summary>
+    private static List<string> SlideCharts(ZipArchive zip, string slide)
+    {
+        var folder = slide[..(slide.LastIndexOf('/') + 1)];
+        var rels = $"{folder}_rels/{slide[folder.Length..]}.rels";
+        if (zip.GetEntry(rels) is null)
+            return [];
+        return Load(zip, rels).Root!.Elements(Pr + "Relationship")
+            .Where(r => ((string?)r.Attribute("Type"))?.EndsWith("/chart", StringComparison.Ordinal) == true && r.Attribute("Target") is not null)
+            .Select(r => Resolve(folder, (string)r.Attribute("Target")!))
+            .Where(part => zip.GetEntry(part) is not null)
+            .Select(part => Documents.SheetChart.DescribeData(Load(zip, part)))
+            .ToList();
     }
 
     /// <summary>The paragraphs of a slide's speaker notes (their body, not the slide number or picture); empty when it has none.</summary>

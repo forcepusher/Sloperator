@@ -116,6 +116,14 @@ public sealed class DocumentCaptureTests : IDisposable
         Assert.DoesNotContain("this shows only page", result.Text);
         Assert.Empty(Directory.EnumerateFiles(ctx.ScratchDirectory!, "*.pdf"));
 
+        // A slide is drawn whole, where a sheet or a page is cut to what is on it: the same page through the same
+        // converter is the larger picture as a deck.
+        var deck = Path.Combine(_dir, "deck.pptx");
+        File.WriteAllText(deck, "not read either");
+        var sheet = DocumentPictures.Draw(budget, 1, ctx.ScratchDirectory!, null, CancellationToken.None).Picture;
+        var slide = DocumentPictures.Draw(deck, 1, ctx.ScratchDirectory!, null, CancellationToken.None).Picture;
+        Assert.True(slide.Width > sheet.Width && slide.Height > sheet.Height, $"slide {slide.Width}x{slide.Height}, sheet {sheet.Width}x{sheet.Height}");
+
         // Why the converter couldn't is the model's to read.
         DocumentPictures.Converter = (_, _, _, _) => throw new InvalidOperationException("No program on this PC turns budget.xlsx into pages: Microsoft Office or LibreOffice does.");
         Assert.Contains("Microsoft Office or LibreOffice", (await Assert.ThrowsAsync<ToolArgumentException>(() => Capture(ctx, new JsonObject { ["file"] = budget }))).Message);

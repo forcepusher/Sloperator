@@ -120,7 +120,7 @@ internal static partial class XlsxWriter
             var id = $"rId{i + 1}";
             rels.Add((id, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet", $"worksheets/sheet{i + 1}.xml", false));
             workbookSheets.Add(new XElement(S + "sheet", new XAttribute("name", sheets[i].Name), new XAttribute("sheetId", i + 1), new XAttribute(OfficePackage.R + "id", id)));
-            var drawn = Charts(package, sheets, i, ref charts, notes);
+            var drawn = Charts(package, sheets, i, ref charts, notes, styles);
             package.Add($"xl/worksheets/sheet{i + 1}.xml", Worksheet(sheets[i], drawn), "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
         }
         rels.Add(($"rId{sheets.Count + 1}", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles", "styles.xml", false));
@@ -138,7 +138,7 @@ internal static partial class XlsxWriter
     }
 
     /// <summary>A paragraph's lines, each with its spans.</summary>
-    private static IEnumerable<IReadOnlyList<Span>> SplitLines(IReadOnlyList<Span> text)
+    internal static IEnumerable<IReadOnlyList<Span>> SplitLines(IReadOnlyList<Span> text)
     {
         var line = new List<Span>();
         foreach (var span in text)
@@ -239,14 +239,15 @@ internal static partial class XlsxWriter
     /// can't be drawn is left out and said.
     /// </summary>
     /// <param name="made">How many charts the workbook has so far: their parts are numbered through it.</param>
-    private static bool Charts(OfficePackage package, List<Sheet> sheets, int index, ref int made, List<string> notes)
+    private static bool Charts(OfficePackage package, List<Sheet> sheets, int index, ref int made, List<string> notes, CellStyles styles)
     {
         var sheet = sheets[index];
         if (sheet.Charts.Count == 0)
             return false;
         SheetChart.Value Cell(string name, int row, int column) =>
             sheets.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } on
-            && on.Rows.TryGetValue(row, out var cells) && cells.TryGetValue(column, out var cell) ? SheetChart.ValueOf(cell, []) : default;
+            && on.Rows.TryGetValue(row, out var cells) && cells.TryGetValue(column, out var cell)
+                ? SheetChart.ValueOf(cell, []) with { Bold = styles.IsBold((int?)cell.Attribute("s") ?? 0) } : default;
         var right = (sheet.Rows.Count == 0 ? 1 : sheet.Rows.Values.Max(r => r.Keys.Max())) + 2;
         var anchors = new List<XElement>();
         var relations = new List<(string, string, string, bool)>();
@@ -320,6 +321,9 @@ internal static partial class XlsxWriter
     {
         private readonly List<(bool Bold, bool Header, string? Format)> _used = [(false, false, null)];
         private readonly List<string> _formats = [];
+
+        /// <summary>Whether cell format <paramref name="index"/> is bold (a heading, or text written in bold).</summary>
+        public bool IsBold(int index) => index >= 0 && index < _used.Count && _used[index].Bold;
 
         public int Get(bool bold, bool header, string? format)
         {

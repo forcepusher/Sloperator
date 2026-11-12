@@ -17,8 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chart that is there ("make it a line chart"). Before, it could only fill cells, and a chart asked for made it go
   looking for Python or other programs to draw a picture of one.
 - **Cell formatting in Excel workbooks.** The agent can make cells bold or italic, give them a background or text
-  colour, centre them and put borders on them, in your own workbook too. Asked for a yellow header row, it used to
-  look for Python or rewrite the file's insides by hand.
+  colour, centre them and put borders on them, and set or fit column widths, in your own workbook too. Asked for a
+  yellow header row, it used to look for Python or rewrite the file's insides by hand.
+- **Charts in PowerPoint decks.** A deck the agent makes can have real charts (bar, line, pie, area) whose numbers
+  you can change in PowerPoint with Edit Data. Asked for a slide with a chart, it used to put a table there, or go
+  looking for other programs.
 - The agent can add text at the end of a Word document without naming the paragraph it goes after.
 - The agent can add and remove rows of a Word or PowerPoint table, and put text right after a table that ends a
   document or before one that starts it, keeping the formatting: it used to rewrite the file's XML through PowerShell.
@@ -136,6 +139,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A document the agent made and then changed can be written again by it. It was refused as "not one you wrote in
+  this task", as if the file were yours.
+- A slide the agent shows you, or looks at to check its work, is the whole slide. It was cut down to what was on
+  it, which made things in the middle of a slide look pushed to one side.
 - **F2** renames the picture or sound you picked in the Video editor. Its right-click menu showed the key beside
   Rename, but pressing it did nothing.
 - In the Video editor, pointing at a card shows its whole name, which the card cuts short, and a picture of yours

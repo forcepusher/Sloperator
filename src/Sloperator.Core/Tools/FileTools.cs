@@ -220,7 +220,7 @@ public sealed class WriteFileTool : Tool
         "2026-10-16 become values shown as written (write amounts as $1,200.00 to show them in dollars; a formula under them shows dollars too). " +
         "A line \"chart: bar Sales by month\" under a table draws it as a chart (bar, line, pie or area: the first column its labels, each other column a series; " +
         "\"chart: line A1:A13,E1:E13 Totals\" draws only those cells). " +
-        "In .pptx a line --- starts the next slide, and a slide's first heading is its title. " +
+        "In .pptx a line --- starts the next slide, and a slide's first heading is its title; a chart: line under a table shows the table as that chart. " +
         "An .svg is shown to the user as the picture it draws: write a design mockup as one. " +
         "To change an existing document, use edit_file, which keeps its formatting.";
     public override ToolRisk Risk => ToolRisk.Risky;
@@ -287,7 +287,8 @@ public sealed class EditFileTool : Tool
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
         "with every formula pointing at them, and the new row is formatted like the one above; \"delete rows 3-4\" takes rows out. " +
-        "\"format A1:E1 bold, yellow fill\" sets how cells look (bold, italic, a fill or text colour by name or #RRGGBB, center, wrap, border). " +
+        "\"format A1:E1 bold, yellow fill\" sets how cells look (bold, italic, a fill or text colour by name or #RRGGBB, center, wrap, border), " +
+        "\"column A width 20\" or \"autofit columns\" how wide columns are. " +
         "A line \"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart of those cells (bar, line, pie or area): the first column the labels and each other " +
         "a series named by its top cell, or the same by rows (\"A1:D1,A6:D6\"). To change a chart, name it in old_text (\"chart 1\", or its title) " +
         "and give its new line in new_text (\"chart: line Monthly totals\"); with new_text empty it is deleted.";

@@ -42,6 +42,9 @@ public static class DocumentPictures
         ".pptx", ".pptm", ".ppt", ".potx", ".ppsx", ".odp",
     };
 
+    /// <summary>Presentations, whose pages are slides: drawn whole, not cut to what is on them.</summary>
+    private static readonly HashSet<string> Slides = new(StringComparer.OrdinalIgnoreCase) { ".pptx", ".pptm", ".ppt", ".potx", ".ppsx", ".odp" };
+
     /// <summary>Whether <paramref name="path"/> is a document this draws: a PDF, or one the converter turns into one.</summary>
     public static bool Handles(string path) =>
         Path.GetExtension(path) is var ext && (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase) || Office.Contains(ext));
@@ -79,7 +82,11 @@ public static class DocumentPictures
                     throw new InvalidOperationException($"{Path.GetFileName(path)} has {pages} page{(pages == 1 ? "" : "s")}: give a page from 1 to {pages}.");
                 var width = (int)Math.Round(document.Sizes[page - 1].Width / 72 * Dpi);
                 var (bgra, w, h) = document.Render(page - 1, width) ?? throw new InvalidOperationException($"{Path.GetFileName(path)} couldn't be drawn.");
-                return (Trim(new RawImage(w, h, bgra)), pages);
+                // A slide whole: where things are on it is what is looked at. Cut to what it shows, a pie in the
+                // middle of its slide was a pie at the right of a picture that began at the title's left edge, and
+                // Sonnet set about filling "the empty left half" (2026-11-13).
+                var drawn = new RawImage(w, h, bgra);
+                return (Slides.Contains(Path.GetExtension(path)) ? drawn : Trim(drawn), pages);
             }
         }
         finally

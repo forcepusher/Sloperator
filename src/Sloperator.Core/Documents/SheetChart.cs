@@ -47,7 +47,8 @@ internal static partial class SheetChart
     /// A cell as a chart reads it: a number, text, or (both null) empty. <paramref name="Formula"/>: a formula whose
     /// value isn't known here (a function Excel works out): it counts as a number to come, drawn once Excel opens the file.
     /// </summary>
-    public readonly record struct Value(string? Text, double? Number, bool Formula = false)
+    /// <param name="Bold">The cell is bold: a heading of numbers ("2025", "2026" over two columns) is told from the figures under it by that.</param>
+    public readonly record struct Value(string? Text, double? Number, bool Formula = false, bool Bold = false)
     {
         public bool IsText => Number is null && !string.IsNullOrWhiteSpace(Text);
     }
@@ -177,7 +178,9 @@ internal static partial class SheetChart
         var labels = strips.Count > 1 ? strips[0] : ((string, int, int, int)?)null;
         var values = strips.Skip(labels is null ? 0 : 1).ToList();
         // A heading over the values: text where the numbers start.
-        var named = length > 1 && values.Any(v => At(v, 0).IsText);
+        // Or numbers in bold over figures that aren't: years as headings ("Month | 2025 | 2026") were drawn as each
+        // series' first value, 2025 beside 10 and 14 (a slide's chart, 2026-11-13).
+        var named = length > 1 && (values.Any(v => At(v, 0).IsText) || values.All(v => At(v, 0).Bold && !At(v, 1).Bold));
         var first = named ? 1 : 0;
         if (length - first < 1)
             throw new InvalidOperationException("Those cells hold no values to draw: give the cells with the numbers, their headings and labels with them.");
@@ -211,7 +214,9 @@ internal static partial class SheetChart
     private static readonly string[] Colours = ["4472C4", "ED7D31", "A5A5A5", "FFC000", "5B9BD5", "70AD47", "264478", "9E480E"];
 
     /// <summary>The chart's XML (xl/charts/chartN.xml). A pie draws the first series.</summary>
-    public static XDocument Chart(string kind, string? title, IReadOnlyList<Series> series)
+    /// <param name="workbook">On a slide: the chart's relationship to the workbook kept with it, which its cells are in.</param>
+    /// <param name="points">The size of its text in points; a sheet's own 10 when not said (a slide is read from further away).</param>
+    public static XDocument Chart(string kind, string? title, IReadOnlyList<Series> series, string? workbook = null, int? points = null)
     {
         var pie = kind == "pie";
         var shown = pie ? series.Take(1).ToList() : series;
@@ -265,8 +270,8 @@ internal static partial class SheetChart
         if (title is not null)
             chart.Add(new XElement(C + "title",
                 new XElement(C + "tx", new XElement(C + "rich", new XElement(A + "bodyPr"), new XElement(A + "lstStyle"),
-                    new XElement(A + "p", new XElement(A + "pPr", new XElement(A + "defRPr", new XAttribute("sz", 1400), new XAttribute("b", 0))),
-                        new XElement(A + "r", new XElement(A + "rPr", new XAttribute("lang", "en-US"), new XAttribute("sz", 1400), new XAttribute("b", 0)), new XElement(A + "t", title))))),
+                    new XElement(A + "p", new XElement(A + "pPr", new XElement(A + "defRPr", new XAttribute("sz", (points ?? 10) * 140), new XAttribute("b", 0))),
+                        new XElement(A + "r", new XElement(A + "rPr", new XAttribute("lang", "en-US"), new XAttribute("sz", (points ?? 10) * 140), new XAttribute("b", 0)), new XElement(A + "t", title))))),
                 new XElement(C + "overlay", Val(0))));
         chart.Add(new XElement(C + "autoTitleDeleted", Val(title is null ? 1 : 0)), plot);
         // Who is who: for more than one series, and for a pie's slices.
@@ -276,9 +281,12 @@ internal static partial class SheetChart
         return new XDocument(new XElement(C + "chartSpace",
             new XAttribute(XNamespace.Xmlns + "c", C), new XAttribute(XNamespace.Xmlns + "a", A), new XAttribute(XNamespace.Xmlns + "r", OfficePackage.R),
             new XElement(C + "roundedCorners", Val(0)), chart,
-            new XElement(C + "spPr", Fill("FFFFFF"), Ln(Soft, 9525)),
+            // On a sheet a white card with a light frame; on a slide nothing around it, as the slide is its ground.
+            workbook is null ? new XElement(C + "spPr", Fill("FFFFFF"), Ln(Soft, 9525))
+                : new XElement(C + "spPr", new XElement(A + "noFill"), new XElement(A + "ln", new XElement(A + "noFill"))),
             new XElement(C + "txPr", new XElement(A + "bodyPr"), new XElement(A + "lstStyle"),
-                new XElement(A + "p", new XElement(A + "pPr", new XElement(A + "defRPr", Fill("404040"))), new XElement(A + "endParaRPr", new XAttribute("lang", "en-US"))))));
+                new XElement(A + "p", new XElement(A + "pPr", new XElement(A + "defRPr", points is { } size ? new XAttribute("sz", size * 100) : null, Fill("404040"))), new XElement(A + "endParaRPr", new XAttribute("lang", "en-US")))),
+            workbook is null ? null : new XElement(C + "externalData", new XAttribute(OfficePackage.R + "id", workbook), new XElement(C + "autoUpdate", Val(0)))));
     }
 
     /// <summary>The grey of a chart's frame, grid and axis: Excel's own for a new chart. The defaults of a file with no theme are black.</summary>
@@ -450,6 +458,23 @@ internal static partial class SheetChart
                 (string?)labels?.Descendants(C + "f").FirstOrDefault(), Kept(labels), valuesRef, Kept(values)));
         }
         return series;
+    }
+
+    /// <summary>
+    /// A chart of a slide in a line, with the numbers it draws, which are nowhere else on the slide:
+    /// "bar chart "Sales by region": Sales: North 120, South 95, East 143, West 88".
+    /// </summary>
+    public static string DescribeData(XDocument chart)
+    {
+        var (kind, title) = About(chart);
+        var line = $"{kind} chart" + (title is null ? "" : $" \"{title}\"");
+        var series = SeriesIn(chart);
+        if (series.Count == 0)
+            return line;
+        static string Shown(Value v) => v.Number is { } n ? n.ToString("G10", CultureInfo.InvariantCulture) : v.Text ?? "";
+        return line + ": " + string.Join("; ", series.Take(8).Select(s => s.Name + ": " + string.Join(", ",
+            s.Values.Take(24).Select((v, i) => (i < s.Labels.Count && Shown(s.Labels[i]) is { Length: > 0 } label ? label + " " : "") + Shown(v))) +
+            (s.Values.Count > 24 ? $" and {s.Values.Count - 24} more" : ""))) + (series.Count > 8 ? $"; and {series.Count - 8} more series" : "");
     }
 
     /// <summary>"Sheet1!A2:A13" for "'Sheet1'!$A$2:$A$13": as read_file writes cells.</summary>

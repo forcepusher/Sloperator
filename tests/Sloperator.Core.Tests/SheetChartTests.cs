@@ -195,6 +195,83 @@ public class SheetChartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_chart_line_under_a_table_of_a_slide_shows_the_table_as_a_chart()
+    {
+        // As Haiku and Sonnet both wrote it (2026-11-13), when the line came out as text on the slide.
+        var result = await Write("deck.pptx", """
+            # Q3 Sales Review
+            Sales results by region
+
+            ---
+
+            # Q3 Sales by Region
+
+            | Region | Q3 Sales |
+            |---|---|
+            | North | 120 |
+            | South | 95 |
+            | East | 143 |
+            | West | 88 |
+
+            chart: bar Q3 sales by region
+
+            ---
+
+            # Key Takeaways
+
+            - East led with 143
+            """);
+        Assert.False(result.IsError, result.Text);
+        Assert.DoesNotContain("left out", result.Text);
+
+        // The chart's part, its numbers with it, and the workbook kept for PowerPoint's Edit Data.
+        var chart = Part("deck.pptx", "ppt/charts/chart1.xml");
+        var series = Assert.Single(chart.Descendants(C + "barChart").Single().Elements(C + "ser"));
+        Assert.Equal(["North", "South", "East", "West"], series.Element(C + "cat")!.Descendants(C + "v").Select(v => v.Value));
+        Assert.Equal(["120", "95", "143", "88"], series.Element(C + "val")!.Descendants(C + "v").Select(v => v.Value));
+        Assert.Equal("'Sheet1'!$B$2:$B$5", series.Element(C + "val")!.Descendants(C + "f").Single().Value);
+        Assert.Equal("rId1", (string?)chart.Descendants(C + "externalData").Single().Attribute(R + "id"));
+        Assert.Contains("../embeddings/Microsoft_Excel_Sheet1.xlsx", Part("deck.pptx", "ppt/charts/_rels/chart1.xml.rels").ToString());
+        using (var zip = ZipFile.OpenRead(Path.Combine(_dir, "deck.pptx")))
+        {
+            using var book = new ZipArchive(zip.GetEntry("ppt/embeddings/Microsoft_Excel_Sheet1.xlsx")!.Open());
+            Assert.NotNull(book.GetEntry("xl/worksheets/sheet1.xml"));
+        }
+        var types = Part("deck.pptx", "[Content_Types].xml").ToString();
+        Assert.Contains("/ppt/charts/chart1.xml", types);
+        Assert.Contains("Extension=\"xlsx\"", types);
+
+        // On the slide: the chart in place of its table, and no line of text saying "chart:".
+        var slide = Part("deck.pptx", "ppt/slides/slide2.xml");
+        Assert.Single(slide.Descendants(C + "chart"));
+        Assert.DoesNotContain(slide.Descendants(), e => e.Name.LocalName == "tbl");
+        Assert.DoesNotContain("chart:", string.Concat(slide.Descendants().Where(e => e.Name.LocalName == "t").Select(t => t.Value)));
+        Assert.Contains("../charts/chart1.xml", Part("deck.pptx", "ppt/slides/_rels/slide2.xml.rels").ToString());
+
+        // read_file says the chart with its numbers: they are nowhere else on the slide.
+        var text = await Read("deck.pptx");
+        // Called as its slide is, the chart has no title of its own under the slide's.
+        Assert.Contains("(chart: bar chart: Q3 Sales: North 120, South 95, East 143, West 88)", text);
+        Assert.Empty(chart.Descendants(C + "title"));
+
+        // Years as headings are the series' names, not their first values: on a slide, in a workbook made here, and
+        // in one that is there (told by the heading's bold).
+        const string years = "| Month | 2025 | 2026 |\n|---|---|---|\n| Jan | 10 | 14 |\n| Feb | 12 | 13 |\n";
+        Assert.False((await Write("years.pptx", "# Two years\n\n" + years + "\nchart: line Units")).IsError);
+        Assert.Contains("(chart: line chart \"Units\": 2025: Jan 10, Feb 12; 2026: Jan 14, Feb 13)", await Read("years.pptx"));
+        Assert.False((await Write("years.xlsx", years + "\nchart: line Units")).IsError);
+        var made = Part("years.xlsx", "xl/charts/chart1.xml").Descendants(C + "ser").ToList();
+        Assert.Equal(["2025", "2026"], made.Select(s => s.Element(C + "tx")!.Descendants(C + "v").Single().Value));
+        Assert.Equal(["10", "12"], made[0].Element(C + "val")!.Descendants(C + "v").Select(v => v.Value));
+        Assert.False((await Edit("years.xlsx", "", "add chart bar A1:C3 Again")).IsError);
+        Assert.Equal(["2025", "2026"], Part("years.xlsx", "xl/charts/chart2.xml").Descendants(C + "ser").Select(s => s.Element(C + "tx")!.Descendants(C + "v").Single().Value));
+
+        // With no table above it, or one of words, the line is left out and said.
+        var none = await Write("none.pptx", "# Plan\n\nchart: pie Shares\n\n- one\n- two");
+        Assert.Contains("The pie chart was left out: its line has no table above it on the slide", none.Text);
+    }
+
+    [Fact]
     public async Task A_chart_with_nothing_to_draw_is_left_out_and_said()
     {
         var none = await Write("none.xlsx", "# Notes\nchart: bar Sales\n\nJust text.");
@@ -386,8 +463,10 @@ public class SheetChartTests : IDisposable
         // How cells look, for Excel to show: a yellow bold header, red italic figures, a boxed centred total.
         File.Copy(Path.Combine(_dir, "budget.xlsx"), Path.Combine(_dir, "formatted.xlsx"));
         await Ok(Edit("formatted.xlsx", "", "format A1:B1 bold, yellow fill\nformat B2:B5 red text, italic\nA6 Total | B6 =SUM(B2:B5)\nformat A6:B6 fill light blue, bold, border, centered"));
+        // A deck: a chart alone on a slide, one beside text, a pie and a line of two series.
+        await Ok(Write("deck.pptx", "# Q3 Sales Review\nSales results by region\n\n---\n\n# Q3 sales by region\n\n| Region | Q3 Sales |\n|---|---|\n| North | 120 |\n| South | 95 |\n| East | 143 |\n| West | 88 |\n\nchart: bar Q3 sales by region\n\n---\n\n# Where it went\n\n- Rent is most of it\n- Fun is the smallest part we can still cut\n\n| Item | Cost |\n|---|---|\n| Rent | 900 |\n| Food | 350 |\n| Transport | 80 |\n| Fun | 120 |\n\nchart: pie\n\n---\n\n# Two years\n\n| Month | 2025 | 2026 |\n|---|---|---|\n| Jan | 10 | 14 |\n| Feb | 12 | 13 |\n| Mar | 9 | 17 |\n| Apr | 15 | 19 |\n\nchart: line Units by month\n"));
         Directory.CreateDirectory(output!);
-        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx", "changed.xlsx", "formatted.xlsx" })
+        foreach (var name in new[] { "made.xlsx", "edited.xlsx", "across.xlsx", "budget.xlsx", "changed.xlsx", "formatted.xlsx", "deck.pptx" })
             File.Copy(Path.Combine(_dir, name), Path.Combine(output!, name), overwrite: true);
         // A workbook Excel saved with a chart of its own, put in the folder as excel.xlsx (cells A1:D5 on its first
         // sheet): a second chart goes into the drawing Excel made, under the first.
