@@ -76,6 +76,46 @@ public sealed class CaptureReplyTests : IDisposable
     }
 
     [Fact]
+    public void A_documents_card_shows_no_peek_when_its_page_is_pictured_under_the_same_reply()
+    {
+        // The model made a Word document and showed its page with capture_result: under the answer stood the page, and
+        // under that the file's card with its own smaller drawing of the same page (2026-11-12).
+        var page = Png("capture-1.png", 64, 80);
+        var doc = Path.Combine(_dir, "Packing List.md");
+        var other = Path.Combine(_dir, "notes.md");
+        File.WriteAllText(doc, "# Packing list\n\n| Item | Packed |\n|---|---|\n| Tent | |\n");
+        File.WriteAllText(other, "# Notes\n");
+        var services = new PreviewServices(null, () => null);
+        var started = DateTime.UtcNow;
+
+        var (hidden, kept, again, reopenedOf) = HeadlessApp.Run(() =>
+        {
+            var reply = new AssistantMessageItem { Text = "I made the packing list.", IsStreaming = false, At = started.AddSeconds(9) };
+            reply.AddPreviews([doc, other], services);
+            List<ChatItemViewModel> items =
+            [
+                new UserMessageItem("Make a packing list") { At = started },
+                Capture(page, new System.Text.Json.Nodes.JsonObject { ["file"] = doc, ["caption"] = "The page" }.ToJsonString(), started.AddSeconds(5)),
+                reply,
+            ];
+            MainWindowViewModel.ShowCaptureInReply(items, started, services);
+            var cards = reply.Previews.OfType<FileCardPreview>().ToList();
+            // Saved with the chat: opened again, the card is as it was.
+            var store = new ChatStore(_dir);
+            store.Save(new SavedChat { Id = "doc", Title = "List", Entries = items.Select(MainWindowViewModel.ToEntry).ToList() });
+            var reopened = MainWindowViewModel.ReplyFrom(store.Load("doc")!.Entries.Last(e => e.Kind == ChatEntryKind.Assistant), services);
+            reopened.AddPreviews([doc], services);
+            return (cards.Single(c => c.Path == doc).PeekHidden, cards.Single(c => c.Path == other).PeekHidden,
+                reopened.Previews.OfType<FileCardPreview>().Single().PeekHidden, reopened.Captures.Single().Of);
+        });
+
+        Assert.True(hidden);
+        Assert.False(kept); // a file with no picture of it keeps its peek
+        Assert.True(again);
+        Assert.Equal(doc, reopenedOf);
+    }
+
+    [Fact]
     public void A_chat_saved_with_one_picture_under_a_reply_still_shows_it()
     {
         var picture = Png("capture-1.png", 64, 40);

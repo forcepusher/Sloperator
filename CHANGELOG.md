@@ -58,7 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The **plan bar** now shows for tasks of more than a step or two: tasks went by with no plan at all. Once the agent
   has started on a task with nothing on the bar, Sloperator asks it for a short, readable plan (a handful of steps,
   one word each) and to keep it moving; each move of the plan reminds it of the next, and the bar finishes when the
-  agent ends on its last step. A question it answers after one look still gets no plan.
+  agent ends on its last step. A question it answers after one look still gets no plan, nor does a task of one
+  thing, such as a single spreadsheet or document.
 - The agent closes only the windows it opened, rather than every window of that program, yours with unsaved work too:
   a command that would end a program by name is not run while you have windows of it open.
 - The agent reads a PowerPoint table as rows, as it reads a Word table, rather than one cell a line.
@@ -117,6 +118,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - What the agent types right after its own click is no longer held back because you wrote to it, or clicked
   somewhere, before that click: it clicked and typed a second time.
 - A plan left on its last step when the agent answered now shows as done, rather than as one it stopped short of.
+- The agent no longer writes "the screenshot above" for a picture of its work that sits below its words.
+- A document the agent made no longer shows twice under its answer, its page as a picture and the same page again
+  on the file's card: the card shows just the name.
 - The chat line for a note Sloperator sends the agent about looking things up says what it asked and why, such as
   "The same error came up again; asked the model to look it up before trying again". It always read "Asked the
   model to look this up with web_search before its next try", also after a folder listing or a key press.

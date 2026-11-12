@@ -331,16 +331,31 @@ public sealed partial class AssistantMessageItem : ChatItemViewModel
     public bool HasCapture => Captures.Count > 0;
 
     /// <summary>Shows the pictures under the reply's words, each with its caption, in place of any it showed.</summary>
-    public void ShowCaptures(IEnumerable<(string Path, string? Caption)> pictures, PreviewServices services)
+    /// <param name="pictures">Each picture's file, its caption, and the document or picture file it shows a page of (null for one of the screen).</param>
+    public void ShowCaptures(IEnumerable<(string Path, string? Caption, string? Of)> pictures, PreviewServices services)
     {
         foreach (var shown in Captures)
             shown.Picture.Dispose();
         Captures.Clear();
-        foreach (var (path, caption) in pictures)
+        foreach (var (path, caption, of) in pictures)
             if (FilePreview.For(path, services) is ImagePreview picture)
-                Captures.Add(new ReplyPicture(picture, caption?.Trim() ?? ""));
+                Captures.Add(new ReplyPicture(picture, caption?.Trim() ?? "") { Of = of });
         OnPropertyChanged(nameof(HasCapture));
+        HidePicturedPeeks();
     }
+
+    /// <summary>
+    /// A file's card under the reply shows no peek at the file when a picture of its page is there already: a Word
+    /// document the model made and showed with capture_result stood twice under its answer, the page and, under
+    /// it, the card's own smaller drawing of the same page (2026-11-12). The card keeps its name, size and buttons.
+    /// </summary>
+    private void HidePicturedPeeks()
+    {
+        foreach (var card in Previews.OfType<FileCardPreview>())
+            card.PeekHidden = Captures.Any(c => c.Of is { } of && string.Equals(System.IO.Path.GetFullPath(of), System.IO.Path.GetFullPath(card.Path), StringComparison.OrdinalIgnoreCase));
+    }
+
+    public AssistantMessageItem() => Previews.CollectionChanged += (_, _) => HidePicturedPeeks();
 
     public override void DisposePreviews()
     {
@@ -855,4 +870,7 @@ public sealed partial class WorkFold : ObservableObject
 public sealed record ReplyPicture(ImagePreview Picture, string Caption)
 {
     public bool HasCaption => Caption.Length > 0;
+
+    /// <summary>The document or picture file this is a page of (capture_result's file); null for a picture of the screen.</summary>
+    public string? Of { get; init; }
 }

@@ -274,8 +274,13 @@ public sealed partial class FileCardPreview(string path) : FilePreview(path)
     /// </summary>
     public double PeekMarkdownWidth => PeekMarkdown?.StartsWith('|') == true ? PeekWidth * 2 : double.NaN;
 
+    /// <summary>The peek is left out: a picture of the file's page stands with the card already (see <see cref="AssistantMessageItem.ShowCaptures"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPeek))]
+    private bool _peekHidden;
+
     /// <summary>There is something of the file to show, and so to open full screen.</summary>
-    public bool HasPeek => Thumbnail is not null || PeekMarkdown is not null || PeekText is not null;
+    public bool HasPeek => !PeekHidden && (Thumbnail is not null || PeekMarkdown is not null || PeekText is not null);
 
     protected override void Load() => Background(() =>
     {

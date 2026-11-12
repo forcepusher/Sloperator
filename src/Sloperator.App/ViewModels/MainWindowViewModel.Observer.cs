@@ -385,10 +385,17 @@ public sealed partial class MainWindowViewModel
         if (captures.Count == 0)
             return;
         var shown = CaptureResultTool.UnderReply([.. captures.Select(c => (ArgumentsOf(c.Arguments), c.SavedFiles![0]))]);
-        reply.ShowCaptures(shown.Select(i => (captures[i].SavedFiles![0], CaptionOf(captures[i].Arguments))), previews);
+        reply.ShowCaptures(shown.Select(i => (captures[i].SavedFiles![0], CaptionOf(captures[i].Arguments), FileOf(captures[i].Arguments))), previews);
     }
 
     private static System.Text.Json.Nodes.JsonObject? ArgumentsOf(string arguments) => ToolCallRepair.AsObject(arguments);
+
+    /// <summary>The document or picture file a capture_result call showed a page of; null for a capture of the screen.</summary>
+    private static string? FileOf(string arguments)
+    {
+        try { return ToolCallRepair.AsObject(arguments)?["file"]?.GetValue<string>() is { Length: > 0 } file ? file.Trim() : null; }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException) { return null; }
+    }
 
     /// <summary>The caption a capture_result call was given; null for none.</summary>
     private static string? CaptionOf(string arguments)

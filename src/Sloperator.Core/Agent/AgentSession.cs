@@ -911,9 +911,10 @@ public sealed partial class AgentSession(
     /// </summary>
     internal const string PlanNote =
         "[Sloperator] You have started on this task and the user's plan bar is empty, so they can't see how far along you are. " +
-        "Unless the task is all but done, call plan now: the whole task as a handful of steps in order, any already done too, " +
+        "If more than one thing is still to be made or changed, or the work ahead is long, call plan now: the whole task as a handful of steps in order, any already done too, " +
         "one plain word each, with now set to the step you are on. Then go straight on with the task, moving the plan on as you start each step. " +
-        "Say nothing of the plan to the user: they see the bar.";
+        "If only one thing and its check are left, or just the answer, make no plan: a plan of two steps tells the user nothing. " +
+        "Either way say nothing of the plan to the user: they see the bar.";
 
     /// <summary>
     /// What the model is told, once a run, when it ends its turn right after the plan <see cref="PlanNote"/> asked
