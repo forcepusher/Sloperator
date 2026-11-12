@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   amounts in dollars or as percentages, and colour the rows that meet a rule ("over $3,000 in red") the way Excel's
   conditional formatting does, in your own workbook too. It used to rewrite the file's insides by hand or need
   Excel itself.
+- **Page numbers, headers and footers in Word documents.** The agent can put page numbers at the bottom or top of
+  every page ("Page 1 of 3" too) and text in the header or footer, left, centre or right, and make all of a
+  document's headings, or a deck's slide titles, look a certain way at once. It used to rewrite the file's insides.
 - **Joining and splitting PDFs.** The agent can join PDFs into one, take pages out of one, or put them in another
   order, by itself. It used to ask whether to download a program for it, or download one.
 - **Formatting in Word documents and slides.** The agent can centre a title, change the size and colour of text,

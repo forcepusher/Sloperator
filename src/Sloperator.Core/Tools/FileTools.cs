@@ -284,7 +284,7 @@ public sealed class EditFileTool : Tool
         "Replace an exact, unique snippet of text in a file with new text, or every occurrence of it with replace_all. " +
         "Also changes Word (.docx) and PowerPoint (.pptx) files in place, keeping their formatting: old_text as read_file shows it, " +
         "new_text may use **bold** and *italic*, and a line break in it starts a new paragraph (\"# \" at its start makes a heading; lines after a slide's title or chart become the slide's text); " +
-        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill). " +
+        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill; old_text \"headings\" is all of them). With old_text empty, lines \"page numbers at the bottom\", \"footer left: Confidential\", \"header right: Page {page} of {pages}\" set what is on every page. " +
         "In Excel (.xlsx) give cells as read_file shows them: old_text the cells to change (\"B7 =SUM(B2:B6)\") or empty, new_text the cells to set " +
         "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
         "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +

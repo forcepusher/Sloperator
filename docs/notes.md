@@ -295,6 +295,24 @@ user's); Kilo's free Nemotron did the same in 152 s, 28 calls and 4 errors, zipp
 work in the user's Documents\Sloperator\scratch. After: three edit_file calls, 23 and 13 s. Read back through Word
 16 (`.dev/night-test/word-look.ps1`): alignment, colours, size, shading and bold as asked, nothing repaired.
 Not there: read_file marks bold text and not italic, so a model can't read its italics back (Sonnet said so).
+**Every page and every heading** (`WordPages`, the same night): with old_text empty, lines of new_text set what is on
+every page of a Word document: `page numbers at the bottom` (also `at the top right`, `as Page X of Y`), `footer left:
+Confidential`, `header right: Page {page} of {pages}` ({page} and {pages} are Word's PAGE and NUMPAGES fields), `no
+footer`. A header or footer is one line in three places, left, centre and right, on tab stops at the middle and the
+right edge of the text (from the last section's page size and margins), in Word's Header or Footer style when the
+document has it; a line changes its place and leaves the others, so page numbers then "Confidential on the left"
+keep the numbers. A footer Word wrote (its page number in runs, centred) is read into its places the same way; one of
+more lines, a table or a picture is replaced whole, and said. Every section refers to it as its default; `no footer`
+takes the references off and the part with them. Text that isn't all such lines still goes at the end of the body.
+read_file shows the fields as {page} and {pages} rather than the number Word last put in them. And old_text
+`headings` (or `all the headings`, `all slide titles`) with `format: …` formats every paragraph in a Heading or
+Title style, or every slide's title. *Why:* asked for page numbers at the bottom, a table of contents and dark blue
+headings, then a footer saying Confidential on the left, Haiku and Sonnet unzipped the document and wrote the
+footer, its relationship and the section's reference through PowerShell (Haiku by way of a script in Sloperator's
+folder; Sonnet left a copy of the file beside it and found Word wouldn't open the result to check it). *Checked:* on
+the Word-made report, opened in Word 16 (`.dev/night-test/word-pages-check.ps1`): "Page 1 of 1" at the top right,
+"Confidential" left and the number centred at the bottom, both headings dark blue, nothing repaired. Not there: a
+table of contents (its page numbers need the pages laid out, which only Word or LibreOffice does).
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
 is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
 says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell

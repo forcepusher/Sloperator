@@ -146,8 +146,30 @@ internal static class DocumentText
             : p.Element(W + "pPr")?.Element(W + "numPr") is not null ? "- " : "";
         var sb = new StringBuilder(prefix);
         var bold = false;
+        // A page's number and the count of pages as {page} and {pages}, as edit_file writes them: their text here is
+        // only what Word last showed ("1").
+        static string? Placeholder(string instruction) => instruction.Trim().Split(' ')[0].ToUpperInvariant() switch { "PAGE" => "{page}", "NUMPAGES" or "SECTIONPAGES" => "{pages}", _ => null };
+        var instruction = new StringBuilder();
+        var state = 0; // 0 text, 1 in a field's instruction, 2 in the result of a page field
         foreach (var run in p.Descendants(W + "r"))
         {
+            if (run.Parent?.Name == W + "fldSimple" && Placeholder((string?)run.Parent.Attribute(W + "instr") ?? "") is { } simple)
+            {
+                if (run == run.Parent.Elements(W + "r").First())
+                    sb.Append(simple);
+                continue;
+            }
+            switch ((string?)run.Element(W + "fldChar")?.Attribute(W + "fldCharType"))
+            {
+                case "begin": state = 1; instruction.Clear(); continue;
+                case "separate":
+                    if (Placeholder(instruction.ToString()) is { } field) { sb.Append(field); state = 2; }
+                    else state = 0;
+                    continue;
+                case "end": state = 0; continue;
+            }
+            if (state == 1) { instruction.Append(string.Concat(run.Elements(W + "instrText").Select(t => t.Value))); continue; }
+            if (state == 2) continue;
             var text = string.Concat(run.Elements().Select(e => e.Name == W + "t" ? e.Value : e.Name == W + "tab" ? "\t" : e.Name == W + "br" ? "\n" : ""));
             if (text.Length == 0) continue;
             var b = run.Element(W + "rPr")?.Element(W + "b") is { } bEl && (string?)bEl.Attribute(W + "val") is null or "1" or "true";
