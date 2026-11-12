@@ -940,17 +940,28 @@ public sealed partial class AgentSession(
     /// I'll make the workbook without the chart. Tell me which you prefer." and was told to carry on with its plan
     /// (2026-11-12). A "?" inside an address or a pattern (one with no space after it) is no question.
     /// </summary>
+    /// <remarks>
+    /// Or a last paragraph that waits for the user's answer, after a question put further up with the choices under
+    /// it: Haiku 5.5 asked "How should I name them?", listed three ways, and ended "Once you choose, I'll resize them…";
+    /// told to carry on with its plan, it resized the photos before the user had chosen (2026-11-13).
+    /// </remarks>
     internal static bool EndsInQuestion(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return false;
         var said = text.Replace("\r", "").TrimEnd();
+        var last = said[(said.LastIndexOf("\n\n", StringComparison.Ordinal) + 1)..];
         return said.TrimEnd('*', '_', ')', '"', '\'', '`', (char)0x201D).EndsWith('?') ||
-               AsksInside().IsMatch(said[(said.LastIndexOf("\n\n", StringComparison.Ordinal) + 1)..]);
+               AsksInside().IsMatch(last) ||
+               AwaitsAnswer().IsMatch(last) && AsksInside().IsMatch(said + " ");
     }
 
     [GeneratedRegex(@"\?(?=[\s""')*_”])")]
     private static partial Regex AsksInside();
+
+    // "Once you choose, I'll…", "Let me know which", "Tell me how", "Pick one and I'll…", "I'll wait for your answer"
+    [GeneratedRegex(@"\b(?:once|when|after|as\s+soon\s+as|if)\s+you(?:'ve|\s+have)?\s+(?:choose|chosen|chose|pick(?:ed)?|decide(?:d)?|confirm(?:ed)?|tell\s+me|told\s+me|let\s+me\s+know|reply|replied|answer(?:ed)?|say|said)\b|\blet\s+me\s+know\s+(?:which|what|how|whether|where|when|your|and\s+I(?:'ll|\s+will))\b|\btell\s+me\s+(?:which|what|how|whether|if|where|when)\b|\b(?:say|choose|pick)\s+(?:which|one)\b|\bwait(?:ing)?\s+(?:on|for)\s+(?:you|your)\b|\bwhich\s+(?:one\s+)?(?:do\s+you|would\s+you|should\s+i)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AwaitsAnswer();
 
     /// <summary>What the model is asked, aside, when its plan fell behind its work (see <see cref="PlanBehindAsync"/>).</summary>
     internal static string PlanBehindNote(AgentPlan plan) =>

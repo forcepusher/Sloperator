@@ -2177,7 +2177,10 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   in the reply's last paragraph: Haiku 5.5 ended "Do you want me to install Python (with openpyxl) so the chart can
   be added? If you'd rather not install anything, I'll make the workbook without the chart. Tell me which you
   prefer.", was told by its plan to carry on, and thought "I'm still waiting on the user's answer… stopping without
-  further output" (2026-11-12).
+  further output" (2026-11-12). And a question further up with a last paragraph that waits for the answer ("Once you
+  choose, I'll…", "Let me know which…", "Tell me how…", `AwaitsAnswer`): Haiku 5.5 asked how to name photos that had
+  no date taken, listed three ways, ended "Once you choose, I'll resize them…", was told to carry on with its plan and
+  resized them before the user had chosen (2026-11-13). "Let me know if anything else comes up" is no wait.
 - Every plan call's result names the next move ("Step 1 of 4: Read. As you start step 2, "Edit", call plan with
   just now=2, along with that step's first call"; "just", as Haiku and Qwen sent all the steps again with each
   move), and a turn that ends on the plan's last step (no question, and the run moved the plan or worked) finishes
