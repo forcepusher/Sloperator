@@ -152,6 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- In a workbook of several sheets, the agent can no longer insert or delete rows without saying on which sheet: a row
+  of the first sheet was deleted when another sheet's was meant.
 - A chart of a table with a total row under it no longer draws the total as one more slice or bar, and a bar chart's
   scale starts at zero. A pie of four regions and their total showed the total as half the pie, and bars of close
   numbers looked many times apart.

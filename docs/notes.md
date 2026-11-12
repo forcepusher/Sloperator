@@ -230,6 +230,14 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   (`.dev/night-test/layout-check.ps1`): rows by revenue, rows 1-2 frozen, the filter on the header under the merged,
   centred title, one rule `=$F3>3000` drawing the rows over 3000 red after the title went in, amounts as $9,120.00.
   Not there: sorting by more than one column, data validation, protecting a sheet.
+  **Rows on the sheet named** (the same night): in a workbook of more than one sheet, `insert row`/`delete rows` with
+  no sheet named (by `on "Name"`, `'Name'!delete row 6` or a `# Sheet` line before it) is refused, nothing changed,
+  with the sheets listed. Meaning the total row of a workbook's second sheet, Qwen wrote `delete rows 6` and a row of
+  orders went from the first. Cells, formats and the other lines still take the first sheet when none is named: they
+  change what is there, where a deleted row is gone.
+  **What these cost** (measured 2026-11-13 after rounds 10 to 12, `.dev/context-size-test`): edit_file's description
+  is 538 tokens and write_file's 353; the prompt and all tools come to 13,823 tokens, 127 more than before the sort,
+  freeze, filter, merge, highlight, number format, page number and footer sentences.
 - `.pptx`: a line of `---` starts the next slide, and a slide's first heading is its title; pictures
   and tables go beside or under the text, and a first slide with only a title and a line under it
   is a title slide. **A chart on a slide** (2026-11-13): a line `chart: bar Sales by region` under a table shows the
@@ -312,7 +320,9 @@ footer, its relationship and the section's reference through PowerShell (Haiku b
 folder; Sonnet left a copy of the file beside it and found Word wouldn't open the result to check it). *Checked:* on
 the Word-made report, opened in Word 16 (`.dev/night-test/word-pages-check.ps1`): "Page 1 of 1" at the top right,
 "Confidential" left and the number centred at the bottom, both headings dark blue, nothing repaired. Not there: a
-table of contents (its page numbers need the pages laid out, which only Word or LibreOffice does).
+table of contents (its page numbers need the pages laid out, which only Word or LibreOffice does). Page lines mixed with
+other lines in one new_text are refused, nothing changed: as Haiku gave "page numbers at the bottom" with "headings:
+format: dark blue", both had gone in at the end of the document as text.
 **The same words twice** (`TextEdit.Meant`, the same night): text found in more than one place, without replace_all,
 is the place where it is a whole line of its own (a title, a heading, a bullet) when only one is, and the answer
 says how many other places have the words and were left as they were. Not a table cell: a value alone in a cell

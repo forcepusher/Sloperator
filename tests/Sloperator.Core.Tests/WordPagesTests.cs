@@ -72,6 +72,11 @@ public class WordPagesTests : IDisposable
         Assert.Contains("Took the footer off every page.", gone.Text);
         Assert.DoesNotContain("Footer:", await Read("report.docx"));
         Assert.Contains("Header:", await Read("report.docx"));
+        // Mixed with other lines they are refused, and nothing is changed: as Haiku gave them, they went in as text.
+        var mixed = await Edit("report.docx", "", "page numbers at the bottom\nheadings: format: dark blue");
+        Assert.True(mixed.IsError);
+        Assert.Contains("old_text is the text (\"headings\" for every heading) and new_text \"format: dark blue\"", mixed.Text);
+        Assert.DoesNotContain("format: dark blue", await Read("report.docx"));
         // Text that isn't such lines still goes at the end of the body.
         Assert.Contains("Added the text at the end", (await Edit("report.docx", "", "Page numbers are on every page.")).Text);
     }

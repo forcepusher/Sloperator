@@ -247,6 +247,24 @@ public class SheetFormatTests : IDisposable
     }
 
     [Fact]
+    public async Task Rows_of_a_workbook_of_several_sheets_go_only_on_the_sheet_named()
+    {
+        Assert.False((await Write("orders.xlsx", Orders)).IsError);
+        // As Qwen wrote it (2026-11-13), meaning the second sheet: a row of orders on the first went.
+        var unnamed = await Edit("orders.xlsx", "", "delete rows 3");
+        Assert.True(unnamed.IsError);
+        Assert.Contains("This workbook has 2 sheets (\"Orders\", \"Revenue by region\"): say which one the rows are deleted on", unnamed.Text);
+        Assert.Contains("A3 2026-01-16 | B3 South", await Read("orders.xlsx"));
+        foreach (var line in new[] { "delete row 3 on \"Revenue by region\"", "'Revenue by region'!delete row 2", "# Sheet \"Revenue by region\"\ninsert row 2" })
+        {
+            var named = await Edit("orders.xlsx", "", line);
+            Assert.False(named.IsError, named.Text);
+            Assert.Contains("on sheet \"Revenue by region\"", named.Text);
+        }
+        Assert.Contains("A3 2026-01-16 | B3 South", await Read("orders.xlsx"));
+    }
+
+    [Fact]
     public async Task A_line_that_is_none_of_them_is_said_with_the_lines_there_are()
     {
         Assert.False((await Write("orders.xlsx", Orders)).IsError);
