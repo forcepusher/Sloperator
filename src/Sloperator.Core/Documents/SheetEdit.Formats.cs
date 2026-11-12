@@ -11,7 +11,8 @@ internal static partial class SheetEdit
     // openpyxl, then wrote the fill into styles.xml by hand through PowerShell, and Sonnet drove Excel from
     // PowerShell, which a PC without Office doesn't have: edit_file set what cells hold, not how they look.
 
-    private sealed record FormatLine(string? Sheet, int Row1, int Column1, int Row2, int Column2, DocumentLook Look, string Cells);
+    /// <param name="Number">How numbers show, as Excel's number format code ("$"#,##0.00), or null to leave it.</param>
+    private sealed record FormatLine(string? Sheet, int Row1, int Column1, int Row2, int Column2, DocumentLook Look, string Cells, string? Number = null);
 
     /// <summary>The most cells one format line may cover: each gets a style of its own in the sheet.</summary>
     private const int MaxFormatted = 50_000;
@@ -25,18 +26,19 @@ internal static partial class SheetEdit
         var (said, text) = SheetSaid(line.Trim(), names);
         if (FormatStart().Match(text) is not { Success: true } m)
             return null;
+        var (number, words) = NumberIn(m.Groups["what"].Value);
         // Without the word "format" it is one only as a range with nothing but a look after it ("A1:B1 bold, light
         // blue fill"): a cell and what it holds is written the same way ("B2 bold").
-        if (!m.Groups["kw"].Success && (!m.Groups["b"].Success || !DocumentLook.OnlyLook(m.Groups["what"].Value)))
+        if (!m.Groups["kw"].Success && (!m.Groups["b"].Success || !(number is not null && words.Trim(' ', ',', '.').Length == 0 || DocumentLook.OnlyLook(words))))
             return null;
         var (r1, c1) = Parse(m.Groups["a"].Value.Replace("$", "").ToUpperInvariant());
         var (r2, c2) = m.Groups["b"].Success ? Parse(m.Groups["b"].Value.Replace("$", "").ToUpperInvariant()) : (r1, c1);
         var on = m.Groups["sheet"].Success ? Unquoted(m.Groups["sheet"].Value) : said ?? sheet;
-        var look = DocumentLook.Parse(m.Groups["what"].Value);
-        if (!look.Any)
-            throw new InvalidOperationException($"{line.Trim()}: say how the cells should look: {DocumentLook.Words}, wrap, border.");
+        var look = DocumentLook.Parse(words);
+        if (!look.Any && number is null)
+            throw new InvalidOperationException($"{line.Trim()}: say how the cells should look: {DocumentLook.Words}, wrap, border, or how numbers show (as dollars, as percent, as dates, 2 decimals).");
         var cells = $"{XlsxWriter.Reference(Math.Min(r1, r2), Math.Min(c1, c2))}{(r1 == r2 && c1 == c2 ? "" : ":" + XlsxWriter.Reference(Math.Max(r1, r2), Math.Max(c1, c2)))}";
-        return new FormatLine(on, Math.Min(r1, r2), Math.Min(c1, c2), Math.Max(r1, r2), Math.Max(c1, c2), look, cells);
+        return new FormatLine(on, Math.Min(r1, r2), Math.Min(c1, c2), Math.Max(r1, r2), Math.Max(c1, c2), look, cells, number);
     }
 
     /// <summary>The cells of a format line given their look, each keeping the rest of what it had (its number format, its font's size); what was done.</summary>
@@ -59,20 +61,132 @@ internal static partial class SheetEdit
                 var cell = Find(xml, reference) ?? Create(data, reference);
                 var current = (int?)cell.Attribute("s") ?? 0;
                 if (!made.TryGetValue(current, out var index))
-                    made[current] = index = Styled(styles, xfs, current, line.Look);
+                    made[current] = index = Styled(styles, xfs, current, line.Look, line.Number);
                 cell.SetAttributeValue("s", index);
             }
         Dimension(xml);
         parts.Changed(sheet.Part);
         parts.Changed("xl/styles.xml");
-        return $"formatted {line.Cells} on sheet \"{sheet.Name}\" ({line.Look.Said})";
+        var said = string.Join(", ", new[] { line.Look.Said, line.Number is null ? null : $"numbers as {line.Number}" }.Where(s => !string.IsNullOrEmpty(s)));
+        var widened = line.Number is null ? [] : Widen(parts, sheet, line);
+        return $"formatted {line.Cells} on sheet \"{sheet.Name}\" ({said})" +
+               (widened.Count == 0 ? "" : $", {(widened.Count == 1 ? "column " + widened[0] : "columns " + string.Join(", ", widened))} made wider to show them");
     }
 
+    /// <summary>
+    /// The columns of a format line made wide enough for its numbers as they now show, as Excel widens a column when a
+    /// number format is applied to it; never narrower. Shown in dollars in a workbook Excel had fitted to the plain
+    /// numbers, the amounts were ##### (2026-11-13).
+    /// </summary>
+    private static List<string> Widen(PartSet parts, (string Name, string Part) sheet, FormatLine line)
+    {
+        var xml = parts.Get(sheet.Part);
+        var root = xml.Root!;
+        var longest = new Dictionary<int, int>();
+        foreach (var c in root.Element(S + "sheetData")?.Elements(S + "row").Elements(S + "c") ?? [])
+            if ((string?)c.Attribute("r") is { } at && Parse(at) is var (row, column) && row >= line.Row1 && row <= line.Row2 && column >= line.Column1 && column <= line.Column2
+                && (string?)c.Attribute("t") is null or "n" && double.TryParse((string?)c.Element(S + "v"), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)
+                && Tools.DocumentText.Formatted(n, line.Number) is { } shown)
+                longest[column] = Math.Max(longest.GetValueOrDefault(column), shown.Length);
+        var standard = double.TryParse((string?)root.Element(S + "sheetFormatPr")?.Attribute("defaultColWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 8.43;
+        var widened = new List<string>();
+        foreach (var (column, length) in longest.OrderBy(l => l.Key))
+        {
+            var needed = Math.Min(60, length * 1.1 + 2);
+            var col = root.Element(S + "cols")?.Elements(S + "col").FirstOrDefault(e => ((int?)e.Attribute("min") ?? 0) <= column && column <= ((int?)e.Attribute("max") ?? 0));
+            var now = double.TryParse((string?)col?.Attribute("width"), NumberStyles.Float, CultureInfo.InvariantCulture, out var w) ? w : standard;
+            if (needed <= now)
+                continue;
+            ApplyWidth(parts, sheet, new WidthLine(sheet.Name, column, column, Math.Round(needed, 2)), []);
+            widened.Add(Letters(column));
+        }
+        return widened;
+    }
+
+    /// <summary>
+    /// How numbers are to show, as a format line says it in words ("as dollars", "as percent", "as dates", "2
+    /// decimals", "with a thousands separator") or as Excel's own code ("#,##0.00"), and the line's other words.
+    /// </summary>
+    private static (string? Code, string Others) NumberIn(string what)
+    {
+        string? kind = null;
+        int? decimals = null;
+        var rest = what;
+        string Take(Regex pattern, string? set)
+        {
+            if (pattern.Match(rest) is { Success: true } m)
+            {
+                kind ??= set;
+                rest = rest.Remove(m.Index, m.Length).Insert(m.Index, " ");
+                return m.Value;
+            }
+            return "";
+        }
+        if (NumberCode().Match(rest) is { Success: true } code)
+            return (code.Groups["code"].Value.Trim('"', '\'') is { Length: > 0 } given ? given : null, rest.Remove(code.Index, code.Length));
+        Take(Dollars(), "$");
+        Take(Euros(), "€");
+        Take(Pounds(), "£");
+        Take(Percents(), "%");
+        Take(Dates(), "date");
+        if (Decimals().Match(rest) is { Success: true } d)
+        {
+            decimals = d.Groups["d"].Value.ToLowerInvariant() switch { "one" => 1, "two" => 2, "three" => 3, "no" or "zero" => 0, var n => int.Parse(n, CultureInfo.InvariantCulture) };
+            rest = rest.Remove(d.Index, d.Length).Insert(d.Index, " ");
+            kind ??= "number";
+        }
+        Take(Thousands(), "number");
+        if (kind is null)
+            return (null, what);
+        var places = Math.Clamp(decimals ?? (kind is "%" or "number" ? 0 : 2), 0, 10);
+        var tail = places > 0 ? "." + new string('0', places) : "";
+        var number = "#,##0" + tail;
+        return (kind switch
+        {
+            "$" => "\"$\"" + number,
+            "€" => number + " \"€\"",
+            "£" => "\"£\"" + number,
+            "%" => "0" + tail + "%",
+            "date" => "yyyy-mm-dd",
+            _ => number,
+        }, rest);
+    }
+
+    // "number format #,##0.00", "format code 0.0%", or the code alone: "#,##0", "0.00%", "$#,##0.00"
+    [GeneratedRegex(@"(?:\bnumber\s+format(?:\s+code)?|\bformat\s+code|\bcode)\s*[:=]?\s*(?<code>""[^""]+""|'[^']+'|\S+)|(?<![\w#$€£])(?<code>[$€£]?[#0](?:[#0,]*[#0])?(?:\.0+)?%?)(?![\w#])", RegexOptions.IgnoreCase)]
+    private static partial Regex NumberCode();
+
+    [GeneratedRegex(@"\b(?:(?:shown\s+|show\s+)?(?:in|as)\s+)?(?:us\s+)?(?:dollars?|usd)\b|\b(?:(?:in|as)\s+)?(?:currency|money)\b|(?:\bas\s+)?(?<![\w$])\$(?![\w#0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex Dollars();
+
+    [GeneratedRegex(@"\b(?:(?:in|as)\s+)?(?:euros?|eur)\b|(?:\bas\s+)?(?<!\w)€(?![\w#0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex Euros();
+
+    [GeneratedRegex(@"\b(?:(?:in|as)\s+)?(?:pounds?|gbp|sterling)\b|(?:\bas\s+)?(?<!\w)£(?![\w#0-9])", RegexOptions.IgnoreCase)]
+    private static partial Regex Pounds();
+
+    [GeneratedRegex(@"\b(?:(?:in|as)\s+(?:a\s+)?)?(?:percent(?:age)?s?)\b|(?:\bas\s+)?(?<![\w%])%(?![\w%])", RegexOptions.IgnoreCase)]
+    private static partial Regex Percents();
+
+    [GeneratedRegex(@"\b(?:(?:in|as)\s+)?dates?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Dates();
+
+    [GeneratedRegex(@"\b(?:with\s+)?(?<d>[0-9]|no|zero|one|two|three)\s+decimals?(?:\s+places?)?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Decimals();
+
+    [GeneratedRegex(@"\b(?:with\s+)?(?:a\s+)?thousands?\s+separators?\b|\bwith\s+commas\b|\b(?:as\s+)?whole\s+numbers?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex Thousands();
+
     /// <summary>The cell format that is format <paramref name="current"/> with <paramref name="look"/>: one there already, or a new one.</summary>
-    private static int Styled(XElement styles, XElement xfs, int current, DocumentLook look)
+    private static int Styled(XElement styles, XElement xfs, int current, DocumentLook look, string? number = null)
     {
         var all = xfs.Elements(S + "xf").ToList();
         var xf = new XElement(all.ElementAtOrDefault(current) ?? all.FirstOrDefault() ?? new XElement(S + "xf", new XAttribute("numFmtId", 0), new XAttribute("fontId", 0), new XAttribute("fillId", 0), new XAttribute("borderId", 0)));
+        if (number is not null)
+        {
+            xf.SetAttributeValue("numFmtId", NumberFormatId(styles, number));
+            xf.SetAttributeValue("applyNumberFormat", 1);
+        }
         if (look.Bold is not null || look.Italic is not null || look.Underline is not null || look.Size is not null || look.Colour is not null)
         {
             var fonts = Section(styles, "fonts", "numFmts");

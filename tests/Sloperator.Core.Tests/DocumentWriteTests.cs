@@ -348,7 +348,8 @@ public class DocumentWriteTests : IDisposable
                 drawing.Write("""<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:twoCellAnchor><xdr:graphicFrame><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame></xdr:twoCellAnchor></xdr:wsDr>""");
         }
 
-        Assert.Contains("(merged: A1:B1)\n(1 chart)\n", await Read("book.xlsx"));
+        // A workbook written here keeps its header row in view, which read_file says too.
+        Assert.Contains("(merged: A1:B1)\n(frozen: row 1)\n(1 chart)\n", await Read("book.xlsx"));
     }
 
     [Fact]

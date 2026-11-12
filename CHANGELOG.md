@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cell formatting in Excel workbooks.** The agent can make cells bold or italic, give them a background or text
   colour, centre them and put borders on them, and set or fit column widths, in your own workbook too. Asked for a
   yellow header row, it used to look for Python or rewrite the file's insides by hand.
+- **Sorting, frozen rows, filters, merged cells, highlights and number formats in Excel workbooks.** The agent can
+  sort a table by a column, keep its header row in view, put filter buttons on it, merge a title across it, show
+  amounts in dollars or as percentages, and colour the rows that meet a rule ("over $3,000 in red") the way Excel's
+  conditional formatting does, in your own workbook too. It used to rewrite the file's insides by hand or need
+  Excel itself.
 - **Joining and splitting PDFs.** The agent can join PDFs into one, take pages out of one, or put them in another
   order, by itself. It used to ask whether to download a program for it, or download one.
 - **Formatting in Word documents and slides.** The agent can centre a title, change the size and colour of text,

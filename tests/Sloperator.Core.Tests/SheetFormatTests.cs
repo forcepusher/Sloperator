@@ -250,9 +250,9 @@ public class SheetFormatTests : IDisposable
     public async Task A_line_that_is_none_of_them_is_said_with_the_lines_there_are()
     {
         Assert.False((await Write("orders.xlsx", Orders)).IsError);
-        var unknown = await Edit("orders.xlsx", "", "format A1:C1 yellow fill\nfreeze the top row");
+        var unknown = await Edit("orders.xlsx", "", "format A1:C1 yellow fill\nprotect the sheet");
         Assert.True(unknown.IsError);
-        Assert.Contains("\"freeze the top row\" is no line edit_file knows for a workbook.", unknown.Text);
+        Assert.Contains("\"protect the sheet\" is no line edit_file knows for a workbook.", unknown.Text);
         Assert.Contains("\"'My sheet'!A1:B1\"", unknown.Text);
         // Nothing of the edit was done.
         Assert.NotEqual("FFFFFF00", Fill("orders.xlsx", 1, "A1"));

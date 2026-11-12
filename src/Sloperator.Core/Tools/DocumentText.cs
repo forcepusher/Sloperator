@@ -180,6 +180,7 @@ internal static class DocumentText
         var shared = zip.GetEntry("xl/sharedStrings.xml") is null ? []
             : Load(zip, "xl/sharedStrings.xml").Root!.Elements(S + "si").Select(si => string.Concat(si.Descendants(S + "t").Select(t => t.Value))).ToList();
         var styles = CellFormats(zip);
+        var highlights = Highlights(zip);
         var targets = Relations(zip, "xl/_rels/workbook.xml.rels", "xl/");
         var sb = new StringBuilder();
         foreach (var sheet in Load(zip, "xl/workbook.xml").Root!.Element(S + "sheets")?.Elements(S + "sheet") ?? [])
@@ -214,6 +215,19 @@ internal static class DocumentText
             // What else a person sees on the sheet: a title across merged cells, its charts.
             if (data.Element(S + "mergeCells")?.Elements(S + "mergeCell").Select(m => (string?)m.Attribute("ref")).OfType<string>().ToList() is { Count: > 0 } merged)
                 sb.Append("(merged: ").AppendJoin(", ", merged).AppendLine(")");
+            // What stays in view, the filter and the rules that colour cells: made with edit_file, they were nowhere to
+            // check them by (2026-11-13).
+            if (data.Element(S + "sheetViews")?.Element(S + "sheetView")?.Element(S + "pane") is { } pane && ((string?)pane.Attribute("state"))?.StartsWith("frozen", StringComparison.Ordinal) == true)
+            {
+                var rows = (int?)pane.Attribute("ySplit") ?? 0;
+                var columns = (int?)pane.Attribute("xSplit") ?? 0;
+                static string Letters(int n) { var s = ""; for (; n > 0; n = (n - 1) / 26) s = (char)('A' + (n - 1) % 26) + s; return s; }
+                sb.Append("(frozen: ").AppendJoin(" and ", new[] { rows > 0 ? (rows == 1 ? "row 1" : $"rows 1-{rows}") : null, columns > 0 ? (columns == 1 ? "column A" : $"columns A-{Letters(columns)}") : null }.OfType<string>()).AppendLine(")");
+            }
+            if ((string?)data.Element(S + "autoFilter")?.Attribute("ref") is { } filter)
+                sb.Append("(filter: ").Append(filter).AppendLine(")");
+            foreach (var rule in data.Elements(S + "conditionalFormatting").SelectMany(f => f.Elements(S + "cfRule").Select(r => (Range: (string?)f.Attribute("sqref"), Rule: r))))
+                sb.Append("(highlight: ").Append(rule.Range).Append(' ').Append(Rule(rule.Rule)).Append(highlights.ElementAtOrDefault((int?)rule.Rule.Attribute("dxfId") ?? -1) is { Length: > 0 } look ? ": " + look : "").AppendLine(")");
             // Each chart with what it draws ("(chart: bar chart "Sales": Budget!B2:B13 over Budget!A2:A13)"), so one
             // made is checked by reading and one of the user's is understood; one that can't be read is still counted.
             var charts = Optional(() => Charts(zip, target), []);
@@ -289,6 +303,36 @@ internal static class DocumentText
             var font = (int?)xf.Attribute("fontId") ?? 0;
             return (codes.GetValueOrDefault(id) ?? BuiltInFormat(id), font >= 0 && font < bold.Count && bold[font]);
         }).ToList() ?? [];
+    }
+
+    /// <summary>What a conditional format's rule tests: "where $F2>3000", "where the cell is over 3000".</summary>
+    private static string Rule(XElement rule)
+    {
+        var formulas = rule.Elements(S + "formula").Select(f => f.Value).ToList();
+        return (string?)rule.Attribute("type") switch
+        {
+            "expression" => "where " + string.Join(" ", formulas),
+            "cellIs" => "where the cell is " + ((string?)rule.Attribute("operator") switch
+            {
+                "greaterThan" => "over", "greaterThanOrEqual" => "at least", "lessThan" => "under", "lessThanOrEqual" => "at most",
+                "notEqual" => "not", "between" => "between", "notBetween" => "not between", _ => "",
+            }) + " " + string.Join(" and ", formulas),
+            var type => $"({type ?? "a rule"})",
+        };
+    }
+
+    /// <summary>What each of the workbook's highlight looks (dxf) gives a cell: "fill #FFC7CE, text #9C0006".</summary>
+    private static List<string> Highlights(ZipArchive zip)
+    {
+        if (zip.GetEntry("xl/styles.xml") is null)
+            return [];
+        return Optional(() => Load(zip, "xl/styles.xml").Root!.Element(S + "dxfs")?.Elements(S + "dxf").Select(dxf =>
+        {
+            static string? Rgb(XElement? colour) => ((string?)colour?.Attribute("rgb")) is { Length: 8 } argb ? "#" + argb[2..] : null;
+            var fill = Rgb(dxf.Element(S + "fill")?.Descendants().FirstOrDefault(e => e.Name.LocalName is "bgColor" or "fgColor"));
+            var text = Rgb(dxf.Element(S + "font")?.Element(S + "color"));
+            return string.Join(", ", new[] { fill is null ? null : "fill " + fill, text is null ? null : "text " + text, dxf.Element(S + "font")?.Element(S + "b") is not null ? "bold" : null }.OfType<string>());
+        }).ToList() ?? [], []);
     }
 
     /// <summary>The number formats Excel has without writing them down, the ones that change how a number reads.</summary>
