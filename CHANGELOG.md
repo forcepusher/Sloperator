@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Formatting in Word documents and slides.** The agent can centre a title, change the size and colour of text,
   make it bold, italic or underlined, and shade the rows of a table, in a document or deck that is already there.
   It used to take the file apart and rewrite its insides by hand.
+- **Taking out, moving and copying slides** of a deck, your own too: "delete slide 3", "move slide 4 to the start",
+  "duplicate slide 2". PowerPoint's sections and a slide's charts come along.
 - **Charts in PowerPoint decks.** A deck the agent makes can have real charts (bar, line, pie, area) whose numbers
   you can change in PowerPoint with Edit Data. Asked for a slide with a chart, it used to put a table there, or go
   looking for other programs.
