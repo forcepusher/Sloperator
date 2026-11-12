@@ -19,7 +19,8 @@ internal static partial class SheetEdit
     {
         if (ask.Ranges.Count == 0)
             throw new InvalidOperationException($"Say which cells the chart draws, their headings and labels with them: add chart {ask.Kind} A1:D13 {ask.Title ?? "Title"}");
-        var series = SheetChart.SeriesOf(target.Name, ask.Ranges, CellReader(parts, sheets, shared));
+        var notes = new List<string>();
+        var series = SheetChart.SeriesOf(target.Name, ask.Ranges, CellReader(parts, sheets, shared), notes);
 
         var sheet = parts.Get(target.Part);
         var types = parts.Get("[Content_Types].xml");
@@ -67,7 +68,7 @@ internal static partial class SheetEdit
         parts.Changed(drawingPart);
         return $"added {A(ask.Kind)} {ask.Kind} chart{(ask.Title is null ? "" : $" \"{ask.Title}\"")} to sheet \"{target.Name}\" at {XlsxWriter.Reference(row, right)}: " +
                string.Join(", ", series.Take(pieOnly(ask) ? 1 : 8).Select(s => $"{s.Name} ({s.ValuesRef.Replace("$", "")})")) +
-               (series[0].LabelsRef is { } labels ? $" over {labels.Replace("$", "")}" : "");
+               (series[0].LabelsRef is { } labels ? $" over {labels.Replace("$", "")}" : "") + Left(notes);
 
         static bool pieOnly(SheetChart.Ask a) => a.Kind == "pie";
     }
@@ -256,6 +257,10 @@ internal static partial class SheetEdit
         return char.ToUpperInvariant(said[0]) + said[1..] + ".";
     }
 
+    /// <summary>What was left out of a chart's cells, said after what it draws: " (the "Total" row is left out …)".</summary>
+    private static string Left(List<string> notes) =>
+        notes.Count == 0 ? "" : " (" + string.Join(" ", notes.Select(n => char.ToLowerInvariant(n[0]) + n[1..].TrimEnd('.'))) + ")";
+
     /// <summary>A chart off its sheet: its frame, its part and what belongs to it alone.</summary>
     private static string RemoveChart(PartSet parts, ChartFound chart)
     {
@@ -290,8 +295,9 @@ internal static partial class SheetEdit
     /// <summary>A chart made anew in its place: what <paramref name="ask"/> says of its kind, title and cells, the rest as it was.</summary>
     private static string ChangeChart(PartSet parts, List<(string Name, string Part)> sheets, ChartFound chart, SheetChart.Ask ask, List<string> shared)
     {
+        var notes = new List<string>();
         var series = ask.Ranges.Count > 0
-            ? SheetChart.SeriesOf(chart.Sheet.Name, ask.Ranges, CellReader(parts, sheets, shared))
+            ? SheetChart.SeriesOf(chart.Sheet.Name, ask.Ranges, CellReader(parts, sheets, shared), notes)
             : SheetChart.SeriesIn(parts.Get(chart.ChartPart));
         if (series.Count == 0)
             throw new InvalidOperationException($"The {chart.Said} names no cells that can be kept: give the cells it should draw (chart: {ask.Kind} A1:D13 {ask.Title ?? chart.Title ?? "Title"}).");
@@ -299,7 +305,7 @@ internal static partial class SheetEdit
         parts.Add(chart.ChartPart, SheetChart.Chart(ask.Kind, title, series));
         return $"changed the {chart.Said} on sheet \"{chart.Sheet.Name}\" to {A(ask.Kind)} {ask.Kind} chart{(title is null ? "" : $" \"{title}\"")}: " +
                string.Join(", ", series.Take(ask.Kind == "pie" ? 1 : 8).Select(s => $"{s.Name} ({s.ValuesRef.Replace("$", "")})")) +
-               (series[0].LabelsRef is { } labels ? $" over {labels.Replace("$", "")}" : "");
+               (series[0].LabelsRef is { } labels ? $" over {labels.Replace("$", "")}" : "") + Left(notes);
     }
 
     /// <summary>What a cell of a sheet of the workbook holds, for a chart: each sheet's cells read once.</summary>

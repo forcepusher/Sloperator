@@ -61,8 +61,13 @@ internal static partial class TextEdit
         if (hits.Count == 0)
             throw new InvalidOperationException("old_text was not found in the document, so there is nothing to format. Read it again with read_file and copy the text exactly " +
                 "(a table's rows as read_file shows them, \"| Month | Sales |\").");
+        var within = 0;
         if (hits.Count > 1 && !all)
-            throw new InvalidOperationException($"old_text occurs {hits.Count} times. Include more of the text around it to make it unique, or set replace_all to format every one.");
+        {
+            (hits, within) = Meant(hits, format);
+            if (hits.Count > 1)
+                throw new InvalidOperationException(Many(hits.Count, slides, "format"));
+        }
         // From the last to the first, so the places still to format stay where they were found.
         foreach (var hit in hits.OrderByDescending(h => h.Stretch.Part).ThenByDescending(h => h.Stretch.Paragraphs[0].ElementsBeforeSelf().Count()).ThenByDescending(h => h.Start))
         {
@@ -84,8 +89,13 @@ internal static partial class TextEdit
             }
         }
         return (hits.Count, hits.Select(h => h.Stretch.Part).Distinct().ToList(),
-            $"Formatted {(hits.Count > 1 ? $"{hits.Count} places" : "the text")} ({look.Said}); what {(hits.Count > 1 ? "they say" : "it says")} is as it was.");
+            $"Formatted {(hits.Count > 1 ? $"{hits.Count} places" : "the text")} ({look.Said}); what {(hits.Count > 1 ? "they say" : "it says")} is as it was."
+            + (within > 0 ? " " + Within(within) : ""));
     }
+
+    /// <summary>What to say of the longer lines left alone when the one line that is just the text was taken (<see cref="Meant"/>).</summary>
+    public static string Within(int places) =>
+        $"That is the line that is just this text; the same words are in {(places == 1 ? "1 other place, which is" : $"{places} other places, which are")} as before (replace_all takes those too).";
 
     /// <summary><paramref name="element"/> put into <paramref name="parent"/> where the order of its kind has it, in place of one of its name.</summary>
     private static void Ordered(XElement parent, XElement element, string[] order)

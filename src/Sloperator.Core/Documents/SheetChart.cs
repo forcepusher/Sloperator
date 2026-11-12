@@ -153,7 +153,8 @@ internal static partial class SheetChart
     /// </summary>
     /// <param name="sheet">The sheet the chart is on, for cells that name none.</param>
     /// <param name="cell">What a cell of a sheet holds.</param>
-    public static List<Series> SeriesOf(string sheet, IReadOnlyList<Cells> ranges, Func<string, int, int, Value> cell)
+    /// <param name="notes">What to tell of the cells that were left out (a total row).</param>
+    public static List<Series> SeriesOf(string sheet, IReadOnlyList<Cells> ranges, Func<string, int, int, Value> cell, List<string>? notes = null)
     {
         if (ranges.Count == 0)
             throw new InvalidOperationException("Say which cells the chart draws, such as A1:D13.");
@@ -184,21 +185,39 @@ internal static partial class SheetChart
         var first = named ? 1 : 0;
         if (length - first < 1)
             throw new InvalidOperationException("Those cells hold no values to draw: give the cells with the numbers, their headings and labels with them.");
+        // Excel's own limits for a chart; past them the file would open with the chart cut short, after a part of many megabytes was written.
+        if (length - first > MaxValues || values.Count > MaxSeries)
+            throw new InvalidOperationException($"A chart draws at most {MaxValues:N0} values in each of {MaxSeries} series, as in Excel: give fewer cells (these are {length - first:N0} values in {values.Count} series).");
+        // A last row (or column) of totals isn't one of the things compared: as a slice of a pie it was half of it,
+        // and as a bar it dwarfed the others. Haiku drew a pie of four regions and their total that way (2026-11-13).
+        var end = length - 1;
+        if (labels is { } total && end - first >= 2 && At(total, end).IsText && TotalLabel().IsMatch(At(total, end).Text!))
+        {
+            notes?.Add($"The \"{At(total, end).Text!.Trim()}\" {(byRows ? "column" : "row")} is left out of the chart, as it adds up the others; give the cells to draw to have it in.");
+            end--;
+        }
         var series = new List<Series>();
         foreach (var v in values)
         {
             var name = named ? At(v, 0) : default;
             var shown = name.Text is { Length: > 0 } text ? text : name.Number is { } number ? number.ToString("G15", CultureInfo.InvariantCulture) : $"Series {series.Count + 1}";
             series.Add(new Series(shown, named && (name.Text is not null || name.Number is not null) ? Ref(v, 0, 0) : null,
-                labels is { } l ? Ref(l, first, length - 1) : null,
-                labels is { } l2 ? [.. Enumerable.Range(first, length - first).Select(i => At(l2, i))] : [],
-                Ref(v, first, length - 1),
-                [.. Enumerable.Range(first, length - first).Select(i => At(v, i))]));
+                labels is { } l ? Ref(l, first, end) : null,
+                labels is { } l2 ? [.. Enumerable.Range(first, end - first + 1).Select(i => At(l2, i))] : [],
+                Ref(v, first, end),
+                [.. Enumerable.Range(first, end - first + 1).Select(i => At(v, i))]));
         }
         if (series.All(s => s.Values.All(v => v.Number is null && !v.Formula)))
             throw new InvalidOperationException("Those cells hold no numbers to draw: a chart's values are numbers or formulas, with their labels in the first column.");
         return series;
     }
+
+    // "Total", "Totals", "Grand total", "Total revenue", "Sum", "Overall"
+    [GeneratedRegex(@"^\s*(?:grand\s+|sub-?\s*)?totals?\b|^\s*(?:sum|overall)\s*:?\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex TotalLabel();
+
+    /// <summary>The most values a series of a chart has, and the most series a chart has: Excel's limits.</summary>
+    internal const int MaxValues = 32_000, MaxSeries = 255;
 
     /// <summary>"'Sales 2026'!$B$2:$B$13": cells as a chart names them.</summary>
     internal static string Absolute(string sheet, int row1, int column1, int row2, int column2)
@@ -257,7 +276,10 @@ internal static partial class SheetChart
                     new XElement(C + "crossAx", Val(ValueAxis)), new XElement(C + "crosses", Val("autoZero")),
                     new XElement(C + "auto", Val(1)), new XElement(C + "lblAlgn", Val("ctr")), new XElement(C + "lblOffset", Val(100)), new XElement(C + "noMultiLvlLbl", Val(0))),
                 new XElement(C + "valAx",
-                    new XElement(C + "axId", Val(ValueAxis)), new XElement(C + "scaling", new XElement(C + "orientation", Val("minMax"))),
+                    new XElement(C + "axId", Val(ValueAxis)), new XElement(C + "scaling", new XElement(C + "orientation", Val("minMax")),
+                        // Bars and areas from zero: left to itself, the axis of four regions' revenue started at 39,000, and the
+                        // gaps between them looked many times what they are (Haiku saw it on its slide, 2026-11-13). A line may start where its values do.
+                        kind is "bar" or "area" && shown.All(s => s.Values.All(v => v.Number is not < 0)) ? new XElement(C + "min", Val(0)) : null),
                     new XElement(C + "delete", Val(0)), new XElement(C + "axPos", Val("l")),
                     new XElement(C + "majorGridlines", new XElement(C + "spPr", Ln(Soft, 9525))),
                     new XElement(C + "numFmt", new XAttribute("formatCode", "General"), new XAttribute("sourceLinked", 1)),

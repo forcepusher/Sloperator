@@ -255,7 +255,7 @@ internal static partial class XlsxWriter
         {
             try
             {
-                var series = SheetChart.SeriesOf(sheet.Name, cells, Cell);
+                var series = SheetChart.SeriesOf(sheet.Name, cells, Cell, notes);
                 made++;
                 package.Add($"xl/charts/chart{made}.xml", SheetChart.Chart(ask.Kind, ask.Title, series), SheetChart.ChartType);
                 relations.Add(($"rId{anchors.Count + 1}", SheetChart.ChartRel, $"../charts/chart{made}.xml", false));
