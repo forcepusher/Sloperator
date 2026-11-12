@@ -40,7 +40,7 @@ public sealed class PlanToolTests
         Assert.Equal(3, told.Count);
 
         // A step written as a string moves it too.
-        Assert.Equal("Step 1 of 2: Read. As you start step 2, \"Build\", call plan with now=2 along with that step's first call.", (await Call(ctx, """{"now":"1"}""")).Text);
+        Assert.Equal("Step 1 of 2: Read. As you start step 2, \"Build\", call plan with just now=2, along with that step's first call.", (await Call(ctx, """{"now":"1"}""")).Text);
     }
 
     [Fact]

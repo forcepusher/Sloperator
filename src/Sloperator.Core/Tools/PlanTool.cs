@@ -95,7 +95,7 @@ public sealed class PlanTool : Tool
         plan.Finished ? "All steps of the plan are done."
         : $"Step {plan.At + 1} of {plan.Steps.Count}: {plan.Steps[plan.At].Word}." +
           (plan.At + 1 < plan.Steps.Count
-              ? $" As you start step {plan.At + 2}, \"{plan.Steps[plan.At + 1].Word}\", call plan with now={plan.At + 2} along with that step's first call."
+              ? $" As you start step {plan.At + 2}, \"{plan.Steps[plan.At + 1].Word}\", call plan with just now={plan.At + 2}, along with that step's first call."
               : "");
 
     private static string Listed(AgentPlan plan) =>
