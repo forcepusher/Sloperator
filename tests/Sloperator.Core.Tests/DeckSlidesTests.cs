@@ -63,14 +63,22 @@ public class DeckSlidesTests : IDisposable
         Assert.Equal(2, entries.Count(e => e.StartsWith("ppt/charts/chart", StringComparison.Ordinal) && e.EndsWith(".xml", StringComparison.Ordinal)));
         Assert.Equal(2, entries.Count(e => e.StartsWith("ppt/embeddings/", StringComparison.Ordinal)));
 
-        // Several at once go by the numbers as they were.
+        // The numbers of one line are as they were before it.
         Assert.False((await Edit("delete slides 2, 4")).IsError);
         Assert.Equal(["Q3", "Sales"], await Titles());
 
-        // What can't be done is said, and nothing is changed.
-        Assert.Contains("There is no slide 9: the deck has 2", (await Edit("move slide 9 to 1")).Text);
-        Assert.Contains("A deck keeps at least one slide", (await Edit("delete slides 1-2")).Text);
+        // Lines one after the other, as Haiku gave them in one edit (2026-11-13): the copy is of the slide just moved to the front.
+        Assert.False((await Write("deck.pptx", "# Q3\nBy region\n\n---\n\n# Sales\n\n| Region | Sales |\n|---|---|\n| North | 120 |\n\nchart: bar Sales\n\n---\n\n# Thank you")).IsError);
+        var steps = await Edit("delete slide 3\nmove slide 2 to 1\nduplicate slide 1\nmove slide 2 to the end");
+        Assert.False(steps.IsError, steps.Text);
+        Assert.Contains("Deleted slide 3 (\"Thank you\"), then moved slide 2 (\"Sales\") to place 1, then copied slide 1 (\"Sales\") to a new slide after it, then moved slide 2 (\"Sales\") to place 3", steps.Text);
+        Assert.Equal(["Sales", "Q3", "Sales"], await Titles());
+
+        // What can't be done is said, and nothing is changed: a later line's number past the deck as the lines before leave it too.
+        Assert.Contains("There is no slide 9: the deck has 3", (await Edit("move slide 9 to 1")).Text);
+        Assert.Contains("There is no slide 3: the deck has 2 by then", (await Edit("delete slide 1\nmove slide 3 to 1")).Text);
+        Assert.Contains("A deck keeps at least one slide", (await Edit("delete slides 1-3")).Text);
         Assert.Contains("lines \"delete slide 3\", \"move slide 4 to 1\", \"duplicate slide 2\"", (await Edit("Sales")).Text);
-        Assert.Equal(["Q3", "Sales"], await Titles());
+        Assert.Equal(["Sales", "Q3", "Sales"], await Titles());
     }
 }
