@@ -54,7 +54,7 @@ public sealed class ServerSettings
     public string ModelInUse => AutoModel ?? Model;
 
     /// <summary>
-    /// The model dropdown's Auto (the user, 2026-11-09): no model picked by hand, so the evaluation model
+    /// The model dropdown's Auto (the user, 2026-11-09): no model picked by hand, so the helper model
     /// picks one of <see cref="AutoModels"/> for each message (see <see cref="Agent.AutoPick"/>).
     /// </summary>
     [JsonIgnore]
@@ -195,8 +195,8 @@ public sealed class SavedServer
     public string Model { get; set; } = "";
 }
 
-/// <summary>Which of <see cref="AutoModels"/> Auto uses: what the evaluation model judged the task to need.</summary>
-public enum AutoTier { Evaluation, Daily, Complex }
+/// <summary>Which of <see cref="AutoModels"/> Auto uses: what the helper model judged the task to need.</summary>
+public enum AutoTier { Helper, Daily, Complex }
 
 /// <summary>
 /// The three models the model dropdown's Auto picks from (the user, 2026-11-09), each as words or a name a
@@ -207,7 +207,7 @@ public enum AutoTier { Evaluation, Daily, Complex }
 public sealed class AutoModels
 {
     /// <summary>Looks at each message first and picks; it does a simple task itself.</summary>
-    public string Evaluation { get; set; } = "Claude Haiku";
+    public string Helper { get; set; } = "Claude Haiku";
 
     /// <summary>For most tasks, and what Auto uses before the first message.</summary>
     public string Daily { get; set; } = "Claude Sonnet";
@@ -217,7 +217,7 @@ public sealed class AutoModels
 
     public string this[AutoTier tier] => tier switch
     {
-        AutoTier.Evaluation => Evaluation,
+        AutoTier.Helper => Helper,
         AutoTier.Complex => Complex,
         _ => Daily,
     };
@@ -662,6 +662,9 @@ public sealed class SettingsStore(AppPaths paths)
         }
         if (root["agent"] is JsonObject chosen && chosen["screenshotSize"]?.ToString() == "full") // its first name, for a few hours
             chosen["screenshotSize"] = "native";
+        // Auto's helper model was the evaluation model until 12 November 2026: its words carry over.
+        if (root["server"]?["auto"] is JsonObject auto && auto["helper"] is null && auto["evaluation"] is JsonValue words)
+            auto["helper"] = words.DeepClone();
         return root.ToJsonString();
     }
 

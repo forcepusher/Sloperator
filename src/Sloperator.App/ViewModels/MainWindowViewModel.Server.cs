@@ -234,7 +234,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
     }
 
     /// <summary>
-    /// The model dropdown's first row (the user, 2026-11-09): no model picked by hand, and the evaluation model
+    /// The model dropdown's first row (the user, 2026-11-09): no model picked by hand, and the helper model
     /// picks one of the three in Settings for each message (see <see cref="AutoPick"/>).
     /// </summary>
     public const string AutoModelItem = "Auto";
@@ -294,7 +294,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
 
     /// <summary>Why the model shown is the one, when Sloperator picked it: on Auto, which of the three it is, or how it stands in for them.</summary>
     public string? ModelToolTip => !_settings.Server.ModelOnAuto ? null
-        : _settings.Server.AutoModel is not { } auto ? "Auto: before each message, the evaluation model picks one of the three models in Settings."
+        : _settings.Server.AutoModel is not { } auto ? "Auto: before each message, the helper model picks one of the three models in Settings."
         : auto == KiloGateway.Model && KiloGateway.Is(_settings.Server.BaseUrl)
             ? $"Auto uses {auto}: the free Kilo model that clicked best in tests."
             : $"Auto uses {auto}: {_autoModelWhy}{AutoModelDetails}.";
@@ -359,7 +359,7 @@ public sealed partial class MainWindowViewModel : IModelServerSwitch
         get
         {
             if (CanSetEffort && _settings.Server.EffortOnAuto)
-                return "How hard the model thinks: on Auto, the evaluation model picks it for each message.";
+                return "How hard the model thinks: on Auto, the helper model picks it for each message.";
             if (CanSetEffort)
                 return "How hard the model thinks. More is slower and costs more.";
             var server = _settings.Server;

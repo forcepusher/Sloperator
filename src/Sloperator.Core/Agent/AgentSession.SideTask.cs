@@ -24,7 +24,7 @@ public sealed partial class AgentSession
     /// <summary>
     /// A side task (the user, 2026-11-02): a job done on the same server in a conversation of its own, by the
     /// run's model or the one <paramref name="on"/> names (the user, 2026-11-09: "side tasks should be able to
-    /// run in any model"; Auto's evaluation runs on the evaluation model), with <paramref name="toolNames"/> or
+    /// run in any model"; Auto's evaluation runs on the helper model), with <paramref name="toolNames"/> or
     /// else the run's tools but those in <see cref="NotInSideTasks"/>.
     /// It runs where it is called, never beside the main conversation, which waits for it, and nothing of it
     /// joins that conversation. The model's side_task calls run it (<see cref="ToolContext.SideTask"/>), and

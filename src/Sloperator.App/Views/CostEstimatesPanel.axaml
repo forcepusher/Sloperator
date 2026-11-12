@@ -60,7 +60,7 @@
               <TextBlock Grid.Column="6" Classes="label figure" Text="Cost" />
             </Grid>
           </Border>
-          <!-- A row picked shows its prices below (the model in use's by default): on Auto, the evaluation model's
+          <!-- A row picked shows its prices below (the model in use's by default): on Auto, the helper model's
                replies could be priced only by picking it at the top. -->
           <ListBox Classes="costs" ItemsSource="{Binding Models}" SelectedItem="{Binding PricedRow}" ScrollViewer.VerticalScrollBarVisibility="Disabled"
                    AutomationProperties.Name="Models this chat used">

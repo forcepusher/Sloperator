@@ -7,8 +7,9 @@ public sealed partial class AgentSession
 {
     /// <summary>
     /// Auto's evaluation of <paramref name="input"/> (the user, 2026-11-09): a side task on <paramref name="set"/>'s
-    /// evaluation model, with tools that only read (<see cref="AutoPick.Tools"/>), that picks the model where
-    /// <paramref name="pickModel"/> and the effort where <paramref name="pickEffort"/>, and says what it found.
+    /// helper model, with tools that only read (<see cref="AutoPick.Tools"/>), that picks the model where
+    /// <paramref name="pickModel"/> and the effort where <paramref name="pickEffort"/>, and says what it found;
+    /// in a chat under way it is offered <paramref name="before"/> and the models above it only.
     /// Before the run: the caller then starts the run on what was picked. Its calls are lines of
     /// <paramref name="progress"/>; one that needs the user's OK gets its own card to ask on. A server's
     /// failure, or an answer with no pick, comes back as <see cref="AutoPick.Problem"/> with <paramref name="before"/>
@@ -17,11 +18,13 @@ public sealed partial class AgentSession
     public async Task<AutoPick> EvaluateAsync(UserInput input, AutoModelSet set, bool pickModel, bool pickEffort, AutoTier before,
         Action<string>? progress, IAgentObserver observer, CancellationToken ct)
     {
-        var by = set.Evaluation.Id;
+        var by = set.Helper.Id;
         var lastReply = History.LastOrDefault(m => m.Role == ChatRole.Assistant && !string.IsNullOrWhiteSpace(m.Content))?.Content;
+        // A chat under way only moves up from the model it is on (AutoPick.Next).
+        var underWay = History.Count > 0;
         var request = AutoPick.Request(input.ToMessage(seesImages: false).Content ?? input.Text, set, pickModel, pickEffort, requestOptions.Model,
-            History.Count > 0 ? TokensInUse() : 0, History.Count > 0 ? requestOptions.Model : null, lastReply);
-        var effort = Efforts.Nearest("low", set.Evaluation.Efforts);
+            underWay ? TokensInUse() : 0, underWay ? requestOptions.Model : null, lastReply, underWay ? before : null);
+        var effort = Efforts.Nearest("low", set.Helper.Efforts);
         var result = await RunSideTaskAsync(request, true, AutoPick.Tools, null, progress, observer, ct,
             new SideTaskModel(by, effort), AutoPick.MaxSteps).ConfigureAwait(false);
         if (result.IsError)

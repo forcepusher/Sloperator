@@ -781,26 +781,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             _chatId ??= ChatStore.NewId();
             Commands.KeepIn(CommandsFile(_chatId));
             var runInput = input;
-            // Auto: the evaluation model picks the model and effort for the message, and what it found goes with it;
-            // a short reply in the chat goes on with the model in use.
-            if (input is not null && !AutoPick.IsShortReply(input, history.Count > 0) && AutoToPick(probe) is var (set, pickModel, pickEffort))
+            // Auto: the helper model picks the model and effort for the message, and what it found goes with it;
+            // a short reply in the chat goes on with the model in use, and so does a chat under way with nowhere to move up to.
+            var underWay = history.Count > 0;
+            if (input is not null && !AutoPick.IsShortReply(input, underWay) && AutoToPick(probe, underWay) is var (set, pickModel, pickEffort))
             {
                 var tier = server.AutoTier;
                 var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort);
-                if (pick.Problem is null)
-                    server.AutoEffort = pick.Effort ?? server.AutoEffort;
-                // Up to a dearer model of the three, the user says (the mockups' third design); down or the same goes ahead.
+                // Up to a dearer model of the three, the user says (the mockups' third design); down only on a chat's first message.
                 var kept = false;
-                if (pick.Problem is null && pickModel && pick.Tier > tier && set[pick.Tier].Id != set[tier].Id)
+                if (pick.Problem is null && pickModel && AutoPick.StepsUp(set, tier, pick.Tier))
                 {
                     var wanted = set[pick.Tier].Id;
-                    var wantedEffort = server.EffortOnAuto ? Efforts.Nearest(server.AutoEffort ?? Efforts.Default, set[pick.Tier].Efforts)
+                    var wantedEffort = server.EffortOnAuto ? Efforts.Nearest(pick.Effort ?? server.AutoEffort ?? Efforts.Default, set[pick.Tier].Efforts)
                         : Efforts.Nearest(server.Effort, set[pick.Tier].Efforts);
                     ShowAutoWants(pick, wanted, wantedEffort);
                     kept = !await AskSwitchAsync(wanted, wantedEffort, set[tier].Id, ct);
                 }
-                if (pick.Problem is null && !kept)
-                    server.AutoTier = pick.Tier;
+                (server.AutoTier, server.AutoEffort) = pick.Next(set, tier, server.AutoEffort, underWay, kept);
                 if (server.AutoTier != tier)
                     await PrepareModelAsync();
                 OnModelShownChanged();
@@ -990,7 +988,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         async Task<AutoPick> EvaluateAsync(BackendConnection backend, UserInput message, AutoModelSet set, bool pickModel, bool pickEffort)
         {
             var judge = NewSession(backend);
-            var progress = ShowAutoPicking(set.Evaluation.Id);
+            var progress = ShowAutoPicking(set.Helper.Id);
             var tier = _settings.Server.AutoTier;
             return await Task.Run(() => judge.EvaluateAsync(message, set, pickModel, pickEffort, tier, progress, this, ct), CancellationToken.None);
         }
