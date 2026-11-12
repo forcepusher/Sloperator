@@ -371,6 +371,30 @@ public sealed partial class VideoEditorViewModel
     /// <summary>A card or sound is to be renamed: the panel shows a box with its name to type the new one in.</summary>
     public event Action<object, string>? RenameAsked;
 
+    /// <summary>
+    /// F2: what is picked is renamed, as Rename of its menu does: a card of References or a sound. The menus showed
+    /// the key beside Rename, and pressing it did nothing (2026-11-13). False when what is picked has no name to
+    /// change (a clip, a clip's frame), nothing is picked, or the video is being worked on.
+    /// </summary>
+    public bool AskRenamePicked()
+    {
+        if (Viewing is not { Version: null } pick || Busy(_board.Folder))
+            return false;
+        // By what it is, not the item picked: the rows are made anew as the video is saved, and the pick keeps the old item.
+        if (pick.Piece is SoundItem picked)
+        {
+            if (Sounds.FirstOrDefault(s => s.Id == picked.Id) is not { } sound)
+                return false;
+            RenameAsked?.Invoke(sound, sound.Title);
+            return true;
+        }
+        var card = References.FirstOrDefault(c => pick.Piece is FrameItem frame ? c.Frame?.Id == frame.Id : pick.Piece is null && c.Frame is null && SamePath(c.Path, pick.Path));
+        if (card is null)
+            return false;
+        RenameAsked?.Invoke(card, card.Name);
+        return true;
+    }
+
     /// <summary>The name typed for a card, a sound, or (with null) the video.</summary>
     public void Rename(object? target, string name)
     {

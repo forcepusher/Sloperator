@@ -219,6 +219,11 @@ public sealed partial class VideoEditorViewModel
                 }
                 lines.Add($"Sound line {a.SoundLine + 1}, from {a.Start:0.0} s" + (a.Trim > 0 ? $", its first {a.Trim:0.0} s cut" : "") + (Math.Abs(a.Volume - 1) > 0.001 ? $", volume {a.Volume:0.##}" : ""));
                 break;
+            // A file of the user's on a card of References: nothing was made, and the column said "Click a clip,
+            // frame or sound to see how it was made" beside the very picture just clicked (2026-11-13).
+            case null when Viewing is { Version: null, Path: var path } && File.Exists(path):
+                lines.Add($"{(Storyboard.IsVideoFile(path) ? "Your video" : "Your picture")}: {Path.GetFileName(path)}");
+                break;
         }
         // A version: what it was made with then, as kept with it.
         if (Viewing?.Version is { } version)
