@@ -293,6 +293,12 @@ public sealed class PlanToolTests
     [InlineData("Shall I go on with **step 3?**", true)]
     // The question, then how to answer it.
     [InlineData("I found no Excel.\n\nDo you want me to install Python so the chart can be added? If you'd rather not, I'll make the workbook without it. Tell me which you prefer.", true)]
+    // A question further up, the choices under it, and a last line that waits for the answer (Haiku, 2026-11-13).
+    [InlineData("I can't find a date taken in these files. How should I name them?\n\n1. **Use the file modified date**.\n2. **Give me the real dates**.\n\nOnce you choose, I'll resize them to 800 pixels wide.", true)]
+    [InlineData("Which name do you want for it?\n\n- report.pdf\n- summary.pdf\n\nLet me know and I'll write it.", true)]
+    // Words alike with no question put: a report, not a wait.
+    [InlineData("I resized the photos. Once you open the folder, you'll see them by date.", false)]
+    [InlineData("Why did it fail? The path was relative.\n\nI fixed it; let me know if anything else comes up.", false)]
     [InlineData("All four steps are done.", false)]
     [InlineData("Why did it fail? The path was relative.\n\nI fixed it and the tests pass.", false)]
     [InlineData("The page is at http://localhost:3000/?tab=2 and it loads.", false)]

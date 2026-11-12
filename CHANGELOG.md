@@ -201,6 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The agent can no longer start a second ComfyUI download, about 2 GB, into a stray `SloperatorData\tools` folder
   beside whatever it was working in, when the PC has ComfyUI already: it took the name of Sloperator's own tools
   folder for a place to install to.
+- When the agent asks you to choose and ends on "Once you choose, I'll…" or "Let me know which…", it waits for your
+  answer. It was told to carry on with its plan, and did part of the work before you had chosen.
 - A question the agent ends on is no longer followed by "asked it to carry on" when a sentence comes after the
   question ("Do you want me to install it? Tell me which you prefer.").
 - Shown one page of a document it made, the agent is told how many pages there are and to look at the others too,
