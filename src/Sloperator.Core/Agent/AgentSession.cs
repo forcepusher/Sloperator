@@ -942,6 +942,17 @@ public sealed partial class AgentSession(
     /// conversation or the chat, so the answer stays the run's last word (a reply to a note in the chat became the
     /// reply the run folded under). A plan set and then asked about ("does this suit you?") had no work after it.
     /// </summary>
+    /// <summary>
+    /// Whether a notice is <see cref="PlanBehindAsync"/>'s with nothing left to explain: the plan all done, or taken
+    /// away. The chat folds such a line with the run's work, as it folds the lines sent mid-run: with a plan in every
+    /// task, "The plan was left at step 2 of 4; asked the model where it stands: all done." stood after the answer
+    /// whenever Sonnet 5.5 did several steps in one go (2026-11-12). One that leaves steps to do says why the bar
+    /// isn't done, and stays in sight.
+    /// </summary>
+    public static bool IsPlanSettledNotice(string text) =>
+        text.StartsWith("The plan was left at step ", StringComparison.Ordinal) &&
+        (text.EndsWith(": all done.", StringComparison.Ordinal) || text.EndsWith(": it took the plan away.", StringComparison.Ordinal));
+
     /// <param name="carryOn">Whether the run may be told to carry on with what the model says is left.</param>
     /// <returns>
     /// The plan as the model set it just now, when by that steps are still to do and <paramref name="carryOn"/>

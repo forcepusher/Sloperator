@@ -668,6 +668,12 @@ public sealed partial class NoticeItem(string text, bool isError, Action? carryO
     /// <summary>The run stopped before the model had the user's message: Continue sends that message again.</summary>
     public bool Unsent { get; } = unsent;
 
+    /// <summary>
+    /// A line that says nothing the user needs after the answer (the plan brought up to date, all done: see
+    /// <see cref="Core.Agent.AgentSession.IsPlanSettledNotice"/>): it folds with the run's work, though it comes after the reply.
+    /// </summary>
+    public bool FoldsWithWork { get; } = !isError && carryOn is null && Core.Agent.AgentSession.IsPlanSettledNotice(text);
+
     /// <summary>Its Continue button shows: until the chat goes on, by Continue or a message of the user's.</summary>
     [ObservableProperty]
     private bool _canContinue = carryOn is not null;
@@ -837,8 +843,12 @@ public sealed partial class WorkFold : ObservableObject
         stretch.Clear();
     }
 
-    /// <summary>A line after the reply that folds with the work: a tool call, a step with no words to the user, a handoff note.</summary>
-    private static bool IsWork(ChatItemViewModel line) => line is ToolCallItem or AssistantMessageItem { IsReplyText: false };
+    /// <summary>
+    /// A line after the reply that folds with the work: a tool call, a step with no words to the user, a handoff note,
+    /// and the notice that the plan was brought up to date with nothing left of it (<see cref="NoticeItem.FoldsWithWork"/>).
+    /// </summary>
+    private static bool IsWork(ChatItemViewModel line) =>
+        line is ToolCallItem or AssistantMessageItem { IsReplyText: false } or NoticeItem { FoldsWithWork: true };
 }
 
 /// <summary>A picture of the work under a reply (see <see cref="AssistantMessageItem.Captures"/>), with the line the model gave it; empty for none.</summary>
