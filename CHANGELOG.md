@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- A wait, build or download of more than 5 minutes no longer makes the next step pay for the whole chat again on
+  servers with a prompt cache that lapses (Anthropic, and Claude through OpenRouter and the like): Sloperator has
+  the server read the chat from its cache every 4.5 minutes while the agent's tool calls run, for up to half an
+  hour, which costs a tenth of what writing it anew does. The chat says when it did.
 - The **plan bar** now shows for tasks of more than a step or two: tasks went by with no plan at all. Once the agent
   has started on a task with nothing on the bar, Sloperator asks it for a short, readable plan (a handful of steps,
   one word each) and to keep it moving; each move of the plan reminds it of the next, and the bar finishes when the

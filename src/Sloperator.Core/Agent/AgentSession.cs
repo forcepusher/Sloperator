@@ -466,6 +466,8 @@ public sealed partial class AgentSession(
 
                 var request = new List<ChatMessage>(History.Count + 1) { ChatMessage.System(systemPrompt) };
                 request.AddRange(History);
+                // When the server last had this prompt in hand: its cache counts from there (see KeepCacheWarmAsync).
+                var sentAt = DateTime.UtcNow;
 
                 ChatMessage reply;
                 using (var thinking = new StepScope(this, ct))
@@ -630,6 +632,8 @@ public sealed partial class AgentSession(
                 guesswork?.Read(reply, called);
                 var notes = new List<string>();
                 using var calls = new StepScope(this, ct);
+                // Until the next request goes out: calls that take long (a wait, a build) outlast the server's prompt cache.
+                await using var warm = new CacheWarmer(stop => KeepCacheWarmAsync(request, reply, sentAt, observer, stop), ct);
                 foreach (var call in reply.ToolCalls!)
                 {
                     try { await HoldWhileTypingAsync(calls.Token).ConfigureAwait(false); }
@@ -791,6 +795,86 @@ public sealed partial class AgentSession(
     internal const string MissedEndNote =
         "[Sloperator] Your last click changed nothing on screen, so it probably missed, yet you ended there. Zoom in on what you meant to click: " +
         "if it isn't selected or changed, click it again; if it already was, say so.";
+
+    /// <summary>
+    /// How long after a request the same prompt is sent again while the step's tool calls still run, so that the
+    /// server's prompt cache, which it keeps for five minutes from its last use, still holds the chat for the next step.
+    /// </summary>
+    internal TimeSpan KeepWarmEvery { get; set; } = TimeSpan.FromSeconds(270);
+
+    /// <summary>
+    /// How many times a step's prompt is read again at most. Reading costs about a tenth of the prompt's price and
+    /// writing it anew one and a quarter: six reads (a wait of up to 32 minutes) are half of the write they save,
+    /// and a call that outlasts them pays that half on top.
+    /// </summary>
+    internal const int KeepWarmTimes = 6;
+
+    /// <summary>Whether a reply of this session's server said it wrote to a prompt cache: there a lapse is paid for.</summary>
+    private bool _writesCache;
+
+    /// <summary>
+    /// Keeps the server's prompt cache from lapsing while a step's tool calls run (2026-11-12). A cache such as
+    /// Anthropic's holds a prompt for five minutes after its last use; a step that comes later pays to have the
+    /// whole chat written to it again, at more than its full input price. In the user's Unity chat the model
+    /// waited 420 and 480 seconds for a download, and each next step wrote 103k and 105k tokens anew (about $0.26
+    /// each on Sonnet 5.5) where reading them costs $0.01. So while the calls run, the request the model just
+    /// answered is sent again every <see cref="KeepWarmEvery"/>, counted from when it was first sent, and dropped
+    /// at the first sign of an answer: the server has read its cache by then, which is all that was wanted. At
+    /// most <see cref="KeepWarmTimes"/> times a step. Only where a reply said it wrote to a cache
+    /// (<see cref="ChatMessage.CacheWriteTokens"/>): a server that reports none (a local one, whose cache doesn't
+    /// lapse) is left alone, whichever it is. The reads are counted in the chat's spending as read tokens, and
+    /// the chat says so once a step.
+    /// </summary>
+    private async Task KeepCacheWarmAsync(List<ChatMessage> request, ChatMessage reply, DateTime sentAt, IAgentObserver observer, CancellationToken ct)
+    {
+        _writesCache |= reply.CacheWriteTokens is > 0;
+        if (!_writesCache || reply.PromptTokens is not { } prompt)
+            return;
+        var next = sentAt + KeepWarmEvery;
+        for (var read = 0; read < KeepWarmTimes; read++)
+        {
+            if (next - DateTime.UtcNow is var wait && wait > TimeSpan.Zero)
+                await Task.Delay(wait, ct).ConfigureAwait(false);
+            next = DateTime.UtcNow + KeepWarmEvery;
+            using var asked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            try
+            {
+                await client.CompleteAsync(request, tools.Definitions(), StepOptions(), _ => asked.Cancel(), asked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // Dropped as its answer began: what it read is counted, as the server counts it.
+                client.Spending?.Add(client.BaseUrl, requestOptions.Model, new ChatMessage { Role = ChatRole.Assistant, PromptTokens = prompt, CachedTokens = prompt, CompletionTokens = 0 });
+            }
+            catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException)
+            {
+                return; // the step's own request says what is wrong, if it still is
+            }
+            if (read == 0)
+                observer.OnNotice("Kept this chat in the server's prompt cache, which lapses after 5 minutes, so the next step doesn't pay for all of it again.");
+        }
+    }
+
+    /// <summary>Runs <see cref="KeepCacheWarmAsync"/> beside a step's tool calls and ends it with them.</summary>
+    private sealed class CacheWarmer : IAsyncDisposable
+    {
+        private readonly CancellationTokenSource _stop;
+        private readonly Task _reads;
+
+        public CacheWarmer(Func<CancellationToken, Task> reads, CancellationToken ct)
+        {
+            _stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _reads = Task.Run(() => reads(_stop.Token));
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _stop.Cancel();
+            try { await _reads.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            _stop.Dispose();
+        }
+    }
 
     /// <summary>
     /// How many steps (replies with tool calls) a run makes with no plan on the bar before the model is asked for one.

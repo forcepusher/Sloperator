@@ -1827,9 +1827,10 @@ made 79 replies and over a hundred tool calls without one plan call, and Haiku 5
   carry on (`PlanGoOnNote`, "The model stopped after setting its plan; asked it to carry on with the task."), unless
   its reply ends in a question to the user (`EndsInQuestion`).
 - Every plan call's result names the next move ("Step 1 of 4: Read. As you start step 2, "Edit", call plan with
-  now=2 along with that step's first call"), and a turn that ends on the plan's last step (no question, and the run
-  moved the plan or worked) finishes the bar without asking. The aside question of "A plan left behind its work"
-  is still asked when the turn ends on an earlier step.
+  just now=2, along with that step's first call"; "just", as Haiku and Qwen sent all the steps again with each
+  move), and a turn that ends on the plan's last step (no question, and the run moved the plan or worked) finishes
+  the bar without asking. The aside question of "A plan left behind its work" is still asked when the turn ends on
+  an earlier step.
 
 What was tried, on one task through `sloperator-cli` (add two parameters to a PowerShell script, describe them in
 its README, run it; `.dev/night-test/live-plan.ps1`), Haiku 5.5 and Sonnet 5.5 through OpenRouter and Qwen 3.8 on
@@ -2970,6 +2971,25 @@ of the limit from then on, after a handoff note; the cost grows
   the cache (on Opus 5.5 at $0.20 a million tokens against $4) and pays in full only for what it
   adds. The prompt size Sloperator resets by adds up the three parts Anthropic reports (read anew,
   written to the cache, read from it).
+- **The cache kept warm while a step's calls run** (2026-11-12, `AgentSession.KeepCacheWarmAsync`). The cache
+  holds a prompt for five minutes after its last use, and a step that comes later has the whole chat written to
+  it again at one and a quarter of the input price, where reading it costs a tenth or less. In the user's Unity
+  chat the model waited 420 and 480 seconds for a download, and each next step wrote 103k and 105k tokens anew:
+  about $0.26 each on Sonnet 5.5 against $0.01. So while a step's tool calls run, the request the model just
+  answered is sent again every 4.5 minutes (`KeepWarmEvery`), counted from when it was first sent, since that is
+  when the server last had it in hand, and dropped at the first sign of an answer: the server has read its cache
+  by then. The same request, with the same breakpoints, so it reads up to where the next step will. At most six
+  times a step (`KeepWarmTimes`, a wait of up to 32 minutes): six reads cost half of the write they save, and
+  a call that outlasts them pays that half on top. It is done wherever a reply said it wrote to a cache
+  (`CacheWriteTokens`: Anthropic's API, and Claude through OpenRouter, Kilo, proxyapi.ru or LiteLLM), by that sign
+  and not by the server's name; a server that reports none (LM Studio, llama.cpp, whose cache doesn't lapse) is
+  left alone. What was read is counted in the chat's spending as tokens read from the cache (a reply more, with
+  no cost of its own where the server gives costs, so the total then shows as an estimate), and the chat says once
+  a step: "Kept this chat in the server's prompt cache, which lapses after 5 minutes, so the next step doesn't pay
+  for all of it again." Not done between runs, while the chat waits for the user's next message: only during the
+  agent's own work in progress. Tried live, Haiku 5.5 through OpenRouter, one `wait` of 330 seconds
+  (`.dev/night-test/live-plan.ps1 -Task wait`): without it the step after the wait read none of its 16.9k prompt
+  tokens from the cache; with it the chat said so at 4 min 30 s, and that step read 16.7k of 16.9k from the cache.
 - Thinking: adaptive, its summaries shown as the reasoning (`display: "summarized"`; since Opus 4.7
   none are shown otherwise). Each reply's blocks are kept on the message and sent back unchanged
   with their signatures, as Claude requires; they aren't saved with the chat. Claude also checks
