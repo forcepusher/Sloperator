@@ -365,7 +365,7 @@ public static partial class FileInspector
             {
                 if (CellAt().Match(piece) is not { Success: true } m)
                     continue;
-                var column = m.Groups[1].Value.Aggregate(0, (n, c) => n * 26 + c - 'A' + 1);
+                var column = XlsxWriter.Column(m.Groups[1].Value);
                 var value = m.Groups[3].Value;
                 if (value.StartsWith('=') && value.LastIndexOf(" → ", StringComparison.Ordinal) is var arrow and >= 0)
                     value = value[(arrow + 3)..];

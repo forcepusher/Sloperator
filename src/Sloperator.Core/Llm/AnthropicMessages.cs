@@ -577,6 +577,8 @@ public static partial class AnthropicMessages
             return new RateLimitedException("Server error: " + message, null);
         if (OpenAiChatClient.LooksLikeContextOverflow(message))
             return new ContextOverflowException(message);
+        if (OpenAiChatClient.OutputBlockedWords().IsMatch(message))
+            return new OutputBlockedException("Server error: " + message, received);
         if (type is "overloaded_error" or "api_error" or "timeout_error" || OpenAiChatClient.Transient(null, message))
             return new ConnectionLostException("The server broke off its answer: " + message, received, toolCallInProgress: callInProgress) { ServerFailed = type == "overloaded_error" };
         return new LlmException("Server error: " + message);

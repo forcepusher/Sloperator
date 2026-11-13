@@ -166,6 +166,17 @@ public sealed class KeyRefusedException(string message, bool outOfCredit = false
 }
 
 /// <summary>
+/// The server stopped the model's reply with its content filter ("Output blocked by content filtering policy",
+/// under HTTP 200, in the stream): nothing of the reply counts. Two Unity 2048 runs on Claude Haiku 5.5 through
+/// OpenRouter ended on it, both as the model wrote a long run of arrow keys to fill the board (the 1.5.0 release check).
+/// </summary>
+public sealed class OutputBlockedException(string message, bool receivedTokens) : LlmException(message)
+{
+    /// <summary>True if part of the reply had already streamed in.</summary>
+    public bool ReceivedTokens { get; } = receivedTokens;
+}
+
+/// <summary>
 /// The connection broke before the reply was complete (network drop, proxy idle timeout).
 /// Safe to retry: the server keeps the prompt it already processed in its cache.
 /// </summary>
@@ -566,6 +577,8 @@ public sealed partial class OpenAiChatClient
             return new TooManyImagesException(errorText.Clip(300), 0);
         if (LooksLikeContextOverflow(errorText))
             return new ContextOverflowException(errorText);
+        if (OutputBlockedWords().IsMatch(errorText))
+            return new OutputBlockedException("Server error: " + errorText.Clip(300), gotSome);
         // The model server behind a gateway failed or stalled mid-way: sent again like a
         // server error answered with a status. It ended the run, every time for over half
         // an hour while Kilo's free Nemotron was stuck on Sloperator's prompt (see ShiftPrompt).
@@ -1014,6 +1027,10 @@ public sealed partial class OpenAiChatClient
 
     [GeneratedRegex(@"time(d)?[ -]?out|overloaded|unavailable|internal server error|upstream|try again|temporar", RegexOptions.IgnoreCase)]
     private static partial Regex TransientWords();
+
+    /// <summary>A stream's error that says the server's content filter stopped the reply (see <see cref="OutputBlockedException"/>).</summary>
+    [GeneratedRegex(@"output (?:was |is )?blocked|content[ _-]?filter", RegexOptions.IgnoreCase)]
+    internal static partial Regex OutputBlockedWords();
 
     /// <summary>
     /// The model server itself failed on the request: llama.cpp out of room in its KV cache while

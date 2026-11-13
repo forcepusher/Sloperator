@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.5.0] - 2026-11-13
 ### Added
 - **Brush** in the Image editor, beside **Area**: paint over the part of a picture you want redrawn, in any shape,
   stroke on stroke, and say what goes there. The slider beside it, or Ctrl and the mouse wheel, sets the brush's
@@ -163,10 +165,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A reply the server's content filter stops ("Output blocked by content filtering policy") no longer ends the task:
+  the agent is asked to give it another way and carries on. It happened to Claude Haiku as it wrote a long run of
+  key presses.
 - Deleting a picture's version in the Image editor while its small copy was still being drawn could fail on a busy
   PC: pictures are read into memory before they are drawn, and never keep their file from being deleted or moved.
 - In a workbook of several sheets, the agent can no longer insert or delete rows without saying on which sheet: a row
   of the first sheet was deleted when another sheet's was meant.
+- A chart in a workbook shows its cells as they are after the agent sorts or changes them. In the preview it kept
+  the bars and numbers from before, until Excel opened the file.
 - A chart of a table with a total row under it no longer draws the total as one more slice or bar, and a bar chart's
   scale starts at zero. A pie of four regions and their total showed the total as half the pie, and bars of close
   numbers looked many times apart.
@@ -1139,7 +1146,8 @@ The first release.
 - A command-line runner, and benchmarks: desktop tasks, 2048 and Unity 2048, clicks, a sysadmin
   lab, a chat stand-in lab and ComfyUI requests.
 
-[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.4.0...HEAD
+[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/forcepusher/Sloperator/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/forcepusher/Sloperator/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/forcepusher/Sloperator/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/forcepusher/Sloperator/compare/1.1.0...1.2.0

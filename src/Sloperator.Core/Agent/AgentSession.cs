@@ -795,6 +795,17 @@ public sealed partial class AgentSession(
         "Make each part much smaller, at most about 40 lines (about 1,500 characters), and add the rest with further " +
         "write_file calls with append set to true. Continue with the task.";
 
+    /// <summary>How many replies in a row the server's content filter may stop before the run ends on it.</summary>
+    internal const int MaxOutputBlocks = 2;
+
+    /// <summary>
+    /// Said to the model when the server's content filter stopped its reply (<see cref="OutputBlockedException"/>):
+    /// the same reply again would be stopped again, another way of saying it gets through.
+    /// </summary>
+    internal const string OutputBlockedNote =
+        "[Sloperator] The server's content filter stopped your last reply before it arrived, so nothing in it was done. " +
+        "Give it again another way: in shorter steps, and without long runs of the same words or items in one call. Continue with the task.";
+
     // Marked as Sloperator's: taken for the user's words, "continue" read as a go-ahead, and the
     // model asked again for a command the user had just declined twice.
     /// <summary>
@@ -1478,6 +1489,7 @@ public sealed partial class AgentSession(
         var drops = 0;
         var held = 0;
         var away = 0;
+        var blocked = 0;
         while (true)
         {
             try
@@ -1498,6 +1510,24 @@ public sealed partial class AgentSession(
                         : " Kilo's free models take 200 requests an hour from each PC, so this can last until the hour is up; a Kilo key with credits, or a model server of your own, has no such limit.";
                 observer.OnNotice($"{ex.Message}{why} Trying again in {Describe(wait)} (Stop ends the wait)…", ex);
                 await Task.Delay(wait, ct).ConfigureAwait(false);
+            }
+            catch (OutputBlockedException ex) when (++blocked <= MaxOutputBlocks)
+            {
+                // The task used to end here. The model is told once, as the same reply would be stopped again;
+                // the note stays in the history so what follows keeps to it. A second stop is asked again as it is.
+                if (request[^1].Content != OutputBlockedNote)
+                {
+                    var note = ChatMessage.User(OutputBlockedNote);
+                    History.Add(note);
+                    request = [.. request, note];
+                }
+                observer.OnNotice($"The server's content filter stopped the model's reply ({ex.Message}). Asked the model to give it another way, attempt {blocked} of {MaxOutputBlocks}…", ex);
+                if (ex.ReceivedTokens && onDelta is not null)
+                {
+                    // Discard the half-streamed reply; the next try writes it anew.
+                    observer.OnAssistantMessage(new ChatMessage { Role = ChatRole.Assistant, Content = "" });
+                    observer.OnStepStarted(0);
+                }
             }
             catch (ConnectionLostException ex) when (ex.Unreachable)
             {

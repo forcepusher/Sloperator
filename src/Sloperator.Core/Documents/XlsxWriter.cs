@@ -304,6 +304,10 @@ internal static partial class XlsxWriter
         return letters + row;
     }
 
+    /// <summary>3 for column "C", 28 for "AB": in either case, a "$" before it left out.</summary>
+    internal static int Column(string letters) =>
+        letters.Where(char.IsAsciiLetter).Aggregate(0, (n, ch) => n * 26 + char.ToUpperInvariant(ch) - (int)'A' + 1);
+
     /// <summary>A sheet name Excel accepts: at most 31 characters, none of []:*?/\, not taken yet.</summary>
     private static string UniqueName(string wanted, List<Sheet> sheets)
     {

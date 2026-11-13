@@ -530,16 +530,21 @@ internal sealed class PartSet(ZipArchive zip)
         }
     }
 
-    /// <summary>A relationship's target as a part name: "worksheets/sheet1.xml" from "xl" is "xl/worksheets/sheet1.xml".</summary>
+    /// <summary>
+    /// A relationship's target as a part name, from the folder of the part it belongs to: "worksheets/sheet1.xml"
+    /// from "xl" is "xl/worksheets/sheet1.xml", "../notesSlides/notesSlide2.xml" from "ppt/slides" is
+    /// "ppt/notesSlides/notesSlide2.xml".
+    /// </summary>
     public static string Resolve(string folder, string target)
     {
-        if (target.StartsWith('/')) return target[1..];
-        var parts = (folder.Length > 0 ? folder + "/" + target : target).Split('/').ToList();
-        for (var i = 0; i < parts.Count; i++)
+        if (target.StartsWith('/'))
+            return target.TrimStart('/');
+        var path = new List<string>(folder.Split('/', StringSplitOptions.RemoveEmptyEntries));
+        foreach (var piece in target.Split('/'))
         {
-            if (parts[i] == "..") { parts.RemoveAt(i); if (i > 0) parts.RemoveAt(--i); i--; }
-            else if (parts[i] == ".") parts.RemoveAt(i--);
+            if (piece == "..") { if (path.Count > 0) path.RemoveAt(path.Count - 1); }
+            else if (piece is not ("." or "")) path.Add(piece);
         }
-        return string.Join('/', parts);
+        return string.Join('/', path);
     }
 }

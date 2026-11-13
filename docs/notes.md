@@ -167,6 +167,14 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   pie. A bar or area chart with no value below zero has its value axis start at 0 (`c:min`): left to Office, the
   axis of four regions' revenue (42,700 to 48,600) started at 39,000, and Haiku said on its own that the gaps
   looked many times what they are. A line chart keeps the axis Office picks. Checked in Excel 16 and PowerPoint 16.
+  **The values kept in a chart follow its cells** (the 1.5.0 release check). A chart's part keeps the values of
+  the cells it names beside their addresses. Excel reads the cells again on opening, but the File inspector's
+  preview and other programs draw what is kept: in the published exe, a bar chart made over a table that was then
+  sorted showed its bars in the order from before, beside the sorted table. Every edit of cells now ends by reading
+  each chart's cells again (`SheetChart.Refresh`, from `SheetEdit.SetCells`, before any new chart is added) and
+  rewriting what is kept where it differs, in a workbook Excel made too; a chart that already keeps the same is
+  left alone, so its part isn't written again. Left as they were: cells named by a name or in several areas, a
+  sheet that is gone, and a range with a formula only Excel works out.
   Past Excel's own limits (32,000 values a series, 255 series) a chart is refused before anything is written.
   **What all of this costs in every request** (measured 2026-11-13 with `.dev/context-size-test`): charts,
   formats, widths, PDF pages and slide text are sentences in the descriptions of write_file and edit_file, no new
@@ -4200,7 +4208,17 @@ the stream, then two 502s) and the fourth try brought it, but the chat ended on 
 "Connection lost" lines with "Worked for 8 min" under the last, as if the task had broken off there. A VPN can also stall an
 upload without breaking it: a request carries every screenshot still in the context, several
 megabytes, and LM Studio waited five minutes for the rest of one before answering 408. So when
-nothing of a request gets through for 30 seconds, it is sent again. A tool that fails, however
+nothing of a request gets through for 30 seconds, it is sent again. A reply the server's content filter
+stops ("Output blocked by content filtering policy", an error in the stream under HTTP 200;
+`OutputBlockedException`, any error there that says "output blocked" or "content filter") no longer ends the
+task: the model is told once that its reply was stopped and to give it another way, in shorter steps and
+without long runs of the same words or items in one call (`OutputBlockedNote`, kept in the history), and the
+request goes again, twice at most for a step (`MaxOutputBlocks`); a third stop ends the task with the
+server's words, as before. In the 1.5.0 release check two Unity 2048 runs in a row on Claude Haiku 5.5
+through OpenRouter ended on it after five minutes, both at the Game Over check, as the model wrote a batch of
+arrow keys to fill the board (after batches of 24 and 20 had gone through in the first run); the runs of
+earlier releases never met it. Sent again as it was, the same reply would likely be stopped again, so the
+model is told. A tool that fails, however
 it fails, reports the error to the model and the run goes on. Models work around errors and guess
 at names rather than look them up: qwen3.8 once decided Excel's chart interface was broken after a
 PowerShell call failed the same way four times (`ChartObjects` is a method there, not a property),

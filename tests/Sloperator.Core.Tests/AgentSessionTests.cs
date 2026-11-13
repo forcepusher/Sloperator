@@ -1933,6 +1933,41 @@ public class AgentSessionTests
         Assert.NotEqual(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Path.GetDirectoryName(AgentSetup.MadeDirectory()));
     }
 
+    /// <summary>OpenRouter with Claude Haiku 5.5, 13 November 2026: under HTTP 200, as the model wrote a long run of arrow keys.</summary>
+    private const string OutputBlocked = """data: {"error":{"message":"Output blocked by content filtering policy","code":400}}""" + "\n\n";
+
+    [Fact]
+    public async Task A_reply_the_servers_content_filter_stops_is_asked_for_another_way()
+    {
+        // The task ended on it. Told once, the model gives the reply another way; a second stop is asked again as it is.
+        var server = new ScriptedServer(OutputBlocked, OutputBlocked, Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 100_000);
+
+        await session.RunAsync("fill the board", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Completed, observer.StopReason);
+        Assert.Equal(3, server.Requests.Count);
+        static string LastContent(JsonObject req) => ((JsonArray)req["messages"]!)[^1]!["content"]!.ToString();
+        Assert.Equal(AgentSession.OutputBlockedNote, LastContent(server.Requests[1]));
+        Assert.Equal(server.Requests[1].ToJsonString(), server.Requests[2].ToJsonString());
+        Assert.Single(session.History, m => m.Content == AgentSession.OutputBlockedNote);
+        Assert.Equal(2, observer.Notices.Count(n => n.Contains("content filter stopped the model's reply")));
+        Assert.Equal("Done.", session.History[^1].Content);
+    }
+
+    [Fact]
+    public async Task A_reply_stopped_a_third_time_ends_the_task_with_the_servers_words()
+    {
+        var server = new ScriptedServer(OutputBlocked, OutputBlocked, OutputBlocked, Sse.Text("Done."));
+        var (session, observer) = CreateSession(server, Path.GetTempPath(), new FakePlatform(), contextTokens: 100_000);
+
+        await session.RunAsync("fill the board", observer, CancellationToken.None);
+
+        Assert.Equal(AgentStopReason.Error, observer.StopReason);
+        Assert.Contains("Output blocked by content filtering policy", observer.Detail);
+        Assert.Equal(3, server.Requests.Count);
+    }
+
     [Fact]
     public async Task A_tool_call_lost_to_a_drop_makes_the_model_write_in_parts()
     {

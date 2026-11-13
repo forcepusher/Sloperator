@@ -575,9 +575,6 @@ public sealed partial class VideoEditorViewModel
 
     // ---- deleting, to the Recycle Bin ------------------------------------------------------------------------
 
-    /// <summary>A folder or file to the Recycle Bin (<see cref="RecycleBin.Put"/>).</summary>
-    private static void ToRecycleBin(string path) => RecycleBin.Put(path);
-
     /// <summary>The open video to the Recycle Bin; the video changed last opens.</summary>
     private void DeleteVideo()
     {
@@ -587,7 +584,7 @@ public sealed partial class VideoEditorViewModel
         try
         {
             if (Directory.Exists(folder))
-                ToRecycleBin(folder);
+                RecycleBin.Put(folder);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
@@ -612,7 +609,7 @@ public sealed partial class VideoEditorViewModel
         DropViewer();
         try
         {
-            _board.DeleteShot(shot, ToRecycleBin);
+            _board.DeleteShot(shot, RecycleBin.Put);
             if (_savedJson is not null)
             {
                 _board.Save();
@@ -638,7 +635,7 @@ public sealed partial class VideoEditorViewModel
         try
         {
             foreach (var file in Storyboard.FilesOf(card.Path).Where(File.Exists).ToList())
-                ToRecycleBin(file);
+                RecycleBin.Put(file);
             var names = new[] { card.Frame?.Id, _board.InReferences(card.Path), Path.GetFileNameWithoutExtension(card.Path) }.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (card.Frame is { } frame)
                 _board.Frames.Remove(frame.Frame);
@@ -664,7 +661,7 @@ public sealed partial class VideoEditorViewModel
         try
         {
             foreach (var file in Storyboard.FilesOf(_board.SoundFile(item.Sound)).Where(File.Exists).ToList())
-                ToRecycleBin(file);
+                RecycleBin.Put(file);
             _board.Sounds.Remove(item.Sound);
             Changed();
             SaveNow();

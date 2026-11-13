@@ -348,7 +348,6 @@ internal static partial class SheetEdit
     private static WidthLine? WidthOf(string line, string? sheet, IReadOnlyList<string> names)
     {
         var (said, text) = SheetSaid(line.Trim().TrimEnd('.'), names);
-        static int Column(string letters) => letters.ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
         var m = ColumnWidth().Match(text);
         // "autofit columns A:C" too, unless what follows is a sheet's name ("autofit columns Q1" in a workbook with a sheet Q1).
         if (!m.Success && FitSome().Match(text) is { Success: true } some && !names.Contains(some.Groups["a"].Value, StringComparer.OrdinalIgnoreCase))
@@ -356,7 +355,7 @@ internal static partial class SheetEdit
         if (m.Success)
         {
             var on = m.Groups["sheet0"].Success ? Unquoted(m.Groups["sheet0"].Value) : m.Groups["sheet"].Success ? Unquoted(m.Groups["sheet"].Value) : said ?? sheet;
-            var (a, b) = (Column(m.Groups["a"].Value), m.Groups["b"].Success ? Column(m.Groups["b"].Value) : Column(m.Groups["a"].Value));
+            var (a, b) = (XlsxWriter.Column(m.Groups["a"].Value), m.Groups["b"].Success ? XlsxWriter.Column(m.Groups["b"].Value) : XlsxWriter.Column(m.Groups["a"].Value));
             double? width = m.Groups["w"].Success ? double.Parse(m.Groups["w"].Value, CultureInfo.InvariantCulture) : null;
             if (width is < 0 or > 255)
                 throw new InvalidOperationException($"{text}: a column is 0 to 255 characters wide (Excel's own are 8.43).");
