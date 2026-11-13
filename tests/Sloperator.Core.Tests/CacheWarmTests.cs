@@ -91,9 +91,8 @@ public sealed class CacheWarmTests
 
         await session.RunAsync("Wait for the download, then say so.", observer, CancellationToken.None);
 
-        // At the first read it is the step's reply; at the second, the first read, later; then the last reply.
-        // How much later isn't asserted: reads go 300 ms from when the request was sent, so with the whole suite
-        // running a slow reply left 180 ms between them and "at least 200" failed (the 1.5.0 release check).
+        // At the first read it is the step's reply; at the second, the first read, which came after it; then the last reply.
+        // Only their order: how far apart they are goes by how long the first reply took, 110 ms on a busy machine.
         Assert.True(seen.Count >= 2);
         Assert.NotNull(seen[0]);
         Assert.True(seen[1] > seen[0], $"{seen[1] - seen[0]}");

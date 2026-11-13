@@ -782,11 +782,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             Commands.KeepIn(CommandsFile(_chatId));
             var runInput = input;
             // Auto: the helper model picks the model and effort for the message, and what it found goes with it;
-            // a short reply in the chat goes on with the model in use, and so does a chat under way with nowhere to move up to.
+            // every message, however short (the user, 2026-11-13: "I want all messages looked at too"), unless the chat under
+            // way has nowhere to move up to.
             var underWay = history.Count > 0;
             // Up only while the server's cache holds the chat: once it has lapsed, the pick is as free as a first message's.
             var upOnly = AutoUpOnly(underWay);
-            if (input is not null && !AutoPick.IsShortReply(input, underWay) && AutoToPick(probe, upOnly) is var (set, pickModel, pickEffort))
+            if (input is not null && AutoToPick(probe, upOnly) is var (set, pickModel, pickEffort))
             {
                 var tier = server.AutoTier;
                 var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort, upOnly);
