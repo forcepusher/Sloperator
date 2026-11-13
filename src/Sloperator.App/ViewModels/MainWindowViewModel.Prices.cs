@@ -20,15 +20,27 @@ public sealed partial class MainWindowViewModel
     /// set_api_pricing in a side task, once while Sloperator runs. Called on the agent's thread.
     /// </summary>
     private Func<string?> PriceLookupFor(string baseUrl, string model) => () =>
+        _settings.Cost.AutoLookup && model.Length > 0
+        && ModelToPrice(_spent, _settings.Cost, baseUrl, model, key => PricesAsked.TryAdd(key, true)) is { } lacking
+            ? SetApiPricingTool.LookupRequest(lacking, baseUrl)
+            : null;
+
+    /// <summary>
+    /// The model whose prices a run's end looks up: the run's own, <paramref name="model"/>, or else another the
+    /// chat used on the same server, one a run. On Auto a chat's cost is of up to three models: the helper's look
+    /// at each message, and the model the chat was on before it moved up. Only the run's model was looked up, and
+    /// no run ends on the helper, so on a server that doesn't say what replies cost (Anthropic's own) the total
+    /// kept its "+" with the looks left out until the user typed the helper's prices (the user asked, 2026-11-14).
+    /// </summary>
+    /// <param name="firstAsk">Whether this server and model is asked for the first time: a model is looked up once.</param>
+    public static string? ModelToPrice(Spending spent, CostSettings cost, string baseUrl, string model, Func<string, bool> firstAsk)
     {
-        if (!_settings.Cost.AutoLookup || model.Length == 0)
-            return null;
         var url = OpenAiChatClient.NormalizeBaseUrl(baseUrl);
-        var count = _spent.Copy().Models.Find(m => m.Model == model && OpenAiChatClient.NormalizeBaseUrl(m.BaseUrl) == url);
-        if (count is null || count.Costed > 0 || _settings.Cost.For(baseUrl, model) is { } kept && !kept.LacksCache(count) || !PricesAsked.TryAdd(url + " " + model, true))
-            return null;
-        return SetApiPricingTool.LookupRequest(model, baseUrl);
-    };
+        foreach (var count in spent.Copy().Models.Where(m => OpenAiChatClient.NormalizeBaseUrl(m.BaseUrl) == url).OrderBy(m => m.Model == model ? 0 : 1))
+            if (count.Costed == 0 && (cost.For(baseUrl, count.Model) is not { } kept || kept.LacksCache(count)) && firstAsk(url + " " + count.Model))
+                return count.Model;
+        return null;
+    }
 
     /// <summary>set_api_pricing's prices, from the agent's thread: kept in the settings on the window's, over the prices there, and the costs shown again.</summary>
     private void KeepPricesFromAgent(ModelPrices prices) =>

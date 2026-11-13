@@ -5,11 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Changed
-- The blob on the plan bar stands in for the point it is on, with no dot under it, and a finished plan's blob is
-  back on the last point rather than past it.
 
-## [1.5.0] - 2026-11-13
+## [1.5.0] - 2026-11-14
 ### Added
 - **Brush** in the Image editor, beside **Area**: paint over the part of a picture you want redrawn, in any shape,
   stroke on stroke, and say what goes there. The slider beside it, or Ctrl and the mouse wheel, sets the brush's
@@ -90,8 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
-- When every step of a plan is done, the blob walks past the last point on the plan bar, so it no longer runs into
-  that point's dot and a finished plan reads apart from one on its last step.
+- The blob on the plan bar stands in for the point it is on, with no dot under it; on a finished plan it stands on
+  the last point.
 - The **Image editor** opens on your newest picture rather than on "Pick a picture", and the picture has the whole
   width: **Prompt metadata** is a button under it now, as in the File inspector, in place of a column that was
   always open beside it. The Audio editor opens on your newest sound too.
@@ -148,7 +145,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and uses that rather than the mouse and keyboard, which costs far fewer tokens. If it isn't installed, the
   agent asks you in the chat first.
 - **Auto pricing lookup** runs only after the agent's answer, once the chat has reached 50k tokens, so
-  short chats don't pay for a lookup and a task isn't held up by one.
+  short chats don't pay for a lookup and a task isn't held up by one. It looks up every model the chat used, one
+  after each answer, not only the model that answered: on Auto that takes in the helper model, whose looks were
+  left out of the total.
 - The **Auto** side panel opens the Terminal only for ssh, server, install, build and test commands, and
   for programs and scripts being run, no longer for commands that only look around or read files.
 - The agent is asked to look things up far less often: never right after a command that worked, at most once for
