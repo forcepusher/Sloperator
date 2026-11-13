@@ -2188,6 +2188,14 @@ The user asked (2026-11-05) for a checklist like Claude Code's, as a left-to-rig
 message box with the party blob walking it; of five concepts they picked a point per step with one
 word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
 
+With every step done the blob stands past the last point (`PlanBar.PastEnd`, 28: its half, the dot's half and 5
+between; `Spot` goes one past the last point and walks there like any step). On the last point, the still blob and
+the done dot both yellow, the dot stuck out under its feet as a lump of the same colour (the user, 2026-11-13), and a
+finished plan looked like one on its last step. The blob reaches 8 past the message box's right edge, inside the
+window's margin. Of ten mockups (`.dev/plan-blob-test/make.ps1`: no dot under the blob, a dark rim, a grey trail, a
+grey blob at rest, a finish flag, small done dots, folding to "Done", …) the user picked this one; small done dots
+were built first (branch fix/plan-small-done-dots) and dropped for it.
+
 The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
 tokens. `now` is read as `GetNumber` reads numbers, so "2" moves it too (it was read as no step). The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 `MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through

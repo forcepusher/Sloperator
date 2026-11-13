@@ -71,6 +71,15 @@ public sealed class PlanBarTests
     }));
 
     [Fact]
+    public void A_finished_plan_has_the_blob_past_its_last_dot() => HeadlessApp.Run(() => WithBar(860, Plan(3, 3), (bar, _) =>
+    {
+        var blob = bar.GetVisualDescendants().OfType<PartyBlob>().Single().Bounds;
+        var last = bar.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("planDot")).Last().Bounds;
+        Assert.True(blob.Left >= last.Right + 5, $"blob {blob} on the last dot {last}");
+        return 0;
+    }));
+
+    [Fact]
     public void Every_point_says_what_its_step_does_on_hover() => HeadlessApp.Run(() => WithBar(860, Plan(3, 0), (bar, _) =>
     {
         var tips = bar.GetVisualDescendants().OfType<Control>().Select(ToolTip.GetTip).OfType<string>().ToList();
