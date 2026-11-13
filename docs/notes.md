@@ -3707,7 +3707,11 @@ after the first reply, in chats too short to care what they cost). The figure is
 the tokens spent, so re-sent prompts don't count, a chat moved to another model counts at once, and a context
 under 50k never gets there (Look up prices still works; a small context is mostly a free model on the user's
 own PC). `AgentSession.PriceLookup` gives the request when a reply came with no cost from the server (the
-server's own cost wins) and the model has no prices. It isn't asked below the size, as asking spends the
+server's own cost wins) and the model has no prices: the run's own model, or else another the chat used on the
+same server, one a run (`MainWindowViewModel.ModelToPrice`). On Auto a chat's cost is of up to three models, the
+helper's look at each message among them, and only the run's model was looked up: no run ends on the helper, so on
+a server that says no cost the total kept its "+" with the looks left out (found when the user asked, in the
+1.5.0 second pass; read in the code, not seen live). It isn't asked below the size, as asking spends the
 model's one lookup. A run that was stopped or failed has no end for it: the next answer has it. Then
 `LookUpPricesAsync` runs it and the run ends. It gets only
 web_search, fetch_page and set_api_pricing and ends once set_api_pricing has kept prices. Nothing of it

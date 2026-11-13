@@ -12,6 +12,35 @@ public sealed class CostEstimatesTests
     private const string Lm = "http://localhost:1234/v1", Router = "https://openrouter.ai/api/v1";
 
     [Fact]
+    public void A_runs_end_looks_up_the_prices_of_every_model_the_chat_used_one_a_run()
+    {
+        // Auto on a server that doesn't say what replies cost: the helper looks at each message, sonnet does the task.
+        const string anthropic = "https://api.anthropic.com/v1";
+        var spent = new Spending();
+        spent.Add(anthropic, "haiku", new ChatMessage { PromptTokens = 3_000, CompletionTokens = 100 });
+        spent.Add(anthropic, "sonnet", new ChatMessage { PromptTokens = 60_000, CachedTokens = 50_000, CompletionTokens = 900 });
+        spent.Add(Router, "opus", new ChatMessage { PromptTokens = 10, CompletionTokens = 1 }); // another server's: not this run's to ask
+        var settings = new CostSettings();
+        var asked = new HashSet<string>();
+
+        // The run's own model first, then the helper's, which no run ends on; each once.
+        Assert.Equal("sonnet", MainWindowViewModel.ModelToPrice(spent, settings, anthropic, "sonnet", asked.Add));
+        Assert.Equal("haiku", MainWindowViewModel.ModelToPrice(spent, settings, anthropic + "/", "sonnet", asked.Add));
+        Assert.Null(MainWindowViewModel.ModelToPrice(spent, settings, anthropic, "sonnet", asked.Add));
+
+        // A model with prices isn't asked, unless they lack the cache it uses; one whose server says the cost never is.
+        asked.Clear();
+        settings.Set(new ModelPrices { BaseUrl = anthropic, Model = "haiku", Input = 1, Output = 5 });
+        settings.Set(new ModelPrices { BaseUrl = anthropic, Model = "sonnet", Input = 3, Output = 15 });
+        Assert.Equal("sonnet", MainWindowViewModel.ModelToPrice(spent, settings, anthropic, "sonnet", asked.Add));
+        Assert.Null(MainWindowViewModel.ModelToPrice(spent, settings, anthropic, "sonnet", asked.Add));
+        var costed = new Spending();
+        costed.Add(Router, "haiku", new ChatMessage { PromptTokens = 10, CompletionTokens = 1, Cost = 0.01m });
+        costed.Add(Router, "sonnet", new ChatMessage { PromptTokens = 10, CompletionTokens = 1, Cost = 0.05m });
+        Assert.Null(MainWindowViewModel.ModelToPrice(costed, new CostSettings(), Router, "sonnet", new HashSet<string>().Add));
+    }
+
+    [Fact]
     public void Prices_typed_for_the_model_in_use_price_its_tokens_and_the_server_cost_wins()
     {
         var spent = new Spending();
