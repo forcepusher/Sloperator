@@ -191,6 +191,20 @@ internal static partial class WordPages
         return zones;
     }
 
+    /// <summary>
+    /// The room for text on a page, in twips, from the last section's page and margins (Letter with inch margins
+    /// where they aren't said): the width at least an inch.
+    /// </summary>
+    internal static (int Width, int Height) TextArea(XElement body)
+    {
+        var section = body.Element(W + "sectPr");
+        var page = section?.Element(W + "pgSz");
+        var margins = section?.Element(W + "pgMar");
+        static int Twips(XElement? e, string name, int otherwise) => int.TryParse((string?)e?.Attribute(W + name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : otherwise;
+        return (Math.Max(1440, Twips(page, "w", 12240) - Twips(margins, "left", 1440) - Twips(margins, "right", 1440)),
+            Twips(page, "h", 15840) - Twips(margins, "top", 1440) - Twips(margins, "bottom", 1440));
+    }
+
     /// <summary>The header or footer written as one line in its three places, referred to by every section as its default.</summary>
     private static void Save(PartSet parts, string part, bool header, List<XElement>[] zones)
     {
@@ -198,9 +212,7 @@ internal static partial class WordPages
         var body = document.Root!.Element(W + "body") ?? throw new InvalidOperationException("The document has no body.");
         // The text's width, from the last section's page and margins: the tab stops of the middle and the right edge.
         var section = body.Element(W + "sectPr");
-        static int Twips(XElement? e, string name, int otherwise) => int.TryParse((string?)e?.Attribute(W + name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : otherwise;
-        var width = Twips(section?.Element(W + "pgSz"), "w", 12240) - Twips(section?.Element(W + "pgMar"), "left", 1440) - Twips(section?.Element(W + "pgMar"), "right", 1440);
-        width = Math.Max(1440, width);
+        var width = TextArea(body).Width;
         var styleId = header ? "Header" : "Footer";
         var styled = parts.Exists("word/styles.xml") && parts.Get("word/styles.xml").Root!.Elements(W + "style").Any(s => (string?)s.Attribute(W + "styleId") == styleId);
         var paragraph = new XElement(W + "p", new XElement(W + "pPr",

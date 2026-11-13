@@ -238,7 +238,7 @@ public sealed partial class MainWindowViewModel
             var sent = Items.OfType<UserMessageItem>().ToList();
             var cut = ChatCut.HistoryStart(_history, sent.Select(u => u.Input).ToList(), sent.IndexOf(message));
             var calls = Items.Skip(at).OfType<ToolCallItem>().Where(t => !t.IsAuto).Select(t => (t.Name, Ran: t.State is not (ToolItemState.Denied or ToolItemState.AwaitingApproval))).ToList();
-            var back = message.Turn is { } turn ? await Changes.RollBackAsync(turn, FileChangesViewModel.ToRecycleBin, CancellationToken.None) : null;
+            var back = message.Turn is { } turn ? await Changes.RollBackAsync(turn, RecycleBin.Put, CancellationToken.None) : null;
             ChatCut.Cut(_history, cut);
             for (var i = Items.Count - 1; i >= at; i--)
             {

@@ -314,8 +314,7 @@ internal sealed class SheetFormula
     private static (int Row, int Column) Split(string reference)
     {
         var letters = reference.TakeWhile(char.IsAsciiLetterUpper).Count();
-        var column = reference[..letters].Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
-        return (int.Parse(reference[letters..], CultureInfo.InvariantCulture), column);
+        return (int.Parse(reference[letters..], CultureInfo.InvariantCulture), XlsxWriter.Column(reference[..letters]));
     }
 
     private string Word()

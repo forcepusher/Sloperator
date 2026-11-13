@@ -740,7 +740,7 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
             {
                 GitAct.Stage => GitChanges.StageAsync(file.FullPath, lines, CancellationToken.None),
                 GitAct.Unstage => GitChanges.UnstageAsync(file.FullPath, lines, CancellationToken.None),
-                _ => changes.DiscardAsync(file.Section, file.FullPath, lines, ToRecycleBin, CancellationToken.None),
+                _ => changes.DiscardAsync(file.Section, file.FullPath, lines, RecycleBin.Put, CancellationToken.None),
             });
             if (error is not null)
                 errors.Add($"{Path.GetFileName(file.FullPath)}: {error}");
@@ -750,9 +750,6 @@ public sealed partial class FileChangesViewModel : ObservableObject, IWatchPanel
         if (errors.Count > 0)
             Status = act switch { GitAct.Stage => "Not staged: ", GitAct.Unstage => "Not unstaged: ", _ => "Not discarded: " } + string.Join(" ", errors);
     }
-
-    internal static void ToRecycleBin(string path) =>
-        Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
 
     // ---- what is picked, into the chat's box -----------------------------------------------------------
 

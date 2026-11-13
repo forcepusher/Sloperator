@@ -470,19 +470,8 @@ internal static class DocumentText
         return body?.Descendants(A + "p").Select(p => string.Concat(p.Descendants(A + "t").Select(t => t.Value))).Where(t => t.Length > 0).ToList() ?? [];
     }
 
-    /// <summary>A relationship's target ("../notesSlides/notesSlide2.xml") as an entry of the package, from the folder of the part it belongs to.</summary>
-    internal static string Resolve(string folder, string target)
-    {
-        if (target.StartsWith('/'))
-            return target.TrimStart('/');
-        var path = new List<string>(folder.Split('/', StringSplitOptions.RemoveEmptyEntries));
-        foreach (var piece in target.Split('/'))
-        {
-            if (piece == "..") { if (path.Count > 0) path.RemoveAt(path.Count - 1); }
-            else if (piece is not ("." or "")) path.Add(piece);
-        }
-        return string.Join('/', path);
-    }
+    /// <inheritdoc cref="Documents.PartSet.Resolve"/>
+    internal static string Resolve(string folder, string target) => Documents.PartSet.Resolve(folder, target);
 
     /// <summary>What a part beside the main text says (notes, comments, footers, charts), or nothing when it can't be read: the text itself still is.</summary>
     private static T Optional<T>(Func<T> read, T none)

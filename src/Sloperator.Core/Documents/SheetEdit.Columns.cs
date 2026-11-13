@@ -172,7 +172,6 @@ internal static partial class SheetEdit
     internal static string MoveColumnReferences(string formula, bool sameSheet, string sheet, bool insert, int from, int count)
     {
         var last = from + count - 1;
-        static int Number(string letters) => letters.TrimStart('$').ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
         static string Dollar(string letters) => letters.StartsWith('$') ? "$" : "";
         var parts = formula.Split('"');
         for (var i = 0; i < parts.Length; i += 2)
@@ -182,8 +181,8 @@ internal static partial class SheetEdit
                 var on = named is null ? null : named.StartsWith('\'') ? named[1..^1].Replace("''", "'") : named;
                 if (on is null ? !sameSheet : !on.Equals(sheet, StringComparison.OrdinalIgnoreCase))
                     return m.Value;
-                var c1 = Number(m.Groups["c1"].Value);
-                int? c2 = m.Groups["c2"].Success ? Number(m.Groups["c2"].Value) : null;
+                var c1 = XlsxWriter.Column(m.Groups["c1"].Value);
+                int? c2 = m.Groups["c2"].Success ? XlsxWriter.Column(m.Groups["c2"].Value) : null;
                 if (insert)
                 {
                     if (c1 >= from) c1 += count;

@@ -65,9 +65,7 @@ internal static partial class WordContents
         }
 
         // The text's width, for the page numbers' tab at the right edge.
-        var section = body.Element(W + "sectPr");
-        static int Twips(XElement? e, string name, int otherwise) => int.TryParse((string?)e?.Attribute(W + name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : otherwise;
-        var width = Math.Max(1440, Twips(section?.Element(W + "pgSz"), "w", 12240) - Twips(section?.Element(W + "pgMar"), "left", 1440) - Twips(section?.Element(W + "pgMar"), "right", 1440));
+        var width = WordPages.TextArea(body).Width;
 
         static XElement Run(params object[] content) => new(W + "r", content);
         static XElement Field(string type) => Run(new XElement(W + "fldChar", new XAttribute(W + "fldCharType", type)));

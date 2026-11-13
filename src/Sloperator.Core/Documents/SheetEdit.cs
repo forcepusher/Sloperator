@@ -246,9 +246,8 @@ internal static partial class SheetEdit
                 (rowLine, rowSheet) = (line[colLead.Length..].TrimStart(), Unquoted(colLead.Groups["sheet"].Value));
             if (ColumnLine().Match(rowLine) is { Success: true } col)
             {
-                static int Number(string letters) => letters.ToUpperInvariant().Aggregate(0, (n, ch) => n * 26 + ch - 'A' + 1);
-                var a = Number(col.Groups["from"].Value);
-                var b = col.Groups["to"].Success ? Number(col.Groups["to"].Value) : a;
+                var a = XlsxWriter.Column(col.Groups["from"].Value);
+                var b = col.Groups["to"].Success ? XlsxWriter.Column(col.Groups["to"].Value) : a;
                 if (a > 16384 || b > 16384)
                     throw new InvalidOperationException($"{line}: a sheet ends at column XFD.");
                 var verb = col.Groups["verb"].Value.ToLowerInvariant();
@@ -388,9 +387,7 @@ internal static partial class SheetEdit
     internal static (int Row, int Column) Parse(string reference)
     {
         var m = Reference().Match(reference.Replace("$", "").ToUpperInvariant());
-        var column = 0;
-        foreach (var ch in m.Groups[1].Value) column = column * 26 + (ch - 'A' + 1);
-        return (int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture), column);
+        return (int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture), XlsxWriter.Column(m.Groups[1].Value));
     }
 
     /// <summary>
@@ -619,11 +616,7 @@ internal static partial class SheetEdit
                 var column = m.Groups[2].Value;
                 var row = int.Parse(m.Groups[4].Value, CultureInfo.InvariantCulture);
                 if (m.Groups[1].Value.Length == 0)
-                {
-                    var n = 0;
-                    foreach (var ch in column) n = n * 26 + (ch - 'A' + 1);
-                    column = XlsxWriter.Reference(1, Math.Max(1, n + columns))[..^1];
-                }
+                    column = XlsxWriter.Reference(1, Math.Max(1, XlsxWriter.Column(column) + columns))[..^1];
                 if (m.Groups[3].Value.Length == 0)
                     row = Math.Max(1, row + rows);
                 return m.Groups[1].Value + column + m.Groups[3].Value + row;

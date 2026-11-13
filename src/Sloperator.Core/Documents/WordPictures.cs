@@ -80,10 +80,7 @@ internal static partial class WordPictures
         }
 
         // The text's width, for how wide a picture may be.
-        var section = body.Element(W + "sectPr");
-        static int Twips(XElement? e, string name, int otherwise) => int.TryParse((string?)e?.Attribute(W + name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : otherwise;
-        var width = Math.Max(1440, Twips(section?.Element(W + "pgSz"), "w", 12240) - Twips(section?.Element(W + "pgMar"), "left", 1440) - Twips(section?.Element(W + "pgMar"), "right", 1440));
-        var height = Twips(section?.Element(W + "pgSz"), "h", 15840) - Twips(section?.Element(W + "pgMar"), "top", 1440) - Twips(section?.Element(W + "pgMar"), "bottom", 1440);
+        var (width, height) = WordPages.TextArea(body);
 
         var rels = parts.Get("word/_rels/document.xml.rels");
         var types = parts.Get("[Content_Types].xml");
