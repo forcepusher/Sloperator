@@ -163,6 +163,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picked. Ctrl adds another selection or a line, and Ctrl+C copies the code.
 
 ### Fixed
+- A reply the server's content filter stops ("Output blocked by content filtering policy") no longer ends the task:
+  the agent is asked to give it another way and carries on. It happened to Claude Haiku as it wrote a long run of
+  key presses.
 - Deleting a picture's version in the Image editor while its small copy was still being drawn could fail on a busy
   PC: pictures are read into memory before they are drawn, and never keep their file from being deleted or moved.
 - In a workbook of several sheets, the agent can no longer insert or delete rows without saying on which sheet: a row
