@@ -17,8 +17,10 @@ public sealed partial class MainWindowViewModel
     /// where it is on Auto and the server has two of the three models in Settings that differ, the effort where it
     /// is on Auto and a model to pick from takes one. Null when there is nothing to pick, and the run starts at once.
     /// In a chat under way that the server's cache still holds (<paramref name="upOnly"/>, <see cref="AutoUpOnly"/>)
-    /// the model only moves up and the effort only with it (<see cref="AutoPick.Next"/>): on the dearest of the
-    /// three, or with the model picked by the user, nothing is left to pick, and no evaluation holds the message up.
+    /// the model and the effort only move up (<see cref="AutoPick.Next"/>): the model while there is one above it,
+    /// the effort while its model takes more (<see cref="AutoPick.CanRaise"/>; the user, 2026-11-13: "escalation is
+    /// possible at any time when needed during a warm cache"). On the dearest of the three at the most effort it
+    /// takes, or with both picked by the user, nothing is left to pick, and no evaluation holds the message up.
     /// </summary>
     private (AutoModelSet Set, bool Model, bool Effort)? AutoToPick(ProbeResult? probe, bool upOnly)
     {
@@ -28,7 +30,7 @@ public sealed partial class MainWindowViewModel
         var model = server.ModelOnAuto && (upOnly ? AutoPick.CanMoveUp(set, server.AutoTier) : set.Differ);
         var effort = server.EffortOnAuto && (model
             ? set.Helper.Efforts.Count + set.Daily.Efforts.Count + set.Complex.Efforts.Count > 0
-            : !upOnly && server.EffortLevels.Count > 0);
+            : upOnly ? AutoPick.CanRaise(server.EffortInUse, server.EffortLevels) : server.EffortLevels.Count > 0);
         return model || effort ? (set, model, effort) : null;
     }
 

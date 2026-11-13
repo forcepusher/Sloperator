@@ -3367,7 +3367,7 @@ command-line runner has no evaluation: on Auto it runs on the daily driver, at m
 **Up only in a chat under way** (the user, 2026-11-12: "I want the model only to escalate, not de-escalate";
 `AutoPick.Next`, `CanMoveUp`, `StepsUp`), while the server's cache holds the chat (below). A chat's first message
 takes what was picked, down to the helper model too. After that the chat stays on its model or moves up a tier,
-never back down, and the effort changes only with that move. Either change has the new request miss the prompt cache: the user's Unity chat (2026-11-11) went from
+never back down, and the effort changed only with that move (until 2026-11-13: it now rises on its own too, below). Either change has the new request miss the prompt cache: the user's Unity chat (2026-11-11) went from
 Sonnet down to Haiku on "How do I start it connected to a local server", 190k tokens, a minute after Sonnet's last
 reply. Haiku wrote all 189,714 into its cache at $0.625/M (its rate past 100k tokens), about $0.12, where Sonnet
 would have read 193k from its cache at $0.10/M, about $0.03. Earlier in that chat Auto kept Sonnet but moved it from
@@ -3375,11 +3375,11 @@ medium to low on "what's the delay?": Anthropic's `output_config.effort` changed
 18,632 tokens of system prompt and tools from the cache and wrote the 125,684 of messages anew (about $0.31 where
 $0.01 would do). The two cost about $0.39 of the chat's $2.85. The evaluation's request then offers the model in use
 and the ones above it only ("The chat works with daily now. It stays on it or moves up to a stronger model; it never
-moves back down", "model: daily or complex"), and says the effort changes only with a move up; a pick below is kept
-at the model in use all the same, and an effort picked without a move is dropped. Stay on the Switch card keeps the
+moves back down", "model: daily or complex"), and said the effort changes only with a move up; a pick below is kept
+at the model in use all the same, and an effort picked without a move was dropped. Stay on the Switch card keeps the
 effort too (it used to take the dearer pick's effort onto the model kept). On the dearest of the three, or with the
-model picked by hand and only the effort on Auto, a chat under way has nothing left to pick, and its messages go
-without an evaluation (`AutoToPick`). Checked off screen with a stand-in server that answers each evaluation from a
+model picked by hand and only the effort on Auto, a chat under way had nothing left to pick, and its messages went
+without an evaluation (`AutoToPick`; now only once the effort is at its most too, below). Checked off screen with a stand-in server that answers each evaluation from a
 mark in the message (`.dev/escalate-test`, run.ps1): helper at low on the first message, Switch to Sonnet at medium,
 "[evaluation low]" kept on Sonnet at medium with Haiku left out of the request, Switch to Opus at high, then no
 evaluation request at all.
@@ -3405,6 +3405,30 @@ took the chat down to Haiku at low with no card, all three models in the request
 after that reply, "[daily high]" was a move up again (the Switch card, Sonnet at high), and a last "[helper low]"
 stayed there. The app started again and the chat opened from History (history.ps1): 50 seconds after its last reply
 the evaluation was offered daily and complex only, and after five minutes more all three.
+
+**Up in effort too, and never below medium** (the user, 2026-11-13: "Make sure escalation is possible at any time
+when needed during a warm cache. And never pick an effort below medium"; `AutoPick.Next`, `CanRaise`,
+`LeastEffort`). While the cache holds the chat, the effort may rise on the model in use, as the model may move up:
+a hard task that comes to a chat on Sonnet at medium can have high without a stronger model, and a chat on the
+dearest model is still asked whether the task needs more. Until then the effort changed only with a move up a
+model, and on the dearest one nothing was picked at all, so a chat that reached Opus at medium stayed there
+whatever came. It never falls while the cache is warm, and a move up to a stronger model takes the level picked
+for that model, lower too, as that request misses the cache whatever its effort. So a warm chat goes without an
+evaluation only when there is no model above it and its model takes no more effort than it has (or neither is on
+Auto); with the model picked by hand and the effort on Auto, the effort alone is asked. The request says "The
+chat's effort, medium now, stays or goes up on the model in use, never down; with a move up to a stronger model,
+give the level that fits that model", and of the cost "Another model, or another effort, reads all of it anew at
+full price, so change either only when the task needs it"; with no model to pick it lists the levels from the one
+in use up ("effort: high, xhigh or max"). Low is no longer offered at all, on a first message or later ("Efforts,
+least to most: medium, high, xhigh, max. ... Most tasks need medium"), and an answer that says low all the same is
+taken as medium (`AutoPick.Read`); the helper's own look still runs at low, which is its effort and not a pick. A
+level picked by hand in the dropdown is the user's, low too. Two things still go without a look and so can't move
+up: a reply of five words or fewer (the user's pick of 2026-11-09), and a message sent while the agent works,
+which joins the run under way. Checked off screen with the stand-in server (`.dev/stale-cache-test`, warm.ps1), a
+chat of seven messages inside 70 seconds: "[helper low]" first ran on Haiku at medium; "[daily medium]" was the
+Switch card and Sonnet at medium; "[daily high]" took Sonnet to high with no card; "[helper low]" stayed on
+Sonnet at high; "[complex medium]" was the Switch card and Opus at medium; "[complex max]", asked for the effort
+alone, took Opus to max; and the last message went with no evaluation request.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
