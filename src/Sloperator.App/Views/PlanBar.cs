@@ -32,13 +32,6 @@ public sealed class PlanBar : Panel
 
     private const double BarHeight = 46, LineTop = 15, LineHeight = 2, DotSize = 14, DotTop = 9, WordTop = 27, BlobSize = 32, BlobTop = -10, WordGap = 8, Overhang = 36;
 
-    /// <summary>
-    /// How far past the last point the blob stands when every step is done: its half, the dot's half and 5 between.
-    /// On the last dot, the two of one yellow, the dot stuck out under its feet; past it, a finished plan reads apart
-    /// from one on its last step.
-    /// </summary>
-    private const double PastEnd = BlobSize / 2 + DotSize / 2 + 5;
-
     private sealed record Point(Border Hit, Border Dot, TextBlock Word);
 
     private readonly Rectangle _line = new() { Classes = { "planLine" } };
@@ -111,8 +104,7 @@ public sealed class PlanBar : Panel
             _points[i].Word.Classes.Set("wait", here && Waiting);
             _points[i].Word.Classes.Set("fail", here && Failed);
         }
-        // One spot past the last point when all is done: the blob walks off the end (see PastEnd).
-        Spot = Math.Min(plan.At, _points.Count);
+        Spot = Math.Min(plan.At, _points.Count - 1);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -146,12 +138,10 @@ public sealed class PlanBar : Panel
     {
         var width = finalSize.Width;
         var spacing = _points.Count > 1 ? width / (_points.Count - 1) : width;
-        var last = Math.Max(_points.Count - 1, 0);
-        var walked = _points.Count > 1 ? spacing * Math.Min(Spot, last) : 0;
-        var blob = walked + Math.Max(Spot - last, 0) * PastEnd;
+        var walked = _points.Count > 1 ? spacing * Spot : 0;
         _line.Arrange(new Rect(0, LineTop, width, LineHeight));
         _walked.Arrange(new Rect(0, LineTop, walked, LineHeight));
-        _blob.Arrange(new Rect(blob - BlobSize / 2, BlobTop, BlobSize, BlobSize));
+        _blob.Arrange(new Rect(walked - BlobSize / 2, BlobTop, BlobSize, BlobSize));
 
         var at = Math.Min(Plan?.At ?? 0, _points.Count - 1);
         var radius = Radius(spacing, at);
@@ -162,7 +152,10 @@ public sealed class PlanBar : Panel
             var word = _points[i].Word;
             var wordWidth = word.DesiredSize.Width;
             word.Opacity = Math.Abs(i - at) <= radius ? 1 : 0;
+            // The blob is the point it stands on: that dot isn't drawn, as one of the blob's yellow stuck out under its
+            // feet. Walking, it covers each dot it passes, so the dot goes as the blob's middle comes over it.
             _points[i].Dot.Arrange(new Rect(x - DotSize / 2, DotTop, DotSize, DotSize));
+            _points[i].Dot.Opacity = Math.Abs(x - walked) < BlobSize / 2 ? 0 : 1;
             // The bar's margin leaves room for the words at its ends, a long one too.
             word.Arrange(new Rect(Math.Clamp(x - wordWidth / 2, -Overhang, Math.Max(width + Overhang - wordWidth, -Overhang)), WordTop, wordWidth, word.DesiredSize.Height));
             _points[i].Hit.Arrange(new Rect(x - hitWidth / 2, 0, hitWidth, BarHeight));
