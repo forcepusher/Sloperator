@@ -139,6 +139,30 @@ which lapses after 5 minutes…", once, during a batch-mode Unity command that r
 (they need ComfyUI and the real mouse), and Auto's move up to a dearer model with its **Switch** card. Their
 unit tests pass.
 
+## Second pass: what came after the merge
+
+1.5.0 wasn't tagged yet when develop took one more merge (7b1da3f9: the blob on the plan bar stands in for
+the point it is on, with no dot under it, and a finished plan's blob is back on the last point). On the
+user's word release/1.5.0 was brought up to it and its changelog line folded into [1.5.0], in place of the
+line about the blob walking past the last point, which no release had; the section is dated 2026-11-14.
+
+Asked then whether the cost estimate works with Auto as it is now: it did but for one thing, fixed here.
+Each reply is counted under the model that wrote it, the helper's look at each message too, and on a server
+that says what replies cost (OpenRouter, in the first pass) the total has all of it. On a server that
+doesn't, Auto pricing lookup asked only for the model a task ended on, and no task ends on the helper, so
+the total kept its "+" with the looks left out. A task's end now looks up its own model or else another
+the chat used on that server, one a task (`MainWindowViewModel.ModelToPrice`).
+
+| Check | Result |
+|---|---|
+| Unit suites | App 460 of 460, Core 1668 of 1668 (36 opt-in skipped) |
+| Published exe | 29,090,301 bytes, no trim warnings, 4 min 52 s |
+| Plan bar in the exe (`run1.ps1`) | the blob in place of its point, on Check while the task ran and on the last point when it was done, no dot under it either time |
+| Costs on Auto in the exe (`run3.ps1`: a stand-in listing three Claude names that reports 60k tokens a reply and no cost) | after the first task "~$0.1116+": claude-sonnet-5-5 looked up, the helper's look not counted; after the second "~$0.2604", no "+": claude-haiku-5-5 looked up too. Both sums are the tokens at the prices kept (7 replies at 3.72 cents) |
+
+Not run again: Unity 2048 and the first pass's other looks. The pass changed how the bar draws its blob and
+which model's prices are looked up, neither of which is in what the agent does.
+
 ## Left as they are
 
 - The workstation's checks (its GPU, second monitor and Qwen server) weren't run: laptop only this time.
