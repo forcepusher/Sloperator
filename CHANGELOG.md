@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.5.0] - 2026-11-13
 ### Added
 - **Brush** in the Image editor, beside **Area**: paint over the part of a picture you want redrawn, in any shape,
   stroke on stroke, and say what goes there. The slider beside it, or Ctrl and the mouse wheel, sets the brush's
@@ -1137,7 +1139,8 @@ The first release.
 - A command-line runner, and benchmarks: desktop tasks, 2048 and Unity 2048, clicks, a sysadmin
   lab, a chat stand-in lab and ComfyUI requests.
 
-[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.4.0...HEAD
+[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/forcepusher/Sloperator/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/forcepusher/Sloperator/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/forcepusher/Sloperator/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/forcepusher/Sloperator/compare/1.1.0...1.2.0
