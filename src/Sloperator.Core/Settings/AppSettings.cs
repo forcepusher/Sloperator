@@ -329,6 +329,9 @@ public static class Efforts
         return offered.OrderBy(l => Math.Abs(Rank(l) - at)).ThenBy(Rank).First();
     }
 
+    /// <summary>Whether <paramref name="level"/> is more effort than <paramref name="other"/>; a level nobody knows is above none.</summary>
+    public static bool Above(string level, string other) => Rank(level) > Rank(other) && Rank(other) >= 0;
+
     private static int Rank(string level)
     {
         for (var i = 0; i < Levels.Count; i++)

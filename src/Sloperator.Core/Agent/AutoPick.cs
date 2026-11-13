@@ -25,18 +25,6 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     /// <summary>Replies the evaluation gets at most: a look around, not the task.</summary>
     internal const int MaxSteps = 12;
 
-    /// <summary>The most words a reply is short at: <see cref="IsShortReply"/>.</summary>
-    internal const int ShortReplyWords = 5;
-
-    /// <summary>
-    /// A short reply in a chat under way ("thanks", "yes, go on", "do it"), with no file or panel pick: it goes
-    /// on with the model and effort in use, with no look first (the user's pick, 2026-11-09: each such message
-    /// took 2 to 7 s and a request of the helper model). A first message is looked at however short.
-    /// </summary>
-    public static bool IsShortReply(UserInput input, bool chatUnderWay) =>
-        chatUnderWay && input.Files.Count == 0 && input.Cards is not { Count: > 0 } && input.Context is null &&
-        input.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= ShortReplyWords;
-
     /// <summary>
     /// Whether <paramref name="to"/> is a move up from <paramref name="from"/>: a tier above it whose model is
     /// another (two tiers can name the same one).
@@ -65,14 +53,32 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     public static bool CacheLapsed(DateTime? lastUsed, DateTime now) => lastUsed is not { } at || now - at >= CacheLife;
 
     /// <summary>
+    /// The least effort Auto picks (the user, 2026-11-13: "never pick an effort below medium"): low isn't offered,
+    /// and an answer that says it all the same counts as this (<see cref="Read"/>).
+    /// </summary>
+    public const string LeastEffort = "medium";
+
+    /// <summary>The efforts Auto picks from, least to most: <see cref="LeastEffort"/> and up.</summary>
+    internal static IReadOnlyList<string> EffortsToPick { get; } = Efforts.Levels.Where(l => !Efforts.Above(LeastEffort, l)).ToList();
+
+    /// <summary>
+    /// Whether a chat under way at <paramref name="effort"/> has more effort to move up to among
+    /// <paramref name="levels"/>, the ones its model takes. With none, and no model above, there is nothing for
+    /// the evaluation to pick.
+    /// </summary>
+    public static bool CanRaise(string? effort, IReadOnlyList<string> levels) => levels.Any(l => Efforts.Above(l, effort ?? Efforts.Default));
+
+    /// <summary>
     /// The tier and effort a message runs on, from this pick (the user, 2026-11-12: "I want the model only to
     /// escalate, not de-escalate"). A chat's first message takes what was picked, a dearer model only on the
     /// user's Switch (<paramref name="stayed"/>: they stayed off it). Under way, while the server's cache holds the
-    /// chat (<paramref name="upOnly"/>), the chat only moves up, and the effort changes only with that move: either
-    /// change has the model read the whole chat anew at its full price (Sonnet to Haiku on a 190k chat cost about 4
-    /// times what Sonnet's cache did; Sonnet's effort from medium to low alone had all 126k of its messages written
-    /// anew, 2026-11-11). Once that cache has lapsed (<see cref="CacheLapsed"/>) the chat is read anew whatever
-    /// runs it, and the message takes what was picked as a first one does.
+    /// chat (<paramref name="upOnly"/>), the chat only moves up: to a stronger model, with the effort picked for it,
+    /// or to more effort on the model it is on (the user, 2026-11-13: "escalation is possible at any time when
+    /// needed during a warm cache"), never down in either. Any change has the model read the whole chat anew at
+    /// its full price (Sonnet to Haiku on a 190k chat cost about 4 times what Sonnet's cache did; Sonnet's effort
+    /// from medium to low alone had all 126k of its messages written anew, 2026-11-11), which a move up is worth
+    /// when the task needs it and a move down never is. Once that cache has lapsed (<see cref="CacheLapsed"/>) the
+    /// chat is read anew whatever runs it, and the message takes what was picked as a first one does.
     /// </summary>
     public (AutoTier Tier, string? Effort) Next(AutoModelSet set, AutoTier tier, string? effort, bool upOnly, bool stayed)
     {
@@ -80,9 +86,13 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
             return (tier, effort);
         if (!upOnly)
             return (stayed ? tier : Tier, Effort ?? effort);
-        if (stayed || Tier <= tier)
+        // Stay keeps the effort too: the one picked was for the model stayed off.
+        if (stayed)
             return (tier, effort);
-        return (Tier, StepsUp(set, tier, Tier) ? Effort ?? effort : effort);
+        if (StepsUp(set, tier, Tier))
+            return (Tier, Effort ?? effort);
+        // On the same model (a pick below it counts as staying) the effort only rises.
+        return (Tier > tier ? Tier : tier, Effort is not null && Efforts.Above(Effort, effort ?? Efforts.Default) ? Effort : effort);
     }
 
     private static string Key(AutoTier tier) => tier switch
@@ -106,10 +116,11 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     /// is the agent's last answer, for a message such as "yes, do it". <paramref name="floor"/>: the tier of a chat
     /// under way, which it can only move up from (<see cref="Next"/>); null on a chat's first message, and in a
     /// chat the server's cache no longer holds (<see cref="CacheLapsed"/>), which is told so in place of what
-    /// another model costs.
+    /// another model costs. <paramref name="effortInUse"/>: the effort of such a chat under way, which on its
+    /// model only rises. The efforts offered start at <see cref="LeastEffort"/>.
     /// </summary>
     internal static string Request(string message, AutoModelSet set, bool pickModel, bool pickEffort, string inUse,
-        int chatTokens, string? chatModel, string? lastReply, AutoTier? floor = null)
+        int chatTokens, string? chatModel, string? lastReply, AutoTier? floor = null, string? effortInUse = null)
     {
         var text = new StringBuilder();
         text.Append("Sloperator's agent is about to work on the user's message below. Before it starts, pick ")
@@ -127,14 +138,27 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         }
         else
             text.Append($"The model is {inUse}.\n");
+        // With no model to pick in a chat under way, the effort has only the levels above it to go to.
+        var efforts = floor is not null && !pickModel && effortInUse is not null
+            ? EffortsToPick.Where(l => l == effortInUse || Efforts.Above(l, effortInUse)).DefaultIfEmpty(effortInUse).ToList()
+            : EffortsToPick;
         if (pickEffort)
-            text.Append("Efforts, least to most: low, medium, high, xhigh, max. More thinks longer: better on hard problems, slower and dearer. " +
-                        "Most tasks need medium; low for the simple ones.")
-                .Append(floor is null ? "\n" : " The effort in use changes only with a move up: give the level for the model you pick.\n");
+        {
+            text.Append("Efforts, least to most: ").Append(string.Join(", ", efforts))
+                .Append(". More thinks longer: better on hard problems, slower and dearer. Most tasks need ").Append(LeastEffort).Append('.');
+            if (floor is not null)
+                text.Append(effortInUse is null ? " The chat's effort" : $" The chat's effort, {effortInUse} now,")
+                    .Append(pickModel
+                        ? " stays or goes up on the model in use, never down; with a move up to a stronger model, give the level that fits that model."
+                        : " stays or goes up, never down.");
+            text.Append('\n');
+        }
         if (chatTokens > 0 && chatModel is not null)
             text.Append($"\nThe chat so far holds about {chatTokens / 1000}k tokens and ran on {chatModel}. ")
                 .Append(floor is not null
-                    ? "Any other model reads all of it anew at its full price, so pick another only when the task needs it.\n"
+                    ? pickModel && pickEffort ? "Another model, or another effort, reads all of it anew at full price, so change either only when the task needs it.\n"
+                        : pickModel ? "Any other model reads all of it anew at its full price, so pick another only when the task needs it.\n"
+                        : "Another effort reads all of it anew at full price, so raise it only when the task needs it.\n"
                     // Under way with no floor: the cache has lapsed, and staying costs what moving does.
                     : "The server no longer holds it in its cache, so all of it is read anew at full price whatever you pick: pick what fits this message.\n");
         if (!string.IsNullOrWhiteSpace(lastReply))
@@ -147,7 +171,7 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
                 _ => string.Join(", ", tiers.SkipLast(1).Select(Key)) + " or " + Key(tiers[^1]),
             }).Append('\n');
         if (pickEffort)
-            text.Append("effort: low, medium, high, xhigh or max\n");
+            text.Append("effort: ").Append(efforts.Count == 1 ? efforts[0] : string.Join(", ", efforts.SkipLast(1)) + " or " + efforts[^1]).Append('\n');
         text.Append("why: one short sentence on what the task is and why that fits\n")
             // Haiku 5.5 told the agent a parameter's default it had misread, which the agent then corrected to the user
             // (2026-11-10): the agent goes by these notes. It then wrote "I did not open any files, so I can't confirm the
@@ -178,6 +202,9 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
         var effort = pickEffort && fields.GetValueOrDefault("effort") is { } level
             ? Efforts.Of(Regex.Split(level.ToLowerInvariant().Replace("extra high", "xhigh"), @"[^a-z]+")).FirstOrDefault()
             : null;
+        // Low isn't offered; said all the same, it is the least that is.
+        if (effort is not null && Efforts.Above(LeastEffort, effort))
+            effort = LeastEffort;
         if ((!pickModel || tier is null) && (!pickEffort || effort is null))
             return null;
         // One sentence was asked for: what follows a blank line is the helper thinking on. Haiku 5.5's went on "Hmm, but

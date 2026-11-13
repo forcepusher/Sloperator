@@ -21,10 +21,10 @@ public sealed partial class AgentSession
     {
         var by = set.Helper.Id;
         var lastReply = History.LastOrDefault(m => m.Role == ChatRole.Assistant && !string.IsNullOrWhiteSpace(m.Content))?.Content;
-        // A chat under way only moves up from the model it is on while the cache holds it (AutoPick.Next).
+        // A chat under way only moves up from the model and effort it is on while the cache holds it (AutoPick.Next).
         var underWay = History.Count > 0;
         var request = AutoPick.Request(input.ToMessage(seesImages: false).Content ?? input.Text, set, pickModel, pickEffort, requestOptions.Model,
-            underWay ? TokensInUse() : 0, underWay ? requestOptions.Model : null, lastReply, underWay && cacheWarm ? before : null);
+            underWay ? TokensInUse() : 0, underWay ? requestOptions.Model : null, lastReply, underWay && cacheWarm ? before : null, requestOptions.Effort);
         var effort = Efforts.Nearest("low", set.Helper.Efforts);
         var result = await RunSideTaskAsync(request, true, AutoPick.Tools, null, progress, observer, ct,
             new SideTaskModel(by, effort), AutoPick.MaxSteps).ConfigureAwait(false);

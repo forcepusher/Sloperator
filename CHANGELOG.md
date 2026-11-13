@@ -74,11 +74,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   helper model takes a short look at the task (reading files, never changing them) and picks the model
   and effort for it; a card in the chat says what it picked, why, and what it found, which the picked model
   gets with your message. Before moving up to a dearer model it asks: **Switch** or stay, Switch after 10 seconds.
-  Each new chat starts on the daily driver; a short reply ("yes, go on") goes on with the model in use, with no look.
-  Once a chat is under way it only moves up, never back down, and its effort changes only with that move, as either
-  change makes the model read the whole chat again at full price. On the dearest model nothing more is picked.
-  After five minutes without a request the server no longer keeps the chat ready, so the next message is picked
-  freely again: a cheaper model, or another effort alone, too.
+  Each new chat starts on the daily driver, and every message gets the look, however short.
+  Once a chat is under way it only moves up, whenever a task needs it: to a stronger model, or to more effort on the
+  model it is on, the dearest one too. It never moves back down, as any change makes the model read the whole chat
+  again at full price. After five minutes without a request the server no longer keeps the chat ready, so the next
+  message is picked freely again: a cheaper model, or less effort, too. Auto never picks an effort below Medium.
 - **Auto model** in Settings > Advanced: the helper, daily driver and complex task models Auto picks from, the newest
   Claude Haiku, Sonnet and Opus by default. Words find the newest model the server lists that fits them.
 - Ask the agent to show you something in a side panel ("show it in the Web preview") and it opens that panel with
