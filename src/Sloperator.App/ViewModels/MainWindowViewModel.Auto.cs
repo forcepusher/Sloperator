@@ -16,20 +16,41 @@ public sealed partial class MainWindowViewModel
     /// What Auto has to pick for a message (the user, 2026-11-09), from the check that starts the run: the model
     /// where it is on Auto and the server has two of the three models in Settings that differ, the effort where it
     /// is on Auto and a model to pick from takes one. Null when there is nothing to pick, and the run starts at once.
-    /// In a chat under way (<paramref name="chatUnderWay"/>) the model only moves up and the effort only with it
-    /// (<see cref="AutoPick.Next"/>): on the dearest of the three, or with the model picked by the user, nothing is
-    /// left to pick, and no evaluation holds the message up.
+    /// In a chat under way that the server's cache still holds (<paramref name="upOnly"/>, <see cref="AutoUpOnly"/>)
+    /// the model only moves up and the effort only with it (<see cref="AutoPick.Next"/>): on the dearest of the
+    /// three, or with the model picked by the user, nothing is left to pick, and no evaluation holds the message up.
     /// </summary>
-    private (AutoModelSet Set, bool Model, bool Effort)? AutoToPick(ProbeResult? probe, bool chatUnderWay)
+    private (AutoModelSet Set, bool Model, bool Effort)? AutoToPick(ProbeResult? probe, bool upOnly)
     {
         var server = _settings.Server;
         if (probe is not { Reachable: true, Auto: { } set })
             return null;
-        var model = server.ModelOnAuto && (chatUnderWay ? AutoPick.CanMoveUp(set, server.AutoTier) : set.Differ);
+        var model = server.ModelOnAuto && (upOnly ? AutoPick.CanMoveUp(set, server.AutoTier) : set.Differ);
         var effort = server.EffortOnAuto && (model
             ? set.Helper.Efforts.Count + set.Daily.Efforts.Count + set.Complex.Efforts.Count > 0
-            : !chatUnderWay && server.EffortLevels.Count > 0);
+            : !upOnly && server.EffortLevels.Count > 0);
         return model || effort ? (set, model, effort) : null;
+    }
+
+    /// <summary>
+    /// When the server last had this chat's prompt in hand, as the last run's session said it
+    /// (<see cref="AgentSession.CacheUsedAt"/>: its last reply, or a read that kept the cache warm after it). Null in
+    /// a chat that hasn't run in this window; one opened from History goes by its last reply's time.
+    /// </summary>
+    private DateTime? _cacheUsedAt;
+
+    /// <summary>
+    /// Whether a message in a chat under way may only move the model up (the user, 2026-11-12), which holds while
+    /// the server's cache has the chat: for <see cref="AutoPick.CacheLife"/> after its last request. After that
+    /// nothing is lost by a move down or another effort, and Auto picks as on a first message (the user, 2026-11-13).
+    /// </summary>
+    private bool AutoUpOnly(bool chatUnderWay)
+    {
+        if (!chatUnderWay)
+            return false;
+        var replied = Items.OfType<AssistantMessageItem>().LastOrDefault(a => a.Ended is not null)?.Ended?.ToUniversalTime();
+        var used = replied is { } at && (_cacheUsedAt is not { } kept || at > kept) ? at : _cacheUsedAt;
+        return !AutoPick.CacheLapsed(used, DateTime.UtcNow);
     }
 
     /// <summary>

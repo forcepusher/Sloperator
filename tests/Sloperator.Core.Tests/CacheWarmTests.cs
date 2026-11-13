@@ -67,6 +67,38 @@ public sealed class CacheWarmTests
     }
 
     [Fact]
+    public async Task The_session_says_when_the_server_last_had_the_prompt_and_a_read_that_kept_it_warm_counts()
+    {
+        // Auto counts the cache's lifetime from it (AutoPick.CacheLapsed): a run stopped in a long wait was read a moment ago.
+        AgentSession? running = null;
+        var seen = new List<DateTime?>();
+        var asked = 0;
+        var server = new ScriptedServer
+        {
+            Responder = request =>
+            {
+                if (EndsWithATool(request))
+                    return Counted(Sse.Text("Done."), 1050, 1000, 50);
+                if (Interlocked.Increment(ref asked) == 1)
+                    return Counted(Sse.ToolCall("w1", "wait", """{"seconds":1.4}"""), 1000, 0, 1000);
+                lock (seen) seen.Add(running!.CacheUsedAt);
+                return Sse.ThinkingOn("Wait for the download.");
+            },
+        };
+        var (session, _, observer) = Session(server);
+        running = session;
+        Assert.Null(session.CacheUsedAt);
+
+        await session.RunAsync("Wait for the download, then say so.", observer, CancellationToken.None);
+
+        // At the first read it is the step's reply; at the second, the first read, some 300 ms on; then the last reply.
+        Assert.True(seen.Count >= 2);
+        Assert.NotNull(seen[0]);
+        Assert.True(seen[1] - seen[0] >= TimeSpan.FromMilliseconds(200), $"{seen[1] - seen[0]}");
+        Assert.True(session.CacheUsedAt > seen[^1]);
+    }
+
+    [Fact]
     public async Task A_server_that_writes_to_no_cache_is_left_alone()
     {
         // A local server: its cache doesn't lapse, and reading it again would only keep it busy.

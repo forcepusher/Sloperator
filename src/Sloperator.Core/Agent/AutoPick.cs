@@ -50,18 +50,35 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     public static bool CanMoveUp(AutoModelSet set, AutoTier from) => Enum.GetValues<AutoTier>().Any(to => StepsUp(set, from, to));
 
     /// <summary>
+    /// How long a server's prompt cache holds a chat after its last request (Anthropic's five minutes, the lifetime
+    /// the user kept, 2026-11-13; see <see cref="AgentSession.KeepWarmEvery"/>). The same for every server: one
+    /// that caches nothing, or for longer, picks freely a little later than it could.
+    /// </summary>
+    public static readonly TimeSpan CacheLife = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Whether the server's cache of a chat has lapsed by <paramref name="now"/>: it last had the chat's prompt in
+    /// hand at <paramref name="lastUsed"/> (null: never, or nobody knows when). From then on a chat under way picks
+    /// as freely as a first message does (the user, 2026-11-13): there is no cache left for a move down, or another
+    /// effort, to miss.
+    /// </summary>
+    public static bool CacheLapsed(DateTime? lastUsed, DateTime now) => lastUsed is not { } at || now - at >= CacheLife;
+
+    /// <summary>
     /// The tier and effort a message runs on, from this pick (the user, 2026-11-12: "I want the model only to
     /// escalate, not de-escalate"). A chat's first message takes what was picked, a dearer model only on the
-    /// user's Switch (<paramref name="stayed"/>: they stayed off it). Under way, the chat only moves up, and the
-    /// effort changes only with that move: either change has the model read the whole chat anew at its full price
-    /// (Sonnet to Haiku on a 190k chat cost about 4 times what Sonnet's cache did; Sonnet's effort from medium to low
-    /// alone had all 126k of its messages written anew, 2026-11-11).
+    /// user's Switch (<paramref name="stayed"/>: they stayed off it). Under way, while the server's cache holds the
+    /// chat (<paramref name="upOnly"/>), the chat only moves up, and the effort changes only with that move: either
+    /// change has the model read the whole chat anew at its full price (Sonnet to Haiku on a 190k chat cost about 4
+    /// times what Sonnet's cache did; Sonnet's effort from medium to low alone had all 126k of its messages written
+    /// anew, 2026-11-11). Once that cache has lapsed (<see cref="CacheLapsed"/>) the chat is read anew whatever
+    /// runs it, and the message takes what was picked as a first one does.
     /// </summary>
-    public (AutoTier Tier, string? Effort) Next(AutoModelSet set, AutoTier tier, string? effort, bool chatUnderWay, bool stayed)
+    public (AutoTier Tier, string? Effort) Next(AutoModelSet set, AutoTier tier, string? effort, bool upOnly, bool stayed)
     {
         if (Problem is not null)
             return (tier, effort);
-        if (!chatUnderWay)
+        if (!upOnly)
             return (stayed ? tier : Tier, Effort ?? effort);
         if (stayed || Tier <= tier)
             return (tier, effort);
@@ -87,7 +104,9 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
     /// where <paramref name="pickEffort"/>; <paramref name="chatTokens"/> and <paramref name="chatModel"/> say how
     /// big the chat is and which model it ran on last, as another reads it all anew; <paramref name="lastReply"/>
     /// is the agent's last answer, for a message such as "yes, do it". <paramref name="floor"/>: the tier of a chat
-    /// under way, which it can only move up from (<see cref="Next"/>); null on a chat's first message.
+    /// under way, which it can only move up from (<see cref="Next"/>); null on a chat's first message, and in a
+    /// chat the server's cache no longer holds (<see cref="CacheLapsed"/>), which is told so in place of what
+    /// another model costs.
     /// </summary>
     internal static string Request(string message, AutoModelSet set, bool pickModel, bool pickEffort, string inUse,
         int chatTokens, string? chatModel, string? lastReply, AutoTier? floor = null)
@@ -113,8 +132,11 @@ public sealed partial record AutoPick(AutoTier Tier, string? Effort, string Why,
                         "Most tasks need medium; low for the simple ones.")
                 .Append(floor is null ? "\n" : " The effort in use changes only with a move up: give the level for the model you pick.\n");
         if (chatTokens > 0 && chatModel is not null)
-            text.Append($"\nThe chat so far holds about {chatTokens / 1000}k tokens and ran on {chatModel}. Any other model reads all of it anew at its " +
-                        "full price, so pick another only when the task needs it.\n");
+            text.Append($"\nThe chat so far holds about {chatTokens / 1000}k tokens and ran on {chatModel}. ")
+                .Append(floor is not null
+                    ? "Any other model reads all of it anew at its full price, so pick another only when the task needs it.\n"
+                    // Under way with no floor: the cache has lapsed, and staying costs what moving does.
+                    : "The server no longer holds it in its cache, so all of it is read anew at full price whatever you pick: pick what fits this message.\n");
         if (!string.IsNullOrWhiteSpace(lastReply))
             text.Append("\nThe agent's last reply in the chat, for what the message may refer to:\n<<<\n").Append(lastReply.Trim().Clip(1500)).Append("\n>>>\n");
         text.Append("\nThe user's message:\n<<<\n").Append(message.Trim()).Append("\n>>>\n\nAnswer in exactly this form:\n");

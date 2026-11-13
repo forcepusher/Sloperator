@@ -484,6 +484,7 @@ public sealed partial class AgentSession(
                     try
                     {
                         reply = await CompleteWithResetAsync(request, observer, ct, thinking.Token).ConfigureAwait(false);
+                        CacheUsed();
                     }
                     catch (OperationCanceledException) when (thinking.Interrupted(ct))
                     {
@@ -835,6 +836,18 @@ public sealed partial class AgentSession(
     /// <summary>Whether a reply of this session's server said it wrote to a prompt cache: there a lapse is paid for.</summary>
     private bool _writesCache;
 
+    private long _cacheUsed;
+
+    /// <summary>
+    /// When the server last had the chat's prompt in hand in this session: its latest reply to a step, or the
+    /// latest read that kept the cache warm (<see cref="KeepCacheWarmAsync"/>). Null before the first. Auto counts
+    /// the cache's lifetime from it (<see cref="AutoPick.CacheLapsed"/>). Taken when the answer has come, the latest
+    /// the server can count from, so that a cache said to have lapsed has.
+    /// </summary>
+    public DateTime? CacheUsedAt => Interlocked.Read(ref _cacheUsed) is > 0 and var ticks ? new DateTime(ticks, DateTimeKind.Utc) : null;
+
+    private void CacheUsed() => Interlocked.Exchange(ref _cacheUsed, DateTime.UtcNow.Ticks);
+
     /// <summary>
     /// Keeps the server's prompt cache from lapsing while a step's tool calls run (2026-11-12). A cache such as
     /// Anthropic's holds a prompt for five minutes after its last use; a step that comes later pays to have the
@@ -868,6 +881,7 @@ public sealed partial class AgentSession(
             {
                 // Dropped as its answer began: what it read is counted, as the server counts it.
                 client.Spending?.Add(client.BaseUrl, requestOptions.Model, new ChatMessage { Role = ChatRole.Assistant, PromptTokens = prompt, CachedTokens = prompt, CompletionTokens = 0 });
+                CacheUsed();
             }
             catch (Exception ex) when (ex is LlmException or HttpRequestException or IOException)
             {

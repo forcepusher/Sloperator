@@ -784,11 +784,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
             // Auto: the helper model picks the model and effort for the message, and what it found goes with it;
             // a short reply in the chat goes on with the model in use, and so does a chat under way with nowhere to move up to.
             var underWay = history.Count > 0;
-            if (input is not null && !AutoPick.IsShortReply(input, underWay) && AutoToPick(probe, underWay) is var (set, pickModel, pickEffort))
+            // Up only while the server's cache holds the chat: once it has lapsed, the pick is as free as a first message's.
+            var upOnly = AutoUpOnly(underWay);
+            if (input is not null && !AutoPick.IsShortReply(input, underWay) && AutoToPick(probe, upOnly) is var (set, pickModel, pickEffort))
             {
                 var tier = server.AutoTier;
-                var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort);
-                // Up to a dearer model of the three, the user says (the mockups' third design); down only on a chat's first message.
+                var pick = await EvaluateAsync(await ConnectAsync(), input, set, pickModel, pickEffort, upOnly);
+                // Up to a dearer model of the three, the user says (the mockups' third design); down only on a chat's first message
+                // or after the cache has lapsed.
                 var kept = false;
                 if (pick.Problem is null && pickModel && AutoPick.StepsUp(set, tier, pick.Tier))
                 {
@@ -798,7 +801,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                     ShowAutoWants(pick, wanted, wantedEffort);
                     kept = !await AskSwitchAsync(wanted, wantedEffort, set[tier].Id, ct);
                 }
-                (server.AutoTier, server.AutoEffort) = pick.Next(set, tier, server.AutoEffort, underWay, kept);
+                (server.AutoTier, server.AutoEffort) = pick.Next(set, tier, server.AutoEffort, upOnly, kept);
                 if (server.AutoTier != tier)
                     await PrepareModelAsync();
                 OnModelShownChanged();
@@ -884,6 +887,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
                 }, DispatcherPriority.Background);
             }
             _tick.Stop();
+            // Not of a run ending for a chat left: the chat on screen has its own.
+            if (!_runDetached && _session?.CacheUsedAt is { } used)
+                _cacheUsedAt = used;
             _session = null;
             IsBusy = false;
             _runCts.Dispose();
@@ -985,12 +991,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAgentObserv
         }
 
         // Auto's evaluation, on a session of its own for the model in use: the run's then starts on what it picked.
-        async Task<AutoPick> EvaluateAsync(BackendConnection backend, UserInput message, AutoModelSet set, bool pickModel, bool pickEffort)
+        async Task<AutoPick> EvaluateAsync(BackendConnection backend, UserInput message, AutoModelSet set, bool pickModel, bool pickEffort, bool upOnly)
         {
             var judge = NewSession(backend);
             var progress = ShowAutoPicking(set.Helper.Id);
             var tier = _settings.Server.AutoTier;
-            return await Task.Run(() => judge.EvaluateAsync(message, set, pickModel, pickEffort, tier, progress, this, ct), CancellationToken.None);
+            return await Task.Run(() => judge.EvaluateAsync(message, set, pickModel, pickEffort, tier, upOnly, progress, this, ct), CancellationToken.None);
         }
     }
 

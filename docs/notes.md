@@ -3365,9 +3365,9 @@ which stops the cards, never came). The
 command-line runner has no evaluation: on Auto it runs on the daily driver, at medium for an effort on Auto.
 
 **Up only in a chat under way** (the user, 2026-11-12: "I want the model only to escalate, not de-escalate";
-`AutoPick.Next`, `CanMoveUp`, `StepsUp`). A chat's first message takes what was picked, down to the helper model
-too. After that the chat stays on its model or moves up a tier, never back down, and the effort changes only with
-that move. Either change has the new request miss the prompt cache: the user's Unity chat (2026-11-11) went from
+`AutoPick.Next`, `CanMoveUp`, `StepsUp`), while the server's cache holds the chat (below). A chat's first message
+takes what was picked, down to the helper model too. After that the chat stays on its model or moves up a tier,
+never back down, and the effort changes only with that move. Either change has the new request miss the prompt cache: the user's Unity chat (2026-11-11) went from
 Sonnet down to Haiku on "How do I start it connected to a local server", 190k tokens, a minute after Sonnet's last
 reply. Haiku wrote all 189,714 into its cache at $0.625/M (its rate past 100k tokens), about $0.12, where Sonnet
 would have read 193k from its cache at $0.10/M, about $0.03. Earlier in that chat Auto kept Sonnet but moved it from
@@ -3384,6 +3384,28 @@ mark in the message (`.dev/escalate-test`, run.ps1): helper at low on the first 
 "[evaluation low]" kept on Sonnet at medium with Haiku left out of the request, Switch to Opus at high, then no
 evaluation request at all.
 
+**Free again once the cache has lapsed** (the user, 2026-11-13: "let the auto model and effort picker reevaluate
+the model pick when cache goes stale"; `AutoPick.CacheLapsed`, `CacheLife`, `MainWindowViewModel.AutoUpOnly`). Up
+only is there to keep the cache, and the cache holds a chat for five minutes after its last request (the default
+lifetime, which the user kept). A message that comes later than that is read anew at full price whatever runs it,
+so it is picked as a chat's first message is: any of the three models, down too, and the effort alone too; on the
+dearest model, or with the model picked by hand and the effort on Auto, it is evaluated again. The request then
+lists all three models, without "it never moves back down", and says in place of what another model costs: "The
+server no longer holds it in its cache, so all of it is read anew at full price whatever you pick: pick what fits
+this message." Up to a dearer model still asks on the Switch card; down goes ahead without asking. A short reply
+still goes on with the model in use, with no look. The five minutes count from when the server last had the chat's
+prompt in hand: the last reply of the last run or, later than it, the last read that kept the cache warm during a
+long call (`AgentSession.CacheUsedAt`, taken when the answer has come, the latest the server can count from, so a
+cache said to have lapsed has; a run stopped in a long wait was read a moment ago). A chat opened from History goes
+by the time its last reply ended, kept in its file. The same five minutes on every server, by the clock alone and not
+by what the server is: one that caches nothing, or for longer, picks freely a little later than it could. Checked
+off screen with the stand-in server (`.dev/stale-cache-test`, run.ps1): Sonnet at medium on the first message; eight
+seconds on, "[helper low]" kept on Sonnet at medium with Haiku left out of the request; 310 seconds on, the same mark
+took the chat down to Haiku at low with no card, all three models in the request and the lapsed line; eight seconds
+after that reply, "[daily high]" was a move up again (the Switch card, Sonnet at high), and a last "[helper low]"
+stayed there. The app started again and the chat opened from History (history.ps1): 50 seconds after its last reply
+the evaluation was offered daily and complex only, and after five minutes more all three.
+
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
 (`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
@@ -3394,7 +3416,7 @@ prices compared) the run asks first, on a card over the message box (`AutoSwitch
 claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,
 "Switches in 7 s" and a bar running down; no answer in 10 s takes Auto's pick, Stop ends it with the run. The card
 says "Wants claude-opus-5-5 at High" meanwhile, and "(you stayed off claude-opus-5-5)" after Stay. Down, on a
-chat's first message only, or the same goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
+chat's first message or once the cache has lapsed, or the same goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
 
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,
