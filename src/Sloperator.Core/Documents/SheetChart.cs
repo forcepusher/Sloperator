@@ -483,6 +483,68 @@ internal static partial class SheetChart
     }
 
     /// <summary>
+    /// The values a chart keeps beside the cells it names, read from those cells again. Excel reads the cells itself
+    /// on opening, but a preview and other programs draw what is kept: the chart of a table sorted after it was made
+    /// showed its bars in the order from before (the 1.5.0 release check). Cells that can't be followed here (a
+    /// name, several areas, a sheet that isn't there, a formula only Excel works out) keep what they had.
+    /// </summary>
+    /// <returns>False when the chart already kept what the cells hold.</returns>
+    public static bool Refresh(XDocument chart, Func<string, int, int, Value> cell)
+    {
+        var changed = false;
+        foreach (var source in chart.Descendants().Where(e => e.Name == C + "strRef" || e.Name == C + "numRef").ToList())
+        {
+            if (WholeRange().Match(((string?)source.Element(C + "f") ?? "").Trim()) is not { Success: true } m || !m.Groups["sheet"].Success)
+                continue;
+            var sheet = m.Groups["sheet"].Value.Trim('\'').Replace("''", "'");
+            var (r1, c1) = SheetEdit.Parse(m.Groups["a"].Value.Replace("$", "").ToUpperInvariant());
+            var (r2, c2) = m.Groups["b"].Success ? SheetEdit.Parse(m.Groups["b"].Value.Replace("$", "").ToUpperInvariant()) : (r1, c1);
+            if ((long)(Math.Abs(r2 - r1) + 1) * (Math.Abs(c2 - c1) + 1) > MaxValues)
+                continue;
+            var values = new List<Value>();
+            try
+            {
+                for (var r = Math.Min(r1, r2); r <= Math.Max(r1, r2); r++)
+                    for (var c = Math.Min(c1, c2); c <= Math.Max(c1, c2); c++)
+                        values.Add(cell(sheet, r, c));
+            }
+            catch (InvalidOperationException)
+            {
+                continue; // a sheet that is gone
+            }
+            if (values.Any(v => v.Formula))
+                continue;
+            var numbers = source.Name == C + "numRef";
+            var shown = values.Select(v => numbers
+                ? v.Number is { } n && double.IsFinite(n) ? n.ToString("R", CultureInfo.InvariantCulture) : null
+                : v.Text ?? v.Number?.ToString("G15", CultureInfo.InvariantCulture)).ToList();
+            var cache = source.Element(C + (numbers ? "numCache" : "strCache"));
+            var kept = new string?[shown.Count];
+            var same = cache is not null && ((int?)cache.Element(C + "ptCount")?.Attribute("val") ?? -1) == shown.Count;
+            foreach (var pt in cache?.Elements(C + "pt") ?? [])
+                if ((int?)pt.Attribute("idx") is { } i && i >= 0 && i < kept.Length)
+                    kept[i] = (string?)pt.Element(C + "v");
+                else
+                    same = false;
+            static bool Alike(string? a, string? b, bool numbers) =>
+                a == b || numbers && a is not null && b is not null
+                && double.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) && double.TryParse(b, NumberStyles.Float, CultureInfo.InvariantCulture, out var y) && x == y;
+            if (same && kept.Zip(shown).All(p => Alike(p.First, p.Second, numbers)))
+                continue;
+            var made = new XElement(C + (numbers ? "numCache" : "strCache"),
+                numbers ? new XElement(C + "formatCode", (string?)cache?.Element(C + "formatCode") ?? "General") : null,
+                new XElement(C + "ptCount", Val(shown.Count)),
+                shown.Select((v, i) => (v, i)).Where(p => p.v is not null).Select(p => new XElement(C + "pt", new XAttribute("idx", p.i), new XElement(C + "v", p.v))));
+            if (cache is not null)
+                cache.ReplaceWith(made);
+            else if (source.Element(C + "f") is { } f)
+                f.AddAfterSelf(made);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>
     /// A chart of a slide in a line, with the numbers it draws, which are nowhere else on the slide:
     /// "bar chart "Sales by region": Sales: North 120, South 95, East 143, West 88".
     /// </summary>
@@ -525,6 +587,10 @@ internal static partial class SheetChart
 
     [GeneratedRegex(RangePattern + @"(?![A-Za-z0-9_!(])")]
     private static partial Regex RangeToken();
+
+    // What a chart's part names: 'Sales 2026'!$B$2:$B$13, or one cell, Sales!$B$1.
+    [GeneratedRegex(@"^(?:(?<sheet>'(?:[^']|'')+'|[A-Za-z_\p{L}][\w.\p{L}]*)!)?(?<a>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6})(?::(?<b>\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}))?$")]
+    private static partial Regex WholeRange();
 
     // One range, or several joined by commas: "A1:A13,E1:E13", "A1:A13; E1:E13".
     [GeneratedRegex(@"^" + RangePattern + @"(?:\s*[,;]\s*" + RangePattern + @")*(?![A-Za-z0-9_!(])", RegexOptions.ExplicitCapture)]

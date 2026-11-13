@@ -167,6 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PC: pictures are read into memory before they are drawn, and never keep their file from being deleted or moved.
 - In a workbook of several sheets, the agent can no longer insert or delete rows without saying on which sheet: a row
   of the first sheet was deleted when another sheet's was meant.
+- A chart in a workbook shows its cells as they are after the agent sorts or changes them. In the preview it kept
+  the bars and numbers from before, until Excel opened the file.
 - A chart of a table with a total row under it no longer draws the total as one more slice or bar, and a bar chart's
   scale starts at zero. A pie of four regions and their total showed the total as half the pie, and bars of close
   numbers looked many times apart.

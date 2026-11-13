@@ -200,6 +200,14 @@ internal static partial class SheetEdit
         // found before any goes, as deleting one moves the numbers of those after it.
         foreach (var chart in gone.Select(g => Find(Charts(parts, sheets), g)).ToList())
             done.Add(RemoveChart(parts, chart));
+        // The charts that stay draw the cells as they are now: sorted, changed, moved by a row (SheetChart.Refresh).
+        if (Charts(parts, sheets) is { Count: > 0 } kept)
+        {
+            var cell = CellReader(parts, sheets, shared);
+            foreach (var chart in kept)
+                if (SheetChart.Refresh(parts.Get(chart.ChartPart), cell))
+                    parts.Changed(chart.ChartPart);
+        }
         // A new one on the sheet named before its line, else the one its cells are on.
         foreach (var chart in charts)
             done.Add(AddChart(parts, sheets, SheetOf(chart.Sheet ?? chart.Ask.Ranges.FirstOrDefault()?.Sheet), chart.Ask, shared));

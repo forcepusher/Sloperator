@@ -405,6 +405,33 @@ public class SheetChartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_chart_keeps_what_its_cells_hold_after_they_are_sorted_changed_or_moved()
+    {
+        Assert.False((await Write("sales.xlsx", Sales + "\nchart: bar A1:B4 Apples")).IsError);
+        List<string> Kept(string of) => [.. Part("sales.xlsx", "xl/charts/chart1.xml").Descendants(C + of).Single().Descendants(C + "pt").Select(p => p.Value)];
+        Assert.Equal(["Jan", "Feb", "Mar"], Kept("cat"));
+        Assert.Equal(["120", "150", "170"], Kept("val"));
+
+        // Sorted: a preview draws what the chart keeps, and showed the bars in the order from before.
+        var sorted = await Edit("sales.xlsx", "", "sort A2:D4 by B descending");
+        Assert.False(sorted.IsError, sorted.Text);
+        Assert.Equal(["Mar", "Feb", "Jan"], Kept("cat"));
+        Assert.Equal(["170", "150", "120"], Kept("val"));
+
+        // A cell changed, and one emptied: its point is left out, the count stays.
+        Assert.False((await Edit("sales.xlsx", "", "B2 500\nA3 Second")).IsError);
+        Assert.Equal(["Mar", "Second", "Jan"], Kept("cat"));
+        Assert.Equal(["500", "150", "120"], Kept("val"));
+
+        // A row deleted: the chart names one row fewer, and keeps those.
+        var deleted = await Edit("sales.xlsx", "", "delete row 3");
+        Assert.False(deleted.IsError, deleted.Text);
+        Assert.Equal(["Mar", "Jan"], Kept("cat"));
+        Assert.Equal(["500", "120"], Kept("val"));
+        Assert.Equal("2", (string?)Part("sales.xlsx", "xl/charts/chart1.xml").Descendants(C + "val").Single().Descendants(C + "ptCount").Single().Attribute("val"));
+    }
+
+    [Fact]
     public async Task A_chart_is_changed_in_its_place_by_naming_it_in_old_text()
     {
         Assert.False((await Write("sales.xlsx", Sales + "\nchart: bar A1:A4,D1:D4 Monthly totals\nchart: bar A1:C4 Fruit\n")).IsError);

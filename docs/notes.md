@@ -167,6 +167,14 @@ in Word, Excel, PowerPoint, Google Drive and any PDF reader:
   pie. A bar or area chart with no value below zero has its value axis start at 0 (`c:min`): left to Office, the
   axis of four regions' revenue (42,700 to 48,600) started at 39,000, and Haiku said on its own that the gaps
   looked many times what they are. A line chart keeps the axis Office picks. Checked in Excel 16 and PowerPoint 16.
+  **The values kept in a chart follow its cells** (the 1.5.0 release check). A chart's part keeps the values of
+  the cells it names beside their addresses. Excel reads the cells again on opening, but the File inspector's
+  preview and other programs draw what is kept: in the published exe, a bar chart made over a table that was then
+  sorted showed its bars in the order from before, beside the sorted table. Every edit of cells now ends by reading
+  each chart's cells again (`SheetChart.Refresh`, from `SheetEdit.SetCells`, before any new chart is added) and
+  rewriting what is kept where it differs, in a workbook Excel made too; a chart that already keeps the same is
+  left alone, so its part isn't written again. Left as they were: cells named by a name or in several areas, a
+  sheet that is gone, and a range with a formula only Excel works out.
   Past Excel's own limits (32,000 values a series, 255 series) a chart is refused before anything is written.
   **What all of this costs in every request** (measured 2026-11-13 with `.dev/context-size-test`): charts,
   formats, widths, PDF pages and slide text are sentences in the descriptions of write_file and edit_file, no new
