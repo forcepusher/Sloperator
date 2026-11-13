@@ -104,19 +104,19 @@ public class AutoPickTests
         var set = Set(Anthropic);
 
         // A first message takes what was picked: down to the helper model, another effort.
-        Assert.Equal((AutoTier.Helper, "low"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, null, chatUnderWay: false, stayed: false));
-        Assert.Equal((AutoTier.Daily, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, null, chatUnderWay: false, stayed: true));
+        Assert.Equal((AutoTier.Helper, "low"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, null, upOnly: false, stayed: false));
+        Assert.Equal((AutoTier.Daily, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, null, upOnly: false, stayed: true));
         // Under way (the user's Sonnet to Haiku, 2026-11-11): never down, and no effort of its own.
-        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
-        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Daily, "low").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, "medium", upOnly: true, stayed: false));
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Daily, "low").Next(set, AutoTier.Daily, "medium", upOnly: true, stayed: false));
         // Up, with the effort picked for the stronger model; Stay keeps both.
-        Assert.Equal((AutoTier.Complex, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
-        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", chatUnderWay: true, stayed: true));
+        Assert.Equal((AutoTier.Complex, "high"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", upOnly: true, stayed: false));
+        Assert.Equal((AutoTier.Daily, "medium"), Picked(AutoTier.Complex, "high").Next(set, AutoTier.Daily, "medium", upOnly: true, stayed: true));
         // A failed evaluation changes nothing.
         Assert.Equal((AutoTier.Daily, "medium"), (Picked(AutoTier.Complex, "high") with { Problem = "refused" }).Next(set, AutoTier.Daily, "medium", true, false));
         // A tier above that names the same model is no move: the effort stays.
         var same = AutoModelSet.Resolve(new AutoModels { Daily = "sonnet", Complex = "sonnet" }, Anthropic.Select(ModelChoice.FromName).ToList(), null, _ => Efforts.Levels)!;
-        Assert.Equal((AutoTier.Complex, "medium"), Picked(AutoTier.Complex, "high").Next(same, AutoTier.Daily, "medium", chatUnderWay: true, stayed: false));
+        Assert.Equal((AutoTier.Complex, "medium"), Picked(AutoTier.Complex, "high").Next(same, AutoTier.Daily, "medium", upOnly: true, stayed: false));
     }
 
     [Fact]
@@ -147,6 +147,58 @@ public class AutoPickTests
         Assert.Contains("changes only with a move up", later);
         Assert.Contains("model: daily or complex\n", later);
         Assert.Contains("about 190k tokens", later);
+        Assert.Contains("Any other model reads all of it anew", later);
+    }
+
+    [Fact]
+    public void Once_the_servers_cache_has_lapsed_a_chat_under_way_picks_as_freely_as_a_first_message()
+    {
+        // The user, 2026-11-13: up only while there is a cache to miss, five minutes from the chat's last request.
+        var last = new DateTime(2026, 11, 13, 10, 0, 0, DateTimeKind.Utc);
+        Assert.False(AutoPick.CacheLapsed(last, last.AddSeconds(20)));
+        Assert.False(AutoPick.CacheLapsed(last, last.AddSeconds(299)));
+        Assert.True(AutoPick.CacheLapsed(last, last.AddMinutes(5)));
+        Assert.True(AutoPick.CacheLapsed(last, last.AddHours(3)));
+        // Nobody knows when it was last read: nothing to hold on to.
+        Assert.True(AutoPick.CacheLapsed(null, last));
+
+        // Then the pick is taken whole: down a model, or another effort on the same one.
+        var set = Set(Anthropic);
+        Assert.Equal((AutoTier.Helper, "low"), Picked(AutoTier.Helper, "low").Next(set, AutoTier.Daily, "medium", upOnly: false, stayed: false));
+        Assert.Equal((AutoTier.Daily, "low"), Picked(AutoTier.Daily, "low").Next(set, AutoTier.Complex, "high", upOnly: false, stayed: false));
+        Assert.Equal((AutoTier.Daily, "high"), Picked(AutoTier.Daily, "high").Next(set, AutoTier.Daily, "medium", upOnly: false, stayed: false));
+
+        // And the helper is offered all three again, told that staying costs what moving does.
+        var asked = AutoPick.Request("How do I start it?", set, true, true, "claude-sonnet-5-5", 190_000, "claude-sonnet-5-5", "Done.");
+        Assert.Contains("- helper: claude-haiku-5-5 (you).", asked);
+        Assert.Contains("model: helper, daily or complex\n", asked);
+        Assert.DoesNotContain("never moves back down", asked);
+        Assert.DoesNotContain("changes only with a move up", asked);
+        Assert.DoesNotContain("(in use)", asked);
+        Assert.Contains("about 190k tokens and ran on claude-sonnet-5-5. The server no longer holds it in its cache", asked);
+        Assert.DoesNotContain("Any other model reads", asked);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_evaluation_of_a_chat_under_way_is_offered_the_cheaper_model_only_once_the_cache_has_lapsed(bool cacheWarm)
+    {
+        var server = new ScriptedServer(Sse.Text("model: daily\neffort: low\nwhy: A question.\nfound: nothing"));
+        var client = new OpenAiChatClient(new HttpClient(server), "https://api.anthropic.example/v1", null);
+        var context = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath() };
+        var session = new AgentSession(client, new ChatRequestOptions { Model = "claude-sonnet-5-5", Effort = "medium" }, ToolRegistry.CreateDefault(false), context, "sys");
+        session.History.Add(ChatMessage.User("Build the importer."));
+        session.History.Add(new ChatMessage { Role = ChatRole.Assistant, Content = "Built: importer.py reads the CSV." });
+
+        var pick = await session.EvaluateAsync(new UserInput("And how do I start it from the command line?"), Set(Anthropic),
+            pickModel: true, pickEffort: true, AutoTier.Daily, cacheWarm, null, new RecordingObserver(), CancellationToken.None);
+
+        Assert.Equal((AutoTier.Daily, "low"), (pick.Tier, pick.Effort));
+        var asked = Assert.Single(server.Requests).ToJsonString();
+        Assert.Contains("Built: importer.py reads the CSV.", asked);
+        Assert.Equal(cacheWarm, asked.Contains("it never moves back down"));
+        Assert.Equal(!cacheWarm, asked.Contains("helper: claude-haiku-5-5 (you)"));
     }
 
     [Theory]
@@ -241,7 +293,7 @@ public class AutoPickTests
         var progress = new List<string>();
 
         var pick = await session.EvaluateAsync(new UserInput("Move the Settings dialog to a view model, in " + folder), Set(Anthropic),
-            pickModel: true, pickEffort: true, AutoTier.Daily, progress.Add, observer, CancellationToken.None);
+            pickModel: true, pickEffort: true, AutoTier.Daily, cacheWarm: true, progress.Add, observer, CancellationToken.None);
 
         Assert.Null(pick.Problem);
         Assert.Equal((AutoTier.Complex, "high", "claude-haiku-5-5"), (pick.Tier, pick.Effort, pick.By));
@@ -271,7 +323,7 @@ public class AutoPickTests
         var context = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = Path.GetTempPath() };
         var session = new AgentSession(client, new ChatRequestOptions { Model = "claude-sonnet-5-5" }, ToolRegistry.CreateDefault(false), context, "sys");
 
-        var pick = await session.EvaluateAsync(new UserInput("Hi"), Set(Anthropic), true, false, AutoTier.Complex, null, new RecordingObserver(), CancellationToken.None);
+        var pick = await session.EvaluateAsync(new UserInput("Hi"), Set(Anthropic), true, false, AutoTier.Complex, true, null, new RecordingObserver(), CancellationToken.None);
 
         Assert.NotNull(pick.Problem);
         Assert.Equal(AutoTier.Complex, pick.Tier);

@@ -113,6 +113,7 @@ public sealed partial class MainWindowViewModel
         var server = _settings.Server;
         var moved = server.AutoTier != Core.Settings.AutoTier.Daily;
         (server.AutoTier, server.AutoEffort) = (Core.Settings.AutoTier.Daily, null);
+        _cacheUsedAt = null;
         OnEffortShownChanged();
         // The daily driver's name, context and levels, as for a model picked at the top.
         if (moved && server.ModelOnAuto)
@@ -297,6 +298,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ChatTitle));
         ContextUsage = "";
         _spent = new();
+        _cacheUsedAt = null;
         ShowCost();
         AutoChatChanged();
         MarkCurrentChat();
