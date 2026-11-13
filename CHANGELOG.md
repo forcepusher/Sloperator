@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- The plan bar's done steps are small dots, so the blob at the end of a finished plan no longer runs into the
+  last one.
 - The **Image editor** opens on your newest picture rather than on "Pick a picture", and the picture has the whole
   width: **Prompt metadata** is a button under it now, as in the File inspector, in place of a column that was
   always open beside it. The Audio editor opens on your newest sound too.

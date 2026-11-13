@@ -2188,6 +2188,12 @@ The user asked (2026-11-05) for a checklist like Claude Code's, as a left-to-rig
 message box with the party blob walking it; of five concepts they picked a point per step with one
 word under it, details on hover (design canvas claude.ai/artifact/E1zBHhNC1Lff2kbN8MH5jr). 46 px tall.
 
+A done step's dot is 8 px, one to come a 14 px ring, both centred on the line (sizes in the `planDot` styles,
+App.axaml). With every dot 14 the still blob at a finished plan's end, yellow like the done dot under it, had that
+dot sticking out under its feet as a lump of the same colour (the user, 2026-11-13); an 8 hides wholly under the
+blob. Of ten mockups (`.dev/plan-blob-test/make.ps1`: no dot under the blob, a dark rim, the blob past the end, a grey
+trail, a grey blob at rest, a finish flag, folding to "Done", …) the user picked the small dots.
+
 The `plan` tool (Tools/PlanTool.cs) takes the steps once and `now` after that, so a step costs a few
 tokens. `now` is read as `GetNumber` reads numbers, so "2" moves it too (it was read as no step). The plan lives in the chat, not the run: `ToolContext.Plan` comes from
 `MainWindowViewModel.Plan` through `AgentSetup.Create`, each change comes back through

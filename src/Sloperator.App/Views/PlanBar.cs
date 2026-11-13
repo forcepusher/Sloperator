@@ -30,7 +30,7 @@ public sealed class PlanBar : Panel
     public bool Failed { get => GetValue(FailedProperty); set => SetValue(FailedProperty, value); }
     public double Spot { get => GetValue(SpotProperty); set => SetValue(SpotProperty, value); }
 
-    private const double BarHeight = 46, LineTop = 15, LineHeight = 2, DotSize = 14, DotTop = 9, WordTop = 27, BlobSize = 32, BlobTop = -10, WordGap = 8, Overhang = 36;
+    private const double BarHeight = 46, LineTop = 15, LineHeight = 2, WordTop = 27, BlobSize = 32, BlobTop = -10, WordGap = 8, Overhang = 36;
 
     private sealed record Point(Border Hit, Border Dot, TextBlock Word);
 
@@ -114,7 +114,7 @@ public sealed class PlanBar : Panel
         foreach (var point in _points)
         {
             point.Word.Measure(Size.Infinity);
-            point.Dot.Measure(new Size(DotSize, DotSize));
+            point.Dot.Measure(Size.Infinity);
             point.Hit.Measure(availableSize);
         }
         return new Size(0, BarHeight);
@@ -152,7 +152,9 @@ public sealed class PlanBar : Panel
             var word = _points[i].Word;
             var wordWidth = word.DesiredSize.Width;
             word.Opacity = Math.Abs(i - at) <= radius ? 1 : 0;
-            _points[i].Dot.Arrange(new Rect(x - DotSize / 2, DotTop, DotSize, DotSize));
+            // A dot is its style's size, centred on the line: a done one small enough to hide wholly under the blob.
+            var dot = _points[i].Dot.DesiredSize;
+            _points[i].Dot.Arrange(new Rect(x - dot.Width / 2, LineTop + (LineHeight - dot.Height) / 2, dot.Width, dot.Height));
             // The bar's margin leaves room for the words at its ends, a long one too.
             word.Arrange(new Rect(Math.Clamp(x - wordWidth / 2, -Overhang, Math.Max(width + Overhang - wordWidth, -Overhang)), WordTop, wordWidth, word.DesiredSize.Height));
             _points[i].Hit.Arrange(new Rect(x - hitWidth / 2, 0, hitWidth, BarHeight));
