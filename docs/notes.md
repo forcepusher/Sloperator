@@ -3330,9 +3330,9 @@ medium until then, as on Kilo's free model with no key Auto effort adds an evalu
 model takes a level) with no model to choose. switch_model with no model, which was "Sloperator's own pick", is Auto.
 
 **The evaluation** (`AgentSession.EvaluateAsync`, `AutoPick`): when a message starts a run (not a Compact, not a
-message sent during a run, not a short reply in a chat under way: five words or fewer with no file, pick or panel
-context, "yes, go on", `AutoPick.IsShortReply`, which goes on with the model and effort in use, the user's pick of
-2026-11-09, as each took 2 to 7 s and a request) and Auto has something to pick (`AutoToPick`: the model on Auto with
+message sent during a run; every other one, however short: until 2026-11-13 a reply of five words or fewer in a chat
+under way, "yes, go on", went on with the model and effort in use with no look, the user's pick of 2026-11-09 as each
+took 2 to 7 s and a request, and so couldn't move up, until the user said "I want all messages looked at too") and Auto has something to pick (`AutoToPick`: the model on Auto with
 two of the three differing, or the effort on Auto with a model to pick from that takes one), after the server check and before the
 run's session: a side task on the helper model at low effort (the nearest it takes), with `read_file`,
 `list_directory`, `index_folder`, `web_search` and `fetch_page` only, 12 replies at most. It is told the three models
@@ -3392,8 +3392,7 @@ so it is picked as a chat's first message is: any of the three models, down too,
 dearest model, or with the model picked by hand and the effort on Auto, it is evaluated again. The request then
 lists all three models, without "it never moves back down", and says in place of what another model costs: "The
 server no longer holds it in its cache, so all of it is read anew at full price whatever you pick: pick what fits
-this message." Up to a dearer model still asks on the Switch card; down goes ahead without asking. A short reply
-still goes on with the model in use, with no look. The five minutes count from when the server last had the chat's
+this message." Up to a dearer model still asks on the Switch card; down goes ahead without asking. The five minutes count from when the server last had the chat's
 prompt in hand: the last reply of the last run or, later than it, the last read that kept the cache warm during a
 long call (`AgentSession.CacheUsedAt`, taken when the answer has come, the latest the server can count from, so a
 cache said to have lapsed has; a run stopped in a long wait was read a moment ago). A chat opened from History goes
@@ -3422,11 +3421,11 @@ full price, so change either only when the task needs it"; with no model to pick
 in use up ("effort: high, xhigh or max"). Low is no longer offered at all, on a first message or later ("Efforts,
 least to most: medium, high, xhigh, max. ... Most tasks need medium"), and an answer that says low all the same is
 taken as medium (`AutoPick.Read`); the helper's own look still runs at low, which is its effort and not a pick. A
-level picked by hand in the dropdown is the user's, low too. Two things still go without a look and so can't move
-up: a reply of five words or fewer (the user's pick of 2026-11-09), and a message sent while the agent works,
-which joins the run under way. Checked off screen with the stand-in server (`.dev/stale-cache-test`, warm.ps1), a
+level picked by hand in the dropdown is the user's, low too. Short replies are looked at as any message is since
+that day ("I want all messages looked at too"), the Continue button's "Continue." among them; only a message sent
+while the agent works goes without a look, as it joins the run under way. Checked off screen with the stand-in server (`.dev/stale-cache-test`, warm.ps1), a
 chat of seven messages inside 70 seconds: "[helper low]" first ran on Haiku at medium; "[daily medium]" was the
-Switch card and Sonnet at medium; "[daily high]" took Sonnet to high with no card; "[helper low]" stayed on
+Switch card and Sonnet at medium; "Harder please [daily high]", four words, was looked at and took Sonnet to high with no card; "[helper low]" stayed on
 Sonnet at high; "[complex medium]" was the Switch card and Opus at medium; "[complex max]", asked for the effort
 alone, took Opus to max; and the last message went with no evaluation request.
 
