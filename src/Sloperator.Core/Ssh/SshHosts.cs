@@ -31,6 +31,13 @@ public sealed class SshHosts(string knownHostsFile) : IDisposable
         }
     }
 
+    /// <summary>
+    /// Said with a chat's first login to a server, where it was a line of every chat's system prompt until
+    /// 2026-11-14: asked to prove a PostgreSQL login from this PC, qwen3.8 spent an hour writing its own client.
+    /// </summary>
+    internal const string ServiceTip = "To check a service on it, use a client this PC already has (curl, a TCP probe) or run the check on the server itself, " +
+        "which has the client (psql -h, redis-cli -h); don't install a client here or write your own for a protocol.";
+
     /// <summary>The host of the last successful GetAsync: where an ssh call without a host goes.</summary>
     public string? LastTarget { get; private set; }
 
@@ -106,7 +113,7 @@ public sealed class SshHosts(string knownHostsFile) : IDisposable
             Keep(t, host);
             LastTarget = target;
             Remember(keyFile);
-            return (host, lost is null ? notice : lost + " " + notice);
+            return (host, lost is null ? notice + " " + ServiceTip : lost + " " + notice);
         }
         finally
         {

@@ -24,9 +24,8 @@ public sealed class VideoEditorTool : Tool
     // read once a chat: they were 2,260 tokens of every request in every chat, most of which never makes a video.
     public override string Description =>
         "Make a video (a music video, a short story, an ad: anything longer than one shot) from a storyboard, with ComfyUI on this PC. " +
-        "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat: References (the pictures frames are made from, " +
-        "the user's and Sloperator's), Generated (each shot's frames and clip, the songs) and the joined video. The user calls the shots clips: clip 1 is the first. " +
-        "Before you write or change a storyboard the first time in a chat, read action=guide: the storyboard's fields, how to write its frames, shots and sounds, and how each action makes them. " +
+        "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat. The user calls the shots clips: clip 1 is the first. " +
+        "Before you write or change a storyboard the first time in a chat, read action=guide: the storyboard's fields, how to write its frames, shots and sounds, how each action makes them, and what the folder holds. " +
         "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
         "action=join puts the video together; action=check looks at a piece or the whole video; action=models lists the installed models.";
 

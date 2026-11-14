@@ -3843,6 +3843,82 @@ what only the prompt said went into the guides (the makers' guides for what no t
 node packs, where a run's files stay, a storyboard the user gives is theirs). The prompt went from
 3.4k to 3.1k, 13.0k in all.
 
+**Shortened again (2026-11-14).** The night rounds' document abilities had brought it back to 14.0k (prompt
+3.28k, 34 tools 10.73k). Asked to shorten the prompt and then the tools with the same behaviour, in rounds, each
+tested (branch `fix/shorter-prompt-and-tools`):
+
+- *Round 1, 13.3k.* What the prompt and a tool's description both said is said once: the description keeps how a
+  tool works, the prompt when to reach for it. Out of the prompt: find_text for a value among many (find_text
+  says it), "click a text field before typing" (type_text), long files in parts (write_file),
+  ssh's new_login, the Office line's list of what the file tools couldn't do (a chart, a
+  page layout, a PDF like the Word file: they can now). Out of descriptions: mcp_servers'
+  "costs far fewer tokens than its window" (the first rule), switch_model's screenshots note, file format lists
+  models know (PNG, JPEG, WAV…), press_keys' sentence on hold_seconds (its parameter says it). run_shell no longer
+  says "use for files", which the prompt's file rule contradicts. The first rule (a program's official tools) is
+  as it was, word for word: every clause of it was measured. The long rules (look things up, the check before
+  "done", AGENTS.md) lost only filler.
+- *Round 2, 12.6k.* One line on coordinates for one screen (it gave the screenshot's size twice), comfyui's
+  parameters shorter, and **edit_file's forms for Word, Excel and PowerPoint files moved out of its description**
+  (637 tokens to 169): the description lists what can be done (looks, number formats, rows and columns, sorting,
+  filters, frozen rows, merged cells, highlights, dropdowns, charts, pictures, comments, page numbers, headers
+  and footers, a table of contents, slides), and how each is written is the kind's guide
+  (`Documents/DocumentGuide`: one for Word, one for a workbook, one for a deck, 150 to 300 tokens each), which
+  goes after the result of a chat's first read_file, write_file or edit_file of a file of that kind
+  (`DocumentGuides.After`; told by its first words through `ToolContext.InConversation`, so a context reset or a
+  trimmed result brings it again; a refused edit brings it too; nothing outside a chat). The same way out the
+  user picked for comfyui and video. write_file keeps its forms: they are needed before the first call.
+- *Round 3, 12.5k.* The prompt's line on checking a service on a server (a client this PC has, or the check run
+  on the server; none installed here or written for a protocol) is said with a chat's first login to a server
+  instead (`SshHosts.ServiceTip`, after "Connected to …"), where the work on one begins; a few parameters shorter;
+  the video tool's description no longer lists what its folder holds (its guide does).
+- *Put back, 12.6k.* Two of round 1's cuts changed what Nemotron 3.5 did (through OpenRouter, the same model as
+  Kilo's free one), and are undone: **diff**'s "much cheaper than reading files again or running git through
+  run_shell" (asked what changed since the last commit, it ran git in the shell in 5 of 13 runs without the
+  sentence, 1 of 12 with it, and 1 of 12 again once it was back), and the **index** rule, in the prompt and in
+  index_folder's description (a small project indexed first in 12 of 46 runs as it was, 4 of 42 with both cut, 8
+  of 42 with the description whole, 8 of 30 with both whole). Qwen 3.8 indexed first in 5 of 6 either way, and
+  Haiku always. So a rule said in both places is not a repeat to a weak model: each saying counts. The plan's
+  "a handful of steps, one plain word each", the servers switch_model's line names and capture_result's "when the
+  task changes how something looks… the user wants to see that change" went back too, unmeasured, on that ground
+  (Qwen 3.8 took no "before" capture of a report in its one run without the last). The **look-things-up rule**
+  is back word for word, with web_search's "Look up code you give the user here first, too", and so is
+  mcp_servers' "costs far fewer tokens than its window": on 24 and 16 runs each no clear change either way
+  (Nemotron answering "just show me the code" from memory in 14 of 24 runs before, 13 of 24 after; searching for
+  Blender's official MCP server within its first three calls in 10 of 16 before, 12 of 16 after), but each had
+  looked worse in a smaller first sample. 12.7k (12,747) with those.
+
+*What the runs showed* (develop 43a78a9e against the branch; a chat's start 14,009 tokens against 12,747):
+- Haiku 5.5, through OpenRouter and Anthropic's own API: 16 tasks, two runs each on each, the same calls in the
+  same order; a library looked up before its script in 9 of 20 runs before and 11 of 20 after; document tasks
+  with fewer refused edits; the release check's eight desktop tasks 8 of 8 after (6 of 8 before, Paint and
+  Explorer); server tickets in the VM lab (postgres, fix-website, ssh-hardening, publish-site) all checks before
+  and after.
+- Nemotron 3.5 (OpenRouter; Kilo's free allowance ran out after nine tasks): the same 16 tasks the same or
+  better (a deck before 160 s and 26 refused edits, after 12 s and 1); desktop tasks 4 of 8 both; click bench 41
+  of 114 first clicks before, 43 after (84 and 87 with retries); postgres and ssh-hardening 25 of 25 checks after,
+  23 of 25 before. The two regressions above found and undone.
+- Qwen 3.8 (the user's server): click bench 104 of 114 first clicks and 112 with retries on the branch, 99 and
+  112 on develop (two develop runs differ by 3); a deck, a report, a chart and a new workbook in 66 to 84 s
+  against 73 to 193 s, a workbook's rows the same 14 calls; the official-tools search and the question before
+  installing, the before and after captures of a page, diff, the index first in 5 of 6 starts either way; a snake
+  game finished twice after where both runs before ran out of time; desktop tasks 7 of 8 (Paint passed once and
+  once timed out on a Windows "pick an app" dialog that wouldn't close; on develop it passed in 848 s).
+- No model split a long file into parts, before or after (a 170 to 250-line game in one write_file): the prompt's
+  line on it was a repeat of write_file's own sentence, and dropping it changed nothing seen.
+- *A pitfall of the rig, and of Sloperator:* with its folder under `%LOCALAPPDATA%`, no Office file is turned
+  into pages (capture_result, a table of contents' page numbers): Word answers "The directory name isn't valid",
+  Excel "Document not saved", though the scratch folder is there; Click-to-Run Office doesn't see a folder
+  another program made there. `%TEMP%` works. Qwen then spent ten minutes finding out why. The rig's roots moved
+  to `~\Portable`; Sloperator still converts into its scratch folder.
+
+*How it was tested.* `.dev/shorter-prompt-test`: `probe.ps1` runs one real task through the command line on a
+fresh project folder under the home folder and a fresh root (nothing of the rig in sight), `sum.ps1` prints its
+calls in order, `batch.ps1` runs a set for one build and server; `measure` counts the tokens. Eleven tasks: a
+small project changed (index first, plan, file tools, a run to check), a script for a library (looked up
+first?), a workbook made, a hello world with no place named, a fact that changes, a button's colour, a chair in
+Blender (the official-tools search and the question), a slide added to a deck, rows and dollars and a sort in a
+workbook, page numbers and a table of contents in a report, a chart and a frozen bold header.
+
 ### Pictures a request
 Some servers take fewer pictures in one request than a run keeps. munito's gateway
 (`https://api.munito.ai/inference/v1`, measured 28 October 2026) takes 8, counted over all the

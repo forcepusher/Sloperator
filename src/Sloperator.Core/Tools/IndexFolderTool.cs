@@ -14,6 +14,8 @@ public sealed class IndexFolderTool : Tool
 {
     public override string Name => "index_folder";
     public override string Description =>
+        // "Use it first, without being asked… before you list, read or change its files" stays though the prompt says it too:
+        // reworded shorter, Kilo's Nemotron listed a small project's folder first in 11 of 12 runs, 5 of 9 with it (2026-11-14).
         "Index a folder so you know your way around it, as a code editor does, and search it. Use it first, without being asked, whenever a task " +
         "involves a project or a folder of many files you haven't indexed in this chat (code, a game, a website, a set of documents), before you list, " +
         "read or change its files: it tells you what kind of project it is and how it builds, its README, its folders, and its main files with the " +

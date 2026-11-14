@@ -19,12 +19,15 @@ public sealed class DiffTool : Tool
 
     public override string Name => "diff";
     public override string Description =>
+        // "Much cheaper than … git through run_shell" stays though the prompt says it too: without it Kilo's Nemotron
+        // ran git status and git diff in the shell in 5 of 13 runs asked what changed since the last commit, with it in 1 of 12 (2026-11-14).
         "Show what changed, as a unified diff after a list of the files changed and their line counts: much cheaper than reading files again " +
-        "or running git through run_shell. In a git repository it shows the uncommitted changes (staged and not) under path (the repository, or a folder or file in it); " +
-        "against compares with a commit, branch or range instead (HEAD~3, main, main...feature), commit shows what one commit did (HEAD for the latest), " +
+        "or running git through run_shell. " +
+        "In a git repository it shows the uncommitted changes (staged and not) under path; " +
+        "against compares with a commit, branch or range instead (HEAD~3, main, main...feature), commit shows what one commit did, " +
         "staged=true only what is staged. Files not tracked yet are listed, not shown. With other, it compares path with another file or folder " +
         "line by line, in a repository or not (Word, Excel, PowerPoint and PDF files by their text). Long diffs come in parts: pass start to read on, " +
-        "or give the path of one file; summary=true gives only the list.";
+        "or give the path of one file.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("path", Str("A repository, or a folder or file in one; with other, the old file or folder (default: working directory)"), false),

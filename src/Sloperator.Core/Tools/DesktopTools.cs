@@ -544,16 +544,15 @@ public sealed class PressKeysTool : DesktopActionTool
         "Press a key or shortcut, or a whole series of them in one go. For one chord give its keys in order, e.g. [\"ctrl\",\"c\"], [\"alt\",\"tab\"], [\"enter\"]. " +
         "For several presses one after another, give sequence instead, e.g. [\"left\",\"down\",\"left\",\"tab\",\"ctrl+s\"]: much faster than one call per key. " +
         "A sequence can also time its steps: \"wait 0.5\" pauses that many seconds, \"hold w\" keeps w down while the next steps run until \"release w\" " +
-        "(whatever is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on; " +
+        "(what is still held is let go at the end), e.g. [\"hold w\",\"wait 2\",\"space\",\"wait 1\",\"release w\"] to walk, jump and walk on; " +
         "\"type Reports\" types that text, e.g. [\"ctrl+a\",\"type Reports\",\"enter\"] to rename. " +
-        "To keep each press down for a while (walking in a game, a long press), give hold_seconds. " +
         "Names: ctrl, alt, shift, win, enter, esc, tab, backspace, delete, space, up, down, left, right, home, end, pageup, pagedown, f1-f12, a-z, 0-9.";
     public override JsonObject Parameters => Schema(
         ("keys", StrArray("Keys of one chord, modifiers first"), false),
-        ("sequence", StrArray("Steps to make one after another: a key or a chord like ctrl+s, \"wait 1.5\" (seconds), \"hold shift\", \"release shift\" or \"type some text\". Use instead of keys."), false),
+        ("sequence", StrArray("Steps one after another, instead of keys: a key, a chord like ctrl+s, \"wait 1.5\", \"hold shift\", \"release shift\" or \"type some text\""), false),
         ("repeat", Int("How many times to press the chord or run the sequence, default 1"), false),
         ("gap_ms", Int($"Pause between steps in milliseconds, default {DefaultGapMs}; none next to a wait step"), false),
-        ("hold_seconds", Num($"Keep each press held down this long before letting go, e.g. [\"w\"] for 2 seconds to walk forward (max {MaxHoldSeconds}); default: a quick press"), false));
+        ("hold_seconds", Num($"Keep each press down this long (walking in a game, a long press), e.g. [\"w\"] for 2 seconds to walk forward (max {MaxHoldSeconds}); default: a quick press"), false));
 
     public override string Describe(JsonObject args)
     {

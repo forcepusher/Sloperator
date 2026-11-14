@@ -24,7 +24,7 @@ public sealed class SideTaskTool : Tool
     public override string Description =>
         "Hand a self-contained job to a side task: you, in a fresh conversation of its own with your tools, whose steps stay out of your context " +
         "(e.g. summarize a folder or a script, look something up, tidy files). You wait until it finishes. It knows nothing of this chat: put " +
-        "everything it needs in the prompt. Output is disabled by default and then nothing comes back but that it is done, so set output to true " +
+        "everything it needs in the prompt. Nothing comes back but that it is done unless output is true: set it " +
         "whenever you want something returned from it (a summary, an answer, what it found), and say in the prompt what that should contain.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(

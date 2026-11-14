@@ -68,6 +68,62 @@ public class DocumentWriteTests : IDisposable
         """;
 
     [Fact]
+    public async Task How_edit_file_changes_a_document_comes_once_a_chat_with_the_first_call_on_one()
+    {
+        // The forms were 500 tokens of edit_file's description in every request of every chat; they now come with a chat's
+        // first read_file, write_file or edit_file of a Word, Excel or PowerPoint file, and not again while it has them.
+        var said = new List<string>();
+        var ctx = new ToolContext { Platform = new FakePlatform(), Settings = new AgentSettings(), WorkingDirectory = _dir, InConversation = t => said.Any(s => s.Contains(t)) };
+        async Task<ToolResult> Call(Tool tool, JsonObject args)
+        {
+            var result = await tool.ExecuteAsync(args, ctx, CancellationToken.None);
+            said.Add(result.Text);
+            return result;
+        }
+
+        var made = await Call(new WriteFileTool(), new JsonObject { ["path"] = "budget.xlsx", ["content"] = "# Budget\n\n| Item | Cost |\n|---|---|\n| Rent | 900 |\n" });
+        Assert.StartsWith("Created ", made.Text);
+        Assert.Contains("[How edit_file changes a workbook", made.Text);
+        Assert.Contains("\"insert row 7\"", made.Text);
+        Assert.Contains("\"sort A2:F73 by F descending\"", made.Text);
+        Assert.Contains("\"add chart line A1:A13,E1:E13 Monthly totals\"", made.Text);
+        Assert.DoesNotContain("How edit_file changes", (await Call(new ReadFileTool(), new JsonObject { ["path"] = "budget.xlsx" })).Text);
+        var edited = await Call(new EditFileTool(), new JsonObject { ["path"] = "budget.xlsx", ["old_text"] = "", ["new_text"] = "format A1:B1 bold" });
+        Assert.False(edited.IsError, edited.Text);
+        Assert.DoesNotContain("How edit_file changes", edited.Text);
+
+        // Each kind has its own, and reading one brings it as writing does.
+        await Write("deck.pptx", "# One\n\n- a\n\n---\n\n# Two\n\n- b\n");
+        var read = await Call(new ReadFileTool(), new JsonObject { ["path"] = "deck.pptx" });
+        Assert.Contains("--- slide 1 of 2 ---", read.Text);
+        Assert.Contains("[How edit_file changes a presentation", read.Text);
+        Assert.Contains("\"add slide after 2\" with the new slide's title and points on the lines under it", read.Text);
+        Assert.DoesNotContain("workbook", read.Text);
+
+        // An old result cut short (the last resort for a full context) has lost it: the next call brings it again.
+        said[^1] = said[^1][..300] + "\n[older output trimmed to save context]";
+        Assert.Contains("[How edit_file changes a presentation", (await Call(new ReadFileTool(), new JsonObject { ["path"] = "deck.pptx" })).Text);
+        Assert.DoesNotContain("[How edit_file changes", (await Call(new ReadFileTool(), new JsonObject { ["path"] = "deck.pptx" })).Text);
+
+        // A context reset drops it: the next call on one brings it again, a refused edit too.
+        said.Clear();
+        var refused = await Call(new EditFileTool(), new JsonObject { ["path"] = "deck.pptx", ["old_text"] = "no such words", ["new_text"] = "x" });
+        Assert.True(refused.IsError);
+        Assert.Contains("[How edit_file changes a presentation", refused.Text);
+        var letter = await Call(new WriteFileTool(), new JsonObject { ["path"] = "report.docx", ["content"] = Letter });
+        Assert.Contains("[How edit_file changes a Word document", letter.Text);
+        Assert.Contains("\"table of contents\" puts one after the title", letter.Text);
+        Assert.Contains("\"comment: …\"", letter.Text);
+
+        // A PDF isn't changed in place; outside a chat nothing is added.
+        Assert.DoesNotContain("How edit_file", (await Call(new WriteFileTool(), new JsonObject { ["path"] = "report.pdf", ["content"] = Letter })).Text);
+        Assert.DoesNotContain("How edit_file", (await Write("other.docx", Letter)).Text);
+        // The description says what can be done, not how each is written.
+        Assert.DoesNotContain("format A1:E1", new EditFileTool().Description);
+        Assert.Contains("comes with your first read_file, write_file or edit_file of such a file", new EditFileTool().Description);
+    }
+
+    [Fact]
     public async Task A_word_document_is_made_from_markdown_with_real_headings_lists_and_tables()
     {
         var result = await Write("report.docx", Letter);

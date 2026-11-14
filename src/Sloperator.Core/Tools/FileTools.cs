@@ -8,7 +8,7 @@ namespace Sloperator.Core.Tools;
 /// <summary>The file tools' host argument: the same work on an SSH host instead of this PC (see <see cref="RemoteFiles"/>).</summary>
 internal static class RemoteHost
 {
-    public const string Description = "Do it on this SSH host instead of this PC: user@host, as for ssh (files the login user can't reach are handled with sudo)";
+    public const string Description = "On this SSH host instead of this PC: user@host, as for ssh (sudo where the login user can't reach)";
 
     public static string? Of(JsonObject args) => args["host"] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Length > 0 ? s.Trim() : null;
 
@@ -32,6 +32,20 @@ internal static class RemoteHost
     }
 }
 
+/// <summary>
+/// The guide to changing a Word, Excel or PowerPoint file with edit_file (<see cref="Documents.DocumentGuide"/>),
+/// which goes after a chat's first read_file, write_file or edit_file of a file of that kind.
+/// </summary>
+internal static class DocumentGuides
+{
+    /// <summary>
+    /// The guide for the file's kind, a blank line before it; nothing when the conversation has it (a context reset drops it)
+    /// or outside a chat. It is told by its end, so one cut short with an old result (AgentSession.FitContext) comes again.
+    /// </summary>
+    public static string After(string path, ToolContext ctx) =>
+        Documents.DocumentGuide.Text(Documents.DocumentFiles.EditKind(path)) is { } guide && ctx.InConversation is { } has && !has(guide[^80..]) ? "\n\n" + guide : "";
+}
+
 public sealed class ReadFileTool : Tool
 {
     private const int MaxChars = 60_000;
@@ -39,9 +53,9 @@ public sealed class ReadFileTool : Tool
     public override string Name => "read_file";
     public override string Description =>
         "Read a file. Text files come back as numbered lines; PDF, Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files as their text " +
-        "(Excel cell by cell, with formulas); a picture (PNG, JPEG, GIF, BMP, WebP) is shown to you as an image, an SVG as its numbered lines and the image it draws; a video (MP4, WebM, MOV…) " +
-        "as frames with their times, a sound (WAV, MP3, FLAC, OGG…) as its waveform and spectrogram with its loudness and silences, " +
-        "a 3D model (GLB, glTF, OBJ, PLY, STL, FBX) from four sides, with an FBX's animation at four times. Relative paths are resolved against the working directory.";
+        "(Excel cell by cell, with formulas); a picture is shown to you as an image, an SVG as its numbered lines and the image it draws; a video " +
+        "as frames with their times, a sound as its waveform and spectrogram with its loudness and silences, " +
+        "a 3D model (GLB, glTF, OBJ, PLY, STL, FBX) from four sides, with an FBX's animation at four times.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("path", Str("File path"), true),
@@ -101,7 +115,8 @@ public sealed class ReadFileTool : Tool
             try { text = DocumentText.Read(path, ct); }
             catch (InvalidDataException ex) { return ToolResult.Error(ex.Message); }
             using var lines = new StringReader(text);
-            return await NumberedAsync(lines, offset, limit, ct).ConfigureAwait(false);
+            var shown = await NumberedAsync(lines, offset, limit, ct).ConfigureAwait(false);
+            return !shown.IsError && DocumentGuides.After(path, ctx) is { Length: > 0 } guide ? shown with { Text = shown.Text.TrimEnd() + guide } : shown;
         }
         if (TextFiles.IsBinary(path))
             return ToolResult.Error($"{path} is not a text file ({new FileInfo(path).Length:N0} bytes); read_file reads text, PDF and Office documents, and pictures.");
@@ -212,7 +227,7 @@ public sealed class WriteFileTool : Tool
 {
     public override string Name => "write_file";
     public override string Description =>
-        "Create or overwrite a text file with the given content, or add to its end with append=true. Creates parent folders. " +
+        "Create or overwrite a text file, or add to its end with append=true; parent folders are made. " +
         "Write long files in parts of at most about 100 lines: the first call creates the file, each next part is appended. " +
         "A path ending in .docx, .xlsx, .pptx or .pdf makes a real Word, Excel, PowerPoint or PDF document from Markdown content: " +
         "headings, paragraphs, lists, tables, **bold**, *italic*, links, pictures as ![caption](C:\\path\\picture.png), a line \\newpage for a new page. " +
@@ -249,7 +264,7 @@ public sealed class WriteFileTool : Tool
             try
             {
                 // A document made for the user gets a card in the chat, to open or find.
-                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath, document => ToPdf(document, ctx, ct)), Files: [path]);
+                return new ToolResult(Documents.DocumentFiles.Write(path, content, GetBool(args, "append"), ctx.ResolvePath, document => ToPdf(document, ctx, ct)) + DocumentGuides.After(path, ctx), Files: [path]);
             }
             catch (InvalidOperationException ex)
             {
@@ -295,18 +310,13 @@ public sealed class EditFileTool : Tool
 {
     public override string Name => "edit_file";
     public override string Description =>
+        // How to write each of these is in the kind's guide (Documents/DocumentGuide), which comes with the first read_file,
+        // write_file or edit_file of such a file in a chat: it was 500 tokens of every request in every chat.
         "Replace an exact, unique snippet of text in a file with new text, or every occurrence of it with replace_all. " +
-        "Also changes Word (.docx) and PowerPoint (.pptx) files in place, keeping their formatting: old_text as read_file shows it, " +
-        "new_text may use **bold** and *italic*, and a line break in it starts a new paragraph (\"# \" at its start makes a heading; lines after a slide's title or chart become the slide's text); " +
-        "new_text \"format: centered, dark blue, size 20\" changes how old_text looks instead (also bold, italic, underlined, a fill; a table's rows take the fill; old_text \"headings\" is all of them; new_text \"comment: …\" comments on it). With old_text empty, lines \"page numbers at the bottom\", \"footer left: Confidential\", \"header right: Page {page} of {pages}\" set what is on every page, and \"table of contents\" puts one after the title; a line \"![Chart](C:\\chart.png)\" after old_text's paragraph puts a picture there; in a deck \"delete slide 3\", \"move slide 4 to 1\", \"duplicate slide 2\", \"add slide after 2\" with its title and points under it. " +
-        "In Excel (.xlsx) give cells as read_file shows them: old_text the cells to change (\"B7 =SUM(B2:B6)\") or empty, new_text the cells to set " +
-        "(\"B7 =SUM(B2:B7)\", \"A8 Total\", \"B2 $1,200.00\" to show it in dollars, \"Budget!C9 12.5\"); without cell addresses, text is replaced in the cells. " +
-        "To add a row between others (above a total), start new_text with a line \"insert row 7\" (old_text empty): the rows below move down " +
-        "with every formula pointing at them, and the new row is formatted like the one above; \"delete rows 3-4\" takes rows out. " +
-        "\"format A1:E1 bold, yellow fill\" sets how cells look (also text colour, center, wrap, border), \"column A width 20\" or \"autofit columns\" their widths, \"format E2:F73 as dollars\" how numbers show; \"insert column C\", \"sort A2:F73 by F descending\", \"freeze row 1\", \"filter A1:F73\", \"merge A1:F1\", \"highlight A2:F73 red where F > 3000\", \"dropdown C2:C73: Yes, No\". " +
-        "\"add chart line A1:A13,E1:E13 Monthly totals\" adds a chart (bar, line, pie or area) of those cells: the first column the labels, each other " +
-        "a series named by its top cell, or by rows (\"A1:D1,A6:D6\"). To change a chart give it as old_text (\"chart 1\" or its title) " +
-        "and its new line as new_text (\"chart: line Totals\"), empty to delete it.";
+        "Also changes Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files in place, keeping their formatting: old_text as read_file shows it " +
+        "(in Excel the cells, \"B7 =SUM(B2:B6)\"), and with lines of new_text much more: how text and cells look, how numbers show, rows and columns put in or taken out, " +
+        "sorting, filters, frozen rows, merged cells, highlights, dropdowns, charts, pictures, comments, page numbers, headers and footers, a table of contents, " +
+        "slides added, moved, copied or deleted. How to write those comes with your first read_file, write_file or edit_file of such a file in a chat.";
     public override ToolRisk Risk => ToolRisk.Risky;
     public override JsonObject Parameters => Schema(
         ("path", Str("File path"), true),
@@ -334,11 +344,11 @@ public sealed class EditFileTool : Tool
         {
             try
             {
-                return new ToolResult(Documents.DocumentFiles.Edit(path, oldText, newText, GetBool(args, "replace_all"), document => WriteFileTool.ToPdf(document, ctx, ct), ctx.ResolvePath));
+                return new ToolResult(Documents.DocumentFiles.Edit(path, oldText, newText, GetBool(args, "replace_all"), document => WriteFileTool.ToPdf(document, ctx, ct), ctx.ResolvePath) + DocumentGuides.After(path, ctx));
             }
             catch (InvalidOperationException ex)
             {
-                return ToolResult.Error(ex.Message);
+                return ToolResult.Error(ex.Message + DocumentGuides.After(path, ctx));
             }
         }
         if (oldText.Length == 0)
