@@ -1857,7 +1857,7 @@ public class AgentSessionTests
         var prompt = SystemPrompt.Build("Test OS", screens, @"C:\Users\me", "Be brief about {date}.", mcp, toolsDirectory: @"D:\tools", text: text);
         var today = DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
         var nl = Environment.NewLine;
-        Assert.Equal($"Be a pirate on Test OS, {today}.{nl}- Screenshots are {screens[0].ImageWidth}x{screens[0].ImageHeight} pixels.{nl}- Coordinates: {screens[0].Describe()}{nl}" +
+        Assert.Equal($"Be a pirate on Test OS, {today}.{nl}- Coordinates: {screens[0].Describe()}{nl}" +
                      $@"Home C:\Users\me, tools D:\tools.{nl}{nl}Tools from the user's MCP servers are named <server>__<tool>; use them like any other tool when they fit the task. " +
                      $"One that can't connect usually needs its program open: start the program and try again before you do without it.{nl}- blender__*: 1 tool{nl}" +
                      $"{nl}Additional instructions from the user:{nl}Be brief about {{date}}.{nl}Keep {{this}} and {{date{nl}", prompt);

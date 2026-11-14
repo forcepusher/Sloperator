@@ -102,8 +102,7 @@ public static class SystemPrompt
             sb.AppendLine("- You see one screen at a time. screenshot shows the screen you looked at last (screen 1 at first); pass screen=N to look at another. " +
                           "All x/y arguments refer to the screen in the latest screenshot. To act on another screen, take its screenshot first.");
         }
-        else
-            sb.AppendLine($"- Screenshots are {screen.ImageWidth}x{screen.ImageHeight} pixels.");
+        // With one screen the line on coordinates gives the screenshot's size.
         sb.Append("- Coordinates: " + screen.Describe());
         return sb.ToString();
     }

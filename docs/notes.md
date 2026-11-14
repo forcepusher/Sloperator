@@ -3843,6 +3843,41 @@ what only the prompt said went into the guides (the makers' guides for what no t
 node packs, where a run's files stay, a storyboard the user gives is theirs). The prompt went from
 3.4k to 3.1k, 13.0k in all.
 
+**Shortened again (2026-11-14).** The night rounds' document abilities had brought it back to 14.0k (prompt
+3.28k, 34 tools 10.73k). Asked to shorten the prompt and then the tools with the same behaviour, in rounds, each
+tested (branch `fix/shorter-prompt-and-tools`):
+
+- *Round 1, 13.3k.* What the prompt and a tool's description both said is said once: the description keeps how a
+  tool works, the prompt when to reach for it. Out of the prompt: find_text for a value among many (find_text
+  says it), "click a text field before typing" (type_text), long files in parts (write_file), index_folder's
+  overview and how it keeps up, the plan's "handful of steps, one plain word each" (plan), the servers
+  switch_model knows, ssh's new_login, the Office line's list of what the file tools couldn't do (a chart, a
+  page layout, a PDF like the Word file: they can now). Out of descriptions: capture_result's "when the task
+  changes how something looks…" opening and diff's "much cheaper than…" (the prompt's lines), mcp_servers'
+  "costs far fewer tokens than its window" (the first rule), switch_model's screenshots note, file format lists
+  models know (PNG, JPEG, WAV…), press_keys' sentence on hold_seconds (its parameter says it). run_shell no longer
+  says "use for files", which the prompt's file rule contradicts. The first rule (a program's official tools) is
+  as it was, word for word: every clause of it was measured. The long rules (look things up, the check before
+  "done", AGENTS.md) lost only filler.
+- *Round 2, 12.6k.* One line on coordinates for one screen (it gave the screenshot's size twice), comfyui's
+  parameters shorter, and **edit_file's forms for Word, Excel and PowerPoint files moved out of its description**
+  (637 tokens to 169): the description lists what can be done (looks, number formats, rows and columns, sorting,
+  filters, frozen rows, merged cells, highlights, dropdowns, charts, pictures, comments, page numbers, headers
+  and footers, a table of contents, slides), and how each is written is the kind's guide
+  (`Documents/DocumentGuide`: one for Word, one for a workbook, one for a deck, 150 to 300 tokens each), which
+  goes after the result of a chat's first read_file, write_file or edit_file of a file of that kind
+  (`DocumentGuides.After`; told by its first words through `ToolContext.InConversation`, so a context reset or a
+  trimmed result brings it again; a refused edit brings it too; nothing outside a chat). The same way out the
+  user picked for comfyui and video. write_file keeps its forms: they are needed before the first call.
+
+*How it was tested.* `.dev/shorter-prompt-test`: `probe.ps1` runs one real task through the command line on a
+fresh project folder under the home folder and a fresh root (nothing of the rig in sight), `sum.ps1` prints its
+calls in order, `batch.ps1` runs a set for one build and server; `measure` counts the tokens. Eleven tasks: a
+small project changed (index first, plan, file tools, a run to check), a script for a library (looked up
+first?), a workbook made, a hello world with no place named, a fact that changes, a button's colour, a chair in
+Blender (the official-tools search and the question), a slide added to a deck, rows and dollars and a sort in a
+workbook, page numbers and a table of contents in a report, a chart and a frozen bold header.
+
 ### Pictures a request
 Some servers take fewer pictures in one request than a run keeps. munito's gateway
 (`https://api.munito.ai/inference/v1`, measured 28 October 2026) takes 8, counted over all the
