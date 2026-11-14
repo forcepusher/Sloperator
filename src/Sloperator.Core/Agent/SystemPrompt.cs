@@ -194,10 +194,13 @@ public static class SystemPrompt
         // The user's request: index a project first, by itself and eagerly, as Cursor does, so the
         // model doesn't start blind. Searching the shell is fine too: told to ask the index rather
         // than the shell, qwen3.8 searched both and filled its context with the results.
-        // What the overview holds and how the index keeps up are in the tool's description.
+        // Said here and in the tool's description both: with either cut down (2026-11-14), Kilo's Nemotron indexed a
+        // small project first in 4 of 42 runs, and 8 of 42 with only the description whole; whole in both, 12 of 46.
         if (folderIndex)
             sb.AppendLine("- Before you work on a project or any folder of many files (code, a game, a website, a set of documents), index it with index_folder, " +
-                          "even when the user didn't ask. To find something in it, search the index (query=) or the shell, whichever fits.");
+                          "even when the user didn't ask: its overview shows what kind of project it is, how it is laid out and what its main files define. " +
+                          "To find something in it, search the index (index_folder with query=: what the code does, or names) or search with the shell, whichever fits. " +
+                          "Index a folder once per chat; later calls bring it up to date.");
         sb.AppendLine("- To see what changed in a project or folder (your own edits, the user's work, a commit, two copies of a file), use diff " +
                       "rather than reading the files again or running git through run_shell.");
         // The user's request (2026-10-31): what the agent learns about a project is kept in the
@@ -260,7 +263,7 @@ public static class SystemPrompt
                       "Always go through mcp_servers, which saves the server in the user's Settings for later tasks, rather than running it or calling its tools from run_shell or a script of your own.");
         // Asked to connect another model, free Nemotron clicked through other apps for a settings screen: Sloperator's own window isn't in its screenshots.
         if (modelServer)
-            sb.AppendLine("- To connect Sloperator to another model or AI or switch its model, use switch_model; to change how hard you think (effort), set_effort: " +
+            sb.AppendLine("- To connect Sloperator to another model or AI (LM Studio, Ollama, Claude, OpenRouter, an API the user names) or switch its model, use switch_model; to change how hard you think (effort), set_effort: " +
                           "Sloperator's own window is left out of your screenshots, so its settings can't be clicked.");
         // Which tool, and that it needs no MCP server (the rule above would send the model looking for
         // one): how to use them is in their guides (Comfy/Guides), which come with their first answer
@@ -310,7 +313,7 @@ public static class SystemPrompt
         sb.AppendLine("- When the way to do a task isn't straightforward, plan first: set the steps with plan, list them in your reply, ask whether the plan suits the user, and stop until they answer.");
         // "Keep a plan" alone was passed over: 79 replies of a Unity task on Sonnet 5.5 without one (the user, 2026-11-12).
         sb.AppendLine("- For a task of several steps, set a plan with plan before your first step and move it on as you start each one: " +
-                      "the user follows your progress on it.");
+                      "the user follows your progress on it. Keep it easy to read: a handful of steps, one plain word each.");
         sb.AppendLine("- When the user questions something, answer first; don't act on it until they ask you to.");
         if (screen)
             sb.AppendLine("- When your work may change how something looks, look at the result yourself as your last step.");

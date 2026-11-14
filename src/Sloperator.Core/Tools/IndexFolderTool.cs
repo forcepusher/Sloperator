@@ -14,11 +14,13 @@ public sealed class IndexFolderTool : Tool
 {
     public override string Name => "index_folder";
     public override string Description =>
-        "Index a folder so you know your way around it, as a code editor does, and search it: before you list, read or change the files of a project " +
-        "or a folder of many files you haven't indexed in this chat. " +
-        "It tells you what kind of project it is and how it builds, its README, its folders, and its main files with the " +
+        // "Use it first, without being asked… before you list, read or change its files" stays though the prompt says it too:
+        // reworded shorter, Kilo's Nemotron listed a small project's folder first in 11 of 12 runs, 5 of 9 with it (2026-11-14).
+        "Index a folder so you know your way around it, as a code editor does, and search it. Use it first, without being asked, whenever a task " +
+        "involves a project or a folder of many files you haven't indexed in this chat (code, a game, a website, a set of documents), before you list, " +
+        "read or change its files: it tells you what kind of project it is and how it builds, its README, its folders, and its main files with the " +
         "classes and functions they define. To find something in it (where a class, function or setting is, every line that uses a name, " +
-        "the code behind an error message or a feature), call it with query=. " +
+        "the code behind an error message or a feature), call it with query=, or search with the shell when that fits better. " +
         "It keeps itself up to date: each call reads only the files that changed.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(

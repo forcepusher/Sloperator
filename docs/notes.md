@@ -3849,11 +3849,10 @@ tested (branch `fix/shorter-prompt-and-tools`):
 
 - *Round 1, 13.3k.* What the prompt and a tool's description both said is said once: the description keeps how a
   tool works, the prompt when to reach for it. Out of the prompt: find_text for a value among many (find_text
-  says it), "click a text field before typing" (type_text), long files in parts (write_file), index_folder's
-  overview and how it keeps up, the plan's "handful of steps, one plain word each" (plan), the servers
-  switch_model knows, ssh's new_login, the Office line's list of what the file tools couldn't do (a chart, a
+  says it), "click a text field before typing" (type_text), long files in parts (write_file),
+  ssh's new_login, the Office line's list of what the file tools couldn't do (a chart, a
   page layout, a PDF like the Word file: they can now). Out of descriptions: capture_result's "when the task
-  changes how something looks…" opening and diff's "much cheaper than…" (the prompt's lines), mcp_servers'
+  changes how something looks…" opening (the prompt's line), mcp_servers'
   "costs far fewer tokens than its window" (the first rule), switch_model's screenshots note, file format lists
   models know (PNG, JPEG, WAV…), press_keys' sentence on hold_seconds (its parameter says it). run_shell no longer
   says "use for files", which the prompt's file rule contradicts. The first rule (a program's official tools) is
@@ -3871,7 +3870,17 @@ tested (branch `fix/shorter-prompt-and-tools`):
   user picked for comfyui and video. write_file keeps its forms: they are needed before the first call.
 - *Round 3, 12.5k.* The prompt's line on checking a service on a server (a client this PC has, or the check run
   on the server; none installed here or written for a protocol) is said with a chat's first login to a server
-  instead (`SshHosts.ServiceTip`, after "Connected to …"), where the work on one begins; a few parameters shorter.
+  instead (`SshHosts.ServiceTip`, after "Connected to …"), where the work on one begins; a few parameters shorter;
+  the video tool's description no longer lists what its folder holds (its guide does).
+- *Put back, 12.6k.* Two of round 1's cuts changed what Nemotron 3.5 did (through OpenRouter, the same model as
+  Kilo's free one), and are undone: **diff**'s "much cheaper than reading files again or running git through
+  run_shell" (asked what changed since the last commit, it ran git in the shell in 5 of 13 runs without the
+  sentence, 1 of 12 with it, and 1 of 12 again once it was back), and the **index** rule, in the prompt and in
+  index_folder's description (a small project indexed first in 12 of 46 runs as it was, 4 of 42 with both cut, 8
+  of 42 with the description whole, 8 of 30 with both whole). Qwen 3.8 indexed first in 5 of 6 either way, and
+  Haiku always. So a rule said in both places is not a repeat to a weak model: each saying counts. The plan's
+  "a handful of steps, one plain word each" and the servers switch_model's line names went back into the prompt
+  too, unmeasured, on that ground.
 
 *How it was tested.* `.dev/shorter-prompt-test`: `probe.ps1` runs one real task through the command line on a
 fresh project folder under the home folder and a fresh root (nothing of the rig in sight), `sum.ps1` prints its
