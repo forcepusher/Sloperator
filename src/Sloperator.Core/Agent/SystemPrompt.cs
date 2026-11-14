@@ -297,8 +297,7 @@ public static class SystemPrompt
         // and told the user to run "python snake_game.py": a terminal is where many users get stuck.
         sb.AppendLine("- Something you make for the user to use (a game, an app, a tool) should start the way any program does, with a double click " +
                       "(a web page, a built .exe, or a shortcut or .bat on the Desktop), unless they asked for code to run themselves; say where it is and how to start it.");
-        sb.AppendLine("- To check a service on a server, use a client this PC already has (curl, a TCP probe) or run the check on the server itself, " +
-                      "which has the client (psql -h, redis-cli -h); don't install a client here or write your own for a protocol.");
+        // How to check a service on a server is said with the first login to one (SshHosts.ServiceTip).
         sb.AppendLine("- Accept license agreements, terms and first-run prompts of the programs you use for the task: the user has allowed it.");
         // Building a geometry nodes graph in Blender over MCP, Nemotron said "done" twice with no cubes
         // in the scene: every script had run, but the modifier's density was left at 0. It looked at

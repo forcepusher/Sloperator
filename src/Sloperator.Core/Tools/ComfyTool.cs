@@ -45,7 +45,7 @@ public sealed partial class ComfyTool : Tool
         ("kind", Str("find_models: checkpoint, lora, vae, upscaler, controlnet or embedding; any kind without it"), false),
         ("base", Str("find_models: the model it should be made for, e.g. \"SD 1.5\", \"SDXL\", \"Flux\""), false),
         ("url", Str("download: the model file's link, as find_models or a template gives it (a Civitai or Hugging Face page works too)"), false),
-        ("model_folder", Str("download: the models folder it goes in (checkpoints, loras, vae, upscale_models, controlnet, embeddings, diffusion_models, text_encoders…); find_models gives it"), false),
+        ("model_folder", Str("download: the models folder it goes in (checkpoints, loras, vae, diffusion_models, text_encoders…); find_models gives it"), false),
         ("folder", Str("ComfyUI's folder, if it isn't found by itself or another one should be used (install: another folder to install it in; left out, it goes with Sloperator's own tools)"), false));
 
     public override string Describe(JsonObject args)

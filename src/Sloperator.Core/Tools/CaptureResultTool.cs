@@ -34,9 +34,9 @@ public sealed partial class CaptureResultTool : Tool
     public override JsonObject Parameters => Schema(
         ("window", Str("Part of the title of the window to capture, e.g. \"Paint\" or \"Budget.xlsx\"; with a box, only the part of it in the box"), false),
         ("x", Num("Left edge of the box to capture, in screenshot coordinates"), false),
-        ("y", Num("Top edge of the box, in screenshot coordinates"), false),
-        ("width", Num("The box's width, in screenshot coordinates"), false),
-        ("height", Num("The box's height, in screenshot coordinates"), false),
+        ("y", Num("The box's top edge"), false),
+        ("width", Num("The box's width"), false),
+        ("height", Num("The box's height"), false),
         ("caption", Str("One line for the user, shown under the picture"), false),
         ("file", Str("A picture file, or a document (PDF, Word, Excel, PowerPoint), to show as the result instead of the screen"), false),
         ("page", Int("Which page of the document in file, from 1. Default: 1"), false),

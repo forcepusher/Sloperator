@@ -3869,6 +3869,9 @@ tested (branch `fix/shorter-prompt-and-tools`):
   (`DocumentGuides.After`; told by its first words through `ToolContext.InConversation`, so a context reset or a
   trimmed result brings it again; a refused edit brings it too; nothing outside a chat). The same way out the
   user picked for comfyui and video. write_file keeps its forms: they are needed before the first call.
+- *Round 3, 12.5k.* The prompt's line on checking a service on a server (a client this PC has, or the check run
+  on the server; none installed here or written for a protocol) is said with a chat's first login to a server
+  instead (`SshHosts.ServiceTip`, after "Connected to …"), where the work on one begins; a few parameters shorter.
 
 *How it was tested.* `.dev/shorter-prompt-test`: `probe.ps1` runs one real task through the command line on a
 fresh project folder under the home folder and a fresh root (nothing of the rig in sight), `sum.ps1` prints its
