@@ -38,7 +38,10 @@ public sealed class McpServersTool : Tool
     public override string Name => "mcp_servers";
 
     public override string Description =>
-        "Add, remove or list your MCP servers, the ones in the user's Settings. action=add starts the server, saves it in " +
+        // "Costs far fewer tokens than its window" stays though the prompt's first rule says it too: a weak model
+        // goes by each saying (see docs/notes.md, What a chat starts with).
+        "Add, remove or list your MCP servers, the ones in the user's Settings. A program with an official MCP server " +
+        "costs far fewer tokens than its window, and this is the way to use one: action=add starts the server, saves it in " +
         "the user's Settings for later tasks and gives you its tools at once (named name__tool). Give name and either command with args " +
         "(a program to start; best its full path, e.g. C:\\...\\uvx.exe with args [\"some-mcp-server\"]; env and cwd if it needs them) or " +
         "url (a server to connect to). When it only works with a program open, give needs: that is how you start the program later, here and in later tasks. A server that fails to start isn't kept: the result says why. action=remove stops one and takes " +
