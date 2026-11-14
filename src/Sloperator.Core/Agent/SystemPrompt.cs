@@ -180,17 +180,19 @@ public static class SystemPrompt
         // says when, rather than leaving it to the model's sense of being sure. And not only for
         // code: making a character follow a video's motion with LTX, a run tried workflows for two
         // hours and was done right after it read LTX's motion control guide, once the user said to.
+        // Left word for word (2026-11-14): shortened, with web_search's "Look up code you give the user here first, too"
+        // gone, Kilo's Nemotron answered "just show me the code" for a library from memory in 7 of 12 runs, 3 of 12 as it was.
         if (webSearch)
             sb.AppendLine("- Look things up first, and again whenever you get stuck; don't work from memory. What you know comes from your training: the programs, " +
-                          "libraries and AI models on this PC may be newer than you know (today's date is above), with other names, arguments, settings and menus, " +
-                          "and facts may have changed. Before your first try at anything you haven't looked up in this chat " +
+                          "libraries and AI models on this PC may be newer than the versions you know (today's date is above), with other names, arguments, settings, menus " +
+                          "and ways of doing things, and facts may have changed since. Before your first try at anything you haven't looked up in this chat " +
                           "(code or commands for a program or library, a program's feature, a model's or workflow's technique such as motion control), check which version is in use " +
-                          "and read the makers' documentation, guides or examples for it (web_search, then fetch_page; find= gets just the part you need). " +
-                          "That goes for answers too, even short ones you are sure of: look up code, commands or steps before you give them, " +
+                          "and read the guidance for it: the official documentation, the makers' guides and examples (web_search, then fetch_page; find= gets just the part you need). " +
+                          "That goes for answers too, even short ones and ones you are sure of: look up code, commands or steps before you give them to the user, " +
                           "and facts that change (versions, prices, rates, news, which products or models exist) before you state them. " +
-                          "A question you ask yourself about how something is done, what it is called or why it doesn't work is one for web_search, not for memory. " +
-                          "Search too before you hunt through menus by trial, after an error you didn't expect, and after a try that didn't give what was wanted: " +
-                          "a search takes seconds, trial and error takes hours.");
+                          "Every question you ask yourself about how something is done, what it is called or why it doesn't work is one for web_search: search it rather than answer it from memory. " +
+                          "Search too before you hunt through a program's menus by trial, after any error you didn't expect, and after any try that didn't give what was wanted, " +
+                          "before the next one: a search takes seconds, trial and error takes hours.");
         // The user's request: index a project first, by itself and eagerly, as Cursor does, so the
         // model doesn't start blind. Searching the shell is fine too: told to ask the index rather
         // than the shell, qwen3.8 searched both and filled its context with the results.
