@@ -63,8 +63,7 @@ public sealed class SwitchModelTool(Func<HttpClient>? http = null) : Tool
     public override string Name => "switch_model";
 
     public override string Description =>
-        "Switches Sloperator itself (you are its model) to another server, API key and model, the way the user would in Sloperator's top bar " +
-        "(which you can't see or click: Sloperator's window is left out of screenshots). Use it when the user asks to connect, switch to or use " +
+        "Switches Sloperator itself (you are its model) to another server, API key and model, the way the user would in Sloperator's top bar. Use it when the user asks to connect, switch to or use " +
         "another model or AI: LM Studio on this PC is http://localhost:1234/v1 (Ollama http://localhost:11434/v1), Claude is api.anthropic.com, " +
         "OpenRouter https://openrouter.ai/api/v1, Kilo's free models " + KiloGateway.Address + ". " +
         "The server is checked first and nothing changes if it doesn't answer or turns the key down. This task finishes on the model you are; " +

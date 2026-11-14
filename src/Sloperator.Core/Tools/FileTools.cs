@@ -8,7 +8,7 @@ namespace Sloperator.Core.Tools;
 /// <summary>The file tools' host argument: the same work on an SSH host instead of this PC (see <see cref="RemoteFiles"/>).</summary>
 internal static class RemoteHost
 {
-    public const string Description = "Do it on this SSH host instead of this PC: user@host, as for ssh (files the login user can't reach are handled with sudo)";
+    public const string Description = "On this SSH host instead of this PC: user@host, as for ssh (sudo where the login user can't reach)";
 
     public static string? Of(JsonObject args) => args["host"] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim().Length > 0 ? s.Trim() : null;
 
@@ -39,9 +39,9 @@ public sealed class ReadFileTool : Tool
     public override string Name => "read_file";
     public override string Description =>
         "Read a file. Text files come back as numbered lines; PDF, Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files as their text " +
-        "(Excel cell by cell, with formulas); a picture (PNG, JPEG, GIF, BMP, WebP) is shown to you as an image, an SVG as its numbered lines and the image it draws; a video (MP4, WebM, MOV…) " +
-        "as frames with their times, a sound (WAV, MP3, FLAC, OGG…) as its waveform and spectrogram with its loudness and silences, " +
-        "a 3D model (GLB, glTF, OBJ, PLY, STL, FBX) from four sides, with an FBX's animation at four times. Relative paths are resolved against the working directory.";
+        "(Excel cell by cell, with formulas); a picture is shown to you as an image, an SVG as its numbered lines and the image it draws; a video " +
+        "as frames with their times, a sound as its waveform and spectrogram with its loudness and silences, " +
+        "a 3D model (GLB, glTF, OBJ, PLY, STL, FBX) from four sides, with an FBX's animation at four times.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
     public override JsonObject Parameters => Schema(
         ("path", Str("File path"), true),
@@ -212,7 +212,7 @@ public sealed class WriteFileTool : Tool
 {
     public override string Name => "write_file";
     public override string Description =>
-        "Create or overwrite a text file with the given content, or add to its end with append=true. Creates parent folders. " +
+        "Create or overwrite a text file, or add to its end with append=true; parent folders are made. " +
         "Write long files in parts of at most about 100 lines: the first call creates the file, each next part is appended. " +
         "A path ending in .docx, .xlsx, .pptx or .pdf makes a real Word, Excel, PowerPoint or PDF document from Markdown content: " +
         "headings, paragraphs, lists, tables, **bold**, *italic*, links, pictures as ![caption](C:\\path\\picture.png), a line \\newpage for a new page. " +

@@ -24,11 +24,10 @@ public sealed partial class CaptureResultTool : Tool
     public override string Description =>
         "Show the user your work as a picture under your final reply, which you see too: " +
         "a window, part of one (window and a box), a box on the screen, a picture file that is the result (an edit, an upscale) as file, " +
-        "or a page of a document as file (PDF, Word, Excel, PowerPoint: drawn as it prints, cut to what is on the page, with no program opened; page picks the page). " +
-        "When the task changes how something looks (a button from red to green, a layout, a chart, a document's table), the user wants to see that change: " +
-        "capture how it looks before your first change (a document as file; anything else opened or run first if it isn't showing), " +
-        "then capture the result with the before's number in compare and no window, box or file: the same part of the same window, " +
-        "or the same page of the same document, is taken again, wherever the window is, and the user gets the two side by side. " +
+        "or a page of a document as file (PDF, Word, Excel, PowerPoint: drawn as it prints, with no program opened; page picks the page). " +
+        "For a change in how something looks, capture it before your first change (a document as file; anything else opened or run first if it isn't showing), " +
+        "then capture the result with the before's number in compare and no window, box or file: the same view " +
+        "is taken again, wherever the window is, and the user gets the two side by side. " +
         "Crop to the work: its window, with a box around the button, the cells or the dialog when only they changed; leave window and box out only when the whole screen is the point. " +
         "Pictures you only check (a video's frames, a step on the way) aren't for the user: look at them with read_file.";
     public override ToolRisk Risk => ToolRisk.ReadOnly;
@@ -42,7 +41,7 @@ public sealed partial class CaptureResultTool : Tool
         ("file", Str("A picture file, or a document (PDF, Word, Excel, PowerPoint), to show as the result instead of the screen"), false),
         ("page", Int("Which page of the document in file, from 1. Default: 1"), false),
         ("compare", StrArray("Earlier captures' numbers (each capture says its number) or picture files' paths, shown before this one in this order. " +
-                             "With no window, box or file, this capture takes what the first of them took: the same part of the same window, wherever it is now, or the same page of the same document"), false),
+                             "With no window, box or file, this capture takes the first one's view again"), false),
         ("labels", StrArray("Short labels, one per picture with this one last, in the user's language, e.g. [\"Before\", \"After\"] or [\"Light\", \"Dark\"]. Default: Before and After for two, numbers for more"), false),
         ("columns", Int("How many compared pictures go in a row: 1 stacks them, their number puts them all side by side. Default: the layout nearest 4:3"), false));
 

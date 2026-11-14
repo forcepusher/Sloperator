@@ -15,11 +15,11 @@ public sealed class EditSoundTool : Tool
     public override string Name => "edit_sound";
 
     public override string Description =>
-        "Edit a sound file (WAV, MP3, FLAC, OGG, M4A…) without changing it: the edit is saved beside it as a new WAV, which the result names " +
+        "Edit a sound file without changing it: the edit is saved beside it as a new WAV, which the result names " +
         "(for a sound of Sloperator's Audio editor panel, its next version there). " +
         "edit: cut (take out from-to, the sound either side joined), keep (only from-to), fade_in or fade_out (over from-to; without them the first or last second), " +
         "volume (db louder, or quieter when negative; over from-to, else all of it), replace (the sound file \"with\" put in place of from-to, such as a new take made with " +
-        "the comfyui tool, fitted to the sound's sample rate and channels). from and to are seconds. Joins are crossfaded over 10 ms, so nothing clicks.";
+        "the comfyui tool). from and to are seconds.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 

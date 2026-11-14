@@ -17,13 +17,13 @@ public sealed partial class SshTool : Tool
     public override string Name => "ssh";
     public override string Description =>
         "Run a command on another computer (a Linux server) over SSH, in a terminal that stays open between calls: " +
-        "the directory and exported variables carry over, as in a real terminal. The first call to a host logs in, and its result begins with " +
+        "the directory and exported variables carry over. The first call to a host logs in, and its result begins with " +
         "what the server is (system, hostname, the address this PC connects from, whether sudo needs a password), so make it a real step of the work; " +
         "later calls reuse the login. " +
         "Returns the output and the exit code. A command still running when wait_seconds are up goes on running: call ssh again with the same host " +
-        "and no command to see more of its output, with input to answer a question it asks (y, a password), or with interrupt to stop it (Ctrl+C). " +
+        "and no command to see more of its output, with input to answer a question it asks (y, a password), or with interrupt to stop it. " +
         "Put sudo in front of each command that needs root instead of opening a root shell. Don't start full-screen programs (nano, vim, less, top): " +
-        "read and change files on the host with read_file, write_file, edit_file and list_directory and their host argument.";
+        "read and change files on the host with the file tools and their host argument.";
     public override ToolRisk Risk => ToolRisk.Risky;
     public override JsonObject Parameters => Schema(
         ("host", Str("user@host, user@host:port, or a Host from ~/.ssh/config; leave it out to stay on the server of your last ssh call"), false),
