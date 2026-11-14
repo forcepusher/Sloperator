@@ -25,7 +25,8 @@ public sealed partial class CaptureResultTool : Tool
         "Show the user your work as a picture under your final reply, which you see too: " +
         "a window, part of one (window and a box), a box on the screen, a picture file that is the result (an edit, an upscale) as file, " +
         "or a page of a document as file (PDF, Word, Excel, PowerPoint: drawn as it prints, with no program opened; page picks the page). " +
-        "For a change in how something looks, capture it before your first change (a document as file; anything else opened or run first if it isn't showing), " +
+        "When the task changes how something looks (a button from red to green, a layout, a chart, a document's table), the user wants to see that change: " +
+        "capture how it looks before your first change (a document as file; anything else opened or run first if it isn't showing), " +
         "then capture the result with the before's number in compare and no window, box or file: the same view " +
         "is taken again, wherever the window is, and the user gets the two side by side. " +
         "Crop to the work: its window, with a box around the button, the cells or the dialog when only they changed; leave window and box out only when the whole screen is the point. " +

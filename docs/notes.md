@@ -3851,8 +3851,7 @@ tested (branch `fix/shorter-prompt-and-tools`):
   tool works, the prompt when to reach for it. Out of the prompt: find_text for a value among many (find_text
   says it), "click a text field before typing" (type_text), long files in parts (write_file),
   ssh's new_login, the Office line's list of what the file tools couldn't do (a chart, a
-  page layout, a PDF like the Word file: they can now). Out of descriptions: capture_result's "when the task
-  changes how something looks…" opening (the prompt's line), mcp_servers'
+  page layout, a PDF like the Word file: they can now). Out of descriptions: mcp_servers'
   "costs far fewer tokens than its window" (the first rule), switch_model's screenshots note, file format lists
   models know (PNG, JPEG, WAV…), press_keys' sentence on hold_seconds (its parameter says it). run_shell no longer
   says "use for files", which the prompt's file rule contradicts. The first rule (a program's official tools) is
@@ -3879,8 +3878,28 @@ tested (branch `fix/shorter-prompt-and-tools`):
   index_folder's description (a small project indexed first in 12 of 46 runs as it was, 4 of 42 with both cut, 8
   of 42 with the description whole, 8 of 30 with both whole). Qwen 3.8 indexed first in 5 of 6 either way, and
   Haiku always. So a rule said in both places is not a repeat to a weak model: each saying counts. The plan's
-  "a handful of steps, one plain word each" and the servers switch_model's line names went back into the prompt
-  too, unmeasured, on that ground.
+  "a handful of steps, one plain word each", the servers switch_model's line names and capture_result's "when the
+  task changes how something looks… the user wants to see that change" went back too, unmeasured, on that ground
+  (Qwen 3.8 took no "before" capture of a report in its one run without the last). 12.7k with those.
+
+*What the runs showed* (develop 43a78a9e against the branch; a chat's start 14,009 tokens against 12,671):
+- Haiku 5.5 (OpenRouter): every task the same calls in the same order, two or three runs each; a library looked
+  up before its script in 9 of 20 runs before and 11 of 20 after; document tasks with fewer refused edits (a
+  deck 0 errors in 3 runs, a chart 0 in 3; a new workbook's bold header written in the write itself); the release
+  check's eight desktop tasks 8 of 8; four server tickets in the VM lab (postgres, fix-website, ssh-hardening,
+  publish-site) 41 of 41 checks, and again with the service line said at login.
+- Nemotron 3.5 (OpenRouter; Kilo's free allowance ran out after nine tasks): documents, a project, a question
+  the same; the two regressions above found and undone. Its desktop tasks and click bench stopped when the
+  OpenRouter credit ran out.
+- Qwen 3.8 (the user's server): click bench 104 of 114 first clicks and 112 with retries on the branch, 99 and
+  112 on develop (two develop runs differ by 3); a deck, a report, a chart and a new workbook in 66 to 84 s
+  against 73 to 193 s, a workbook's rows the same 14 calls; the official-tools search and the question before
+  installing, the before and after captures of a page, diff, the index first in 5 of 6 starts either way.
+- *A pitfall of the rig, and of Sloperator:* with its folder under `%LOCALAPPDATA%`, no Office file is turned
+  into pages (capture_result, a table of contents' page numbers): Word answers "The directory name isn't valid",
+  Excel "Document not saved", though the scratch folder is there; Click-to-Run Office doesn't see a folder
+  another program made there. `%TEMP%` works. Qwen then spent ten minutes finding out why. The rig's roots moved
+  to `~\Portable`; Sloperator still converts into its scratch folder.
 
 *How it was tested.* `.dev/shorter-prompt-test`: `probe.ps1` runs one real task through the command line on a
 fresh project folder under the home folder and a fresh root (nothing of the rig in sight), `sum.ps1` prints its
