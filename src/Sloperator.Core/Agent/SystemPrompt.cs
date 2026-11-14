@@ -256,7 +256,8 @@ public static class SystemPrompt
         // close Paint, Stop-Process -Name mspaint: every window of the program, the user's own with their unsaved work (2026-11-10).
         sb.AppendLine("- Close only windows you opened, from the window itself (or by the process id you started): " +
                       "Stop-Process or taskkill by name also ends the user's own windows of that program, unsaved work and all.");
-        sb.AppendLine("- For work on another computer (a server, a VM), use ssh, copy and the file tools with host set, not ssh or scp through run_shell.");
+        sb.AppendLine("- For work on another computer (a server, a VM), use ssh, copy, and read_file, write_file, edit_file and list_directory with host set; " +
+                      "don't run ssh or scp through run_shell (ssh with new_login is the test of a fresh login).");
         // A budget workbook took qwen3.8 24 minutes through Excel's COM interface from PowerShell.
         sb.AppendLine("- Make Word, Excel, PowerPoint and PDF files with write_file (Markdown becomes the real document) and change them with edit_file, " +
                       "which keeps their formatting; neither needs Office. Use the Office program only when the user wants to see it done there, or for what these can't do.");
