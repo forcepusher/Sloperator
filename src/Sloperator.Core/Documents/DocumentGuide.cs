@@ -9,8 +9,8 @@ namespace Sloperator.Core.Documents;
 /// </summary>
 internal static class DocumentGuide
 {
-    /// <summary>How a kind's guide starts, by which a chat that has it is told; null for a kind edit_file doesn't change.</summary>
-    public static string? Head(string? kind) => kind switch
+    /// <summary>How a kind's guide starts; null for a kind edit_file doesn't change.</summary>
+    private static string? Head(string? kind) => kind switch
     {
         "docx" => "[How edit_file changes a Word document, beyond replacing text",
         "xlsx" => "[How edit_file changes a workbook, beyond replacing text in its cells",

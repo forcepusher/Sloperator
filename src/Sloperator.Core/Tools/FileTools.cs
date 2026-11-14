@@ -38,12 +38,12 @@ internal static class RemoteHost
 /// </summary>
 internal static class DocumentGuides
 {
-    /// <summary>The guide for the file's kind, a blank line before it; nothing when the conversation has it (a context reset drops it) or outside a chat.</summary>
-    public static string After(string path, ToolContext ctx)
-    {
-        var kind = Documents.DocumentFiles.EditKind(path);
-        return Documents.DocumentGuide.Head(kind) is { } head && ctx.InConversation is { } has && !has(head) ? "\n\n" + Documents.DocumentGuide.Text(kind) : "";
-    }
+    /// <summary>
+    /// The guide for the file's kind, a blank line before it; nothing when the conversation has it (a context reset drops it)
+    /// or outside a chat. It is told by its end, so one cut short with an old result (AgentSession.FitContext) comes again.
+    /// </summary>
+    public static string After(string path, ToolContext ctx) =>
+        Documents.DocumentGuide.Text(Documents.DocumentFiles.EditKind(path)) is { } guide && ctx.InConversation is { } has && !has(guide[^80..]) ? "\n\n" + guide : "";
 }
 
 public sealed class ReadFileTool : Tool

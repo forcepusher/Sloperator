@@ -100,6 +100,11 @@ public class DocumentWriteTests : IDisposable
         Assert.Contains("\"add slide after 2\" with the new slide's title and points on the lines under it", read.Text);
         Assert.DoesNotContain("workbook", read.Text);
 
+        // An old result cut short (the last resort for a full context) has lost it: the next call brings it again.
+        said[^1] = said[^1][..300] + "\n[older output trimmed to save context]";
+        Assert.Contains("[How edit_file changes a presentation", (await Call(new ReadFileTool(), new JsonObject { ["path"] = "deck.pptx" })).Text);
+        Assert.DoesNotContain("[How edit_file changes", (await Call(new ReadFileTool(), new JsonObject { ["path"] = "deck.pptx" })).Text);
+
         // A context reset drops it: the next call on one brings it again, a refused edit too.
         said.Clear();
         var refused = await Call(new EditFileTool(), new JsonObject { ["path"] = "deck.pptx", ["old_text"] = "no such words", ["new_text"] = "x" });
