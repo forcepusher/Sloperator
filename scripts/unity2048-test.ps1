@@ -10,10 +10,14 @@
 
 .EXAMPLE
   ./scripts/unity2048-test.ps1                         # server and model from SloperatorData/settings.json
+  ./scripts/unity2048-test.ps1 -Then "No, go on without it."   # answers the agent's question about installing a tool
   ./scripts/unity2048-test.ps1 -Model qwen3.8-27b@q6_k_xl -Hours 10
 #>
 param([string]$Root = "", [string]$Url = "", [string]$Model = "", [double]$Hours = 10,
-  [string]$Unity = "C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe")
+  [string]$Unity = "C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe",
+  # The answer when the agent stops to ask before installing something, as its rules have it do (Unity's own CLI
+  # package): a later message of the same chat, sent when the run before it is over.
+  [string]$Then = "")
 $repo = Split-Path $PSScriptRoot
 
 # Keep this log window out of the agent's way: on another monitor if there is one (in run 4 the
@@ -67,6 +71,7 @@ $task = "Make a 2048 game in Unity and make sure it really works. Use the Unity 
   "When you are done, tell me what you tested and what you fixed."
 
 $log = Join-Path $out "run.txt"
+if ($Then) { $cliArgs += @("--then", $Then) }
 $cliArgs += @("--yes", "--save-shots", (Join-Path $out "shots"), $task)
 Write-Host "Running; log: $log"
 $sw = [Diagnostics.Stopwatch]::StartNew()

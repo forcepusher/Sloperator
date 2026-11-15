@@ -13,7 +13,8 @@ and the suites, the exe and a look at both were done again on that.
 |---|---|---|
 | Unit suites | laptop | App 459 of 459, Core 1668 of 1668 (36 opt-in skipped), on the final branch |
 | Published exe (`publish.ps1`) | laptop | 29,089,789 bytes, no trim warnings, 4 min 31 s |
-| Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 48 min 12 s on the third run, with a fix made here: the first two ended after 5 minutes on the server's content filter |
+| Unity 2048 (`unity2048-test.ps1`, Claude Haiku 5.5 through OpenRouter) | laptop | pass in 48 min 12 s on the third run, with a fix made here: the first two ended after 5 minutes on the server's content filter | 
+| Unity 2048 again in the third pass (Claude Haiku 5.5 through Anthropic's API) | laptop | pass in 9 min 41 s, once its question about installing Unity's CLI package was answered no |
 | This version's changes in the published exe (a stand-in model) | laptop | as the changelog says, but for one bug, fixed here (a chart kept its old bars after a sort) |
 | Auto model and effort in the published exe (real, OpenRouter) | laptop | picked Claude Haiku 5.5 at Medium, a short "yes, thanks" looked at too |
 
@@ -178,6 +179,16 @@ notes.md, "What a chat starts with"). Their changelog line went into [1.5.0], no
 | Published exe | 29,090,301 bytes, no trim warnings, 4 min 6 s |
 | System prompt in Settings > Advanced | "Default · about 3,863 tokens" (4,135 in the first pass) |
 | Office files in the exe (`run1.ps1`: a workbook, a report and a deck written, then edited) | each kind's guide reached the model once, with the result of its first write_file, and the edits after it went through as in the first pass: chart, formats, sort, page numbers, footer, contents, comment, added slide |
+
+Unity 2048 on Haiku again, as the prompt changed, through Anthropic's own API this time (the OpenRouter account had
+$3.44 left; the user picked the Anthropic key). The first try stopped after 22 s, as the rules have it: Haiku
+found Unity's own command line on the PC, saw that the part that drives a running Editor (the Unity Pipeline
+package) wasn't set up, and asked whether to install it, installing nothing. None of this release's runs had
+asked before. `unity2048-test.ps1` now takes `-Then`, an answer sent when the run before it is over, and the
+second try answered "No, don't install it. Go on without it", as earlier releases' runs went: pass in 9 min
+41 s, 50 model calls, 96 tool calls, 4 tool errors. It played in Play mode with real key presses past 128 (144),
+filled the board to Game Over at 560, checked that arrows did nothing then and R started a new game, built
+2048.exe, played it and closed it and Unity. It fixed one compile error of its own; no content filter stop.
 
 ## Left as they are
 
