@@ -163,6 +163,22 @@ the chat used on that server, one a task (`MainWindowViewModel.ModelToPrice`).
 Not run again: Unity 2048 and the first pass's other looks. The pass changed how the bar draws its blob and
 which model's prices are looked up, neither of which is in what the agent does.
 
+## Third pass: the shorter prompt
+
+Still untagged on 15 November, so release/1.5.0 took develop's next two merges: the system prompt and the tool
+descriptions about a tenth shorter (13c02be7: a new chat's prompt and tools from 14.0k to about 12.7k tokens,
+with how edit_file changes a Word, Excel or PowerPoint file moved out of its description into a guide that
+comes with a chat's first file of that kind), and the prompt's line on other computers with ssh's description
+put back whole (f739bed9). Both were tested on their own branches, on Qwen 3.8, Haiku and Nemotron (see
+notes.md, "What a chat starts with"). Their changelog line went into [1.5.0], now dated 2026-11-15.
+
+| Check | Result |
+|---|---|
+| Unit suites | App 460 of 460, Core 1669 of 1669 (36 opt-in skipped) |
+| Published exe | 29,090,301 bytes, no trim warnings, 4 min 6 s |
+| System prompt in Settings > Advanced | "Default · about 3,863 tokens" (4,135 in the first pass) |
+| Office files in the exe (`run1.ps1`: a workbook, a report and a deck written, then edited) | each kind's guide reached the model once, with the result of its first write_file, and the edits after it went through as in the first pass: chart, formats, sort, page numbers, footer, contents, comment, added slide |
+
 ## Left as they are
 
 - The workstation's checks (its GPU, second monitor and Qwen server) weren't run: laptop only this time.
