@@ -3905,6 +3905,13 @@ tested (branch `fix/shorter-prompt-and-tools`):
   once timed out on a Windows "pick an app" dialog that wouldn't close; on develop it passed in 848 s).
 - No model split a long file into parts, before or after (a 170 to 250-line game in one write_file): the prompt's
   line on it was a repeat of write_file's own sentence, and dropping it changed nothing seen.
+- *A broader check after the merge* (2026-11-14 evening): the sound tool, side tasks, a relative path, a Word comment
+  and picture, Notepad keys, a page in Edge captured before and after, a ComfyUI picture, five more server tickets
+  and the chat stand-in, before and after on Haiku and Nemotron (and Qwen for the first four): the same or better.
+  One thing put back: Nemotron ran ssh and plink through run_shell in two of four tickets after the cut, one of four
+  before, so the prompt's server line is whole again ("read_file, write_file, edit_file and list_directory with host
+  set … ssh with new_login is the test of a fresh login") and so is ssh's description. On the tickets' own text,
+  30 starts each: ssh through the shell in 8 before, 7 cut, 4 whole again.
 - *A pitfall of the rig, and of Sloperator:* with its folder under `%LOCALAPPDATA%`, no Office file is turned
   into pages (capture_result, a table of contents' page numbers): Word answers "The directory name isn't valid",
   Excel "Document not saved", though the scratch folder is there; Click-to-Run Office doesn't see a folder
