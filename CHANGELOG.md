@@ -5,12 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Changed
-- **A chat starts smaller.** What Sloperator tells the model before your first word (its own instructions and the
-  descriptions of its tools) is about a tenth shorter, so every message costs a little less and leaves more room.
-  How Word, Excel and PowerPoint files are changed is now told to the model the first time a chat touches one.
 
-## [1.5.0] - 2026-11-14
+## [1.5.0] - 2026-11-15
 ### Added
 - **Brush** in the Image editor, beside **Area**: paint over the part of a picture you want redrawn, in any shape,
   stroke on stroke, and say what goes there. The slider beside it, or Ctrl and the mouse wheel, sets the brush's
@@ -91,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page, file or folder in it.
 
 ### Changed
+- **A chat starts smaller.** What Sloperator tells the model before your first word (its own instructions and the
+  descriptions of its tools) is about a tenth shorter, so every message costs a little less and leaves more room.
+  How Word, Excel and PowerPoint files are changed is now told to the model the first time a chat touches one.
 - The blob on the plan bar stands in for the point it is on, with no dot under it; on a finished plan it stands on
   the last point.
 - The **Image editor** opens on your newest picture rather than on "Pick a picture", and the picture has the whole
