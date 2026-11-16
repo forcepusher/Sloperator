@@ -211,8 +211,8 @@ internal static class AutoCard
     {
         var model = PickedIn(summary);
         foreach (var level in Efforts.Levels)
-            if (model.EndsWith($" at {Efforts.Label(level)}", StringComparison.Ordinal))
-                model = model[..^($" at {Efforts.Label(level)}".Length)];
+            if ($" at {Efforts.Label(level)}" is var at && model.EndsWith(at, StringComparison.Ordinal))
+                model = model[..^at.Length];
         return model.Length > 0 ? $"Notes it passed to {model}" : "Notes it passed on";
     }
 
