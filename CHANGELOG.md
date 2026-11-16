@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.5.1] - 2026-11-17
 ### Changed
 - **Auto's card in the chat says what it did and why, in full.** Its line reads "Picked claude-sonnet-5-5 at Medium
   for this message", and the helper's reason has lines of its own under it, where at the end of the line it was cut
@@ -1156,7 +1158,8 @@ The first release.
 - A command-line runner, and benchmarks: desktop tasks, 2048 and Unity 2048, clicks, a sysadmin
   lab, a chat stand-in lab and ComfyUI requests.
 
-[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.5.0...HEAD
+[unreleased]: https://github.com/forcepusher/Sloperator/compare/1.5.1...HEAD
+[1.5.1]: https://github.com/forcepusher/Sloperator/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/forcepusher/Sloperator/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/forcepusher/Sloperator/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/forcepusher/Sloperator/compare/1.2.0...1.3.0

@@ -220,7 +220,7 @@ internal static partial class SheetEdit
     /// <summary>Excel's last row, and the most rows one line may insert.</summary>
     private const int MaxRow = 1_048_576, MaxInsert = 100_000;
 
-    /// <summary>The most formulas a sheet may have for an edit to work them out (see <see cref="SheetFormula.WriteValues"/>).</summary>
+    /// <summary>The most formulas a sheet may have for an edit to work them out (see <see cref="SheetFormula.WriteValues(IEnumerable{System.Xml.Linq.XElement})"/>).</summary>
     private const int MaxWorkedOut = 5_000;
 
     /// <summary>

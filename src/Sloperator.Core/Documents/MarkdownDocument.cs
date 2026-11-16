@@ -24,7 +24,7 @@ internal sealed record ListItemBlock(int Level, bool Ordered, int Number, IReadO
 /// The first row is the header: a |---| line followed it, or none did and it is all words over rows with numbers or formulas.
 /// Qwen 3.8 headed a budget "Expense | January | February" without the line, and the months came out as a plain row,
 /// neither bold nor kept in sight (2026-11-10). A table of words alone, or of numbers from the top, has none.
-/// </param>|---| line followed it).</param>
+/// </param>
 /// <param name="Align">Per column: 'l', 'c' or 'r'.</param>
 internal sealed record TableBlock(IReadOnlyList<IReadOnlyList<IReadOnlyList<Span>>> Rows, bool Header, IReadOnlyList<char> Align) : Block
 {
