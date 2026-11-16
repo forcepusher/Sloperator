@@ -18,7 +18,7 @@ with a stand-in model, and a Unity 2048 run as a sanity check of the agent.
 
 The code since 1.5.0 was tidied when it merged (d3e7df6d), and the same build with the unused-code analyzers on
 (IDE0051, IDE0052, IDE0060, IDE0005) found no unused member anywhere. It found seven `using` lines nothing used,
-in five files of the app and Core and two tests, and with the XML documentation built, a stray fragment
+in four files of the app and Core and two tests, and with the XML documentation built, a stray fragment
 ("|---| line followed it).") left after a `</param>` in `MarkdownDocument.cs` and a `cref` to
 `SheetFormula.WriteValues` that two overloads matched. All fixed in 84e6158a; no behaviour changes.
 `Directory.Build.props` says 1.5.1 and the changelog's section is dated 2026-11-17.
