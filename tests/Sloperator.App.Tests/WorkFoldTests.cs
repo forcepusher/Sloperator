@@ -53,23 +53,35 @@ public sealed class WorkFoldTests
     }
 
     [Fact]
-    public void The_card_says_which_model_Auto_picked_once_its_card_is_folded_away()
+    public void Autos_card_stays_under_the_message_over_the_folded_work()
     {
-        // Auto's card is no tool call, and its pick, folded away, is said on the card: nothing else said who answered.
-        var auto = new ToolCallItem("auto-1", "Auto",
-            "claude-sonnet-5-5 at High (you stayed off claude-opus-5-5) · A change across the settings code.") { At = T0.AddSeconds(1), State = ToolItemState.Done };
+        // Folded with the steps, the run's card came over Auto's, which showed under "Worked for …" with Show steps
+        // (the user, 2026-11-16: "I want it to be the way it was placed before"). It stays where it came, and says the
+        // model itself, so the run's card doesn't.
+        var auto = new ToolCallItem("auto-1", "Auto", "Picked claude-sonnet-5-5 at High for this message\nA change across the settings code.")
+        { At = T0.AddSeconds(1), State = ToolItemState.Done };
+        var read = Call("read_file", 3);
         var reply = Step(5, "Done.");
         reply.RunTook = TimeSpan.FromSeconds(24);
-        ChatItemViewModel[] chat = [Message("Move the settings into a view model", 0), auto, Call("read_file", 3), reply];
+        ChatItemViewModel[] chat = [Message("Move the settings into a view model", 0), auto, read, reply];
 
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
-        Assert.Equal("Worked for 24 s · 1 tool call · " + WorkFold.Unbroken("claude-sonnet-5-5 at High"), auto.Card!.Title); // held together for the wrap
-        Assert.Equal(["read_file"], auto.Card.Tools);
-        Assert.Equal("claude-haiku-5-5", new ToolCallItem("auto-3", "Auto", "claude-haiku-5-5: the evaluation failed") { State = ToolItemState.Error }.AutoPicked);
-        Assert.Equal("claude-haiku-5-5 at Low", new ToolCallItem("auto-4", "Auto", "claude-haiku-5-5 at Low") { State = ToolItemState.Done }.AutoPicked);
-        // Stopped while it picked: no pick to say.
-        Assert.Null(new ToolCallItem("auto-2", "Auto", "claude-haiku-5-5 picks the model for this message…") { State = ToolItemState.Stopped }.AutoPicked);
+        Assert.Null(auto.Fold);
+        Assert.True(auto.IsShown);
+        Assert.Same(read.Fold, read.Card); // the run's card over its first step, under Auto's
+        Assert.Equal("Worked for 24 s · 1 tool call", read.Card!.Title);
+        Assert.Equal(["read_file"], read.Card.Tools);
+        Assert.False(read.IsShown);
+        Assert.True(reply.IsShown);
+
+        // A plain answer after Auto's pick: nothing to fold, no run's card.
+        var picked = new ToolCallItem("auto-2", "Auto", "Picked claude-haiku-5-5 at Medium for this message") { At = T0.AddSeconds(31), State = ToolItemState.Done };
+        var answer = Step(33, "It's in Settings > Advanced.");
+        answer.RunTook = TimeSpan.FromSeconds(4);
+        WorkFold.FoldFinished([.. chat, Message("Where is it?", 30), picked, answer], toTheEnd: false);
+        Assert.Null(picked.Fold);
+        Assert.Null(answer.Fold);
     }
 
     [Fact]
@@ -85,14 +97,16 @@ public sealed class WorkFoldTests
 
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
-        var fold = auto.Card!;
+        // Auto's card stays out: the run's card is in the lookup's place, after the answer, as with no Auto.
+        Assert.Null(auto.Fold);
+        var fold = lookup.Card!;
         // Nor does the card count it as one: "1 tool call" over a "side_task" chip, for a question answered in one step.
-        Assert.Equal("Worked for 25 s · price lookup · " + WorkFold.Unbroken("claude-haiku-5-5 at Low"), fold.Title);
+        Assert.Equal("Worked for 25 s · price lookup", fold.Title);
         Assert.Empty(fold.Tools);
         Assert.True(reply.IsShown);
         Assert.False(reply.ShowsThoughts);
         Assert.False(lookup.IsShown);
-        Assert.False(lookup.InChat);
+        Assert.True(lookup.InChat); // the card in its place
         Assert.False(lookup.ShowsRunTook); // the card says it
 
         fold.ToggleCommand.Execute(null);

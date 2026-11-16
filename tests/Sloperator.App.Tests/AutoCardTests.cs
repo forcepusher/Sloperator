@@ -28,8 +28,6 @@ public sealed class AutoCardTests
         Assert.Equal("Picked in 1.3 s", card.StatusText);
         Assert.Equal("Notes it passed to claude-sonnet-5-5", card.OutputHeader);
         Assert.Equal("- Settings live in `SettingsStore.cs`.", card.FoundText);
-        // The folded run's card says it, as before.
-        Assert.Equal("claude-sonnet-5-5 at Medium", card.AutoPicked);
     }
 
     [Fact]
@@ -39,7 +37,6 @@ public sealed class AutoCardTests
 
         Assert.Equal("Stayed on claude-sonnet-5-5 at Extra high for this message, not claude-opus-5-5", card.Line);
         Assert.Equal("A redesign across many files.", card.Reason);
-        Assert.Equal("claude-sonnet-5-5 at Extra high", card.AutoPicked);
         Assert.Equal("Notes it passed to claude-sonnet-5-5", card.OutputHeader);
     }
 
@@ -52,7 +49,6 @@ public sealed class AutoCardTests
         Assert.Equal("Wants claude-opus-5-5 at High for this message", card.Line);
         Assert.Equal("A redesign across many files.", card.Reason);
         Assert.Equal("Waiting for your answer", card.StatusText);
-        Assert.Null(card.AutoPicked);
     }
 
     [Fact]
@@ -62,7 +58,6 @@ public sealed class AutoCardTests
 
         Assert.Equal("Kept claude-sonnet-5-5 at Medium for this message: the pick failed", card.Line);
         Assert.False(card.HasReason);
-        Assert.Equal("claude-sonnet-5-5 at Medium", card.AutoPicked);
         Assert.Equal("Output", card.OutputHeader);
         Assert.Equal("Failed after 1.3 s", card.StatusText);
     }
@@ -74,7 +69,7 @@ public sealed class AutoCardTests
 
         Assert.Equal("", card.Reason);
         Assert.False(card.HasReason);
-        Assert.Equal("claude-haiku-5-5 at Medium", card.AutoPicked);
+        Assert.Equal("Notes it passed to claude-haiku-5-5", card.OutputHeader);
         // A model that takes no effort: the model alone.
         Assert.Equal("Notes it passed to qwen/qwen3-32b", Card("Picked qwen/qwen3-32b for this message").OutputHeader);
     }
@@ -88,11 +83,10 @@ public sealed class AutoCardTests
 
         Assert.Equal("claude-sonnet-5-5 at High (you stayed off claude-opus-5-5)", card.Line);
         Assert.Equal(Why, card.Reason);
-        Assert.Equal("claude-sonnet-5-5 at High", card.AutoPicked);
         Assert.Equal("Notes it passed to claude-sonnet-5-5", card.OutputHeader);
         Assert.Equal("- Settings live in `SettingsStore.cs`.", card.FoundText);
-        Assert.Equal("claude-haiku-5-5", Card("claude-haiku-5-5: the evaluation failed", ToolItemState.Error).AutoPicked);
-        Assert.Equal("claude-haiku-5-5 at Low", Card("claude-haiku-5-5 at Low").AutoPicked);
+        Assert.Equal("claude-haiku-5-5: the evaluation failed", Card("claude-haiku-5-5: the evaluation failed", ToolItemState.Error).Line);
+        Assert.Equal("Notes it passed to claude-haiku-5-5", Card("claude-haiku-5-5 at Low").OutputHeader);
     }
 
     [Fact]

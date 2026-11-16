@@ -474,9 +474,6 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>The Output foldout's header: on Auto's card, the model its notes went to ("Notes it passed to claude-sonnet-5-5").</summary>
     public string OutputHeader => IsAuto && !IsError ? AutoCard.NotesHeader(Summary) : "Output";
 
-    /// <summary>On Auto's card once it picked: the model and effort the run used, "claude-haiku-5-5 at Low"; else null.</summary>
-    public string? AutoPicked => IsAuto && State is ToolItemState.Done or ToolItemState.Error ? AutoCard.PickedIn(Summary) : null;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand), nameof(Reason), nameof(HasReason), nameof(OutputHeader))]
     private string _summary = summary;
@@ -739,18 +736,16 @@ public sealed partial class WorkFold : ObservableObject
     {
         _lines = [.. lines];
         _kept = [.. kept];
-        // Auto's card is no call of the model's; folded away, its pick is said here (the user's pick, 2026-11-09):
-        // nothing else in sight said which model had answered.
-        // Nor is the price lookup Sloperator runs after the answer: a question answered in one step read
+        // The price lookup Sloperator runs after the answer is no call of the model's: a question answered in one step read
         // "1 tool call" over a "side_task" chip, for a call the model never made (2026-11-12). It is named instead.
-        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto && !c.IsAfterAnswer).ToList();
+        // Auto's card isn't in the fold (see FoldFinished), and says the model itself.
+        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAfterAnswer).ToList();
         Tools = calls.Select(c => c.Name).Distinct().ToList();
         Title = string.Join(" · ", new[]
         {
             took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
             calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
             _lines.OfType<ToolCallItem>().Any(c => c.IsAfterAnswer) ? "price lookup" : null,
-            _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null) is { } pick ? Unbroken(pick) : null,
         }.OfType<string>().DefaultIfEmpty("Thoughts"));
         foreach (var line in _lines)
             line.JoinFold(this, whole: true);
@@ -758,14 +753,8 @@ public sealed partial class WorkFold : ObservableObject
             line.JoinFold(this, whole: false);
     }
 
-    /// <summary>"Worked for 3 min 12 s · 4 tool calls", with "price lookup" when Sloperator looked the model's prices up after the answer, then Auto's pick.</summary>
+    /// <summary>"Worked for 3 min 12 s · 4 tool calls", with "price lookup" when Sloperator looked the model's prices up after the answer.</summary>
     public string Title { get; }
-
-    /// <summary>
-    /// Auto's pick held together, so a narrow chat wraps the title before it: it broke between "at" and the
-    /// effort, and with only the spaces held, inside the model's name ("anthropic/claude-" over "haiku-5.5 at Low").
-    /// </summary>
-    public static string Unbroken(string pick) => pick.Replace(' ', (char)0xA0).Replace("-", "-" + (char)0x2060).Replace("/", "/" + (char)0x2060);
 
     /// <summary>The tools the run called, each once, in the order it first called them.</summary>
     public IReadOnlyList<string> Tools { get; }
@@ -834,6 +823,11 @@ public sealed partial class WorkFold : ObservableObject
                     var stopped = Between(stretch, line);
                     stretch.Add(line);
                     Close(stretch, stopped, endsWith: true);
+                    break;
+                // Auto's card stays where it came, under the message, over the run's card (the user, 2026-11-16: "I want it
+                // to be the way it was placed before"): it says which model works on the message and why. Folded with
+                // the steps, the run's card came over it, and it showed under "Worked for …" with Show steps.
+                case ToolCallItem { IsAuto: true }:
                     break;
                 default:
                     stretch.Add(line);
