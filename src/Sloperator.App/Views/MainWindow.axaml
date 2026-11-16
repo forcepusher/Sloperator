@@ -842,6 +842,10 @@
                                VerticalAlignment="Center" ToolTip.Tip="{Binding Title}" />
                   </DockPanel>
 
+                  <!-- Why Auto picked what it did, whole, on lines of its own under the line that says what it did
+                       (design A of four, the user, 2026-11-16: at the end of the line it was cut off). -->
+                  <views:SelectableText Classes="reason" Text="{Binding Reason}" IsVisible="{Binding HasReason}" />
+
                   <!-- A shell command in full, open: what ran matters more than its output. -->
                   <Border Classes="command" IsVisible="{Binding HasCommand}">
                     <views:SelectableText Classes="command" Text="{Binding Command}" />
@@ -872,8 +876,9 @@
                     <views:SelectableText Text="{Binding Input}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />
                   </Expander>
 
-                  <!-- Open on Auto's card, as "What it found" (the mockup the user picked, 2026-11-09): notes for
-                       people, in the model's Markdown as a reply's are shown, where a tool's output is code. -->
+                  <!-- Open on Auto's card, named for the model they went to, "Notes it passed to claude-sonnet-5-5" (it
+                       was "What it found", the mockup the user picked, 2026-11-09, until design A of 2026-11-16): notes
+                       for people, in the model's Markdown as a reply's are shown, where a tool's output is code. -->
                   <Expander IsVisible="{Binding HasResult}" Header="{Binding OutputHeader}" IsExpanded="{Binding IsAuto, Mode=OneTime}" Padding="8,4" HorizontalAlignment="Stretch">
                     <Panel>
                       <views:SelectableText Text="{Binding ResultText}" IsVisible="{Binding !IsAuto}" TextWrapping="Wrap" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Margin="-8,-4" Padding="8,4" />

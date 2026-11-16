@@ -471,22 +471,32 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// </summary>
     public bool IsAfterAnswer => Name == Core.Tools.SideTaskTool.ToolName && CallId.StartsWith(Core.Tools.SideTaskTool.AfterAnswerId, StringComparison.Ordinal);
 
-    /// <summary>The Output foldout's header: "What it found" on Auto's card.</summary>
-    public string OutputHeader => IsAuto && !IsError ? "What it found" : "Output";
+    /// <summary>The Output foldout's header: on Auto's card, the model its notes went to ("Notes it passed to claude-sonnet-5-5").</summary>
+    public string OutputHeader => IsAuto && !IsError ? AutoCard.NotesHeader(Summary) : "Output";
 
     /// <summary>On Auto's card once it picked: the model and effort the run used, "claude-haiku-5-5 at Low"; else null.</summary>
-    public string? AutoPicked => IsAuto && State is ToolItemState.Done or ToolItemState.Error ? MainWindowViewModel.PickedIn(Summary) : null;
+    public string? AutoPicked => IsAuto && State is ToolItemState.Done or ToolItemState.Error ? AutoCard.PickedIn(Summary) : null;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand), nameof(Reason), nameof(HasReason), nameof(OutputHeader))]
     private string _summary = summary;
 
     /// <summary>
     /// The card's line beside the tool's name: the summary, or for a shell command a short title with
     /// what the model said it does ("Run a command · List the newest log files"), the command itself
-    /// under it in a block of its own (a whole command in bold was too much, the user, 2026-10-29).
+    /// under it in a block of its own (a whole command in bold was too much, the user, 2026-10-29). On Auto's card, what
+    /// it did ("Picked claude-sonnet-5-5 at Medium for this message"), its reason under it (<see cref="Reason"/>).
     /// </summary>
-    public string Title => !HasCommand ? Summary : CommandParts().Description is { } d ? $"Run a command · {d}" : "Run a command";
+    public string Title => IsAuto ? AutoCard.Parts(Summary).Line
+        : !HasCommand ? Summary : CommandParts().Description is { } d ? $"Run a command · {d}" : "Run a command";
+
+    /// <summary>
+    /// Why Auto picked what it did, in the helper's words, wrapped under the card's line: at the end of that line it was
+    /// cut off after a few words (the user, 2026-11-16). Empty on any other card.
+    /// </summary>
+    public string Reason => IsAuto ? AutoCard.Parts(Summary).Reason : "";
+
+    public bool HasReason => Reason.Length > 0;
 
     /// <summary>The title as the card shows it, on one line: its paths by their names (<see cref="ToolLine"/>); the whole title is its tooltip.</summary>
     public string Line => ToolLine.Short(Title);
@@ -515,7 +525,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     private string _resultText = "";
 
     /// <summary>What Auto's card found, shown as Markdown; null on any other card, whose output is shown as it is (and not parsed for nothing).</summary>
-    public string? FoundText => IsAuto ? ResultText : null;
+    public string? FoundText => IsAuto ? AutoCard.Notes(ResultText) : null;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasScreenshot), nameof(HasOpenScreenshot), nameof(HasFoldedScreenshot))]
@@ -569,7 +579,8 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     {
         ToolItemState.AwaitingApproval => "Waiting for your OK",
         ToolItemState.Running => Progress.Length > 0 ? ToolLine.Short(Progress) : RunningText,
-        ToolItemState.Done => Took is { } took ? $"Done in {ChatTimes.Duration(took)}" : "Done",
+        // Auto's card isn't a tool call that ran: "Done" said nothing of what it did.
+        ToolItemState.Done => Took is { } took ? $"{(IsAuto ? "Picked" : "Done")} in {ChatTimes.Duration(took)}" : IsAuto ? "Picked" : "Done",
         ToolItemState.Error => Took is { } took ? $"Failed after {ChatTimes.Duration(took)}" : "Failed",
         ToolItemState.Denied => "Declined",
         ToolItemState.Stopped => Took is { } took ? $"Stopped after {ChatTimes.Duration(took)}" : "Stopped",
