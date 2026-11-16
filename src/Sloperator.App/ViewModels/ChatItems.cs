@@ -732,18 +732,13 @@ public sealed partial class WorkFold : ObservableObject
     /// <summary>What the run ended with, which stays in the chat with its thinking folded: its reply and any line after it, or its stop.</summary>
     private readonly List<ChatItemViewModel> _kept;
 
-    /// <summary>Both, in the chat's order: the line after Auto's card is found in it (see <see cref="Head"/>).</summary>
-    private readonly List<ChatItemViewModel> _order;
-
     /// <param name="lines">The lines that fold away, in order.</param>
     /// <param name="kept">The lines the run ended with, which stay (its reply, or its stop).</param>
     /// <param name="took">How long the run worked, from the message that started it; null when the chat didn't keep the times.</param>
-    /// <param name="order">All of them in the chat's order; null for the lines, then the kept.</param>
-    public WorkFold(IReadOnlyList<ChatItemViewModel> lines, IReadOnlyList<ChatItemViewModel> kept, TimeSpan? took, IReadOnlyList<ChatItemViewModel>? order = null)
+    public WorkFold(IReadOnlyList<ChatItemViewModel> lines, IReadOnlyList<ChatItemViewModel> kept, TimeSpan? took)
     {
         _lines = [.. lines];
         _kept = [.. kept];
-        _order = [.. order ?? [.. lines, .. kept]];
         // Auto's card is no call of the model's; folded away, its pick is said here (the user's pick, 2026-11-09):
         // nothing else in sight said which model had answered.
         // Nor is the price lookup Sloperator runs after the answer: a question answered in one step read
@@ -777,24 +772,8 @@ public sealed partial class WorkFold : ObservableObject
 
     public bool HasTools => Tools.Count > 0;
 
-    /// <summary>
-    /// The line the card shows over: the first still in the chat (a long run drops its oldest), the reply when nothing
-    /// else folds. Not Auto's card, which folds too but shows over the run's card with Show steps, where it was while
-    /// the run went on (the user, 2026-11-16: "Why is auto pick shows after 'worked' thing? I want it to be the way it was
-    /// placed before", then "it should fold inside the 'Worked' foldout as well"): the line after it, the reply after a
-    /// plain answer's.
-    /// </summary>
-    public ChatItemViewModel? Head
-    {
-        get
-        {
-            var first = _lines.Count > 0 ? _lines[0] : _kept.FirstOrDefault();
-            if (first is not ToolCallItem { IsAuto: true })
-                return first;
-            var at = _order.IndexOf(first);
-            return _order.Skip(at + 1).FirstOrDefault(l => l is not ToolCallItem { IsAuto: true }) ?? first;
-        }
-    }
+    /// <summary>The line the card shows over: the first still in the chat (a long run drops its oldest), the reply when nothing else folds.</summary>
+    public ChatItemViewModel? Head => _lines.Count > 0 ? _lines[0] : _kept.FirstOrDefault();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ToggleText))]
@@ -817,7 +796,6 @@ public sealed partial class WorkFold : ObservableObject
         var wasHead = ReferenceEquals(Head, line);
         if (!_lines.Remove(line))
             _kept.Remove(line);
-        _order.Remove(line);
         if (wasHead)
             Head?.FoldChanged();
     }
@@ -894,7 +872,7 @@ public sealed partial class WorkFold : ObservableObject
             (i > reply && IsWork(stretch[i]) ? lines : kept).Add(stretch[i]);
         if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true } or AssistantMessageItem { IsHandoffNote: true })
             || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
-            _ = new WorkFold(lines, kept, took, stretch);
+            _ = new WorkFold(lines, kept, took);
         stretch.Clear();
     }
 

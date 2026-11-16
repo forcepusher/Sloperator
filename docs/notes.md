@@ -1983,11 +1983,9 @@ call and no thinking (a model loaded, a plain answer) isn't folded and keeps its
 Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
 card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
 nothing in sight said which model had answered). It is read back from the card's line (`AutoCard.PickedIn`), so a chat
-opened from History says it too; a card stopped while it picked has none. The run's card shows over the line after
-Auto's (`WorkFold.Head`), the reply after a plain answer's, so with Show steps Auto's card opens over it, where it was
-while the run went on (the user, 2026-11-16: "Why is auto pick shows after 'worked' thing? I want it to be the way it
-was placed before", then, with it kept out of the fold for good, "it should fold inside the 'Worked' foldout as well").
-Until then the run's card showed over Auto's, the first line, and Show steps opened it under "Worked for …". The pick is held together
+opened from History says it too; a card stopped while it picked has none. With Show steps it opens under "Worked for …",
+the first of the steps: tried on 2026-11-16 out of the fold for good, then folded but opening above the run's card,
+the user wanted it inside ("Why is it folds outside, above the 'Worked' fold?"). The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 Nor is the price lookup Sloperator runs after the answer (`ToolCallItem.IsAfterAnswer`) counted or shown as a
