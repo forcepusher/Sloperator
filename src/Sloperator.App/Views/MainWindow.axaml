@@ -1230,17 +1230,17 @@
             <TextBox x:Name="InputBox" AutomationProperties.Name="Message" Grid.Row="1" Grid.Column="1" Classes="composer" Text="{Binding Input}" AcceptsReturn="True" TextWrapping="Wrap"
                      MaxHeight="200" VerticalContentAlignment="Center"
                      PlaceholderText="{Binding InputHint}" />
-            <!-- Stop comes in on the left, beside the words, so the blob and Send stay where they are: at the right end,
-                 it pushed both left as a run started, and back as it ended (the user's pick, 2026-11-09). Laid out from
+            <!-- From the left: the blob, Stop, Send (the user's pick, 2026-11-17: the blob first, the buttons together).
+                 Stop comes in between, so Send stays where it is and the blob steps left as a run starts. Laid out from
                  the right end: as a row from the left, Send still moved a pixel at 125% as Stop came and went. -->
             <DockPanel Grid.Row="1" Grid.Column="2" LastChildFill="False" VerticalAlignment="Bottom" Margin="8,0,0,0">
               <!-- Sent from here or with Enter, the chat follows its end again, to the message. -->
               <Button DockPanel.Dock="Right" Classes="primary" Content="Send" Command="{Binding SendCommand}" Click="OnSendClick" />
-              <!-- The logo blob, as tall as Send and 8 from it; it dances while a prompt runs.
+              <Button DockPanel.Dock="Right" Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" Margin="0,0,8,0" />
+              <!-- The logo blob, as tall as Send and 8 from the button beside it; it dances while a prompt runs.
                    Not with the intro, which has the logo already, nor with a plan, whose bar it walks. -->
               <views:PartyBlob DockPanel.Dock="Right" Dancing="{Binding IsBusy}" IsVisible="{Binding ShowsSendBlob}" Width="32" Height="32" VerticalAlignment="Bottom"
                                Margin="0,0,8,0" />
-              <Button DockPanel.Dock="Right" Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsBusy}" Margin="0,0,8,0" />
             </DockPanel>
           </Grid>
         </Border>
