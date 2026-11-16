@@ -580,7 +580,7 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
         ToolItemState.AwaitingApproval => "Waiting for your OK",
         ToolItemState.Running => Progress.Length > 0 ? ToolLine.Short(Progress) : RunningText,
         // Auto's card isn't a tool call that ran: "Done" said nothing of what it did.
-        ToolItemState.Done => Took is { } took ? $"{(IsAuto ? "Picked" : "Done")} in {ChatTimes.Duration(took)}" : IsAuto ? "Picked" : "Done",
+        ToolItemState.Done => (IsAuto ? "Picked" : "Done") + (Took is { } took ? $" in {ChatTimes.Duration(took)}" : ""),
         ToolItemState.Error => Took is { } took ? $"Failed after {ChatTimes.Duration(took)}" : "Failed",
         ToolItemState.Denied => "Declined",
         ToolItemState.Stopped => Took is { } took ? $"Stopped after {ChatTimes.Duration(took)}" : "Stopped",

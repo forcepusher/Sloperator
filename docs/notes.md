@@ -1984,8 +1984,7 @@ Auto's card (see Auto model and effort) folds with the work and isn't counted as
 card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
 nothing in sight said which model had answered). It is read back from the card's line (`AutoCard.PickedIn`), so a chat
 opened from History says it too; a card stopped while it picked has none. With Show steps it opens under "Worked for …",
-the first of the steps: tried on 2026-11-16 out of the fold for good, then folded but opening above the run's card,
-the user wanted it inside ("Why is it folds outside, above the 'Worked' fold?"). The pick is held together
+the first of the steps (the user, 2026-11-16: "I want it to be below Worked, folded there below"). The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 Nor is the price lookup Sloperator runs after the answer (`ToolCallItem.IsAfterAnswer`) counted or shown as a
