@@ -1982,8 +1982,10 @@ and the rest of the run makes another (timed from its first line to the message)
 call and no thinking (a model loaded, a plain answer) isn't folded and keeps its "Worked for" line.
 Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
 card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
-nothing in sight said which model had answered). It is read back from the card's line (`PickedIn`), so a chat
-opened from History says it too; a card stopped while it picked has none. The pick is held together
+nothing in sight said which model had answered). It is read back from the card's line (`AutoCard.PickedIn`), so a chat
+opened from History says it too; a card stopped while it picked has none. With Show steps it opens under "Worked for …",
+the first of the steps: tried on 2026-11-16 out of the fold for good, then folded but opening above the run's card,
+the user wanted it inside ("Why is it folds outside, above the 'Worked' fold?"). The pick is held together
 (`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
 it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 Nor is the price lookup Sloperator runs after the answer (`ToolCallItem.IsAfterAnswer`) counted or shown as a
@@ -3447,15 +3449,34 @@ alone, took Opus to max; and the last message went with no evaluation request.
 
 **How it shows** (the user picked on 2026-11-09 from three mockups, https://claude.ai/artifact/WXX9vsSzxuuFfDbiGw9yuv,
 "the design from first option, but with a switch dialogue from 3rd option as well"): a card in the chat named Auto
-(`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 picks the model for this message…" with the
-evaluation's calls as progress, then "claude-opus-5-5 at High · why", and what it found as its Output, open, under
-"What it found", its Markdown shown as a reply's (`ToolCallItem.FoundText`; a tool's output is code, in the mono font). Up to a
+(`ShowAutoPicking`, `ShowAutoPick`), its line "claude-haiku-5-5 is picking the model for this message…" with the
+evaluation's calls as progress, then "Picked claude-opus-5-5 at High for this message" with the helper's why under it,
+and what it found as its Output, open, under "Notes it passed to claude-opus-5-5", its Markdown shown as a reply's
+(`ToolCallItem.FoundText`; a tool's output is code, in the mono font). Up to a
 dearer model of the three than the one in use (helper, then daily, then complex: the user's own order, no
 prices compared) the run asks first, on a card over the message box (`AutoSwitchQuestion`): "Switch to
 claude-opus-5-5 at High for this? It costs more than claude-sonnet-5-5.", Stay on claude-sonnet-5-5 or Switch,
 "Switches in 7 s" and a bar running down; no answer in 10 s takes Auto's pick, Stop ends it with the run. The card
-says "Wants claude-opus-5-5 at High" meanwhile, and "(you stayed off claude-opus-5-5)" after Stay. Down, on a
+says "Wants claude-opus-5-5 at High for this message" meanwhile, "Waiting for your answer" where its time goes, and
+"Stayed on claude-sonnet-5-5 at Medium for this message, not claude-opus-5-5" after Stay. Down, on a
 chat's first message or once the cache has lapsed, or the same goes ahead without asking. The second design, the boxes lighting up with the reason in their tooltip, was left out.
+
+**The card's line and its reason** (the user, 2026-11-16, with a screenshot: "The model selection text gets clipped a
+lot. And it's unclear to the user what that thing even does"; picked design A of four mockups, branch
+`design/auto-card-mockups`, `mockups/auto-card/`). Until then the card's one line was "claude-sonnet-5-5 at Medium ·
+The user is asking a planning question about how the existing es…": the helper's why, a long sentence, ended in "…"
+after a few words at any window size, as a tool card's line is cut to one line
+(`ToolLine`), and "Auto" over "Done in 1.3 s" read as one more tool that had run. Now the line says what Auto did, in
+words a tool card doesn't use: "Picked claude-sonnet-5-5 at Medium for this message" (or "Wants …", "Stayed on … , not
+…", "Kept … for this message: the pick failed"), the why goes whole on lines of its own under it, secondary at 14 on
+lines of 20 (`SelectableTextBlock.reason`, `ToolCallItem.Reason`), its time says "Picked in 1.3 s", and its notes'
+foldout names the model they went to, "Notes it passed to claude-sonnet-5-5", so the "Found by claude-haiku-5-5. These
+notes go to claude-sonnet-5-5 with your message." that ended them went. The chat saves the card's summary as the line,
+a line break, then the why (`AutoCard.Summary`); a chat saved before has "claude-sonnet-5-5 at Medium · why" on one
+line, which is split at its " · " and shown the same way, its notes' old last line left out (`AutoCard.Parts`,
+`AutoCard.Notes`), and the folded run's card reads the model and effort from either (`AutoCard.PickedIn`). The other
+three designs: the three Auto models side by side with the picked one lit (B), a line under the user's message with
+a Why popup (C), a note in Sloperator's voice quoting the helper (D).
 
 ### Claude through Anthropic's API
 With `api.anthropic.com` as the address (or `anthropic.com`, `claude.com`, `platform.claude.com`,

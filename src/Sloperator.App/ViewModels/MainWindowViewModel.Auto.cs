@@ -91,7 +91,7 @@ public sealed partial class MainWindowViewModel
     internal const string AutoCardName = "Auto";
 
     /// <summary>The card's line while the evaluation goes on, after the helper model's name.</summary>
-    private const string Picking = " picks the model for this message…";
+    private const string Picking = " is picking the model for this message…";
 
     /// <summary>
     /// Shows that Auto's evaluation by <paramref name="by"/> has started: a card in the chat, its calls lines
@@ -105,7 +105,7 @@ public sealed partial class MainWindowViewModel
         return text => observer.OnToolProgress(card, text);
     }
 
-    /// <summary>The run stopped during the evaluation: its card says it was picking, where "picks the model for this message…" read as still going.</summary>
+    /// <summary>The run stopped during the evaluation: its card says it was picking, where "is picking the model for this message…" read as still going.</summary>
     private void EndAutoPicking()
     {
         if (_autoCard is not { } card)
@@ -123,32 +123,15 @@ public sealed partial class MainWindowViewModel
     {
         if (_autoCard is not { } card)
             return;
-        var line = $"Wants {(effort is null ? model : $"{model} at {Efforts.Label(effort)}")}" + (pick.Why.Length > 0 ? $"{Because}{pick.Why}" : "");
+        var summary = AutoCard.Summary($"{AutoCard.Wants}{AutoCard.At(model, effort)}{AutoCard.ForThis}", pick.Why);
         Dispatcher.UIThread.Post(() =>
         {
             if (Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == card.Id) is { } item)
             {
-                item.Summary = line;
-                item.Progress = "";
+                item.Summary = summary;
+                item.Progress = AutoCard.Waiting;
             }
         });
-    }
-
-    // How the card's line goes on after the model it picked (ShowAutoPick), for PickedIn to read back.
-    private const string StayedOff = " (you stayed off ", Failed = ": the evaluation failed", Because = " · ";
-
-    /// <summary>
-    /// The model and effort an Auto card's line says the run used ("claude-opus-5-5 at High" of "claude-opus-5-5 at High
-    /// (you stayed off claude-fable-5-1) · A refactor"), for the folded card that hides it; read from the line, so a chat
-    /// opened from History has it too.
-    /// </summary>
-    internal static string PickedIn(string line)
-    {
-        var end = line.IndexOf(Because, StringComparison.Ordinal) is >= 0 and var because ? because : line.Length;
-        foreach (var after in (string[])[Failed, StayedOff])
-            if (line.IndexOf(after, StringComparison.Ordinal) is >= 0 and var at && at < end)
-                end = at;
-        return line[..end];
     }
 
     /// <summary>
@@ -161,19 +144,83 @@ public sealed partial class MainWindowViewModel
         if (_autoCard is not { } card)
             return;
         _autoCard = null;
-        var at = (effort is null ? model : $"{model} at {Efforts.Label(effort)}") + (declined is null ? "" : $"{StayedOff}{declined})");
-        var line = pick.Problem is not null ? $"{at}{Failed}" : pick.Why.Length > 0 ? $"{at}{Because}{pick.Why}" : at;
-        var output = pick.Problem is not null ? $"{pick.By} couldn't pick: {pick.Problem}"
-            // The helper picking itself: "Found by claude-haiku-5-5. These notes go to claude-haiku-5-5" read as a slip.
-            : pick.Found.Length > 0 ? $"{pick.Found}\n\nFound by {pick.By}. These notes go {(pick.By == model ? "" : $"to {model} ")}with your message." : "";
+        var at = AutoCard.At(model, effort);
+        var summary = pick.Problem is not null ? $"{AutoCard.Kept}{at}{AutoCard.ForThis}{AutoCard.Failed}"
+            : AutoCard.Summary(declined is null ? $"{AutoCard.Picked}{at}{AutoCard.ForThis}" : $"{AutoCard.Stayed}{at}{AutoCard.ForThis}{AutoCard.Not}{declined}", pick.Why);
+        // The notes alone: the foldout's header says whom they go to (AutoCard.NotesHeader).
+        var output = pick.Problem is not null ? $"{pick.By} couldn't pick: {pick.Problem}" : pick.Found;
         IAgentObserver observer = this;
         // The line, then the end: both are posted, in this order, after the start.
         Dispatcher.UIThread.Post(() =>
         {
             if (Items.OfType<ToolCallItem>().LastOrDefault(t => t.CallId == card.Id) is { } item)
-                item.Summary = line;
+                item.Summary = summary;
         });
         observer.OnToolFinished(card, pick.Problem is not null ? ToolResult.Error(output) : new ToolResult(output));
+    }
+}
+
+/// <summary>
+/// How Auto's card says what it did (the user's pick of four mockups, 2026-11-16, design A: its reason was cut off at
+/// the end of a one-line card, and the card didn't say what it was). Its summary, which the chat saves, is a line that
+/// says what happened ("Picked claude-sonnet-5-5 at Medium for this message"), then the helper's reason on lines of its
+/// own, shown wrapped under it. Chats saved before put it all on one line, "claude-sonnet-5-5 at Medium · the reason":
+/// they are read too.
+/// </summary>
+internal static class AutoCard
+{
+    internal const string Picked = "Picked ", Stayed = "Stayed on ", Kept = "Kept ", Wants = "Wants ", ForThis = " for this message",
+        Not = ", not ", Failed = ": the pick failed", Waiting = "Waiting for your answer";
+
+    // The one line of chats saved before 2026-11-16 (after the model: " (you stayed off …)", ": the evaluation failed", " · why").
+    private const string OldStayedOff = " (you stayed off ", OldFailed = ": the evaluation failed", OldBecause = " · ";
+
+    /// <summary>"claude-opus-5-5 at High", or the model alone for one that takes no effort.</summary>
+    internal static string At(string model, string? effort) => effort is null ? model : $"{model} at {Efforts.Label(effort)}";
+
+    internal static string Summary(string line, string why) => why.Length > 0 ? $"{line}\n{why}" : line;
+
+    /// <summary>The card's line and the reason under it; a saved one-line summary is split at its " · ".</summary>
+    internal static (string Line, string Reason) Parts(string summary)
+    {
+        if (summary.IndexOf('\n') is >= 0 and var end)
+            return (summary[..end], summary[(end + 1)..].Trim());
+        return summary.IndexOf(OldBecause, StringComparison.Ordinal) is >= 0 and var at ? (summary[..at], summary[(at + OldBecause.Length)..]) : (summary, "");
+    }
+
+    /// <summary>
+    /// The model and effort a card says the run used ("claude-opus-5-5 at High" of "Stayed on claude-opus-5-5 at High for
+    /// this message, not claude-fable-5-1"), for the folded card that hides it; read from the line, so a chat opened
+    /// from History has it too.
+    /// </summary>
+    internal static string PickedIn(string summary)
+    {
+        var line = Parts(summary).Line;
+        foreach (var word in (string[])[Picked, Stayed, Kept])
+            if (line.StartsWith(word, StringComparison.Ordinal) && line.IndexOf(ForThis, word.Length, StringComparison.Ordinal) is >= 0 and var end)
+                return line[word.Length..end];
+        var cut = line.Length;
+        foreach (var after in (string[])[OldFailed, OldStayedOff])
+            if (line.IndexOf(after, StringComparison.Ordinal) is >= 0 and var at && at < cut)
+                cut = at;
+        return line[..cut];
+    }
+
+    /// <summary>"Notes it passed to claude-sonnet-5-5": the model the helper's notes went to with the message.</summary>
+    internal static string NotesHeader(string summary)
+    {
+        var model = PickedIn(summary);
+        foreach (var level in Efforts.Levels)
+            if (model.EndsWith($" at {Efforts.Label(level)}", StringComparison.Ordinal))
+                model = model[..^($" at {Efforts.Label(level)}".Length)];
+        return model.Length > 0 ? $"Notes it passed to {model}" : "Notes it passed on";
+    }
+
+    /// <summary>The notes alone: a chat saved before 2026-11-16 has "Found by …, with your message." after them, which the header now says.</summary>
+    internal static string Notes(string output)
+    {
+        const string by = "\n\nFound by ", end = " with your message.";
+        return output.EndsWith(end, StringComparison.Ordinal) && output.LastIndexOf(by, StringComparison.Ordinal) is >= 0 and var at ? output[..at] : output;
     }
 }
 

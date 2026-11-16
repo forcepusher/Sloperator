@@ -736,6 +736,13 @@
       <Setter Property="FontSize" Value="12" />
       <Setter Property="Foreground" Value="{StaticResource BbAccent}" />
     </Style>
+    <!-- Why Auto picked what it did, under its card's line: secondary, wrapped, on lines of 20 as the thoughts are. -->
+    <Style Selector="SelectableTextBlock.reason">
+      <Setter Property="Foreground" Value="{StaticResource BbSecondary}" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="LineHeight" Value="20" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
     <!-- A line from Sloperator in the chat (a nudge to the model, a stop): boxed, its words secondary,
          its time muted. The border is an inset shadow, so the box is as big as without one at every
          scale: a padding a pixel less rounded to 2 px shorter at 125%, and a margin of -1 to take a
