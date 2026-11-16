@@ -53,35 +53,52 @@ public sealed class WorkFoldTests
     }
 
     [Fact]
-    public void Autos_card_stays_under_the_message_over_the_folded_work()
+    public void The_card_says_which_model_Auto_picked_once_its_card_is_folded_away()
     {
-        // Folded with the steps, the run's card came over Auto's, which showed under "Worked for …" with Show steps
-        // (the user, 2026-11-16: "I want it to be the way it was placed before"). It stays where it came, and says the
-        // model itself, so the run's card doesn't.
-        var auto = new ToolCallItem("auto-1", "Auto", "Picked claude-sonnet-5-5 at High for this message\nA change across the settings code.")
-        { At = T0.AddSeconds(1), State = ToolItemState.Done };
-        var read = Call("read_file", 3);
+        // Auto's card is no tool call, and its pick, folded away, is said on the card: nothing else said who answered.
+        var auto = new ToolCallItem("auto-1", "Auto",
+            "claude-sonnet-5-5 at High (you stayed off claude-opus-5-5) · A change across the settings code.") { At = T0.AddSeconds(1), State = ToolItemState.Done };
         var reply = Step(5, "Done.");
         reply.RunTook = TimeSpan.FromSeconds(24);
-        ChatItemViewModel[] chat = [Message("Move the settings into a view model", 0), auto, read, reply];
+        ChatItemViewModel[] chat = [Message("Move the settings into a view model", 0), auto, Call("read_file", 3), reply];
 
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
-        Assert.Null(auto.Fold);
-        Assert.True(auto.IsShown);
-        Assert.Same(read.Fold, read.Card); // the run's card over its first step, under Auto's
-        Assert.Equal("Worked for 24 s · 1 tool call", read.Card!.Title);
+        // The card is over the first step, under Auto's (the user, 2026-11-16: "Why is auto pick shows after 'worked'
+        // thing?"): Auto's folds with the steps and opens over the card, where it was while the run went on.
+        var read = (ToolCallItem)chat[2];
+        Assert.Same(auto.Fold, read.Card);
+        Assert.Null(auto.Card);
+        Assert.Equal("Worked for 24 s · 1 tool call · " + WorkFold.Unbroken("claude-sonnet-5-5 at High"), read.Card!.Title); // held together for the wrap
         Assert.Equal(["read_file"], read.Card.Tools);
-        Assert.False(read.IsShown);
-        Assert.True(reply.IsShown);
+        Assert.False(auto.IsShown);
+        Assert.False(auto.InChat);
+        read.Card.ToggleCommand.Execute(null);
+        Assert.True(auto.IsShown);
+        Assert.Equal("claude-haiku-5-5", new ToolCallItem("auto-3", "Auto", "claude-haiku-5-5: the evaluation failed") { State = ToolItemState.Error }.AutoPicked);
+        Assert.Equal("claude-haiku-5-5 at Low", new ToolCallItem("auto-4", "Auto", "claude-haiku-5-5 at Low") { State = ToolItemState.Done }.AutoPicked);
+        Assert.Equal("claude-sonnet-5-5 at Medium", new ToolCallItem("auto-5", "Auto", "Picked claude-sonnet-5-5 at Medium for this message\nA plan.") { State = ToolItemState.Done }.AutoPicked);
+        // Stopped while it picked: no pick to say.
+        Assert.Null(new ToolCallItem("auto-2", "Auto", "claude-haiku-5-5 picks the model for this message…") { State = ToolItemState.Stopped }.AutoPicked);
+    }
 
-        // A plain answer after Auto's pick: nothing to fold, no run's card.
-        var picked = new ToolCallItem("auto-2", "Auto", "Picked claude-haiku-5-5 at Medium for this message") { At = T0.AddSeconds(31), State = ToolItemState.Done };
-        var answer = Step(33, "It's in Settings > Advanced.");
-        answer.RunTook = TimeSpan.FromSeconds(4);
-        WorkFold.FoldFinished([.. chat, Message("Where is it?", 30), picked, answer], toTheEnd: false);
-        Assert.Null(picked.Fold);
-        Assert.Null(answer.Fold);
+    [Fact]
+    public void A_plain_answer_after_Autos_pick_has_the_card_over_the_answer_and_Autos_over_the_card()
+    {
+        var auto = new ToolCallItem("auto-1", "Auto", "Picked claude-haiku-5-5 at Medium for this message") { At = T0.AddSeconds(1), State = ToolItemState.Done };
+        var reply = Step(4, "It's in Settings > Advanced.");
+        reply.RunTook = TimeSpan.FromSeconds(4);
+        ChatItemViewModel[] chat = [Message("Where is it?", 0), auto, reply];
+
+        WorkFold.FoldFinished(chat, toTheEnd: false);
+
+        Assert.Equal("Worked for 4.0 s · " + WorkFold.Unbroken("claude-haiku-5-5 at Medium"), reply.Card!.Title);
+        Assert.True(reply.IsShown);
+        Assert.False(auto.InChat);
+
+        // The oldest line leaves a long chat: the card stays over the answer.
+        reply.Card.Drop(auto);
+        Assert.Same(reply.Fold, reply.Card);
     }
 
     [Fact]
@@ -97,16 +114,16 @@ public sealed class WorkFoldTests
 
         WorkFold.FoldFinished(chat, toTheEnd: false);
 
-        // Auto's card stays out: the run's card is in the lookup's place, after the answer, as with no Auto.
-        Assert.Null(auto.Fold);
-        var fold = lookup.Card!;
+        // Over the reply, Auto's card folded over it.
+        Assert.Null(auto.Card);
+        var fold = reply.Card!;
         // Nor does the card count it as one: "1 tool call" over a "side_task" chip, for a question answered in one step.
-        Assert.Equal("Worked for 25 s · price lookup", fold.Title);
+        Assert.Equal("Worked for 25 s · price lookup · " + WorkFold.Unbroken("claude-haiku-5-5 at Low"), fold.Title);
         Assert.Empty(fold.Tools);
         Assert.True(reply.IsShown);
         Assert.False(reply.ShowsThoughts);
         Assert.False(lookup.IsShown);
-        Assert.True(lookup.InChat); // the card in its place
+        Assert.False(lookup.InChat);
         Assert.False(lookup.ShowsRunTook); // the card says it
 
         fold.ToggleCommand.Execute(null);

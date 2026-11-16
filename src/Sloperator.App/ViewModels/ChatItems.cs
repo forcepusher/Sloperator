@@ -474,6 +474,9 @@ public sealed partial class ToolCallItem(string callId, string name, string summ
     /// <summary>The Output foldout's header: on Auto's card, the model its notes went to ("Notes it passed to claude-sonnet-5-5").</summary>
     public string OutputHeader => IsAuto && !IsError ? AutoCard.NotesHeader(Summary) : "Output";
 
+    /// <summary>On Auto's card once it picked: the model and effort the run used, "claude-haiku-5-5 at Low"; else null.</summary>
+    public string? AutoPicked => IsAuto && State is ToolItemState.Done or ToolItemState.Error ? AutoCard.PickedIn(Summary) : null;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(Line), nameof(Command), nameof(HasCommand), nameof(Reason), nameof(HasReason), nameof(OutputHeader))]
     private string _summary = summary;
@@ -729,23 +732,30 @@ public sealed partial class WorkFold : ObservableObject
     /// <summary>What the run ended with, which stays in the chat with its thinking folded: its reply and any line after it, or its stop.</summary>
     private readonly List<ChatItemViewModel> _kept;
 
+    /// <summary>Both, in the chat's order: the line after Auto's card is found in it (see <see cref="Head"/>).</summary>
+    private readonly List<ChatItemViewModel> _order;
+
     /// <param name="lines">The lines that fold away, in order.</param>
     /// <param name="kept">The lines the run ended with, which stay (its reply, or its stop).</param>
     /// <param name="took">How long the run worked, from the message that started it; null when the chat didn't keep the times.</param>
-    public WorkFold(IReadOnlyList<ChatItemViewModel> lines, IReadOnlyList<ChatItemViewModel> kept, TimeSpan? took)
+    /// <param name="order">All of them in the chat's order; null for the lines, then the kept.</param>
+    public WorkFold(IReadOnlyList<ChatItemViewModel> lines, IReadOnlyList<ChatItemViewModel> kept, TimeSpan? took, IReadOnlyList<ChatItemViewModel>? order = null)
     {
         _lines = [.. lines];
         _kept = [.. kept];
-        // The price lookup Sloperator runs after the answer is no call of the model's: a question answered in one step read
+        _order = [.. order ?? [.. lines, .. kept]];
+        // Auto's card is no call of the model's; folded away, its pick is said here (the user's pick, 2026-11-09):
+        // nothing else in sight said which model had answered.
+        // Nor is the price lookup Sloperator runs after the answer: a question answered in one step read
         // "1 tool call" over a "side_task" chip, for a call the model never made (2026-11-12). It is named instead.
-        // Auto's card isn't in the fold (see FoldFinished), and says the model itself.
-        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAfterAnswer).ToList();
+        var calls = _lines.OfType<ToolCallItem>().Where(c => !c.IsAuto && !c.IsAfterAnswer).ToList();
         Tools = calls.Select(c => c.Name).Distinct().ToList();
         Title = string.Join(" · ", new[]
         {
             took is { } t ? $"Worked for {ChatTimes.Duration(t)}" : null,
             calls.Count switch { 0 => null, 1 => "1 tool call", var n => $"{n} tool calls" },
             _lines.OfType<ToolCallItem>().Any(c => c.IsAfterAnswer) ? "price lookup" : null,
+            _lines.OfType<ToolCallItem>().Select(c => c.AutoPicked).LastOrDefault(p => p is not null) is { } pick ? Unbroken(pick) : null,
         }.OfType<string>().DefaultIfEmpty("Thoughts"));
         foreach (var line in _lines)
             line.JoinFold(this, whole: true);
@@ -753,16 +763,38 @@ public sealed partial class WorkFold : ObservableObject
             line.JoinFold(this, whole: false);
     }
 
-    /// <summary>"Worked for 3 min 12 s · 4 tool calls", with "price lookup" when Sloperator looked the model's prices up after the answer.</summary>
+    /// <summary>"Worked for 3 min 12 s · 4 tool calls", with "price lookup" when Sloperator looked the model's prices up after the answer, then Auto's pick.</summary>
     public string Title { get; }
+
+    /// <summary>
+    /// Auto's pick held together, so a narrow chat wraps the title before it: it broke between "at" and the
+    /// effort, and with only the spaces held, inside the model's name ("anthropic/claude-" over "haiku-5.5 at Low").
+    /// </summary>
+    public static string Unbroken(string pick) => pick.Replace(' ', (char)0xA0).Replace("-", "-" + (char)0x2060).Replace("/", "/" + (char)0x2060);
 
     /// <summary>The tools the run called, each once, in the order it first called them.</summary>
     public IReadOnlyList<string> Tools { get; }
 
     public bool HasTools => Tools.Count > 0;
 
-    /// <summary>The line the card shows over: the first still in the chat (a long run drops its oldest), the reply when nothing else folds.</summary>
-    public ChatItemViewModel? Head => _lines.Count > 0 ? _lines[0] : _kept.FirstOrDefault();
+    /// <summary>
+    /// The line the card shows over: the first still in the chat (a long run drops its oldest), the reply when nothing
+    /// else folds. Not Auto's card, which folds too but shows over the run's card with Show steps, where it was while
+    /// the run went on (the user, 2026-11-16: "Why is auto pick shows after 'worked' thing? I want it to be the way it was
+    /// placed before", then "it should fold inside the 'Worked' foldout as well"): the line after it, the reply after a
+    /// plain answer's.
+    /// </summary>
+    public ChatItemViewModel? Head
+    {
+        get
+        {
+            var first = _lines.Count > 0 ? _lines[0] : _kept.FirstOrDefault();
+            if (first is not ToolCallItem { IsAuto: true })
+                return first;
+            var at = _order.IndexOf(first);
+            return _order.Skip(at + 1).FirstOrDefault(l => l is not ToolCallItem { IsAuto: true }) ?? first;
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ToggleText))]
@@ -785,6 +817,7 @@ public sealed partial class WorkFold : ObservableObject
         var wasHead = ReferenceEquals(Head, line);
         if (!_lines.Remove(line))
             _kept.Remove(line);
+        _order.Remove(line);
         if (wasHead)
             Head?.FoldChanged();
     }
@@ -824,11 +857,6 @@ public sealed partial class WorkFold : ObservableObject
                     stretch.Add(line);
                     Close(stretch, stopped, endsWith: true);
                     break;
-                // Auto's card stays where it came, under the message, over the run's card (the user, 2026-11-16: "I want it
-                // to be the way it was placed before"): it says which model works on the message and why. Folded with
-                // the steps, the run's card came over it, and it showed under "Worked for …" with Show steps.
-                case ToolCallItem { IsAuto: true }:
-                    break;
                 default:
                     stretch.Add(line);
                     break;
@@ -866,7 +894,7 @@ public sealed partial class WorkFold : ObservableObject
             (i > reply && IsWork(stretch[i]) ? lines : kept).Add(stretch[i]);
         if (lines.Any(l => l is ToolCallItem or AssistantMessageItem { HasReasoning: true } or AssistantMessageItem { IsHandoffNote: true })
             || kept.FirstOrDefault() is AssistantMessageItem { HasReasoning: true })
-            _ = new WorkFold(lines, kept, took);
+            _ = new WorkFold(lines, kept, took, stretch);
         stretch.Clear();
     }
 

@@ -1980,15 +1980,18 @@ words with no tool call after them, and any line after it), with its thinking fo
 it ended with, with Continue; and every message of the user's, so one sent during the run ends one fold
 and the rest of the run makes another (timed from its first line to the message). A stretch with no tool
 call and no thinking (a model loaded, a plain answer) isn't folded and keeps its "Worked for" line.
-Auto's card (see Auto model and effort) doesn't fold: it stays where it came, under the user's message, over the
-run's card, and says itself which model works on the message and why (the user, 2026-11-16: "Why is auto pick shows
-after 'worked' thing? I want it to be the way it was placed before"; `FoldFinished` skips it). Until then it folded
-with the work, the run's card came over it, and with Show steps it showed under "Worked for …"; its pick went on that
-card, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded, nothing in
-sight said which model had answered), held together for a narrow chat's wrap (`WorkFold.Unbroken`, 2026-11-10). With
-the card in sight that said it twice, and went. A plain answer after Auto's card no longer gets a run's card at all.
+Auto's card (see Auto model and effort) folds with the work and isn't counted as a tool call; its pick goes on the
+card instead, "Worked for 24 s · 10 tool calls · claude-haiku-5-5 at Low" (the user's pick, 2026-11-09: folded,
+nothing in sight said which model had answered). It is read back from the card's line (`AutoCard.PickedIn`), so a chat
+opened from History says it too; a card stopped while it picked has none. The run's card shows over the line after
+Auto's (`WorkFold.Head`), the reply after a plain answer's, so with Show steps Auto's card opens over it, where it was
+while the run went on (the user, 2026-11-16: "Why is auto pick shows after 'worked' thing? I want it to be the way it
+was placed before", then, with it kept out of the fold for good, "it should fold inside the 'Worked' foldout as well").
+Until then the run's card showed over Auto's, the first line, and Show steps opened it under "Worked for …". The pick is held together
+(`WorkFold.Unbroken`: no-break spaces, a word joiner after each - and /), so in a narrow chat the title wraps before
+it: it broke between "at" and "Low", and with only the spaces held, after "anthropic/claude-" (2026-11-10).
 Nor is the price lookup Sloperator runs after the answer (`ToolCallItem.IsAfterAnswer`) counted or shown as a
-`side_task` chip: the card names it, "Worked for 25 s · price lookup", where a question
+`side_task` chip: the card names it, "Worked for 25 s · price lookup · claude-haiku-5-5 at Low", where a question
 answered in one step had read "1 tool call" over a `side_task` chip, for a call the model never made (2026-11-12).
 The time is still the whole run's, the lookup in it, which the words now account for.
 What comes after the reply decides what the reply is, and three things there had folded it away with the work

@@ -190,8 +190,8 @@ internal static class AutoCard
 
     /// <summary>
     /// The model and effort a card says the run used ("claude-opus-5-5 at High" of "Stayed on claude-opus-5-5 at High for
-    /// this message, not claude-fable-5-1"), for its notes' header; read from the line, so a chat opened from History
-    /// has it too.
+    /// this message, not claude-fable-5-1"), for the folded card that hides it; read from the line, so a chat opened
+    /// from History has it too.
     /// </summary>
     internal static string PickedIn(string summary)
     {

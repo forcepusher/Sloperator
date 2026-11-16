@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auto's card in the chat says what it did and why, in full.** Its line reads "Picked claude-sonnet-5-5 at Medium
   for this message", and the helper's reason has lines of its own under it, where at the end of the line it was cut
   off after a few words. Its notes are named for the model they go to, and it reads "Picked in 1.3 s", not "Done".
-- **Auto's card stays under your message** once the task is done, above the "Worked for…" card, instead of folding
-  away with the steps and showing under it.
+- **Show steps opens Auto's card above the "Worked for…" card**, where it was while the task ran, instead of under it.
 
 ## [1.5.0] - 2026-11-15
 ### Added
