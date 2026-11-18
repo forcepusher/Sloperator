@@ -674,8 +674,9 @@ MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRe
   SloperatorData/scratch/render/browser, leftovers of a Sloperator that ended closed first. Unlike
   `ComfyFrontend`, which waits for one answer at a time, it reads all the time, as a page held at a
   request (Fetch) waits for the answer to that event. Started per render (about a second); one render
-  at a time per profile folder. The graphics card is used when there is one (`--ignore-gpu-blocklist`),
-  else WebGL in software (`--enable-unsafe-swiftshader`), sRGB colours.
+  at a time per profile folder. The graphics card is used when there is one (`--ignore-gpu-blocklist`;
+  headless Edge 157 reported "ANGLE (NVIDIA GeForce RTX 5070 Ti, Direct3D11)" for WebGL 2 on the
+  workstation), else WebGL in software (`--enable-unsafe-swiftshader`), sRGB colours.
 - **A stopped clock** (`SceneClock`, a script put in before the page's own): performance.now, Date and
   requestAnimationFrame run on it; `__scene.seek(t)` sets it, seeks every SVG's SMIL
   (pauseAnimations, setCurrentTime) and every CSS and Web Animation (currentTime), and runs the frame's

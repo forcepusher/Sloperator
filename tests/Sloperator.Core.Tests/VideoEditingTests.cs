@@ -116,6 +116,31 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void Words_in_the_same_place_at_the_same_time_are_said_to_print_over_each_other()
+    {
+        var board = Video("""
+            {"shots": [{"id": "s1", "seconds": 8}],
+             "overlays": [{"id": "o1", "text": "Episode one", "position": "lower third", "start": 3.5, "seconds": 2.5},
+                          {"id": "o2", "text": "Chapter one", "position": "lower third", "start": 3, "seconds": 3},
+                          {"id": "o3", "text": "The end", "position": "center", "start": 3, "seconds": 3}]}
+            """);
+        var overview = VideoEditorTool.Overview(board);
+        Assert.Contains("Note: o1 and o2 are both lower third from 3.5 to 6 s", overview);
+        Assert.DoesNotContain("o3 are both", overview);
+        Assert.DoesNotContain("and o3", overview);
+    }
+
+    [Fact]
+    public void The_judge_is_told_which_shots_are_the_users_own_and_not_to_be_made_again()
+    {
+        var board = Video("""{"shots": [{"id": "s1", "prompt": "a fox runs"}, {"id": "s2", "file": "bars.mp4"}, {"id": "s3", "scene": "intro.svg", "prompt": "the title"}]}""");
+        var judge = VideoCheck.JudgeVideo(board);
+        Assert.Contains("- s1: a fox runs", judge);
+        Assert.Contains("- s2: the person's own footage, bars.mp4 (not made by a model, so never ask to redo it", judge);
+        Assert.Contains("- s3: a scene drawn from intro.svg: the title (not made by a model", judge);
+    }
+
+    [Fact]
     public void Words_are_drawn_where_their_place_puts_them()
     {
         var png = Path.Combine(_dir, "title.png");
