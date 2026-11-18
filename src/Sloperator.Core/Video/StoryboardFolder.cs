@@ -159,13 +159,16 @@ public sealed partial class Storyboard
     /// The file a piece's .json is beside: of its name, with the extension its kind has (a frame's
     /// picture as it is there, else a PNG; a shot's or the video's MP4).
     /// </summary>
-    private static string FileOf(string meta, string kind)
+    /// <param name="json">The piece's .json: a voice-over not made yet is a FLAC, as ComfyUI saves speech (read as an MP3's
+    /// place, a voice-over made later was a FLAC named .mp3).</param>
+    private static string FileOf(string meta, string kind, JsonObject? json = null)
     {
         var stem = Path.Combine(Path.GetDirectoryName(meta)!, Path.GetFileNameWithoutExtension(meta));
         if (kind == "frame")
             return PictureExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ?? stem + ".png";
         if (kind == "sound")
-            return SoundExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ?? stem + ".mp3";
+            return SoundExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ??
+                   stem + (json?["source"] is JsonValue s && s.TryGetValue<string>(out var source) && source == VideoSound.Speech ? ".flac" : ".mp3");
         return stem + ".mp4";
     }
 
@@ -181,7 +184,7 @@ public sealed partial class Storyboard
             var settings = (JsonObject)json.DeepClone();
             settings.Remove("kind");
             settings.Remove("made");
-            settings["place"] = Path.GetRelativePath(folder, FileOf(meta, kind)).Replace(Path.DirectorySeparatorChar, '/');
+            settings["place"] = Path.GetRelativePath(folder, FileOf(meta, kind, json)).Replace(Path.DirectorySeparatorChar, '/');
             switch (kind)
             {
                 case "video" when video is null && Path.GetDirectoryName(meta) == folder:

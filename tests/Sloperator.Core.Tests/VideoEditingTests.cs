@@ -217,6 +217,16 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void A_voice_over_not_made_yet_is_a_flac_when_the_video_is_read_again()
+    {
+        var board = Storyboard.Parse("""{"shots": [{"id": "s1", "seconds": 4}], "sounds": [{"id": "v1", "source": "speech", "text": "Hello."}]}""");
+        board.Folder = _dir;
+        board.Save();
+        var again = Storyboard.Load(_dir);
+        Assert.EndsWith(Path.Combine("Generated", "v1.flac"), again.SoundFile(again.Sounds[0]));
+    }
+
+    [Fact]
     public void Fields_nothing_reads_are_said_and_titles_in_a_shot_are_sent_to_the_overlays()
     {
         var change = System.Text.Json.Nodes.JsonNode.Parse("""
