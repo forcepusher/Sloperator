@@ -224,6 +224,10 @@ public sealed class VideoEditingTests : IDisposable
             <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#113"/>
             <circle cx="60" cy="180" r="40" fill="#fc0"><animate attributeName="cx" from="60" to="580" dur="2s" fill="freeze"/></circle></svg>
             """);
+        // A moving badge with a clear background, drawn over the video as a scene.
+        File.WriteAllText(Path.Combine(references, "badge.svg"), """
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><circle cx="100" cy="100" r="20" fill="#e33"><animate attributeName="r" from="20" to="90" dur="1s" fill="freeze"/></circle></svg>
+            """);
         var board = Storyboard.Create(_dir, "Edit test");
         board = Storyboard.Merge(board, System.Text.Json.Nodes.JsonNode.Parse($$"""
             {"width": 640, "height": 360, "fps": 24,
@@ -234,7 +238,8 @@ public sealed class VideoEditingTests : IDisposable
                        {"id": "s4", "scene": "sting.svg", "seconds": 2, "transition": "slideup", "line": "", "freeze": 1.5}],
              "overlays": [{"text": "A title", "position": "center", "start": 0.2, "seconds": 1.5, "motion": "slide up"},
                           {"file": "still.png", "position": "top right", "start": 1, "seconds": 3, "opacity": 0.7},
-                          {"file": "green.mp4", "position": "bottom left", "start": 2, "seconds": 2, "key": "#00FF00"}],
+                          {"file": "green.mp4", "position": "bottom left", "start": 2, "seconds": 2, "key": "#00FF00"},
+                          {"scene": "badge.svg", "position": "top left", "start": 0.5, "seconds": 1.5}],
              "sounds": [], "fadeOut": 0.5}
             """)!.AsObject());
         board.Save();
