@@ -12,7 +12,14 @@ namespace Sloperator.Core.Video;
 /// <param name="Still">A picture shown for its seconds; else a video, played round when shorter.</param>
 /// <param name="AlignX">Where in its box a video smaller than it sits: 0 left, 0.5 the middle, 1 right (and <paramref name="AlignY"/> top to bottom).</param>
 public sealed record OverlayInput(string File, bool Still, int X, int Y, int Width, int Height, double Start, double Seconds,
-    double FadeIn, double FadeOut, double Opacity, double AlignX = 0.5, double AlignY = 0.5);
+    double FadeIn, double FadeOut, double Opacity, double AlignX = 0.5, double AlignY = 0.5)
+{
+    /// <summary>A colour keyed out of it ("0x00FF00", as ffmpeg's chromakey takes it); null none.</summary>
+    public string? Key { get; init; }
+
+    /// <summary>A picture the frame's size with what it shows drawn in place (words, a picture placed): laid at 0,0 as it is.</summary>
+    public bool Framed { get; init; }
+}
 
 /// <summary>
 /// Gets a video's overlays ready to be laid over it: words drawn with Skia in the font asked for
@@ -68,7 +75,7 @@ public static class VideoOverlays
                 {
                     var png = Path.Combine(folder, Storyboard.Safe(o.Id) + ".png");
                     DrawWords(o, w, h, png);
-                    inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity));
+                    inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity) { Framed = true });
                 }
                 else if (o.Scene is { } sceneName)
                 {
@@ -78,18 +85,20 @@ public static class VideoOverlays
                     var made = await scenes.RenderAsync(scene, Path.Combine(folder, Storyboard.Safe(o.Id) + ".webm"),
                         new SceneOptions { Width = bw + bw % 2, Height = bh + bh % 2, Fps = board.Fps, Seconds = seconds, Transparent = true, Still = false }, ffmpeg, null, ct).ConfigureAwait(false);
                     notes.AddRange(made.Errors.Select(e => $"Overlay {o.Id}'s scene: {e}"));
-                    inputs.Add(new OverlayInput(made.Output, false, bx, by, bw, bh, start, seconds, fadeIn, fadeOut, opacity, ax, ay));
+                    inputs.Add(new OverlayInput(made.Output, false, bx, by, bw, bh, start, seconds, fadeIn, fadeOut, opacity, ax, ay) { Key = ParseColour(o.Key) is { } sk ? $"0x{sk.Red:X2}{sk.Green:X2}{sk.Blue:X2}" : null });
                 }
                 else if (o.File is { } fileName)
                 {
                     var file = board.FindFile(fileName) ?? throw new VideoException($"Overlay {o.Id} shows {fileName}, which isn't in References or there.");
-                    if (Storyboard.IsVideoFile(file))
-                        inputs.Add(new OverlayInput(file, false, bx, by, bw, bh, start, seconds, fadeIn, fadeOut, opacity, ax, ay));
+                    var key = ParseColour(o.Key) is { } k ? $"0x{k.Red:X2}{k.Green:X2}{k.Blue:X2}" : null;
+                    if (Storyboard.IsVideoFile(file) || key is not null && !SvgFile.Handles(file))
+                        // A keyed picture goes in as it is, placed by ffmpeg, so the key works on its own colours.
+                        inputs.Add(new OverlayInput(file, !Storyboard.IsVideoFile(file), bx, by, bw, bh, start, seconds, fadeIn, fadeOut, opacity, ax, ay) { Key = key });
                     else
                     {
                         var png = Path.Combine(folder, Storyboard.Safe(o.Id) + ".png");
                         DrawPicture(file, new SKRectI(bx, by, bx + bw, by + bh), ax, ay, w, h, png);
-                        inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity));
+                        inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity) { Framed = true });
                     }
                 }
             }

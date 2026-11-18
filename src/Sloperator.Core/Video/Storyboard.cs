@@ -854,6 +854,7 @@ public sealed partial class Storyboard
             o.Font = Clean(o.Font);
             o.Color = Clean(o.Color);
             o.Background = Clean(o.Background);
+            o.Key = Clean(o.Key);
             if (o.Box is { } box)
             {
                 box.X = Math.Clamp(box.X, 0, 0.99);
@@ -1260,6 +1261,9 @@ public sealed class VideoOverlay
 
     /// <summary>Bold words; null bold.</summary>
     public bool? Bold { get; set; }
+
+    /// <summary>A colour taken out of a picture or video shown (a green screen: #00FF00), so what is behind shows there; null none.</summary>
+    public string? Key { get; set; }
 
     /// <summary>"Title 1", its name or its words.</summary>
     [JsonIgnore]

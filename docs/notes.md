@@ -2008,7 +2008,9 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   the font asked for, wrapped to their box and made smaller until they fit, with a box behind them or
   a shadow under them; pictures are placed in their box whole; a scene is drawn to a clear WebM at its
   box's size (read back through libvpx-vp9, as ffmpeg's own VP9 decoder drops the alpha); a video
-  plays round when shorter. ffmpeg lays each over the joined shots from its start (setpts and enable).
+  plays round when shorter. ffmpeg lays each over the joined shots from its start (setpts and enable);
+  a picture or video with a `key` colour (a green screen) goes in as it is, scaled into its box, with
+  chromakey (similarity 0.15, blend 0.08) taking that colour out.
   `captions` shows each shot's line at the bottom while it is said. Drawn into Generated/overlays.
 - **The video's ends and encoding**: `fadeIn` and `fadeOut` (0.4 and 1 unless set, 0 none), applied
   after the overlays so titles fade with the picture; `quality` draft (veryfast, CRF 26), good (medium,
@@ -2026,7 +2028,10 @@ overlays as blocks, those that show at once one above the other; a right-click o
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change
 when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, puts
-a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). A clip made of a
+a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
+the panel's own edits (menus, splits, a title dragged), 50 at most, each with its clips' .json as they
+were, so a split taken back leaves its clip made as before. Videos and pictures dropped on the Video
+clips row become clips made of them (an MP4 taken in at once), on the Titles row overlays from there. A clip made of a
 file or a scene counts as said (Generate makes it, Make the video isn't greyed), and shows its file
 and how it is edited in its tooltip.
 

@@ -114,8 +114,11 @@ public static class VideoMontage
             var input = overlayAt[k];
             var end = overlay.Start + overlay.Seconds;
             f.Append($"[{input}:v]");
-            if (!overlay.Still)
+            if (!overlay.Framed)
                 f.Append($"scale={overlay.Width}:{overlay.Height}:force_original_aspect_ratio=decrease,");
+            // A green screen (or any colour) taken out, so what is behind shows there.
+            if (overlay.Key is { } key)
+                f.Append($"chromakey={key}:0.15:0.08,");
             f.Append("format=rgba");
             if (overlay.FadeIn > 0)
                 f.Append($",fade=t=in:st=0:d={N(overlay.FadeIn)}:alpha=1");
@@ -124,7 +127,7 @@ public static class VideoMontage
             if (overlay.Opacity < 0.999)
                 f.Append($",colorchannelmixer=aa={N(overlay.Opacity)}");
             f.Append($",setpts=PTS-STARTPTS+{N(overlay.Start)}/TB[o{k}];");
-            var (x, y) = overlay.Still
+            var (x, y) = overlay.Framed
                 ? ("0", "0")
                 : ($"'{overlay.X}+({overlay.Width}-overlay_w)*{N(overlay.AlignX)}'", $"'{overlay.Y}+({overlay.Height}-overlay_h)*{N(overlay.AlignY)}'");
             f.Append($"[{video}][o{k}]overlay=x={x}:y={y}:eof_action=pass:enable='between(t,{N(overlay.Start)},{N(end)})'[ov{k}];");

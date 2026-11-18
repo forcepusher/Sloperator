@@ -64,6 +64,24 @@ public sealed class VideoEditingTests : IDisposable
         Assert.Equal(3 + 2 - 0.6 + 2 - 0.8, length, 3);
     }
 
+    [Fact]
+    public void Overlays_are_laid_over_from_their_start_framed_ones_as_they_are_and_keyed_ones_without_their_colour()
+    {
+        var board = Video("""{"width": 640, "height": 360, "shots": [{"id": "s1", "seconds": 6}]}""");
+        OverlayInput[] overlays =
+        [
+            new("title.png", true, 0, 0, 640, 360, 1, 2, 0.3, 0.3, 1) { Framed = true },
+            new("presenter.mp4", false, 400, 200, 200, 150, 2, 3, 0, 0, 0.8, 1, 1) { Key = "0x00FF00" },
+        ];
+        var (args, _, _) = VideoMontage.Plan(board, _ => true, "out.mp4", overlays);
+        var graph = Graph(args);
+        Assert.Contains("-loop", args);
+        Assert.Contains("[1:v]format=rgba,fade=t=in:st=0:d=0.3:alpha=1,fade=t=out:st=1.7:d=0.3:alpha=1,setpts=PTS-STARTPTS+1/TB[o0]", graph);
+        Assert.Contains("overlay=x=0:y=0:eof_action=pass:enable='between(t,1,3)'", graph);
+        Assert.Contains("[2:v]scale=200:150:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.15:0.08,format=rgba,colorchannelmixer=aa=0.8,setpts=PTS-STARTPTS+2/TB[o1]", graph);
+        Assert.Contains("overlay=x='400+(200-overlay_w)*1':y='200+(150-overlay_h)*1'", graph);
+    }
+
     [Theory]
     [InlineData(0.25, "atempo=0.5,atempo=0.5")]
     [InlineData(0.8, "atempo=0.8")]
@@ -169,7 +187,7 @@ public sealed class VideoEditingTests : IDisposable
     private static void TestClip(string ffmpeg, string file, double seconds, string pattern = "testsrc2")
     {
         var psi = new ProcessStartInfo(ffmpeg) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
-        foreach (var a in new[] { "-hide_banner", "-y", "-f", "lavfi", "-i", $"{pattern}=size=320x180:rate=24:duration={seconds}", "-f", "lavfi", "-i", $"sine=frequency=440:duration={seconds}",
+        foreach (var a in new[] { "-hide_banner", "-y", "-f", "lavfi", "-i", $"{pattern}{(pattern.Contains('=') ? ':' : '=')}size=320x180:rate=24:duration={seconds}", "-f", "lavfi", "-i", $"sine=frequency=440:duration={seconds}",
                      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", file })
             psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;
@@ -192,6 +210,7 @@ public sealed class VideoEditingTests : IDisposable
         Directory.CreateDirectory(references);
         TestClip(ffmpeg, Path.Combine(references, "walk.mp4"), 4);
         TestClip(ffmpeg, Path.Combine(_dir, "elsewhere.mov"), 2, "smptebars");
+        TestClip(ffmpeg, Path.Combine(references, "green.mp4"), 2, "color=c=0x00FF00");
         using (var bitmap = new SKBitmap(200, 100))
         {
             using (var canvas = new SKCanvas(bitmap)) canvas.Clear(SKColors.MediumPurple);
@@ -211,7 +230,8 @@ public sealed class VideoEditingTests : IDisposable
                        {"id": "s3", "file": "still.png", "seconds": 2, "zoom": "in", "transition": "dissolve"},
                        {"id": "s4", "scene": "sting.svg", "seconds": 2, "transition": "slideup", "line": "", "freeze": 1.5}],
              "overlays": [{"text": "A title", "position": "center", "start": 0.2, "seconds": 1.5},
-                          {"file": "still.png", "position": "top right", "start": 1, "seconds": 3, "opacity": 0.7}],
+                          {"file": "still.png", "position": "top right", "start": 1, "seconds": 3, "opacity": 0.7},
+                          {"file": "green.mp4", "position": "bottom left", "start": 2, "seconds": 2, "key": "#00FF00"}],
              "sounds": [], "fadeOut": 0.5}
             """)!.AsObject());
         board.Save();

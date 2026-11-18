@@ -49,11 +49,61 @@ public sealed partial class VideoEditorViewModel
         }
     }
 
+    /// <summary>
+    /// The storyboard before each edit made here, the latest last, for Ctrl+Z (as many as 50), with its clips'
+    /// .json as they were: a split stamps the halves made from their footage, and taken back, the clip is made as before.
+    /// </summary>
+    private readonly List<(string Json, Dictionary<string, string> Metas)> _undo = [];
+
+    /// <summary>Keeps the storyboard as it is now, to go back to with <see cref="Undo"/>.</summary>
+    public void Remember()
+    {
+        var now = _board.ToJson();
+        if (_undo.Count > 0 && _undo[^1].Json == now)
+            return;
+        var metas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var shot in _board.Shots)
+            try
+            {
+                var meta = _board.ShotMeta(shot);
+                if (File.Exists(meta))
+                    metas[meta] = File.ReadAllText(meta);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        _undo.Add((now, metas));
+        if (_undo.Count > 50)
+            _undo.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// Ctrl+Z: the storyboard as it was before the last edit made here (its timing, speeds, looks, transitions,
+    /// titles; a split's halves are one clip again, the footage it copied stays). False when there is none.
+    /// </summary>
+    public bool Undo()
+    {
+        if (_undo.Count == 0 || Busy(_board.Folder))
+            return false;
+        var (json, metas) = _undo[^1];
+        _undo.RemoveAt(_undo.Count - 1);
+        var folder = _board.Folder;
+        _board = Storyboard.Parse(json);
+        _board.Folder = folder;
+        foreach (var (meta, text) in metas)
+            try { File.WriteAllText(meta, text); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        Changed();
+        SaveNow();
+        Rebuild();
+        Status = "Took the last change back.";
+        return true;
+    }
+
     /// <summary>A change made here: saved, and the timeline built again with it.</summary>
     private void Edit(Action change)
     {
         if (Busy(_board.Folder))
             return;
+        Remember();
         change();
         _board.Normalize();
         Changed();
@@ -143,6 +193,7 @@ public sealed partial class VideoEditorViewModel
         SaveNow();
         StopPlaying();
         DropViewer();
+        Remember();
         try
         {
             string name;

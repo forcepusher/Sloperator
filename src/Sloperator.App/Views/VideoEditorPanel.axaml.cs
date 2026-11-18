@@ -139,6 +139,9 @@ public partial class VideoEditorPanel : UserControl
         // The key its menu shows beside Rename.
         else if (e.Key == Key.F2 && e.KeyModifiers == KeyModifiers.None && Vm.AskRenamePicked())
             e.Handled = true;
+        // An edit made here taken back: a clip's speed, look or transition, a split, a title.
+        else if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control && Vm.Undo())
+            e.Handled = true;
     }
 
     // ---- menus: the videos, a row, a card, a clip, a sound, a sound line ---------------------------------------------
@@ -418,6 +421,7 @@ public partial class VideoEditorPanel : UserControl
         }
         var mode = (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("handle"))?.Tag as string ?? "move";
         _overlay = (item, mode, e.GetPosition(Timeline), item.Overlay.Start, Vm.ShowSeconds(item), false);
+        Vm.Remember();
         e.Pointer.Capture(block);
         e.Handled = true;
     }
