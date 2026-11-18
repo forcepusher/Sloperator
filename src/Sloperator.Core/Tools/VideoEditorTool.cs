@@ -394,6 +394,18 @@ public sealed class VideoEditorTool : Tool
                 sb.AppendLine($"  {o.Id}: " + (o.Text.Trim().Length > 0 && o.File is null && o.Scene is null ? $"the words \"{o.Text.Trim().ReplaceLineEndings(" / ").Clip(200)}\"" : o.Scene is { } sc ? $"the scene {sc}" : $"the file {o.File}") +
                               $", from {N(o.Start)} s" + (o.Seconds > 0 ? $" for {N(o.Seconds)} s" : " to the end") + (o.Box is { } b ? $", in the box {N(b.X)},{N(b.Y)} {N(b.Width)}x{N(b.Height)}" : $", {(o.Position.Length > 0 ? o.Position : "centre")}") + ".");
         }
+        // Words in the same place at the same time print over each other: said, so they are moved apart.
+        var (_, videoLength) = board.Timing();
+        var words = board.Overlays.Where(o => o.Text.Trim().Length > 0 && o.File is null && o.Scene is null && o.Box is null).ToList();
+        for (var a = 0; a < words.Count; a++)
+            for (var b = a + 1; b < words.Count; b++)
+            {
+                var (x, y) = (words[a], words[b]);
+                double End(VideoOverlay o) => o.Seconds > 0 ? o.Start + o.Seconds : videoLength;
+                if (x.Position == y.Position && x.Start < End(y) && y.Start < End(x))
+                    sb.AppendLine($"Note: {x.Id} and {y.Id} are both {(x.Position.Length > 0 ? x.Position : "centre")} from {N(Math.Max(x.Start, y.Start))} to {N(Math.Min(End(x), End(y)))} s: " +
+                                  "their words print over each other. Move one, give it another position, or take one out.");
+            }
         var (fadeIn, fadeOut) = VideoMontage.Fades(board);
         sb.AppendLine($"Fades in over {N(fadeIn)} s, out over {N(fadeOut)} s" + (board.Captions ? "; the lines are captioned" : "") + (board.Quality.Length > 0 ? $"; quality {board.Quality}" : "") + ".");
         if (board.Shots.Any(Storyboard.Speaks))

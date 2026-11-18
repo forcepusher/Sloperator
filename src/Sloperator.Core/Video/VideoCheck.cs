@@ -524,6 +524,15 @@ public static partial class VideoCheck
         }
     }
 
+    /// <summary>
+    /// What a shot should show, as a judge reads it: its prompt; for a shot no model made (the person's own
+    /// footage, a scene drawn) what it is, and that it isn't to be made again. Told only its empty prompt, a judge
+    /// asked to redo the person's own colour bars as "a test pattern" (2026-11-19).
+    /// </summary>
+    internal static string Shows(VideoShot s) => !s.Assembled ? s.Prompt.Trim().ReplaceLineEndings(" ")
+        : (s.Scene is { } scene ? $"a scene drawn from {Path.GetFileName(scene)}" : $"the person's own footage, {Path.GetFileName(s.File!)}") +
+          (s.Prompt.Trim() is { Length: > 0 } p ? $": {p.ReplaceLineEndings(" ")}" : "") + " (not made by a model, so never ask to redo it; judge only how it is cut and joined)";
+
     public static string JudgeVideo(Storyboard board)
     {
         var sb = new StringBuilder();
@@ -533,7 +542,7 @@ public static partial class VideoCheck
         About(board, sb);
         sb.AppendLine("The shots should show:");
         foreach (var s in board.Shots)
-            sb.AppendLine($"- {s.Id}: {s.Prompt.Trim().ReplaceLineEndings(" ")}");
+            sb.AppendLine($"- {s.Id}: {Shows(s)}");
         sb.AppendLine("Say briefly and concretely: do the same people look the same in every shot (face, hair, clothes, colours)? Is every shot in the same style: " +
                       "all photographs, or all the same kind of drawing or render? Say for each person in each shot whether they look photographed, a 3D render or drawn. Does the look stay the same? " +
                       "Does each shot show what it should, and do they tell the story in order? Which shots stand out as wrong, and why?");
@@ -562,7 +571,7 @@ public static partial class VideoCheck
                       "to the other side of the sky or changes size, day turns to dusk, someone's clothes, hair or fur change, a photo turns into a cartoon, while the story has the same place and moment.");
         sb.AppendLine("The shots should show:");
         foreach (var s in board.Shots)
-            sb.AppendLine($"- {s.Id}: {s.Prompt.Trim().ReplaceLineEndings(" ")}");
+            sb.AppendLine($"- {s.Id}: {Shows(s)}");
         sb.AppendLine($"You get {(at.Count == 1 ? "one picture" : $"{at.Count} pictures, one per cut")}: on top the last frame of the shot before, below it the first frame of the shot after, " +
                       "each labelled, the same size and lined up, so what stays in the same place is straight above itself. The cuts:");
         foreach (var i in at)

@@ -277,10 +277,12 @@ public static class SystemPrompt
                       "(ComfyUI on this PC; it needs no MCP server); 2D vector art (icons, logos, diagrams, titles, motion graphics) as an SVG, moving with SMIL; " +
                       "3D scenes with Three.js in an HTML page. Write an SVG or Three.js scene with write_file and turn it into a PNG, or an MP4 clip when it moves, with render. " +
                       "A 3D model file (.glb) is built in a Three.js scene and saved with render, not made by ComfyUI. " +
-                      "Don't draw pictures, clips or models any other way (Python, Pillow, matplotlib, Blender, a canvas script) unless the user asks for it. " +
+                      "Don't draw pictures, clips or models any other way (a Python script, Pillow, matplotlib, a canvas script, a 3D program) unless the user asks for it. " +
                       "A chart in a workbook or document is that file's own chart (write_file and edit_file make real Excel charts); a picture put in a Word, PowerPoint or PDF file is made one of the three ways, then put in. " +
                       "ComfyUI also makes sound, music and speech. Each tool's guide comes with its first answer. Give the full paths of the files you made in your answer.");
-        sb.AppendLine("- A video of more than one shot (a music video, a story, an ad) is made with the video tool, from a storyboard, as its guide says.");
+        // Editing goes there too (2026-11-19): the user's own clips, trims, speed, titles, transitions and export are its storyboard's.
+        sb.AppendLine("- A video of more than one shot (a music video, a story, an ad), and editing a video (the user's own clips too: trims, speed, titles, transitions, export), " +
+                      "is done with the video tool, from a storyboard, as its guide says.");
         // The user's rule: what can't be opened gets the right tool, not a hand-made decoder (a PDF
         // took eight minutes of inflating streams and mapping glyphs in PowerShell).
         if (toolsDirectory)

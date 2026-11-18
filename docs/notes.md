@@ -647,6 +647,74 @@ waving), a spider; all read, the binary ones side by side with Blender's own imp
 alike (Blender reads no text FBX). Two fixes came of it: byte arrays (type "c"), and a skinned vertex
 at rest goes through its bones' worlds at the bind (TransformLink), not its mesh's node.
 
+### Three ways to make a picture or a clip
+The user's rule (2026-11-19): pictures and video come from exactly three things, each for what it does
+best. **ComfyUI** for raster (photos, paintings, illustrations, and animating them), **SVG** for 2D
+vector art (icons, logos, diagrams, titles, motion graphics), moving with **SMIL**, and **Three.js**
+for 3D. "Use the techs I defined by default. Override if user asks." The system prompt says so in one
+line: the agent no longer draws with Python, Pillow, matplotlib, Blender or a canvas script unless the
+user names one. "Elaborate excel and word part": a chart in a workbook is that file's own chart (an
+Excel chart write_file and edit_file make, see Documents); a picture put in a Word, PowerPoint or PDF
+file is made one of the three ways first. Picked from a bench of earlier sessions: SMIL 18/20, HTML
+20/20 and Lottie 12/20 vector animations right on Qwen, SMIL recommended as it is one file the chat
+shows as a picture; 3D clips as a three.js page recorded frame by frame.
+
+**3D model files.** The user (2026-11-19): "Don't use Hunyan3D because it's terrible use something
+better", then "figure out which 3D model generation tool/method is best for Qwen 3.8 and Haiku (to load
+it later into Three.js), and use whatever you come up with". The comfyui tool no longer offers 3D models;
+a model is built in a Three.js page and saved as a binary glTF by `render` with output=*.glb (see
+below). The bench and what it found are under "How the 3D methods did".
+
+### Scenes: SVG and Three.js (render)
+The `render` tool draws an .svg or an .html page into a PNG or, when it moves, a clip (MP4; WebM or
+MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRenderer` (Core/Render):
+
+- **The PC's Edge, headless, over its DevTools protocol** (`DevToolsBrowser`): Chrome when there is no
+  Edge, a hidden window when headless is turned off by policy, a profile folder per start under
+  SloperatorData/scratch/render/browser, leftovers of a Sloperator that ended closed first. Unlike
+  `ComfyFrontend`, which waits for one answer at a time, it reads all the time, as a page held at a
+  request (Fetch) waits for the answer to that event. Started per render (about a second); one render
+  at a time per profile folder. The graphics card is used when there is one (`--ignore-gpu-blocklist`),
+  else WebGL in software (`--enable-unsafe-swiftshader`), sRGB colours.
+- **A stopped clock** (`SceneClock`, a script put in before the page's own): performance.now, Date and
+  requestAnimationFrame run on it; `__scene.seek(t)` sets it, seeks every SVG's SMIL
+  (pauseAnimations, setCurrentTime) and every CSS and Web Animation (currentTime), and runs the frame's
+  callbacks once. Each frame is then a screenshot (Page.captureScreenshot) piped to ffmpeg as PNG, so a
+  heavy scene at 3 frames a second still makes a smooth 30 fps clip. Measured on the RTX 5070 Ti: a
+  lit, shadowed torus knot at 1280x720, 150 frames in 9.9 s; an SVG logo reveal, 66 frames in 6.4 s.
+- **Still or moving**: an output's extension decides; without one, frames at 0, 0.5, 1.3 and 2.9 s are
+  compared, all the same is a picture (a Three.js scene that loops but changes nothing too). A clip is
+  as long as `seconds`, else the scene's own: where its last finite SMIL or CSS animation ends, else one
+  loop of its repeating ones (their least common multiple in hundredths, up to 30 s, else the longest),
+  else 5 s, said in the result. A picture of a moving scene is drawn at `at`, else where its finite
+  animations end.
+- **Size**: as given; an SVG its own, at least 1024 along its longer side (a 24-pixel icon is useless
+  as a PNG), its root given width and height and a viewBox from its own size when it had none; a page
+  1280x720; even numbers for a clip.
+- **Files**: the page is served from its own folder at https://scene.sloperator/ (Fetch interception),
+  so a .glb, texture or font beside it loads by its name; a file asked for that isn't there is an
+  error in the result, with the folder looked in. Loading waits for the load event, for no request in
+  flight for 250 ms (a minute at most), and for `window.sceneReady` when the page sets it to a promise.
+- **three.js from its CDN, offline from a copy**: the user's pick, "Use a CDN version with an offline
+  fallback". A request for three.js on jsdelivr, unpkg, jspm, skypack, cdnjs or threejs.org goes to the
+  web with its response held (Fetch's response stage); an error or a refusal (offline, a version the
+  CDN hasn't) is answered from three.zip (Render/three.zip, embedded, made by
+  scripts/update-three.ps1: r187's build and its WebGL add-ons, 301 files, 1.6 MB packed; WebGPU, TSL,
+  the inspector, WebXR and the Draco and Basis libraries left out), and the result says so. A page that
+  imports "three" without an import map gets one (the docs' jsdelivr URLs at the copy's version).
+- **What comes back**: the file, a look at it (a clip as a sheet of frames, a .glb from four sides), the
+  page's errors (exceptions, console.error, failed loads, a callback that threw), a note when the
+  picture or a clip's middle frame is all one colour, and on the first call in a chat the guide
+  (Comfy/Guides/scenes.md: SVG and SMIL, a Three.js page that works, lighting, loading, saving a .glb,
+  checking). With no file it shows only the guide.
+- **.glb**: SceneClock hands three.js a `__THREE_DEVTOOLS__` hook, which three.js tells of every Scene
+  it makes; the one with the most in it is exported with GLTFExporter (imported through the page's
+  own import map, so it is the page's three.js; else the CDN's at the copy's version), binary, with its
+  animations.
+
+Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
+`render` made, and Auto opens it as it does a ComfyUI result.
+
 ### Previews
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under
 a reply that names them by their full path (whatever made them: ComfyUI, a script, Blender, a
@@ -1879,6 +1947,60 @@ characters (the tool went round for ever finding a free folder) and names like "
 break anything. A template a shot was pinned to by an upgraded storyboard gives way to one that can
 do the shot's job once it has a last frame or a line. The video tool saves only the seed a long job
 settled onto the storyboard as it is then, and numbers in stamps are written in the invariant culture.
+
+### Editing
+The user (2026-11-19): "Do your best to provide a fully featured video editing experience." The
+storyboard edits as a video editor does, and all of it is done by ffmpeg as the video is joined
+(`VideoMontage.Plan`): no clip is made again for an edit, so none of these is in a shot's stamp, and
+the joined video is out of date when a piece's .json or the video's is newer than it.
+
+- **Shots no model makes** (`VideoShot.Assembled`): `file`, a video or picture of the user's (in
+  References, or a full path), and `scene`, an SVG or Three.js page. action=shot makes them in
+  seconds (`VideoMaker.AssembleShotAsync`): an MP4 is copied, another video made an MP4, a picture
+  held for the shot (cut to the frame), a scene drawn at the video's size and frame rate for as much
+  as the shot uses (`in` plus its seconds at its speed). Their stamp is the file's (and, for a
+  picture or scene, how much of it and at what size). They get no first frame (`AddFirstFrames`), and
+  the panel shows them by their file, without frame slots.
+- **A clip as its shot cuts it** (`ShotPicture`, `ShotSound`): `in` trims its start, `reverse`, `speed`
+  (setpts, its sound by atempo in steps of 0.5 to 2), `crop` in fractions, `color` (eq for
+  brightness, contrast and saturation; hue=s=0 for bw, a sepia matrix, colorbalance warm or cool,
+  curves' vintage), `freeze` (cut there and held), then as before held on its last frame, cut to its
+  seconds and made to fill the frame, and last `zoom`: zoompan over the frame scaled to twice its
+  size (it stepped a pixel at a time at its own size), one frame out per frame in. Its own sound's
+  `volume` (0 is silence). A model can write "zoom": "in", "out", "left" or "right" and "color": "bw".
+  Foley's stretch is cut the same way.
+- **Transitions**: ffmpeg's xfade names (a dissolve its fade, a fade fadeblack), 40 in all, with
+  everyday names read ("wipe", "iris", "dip to white", "push"); `transitionSeconds`, else 0.5 for a
+  dissolve, 1 for a fade, 0.8 for the rest, at most half the shot.
+- **Overlays** (`VideoOverlays`): words, a picture or SVG, a video, or a scene, from `start` for
+  `seconds`, at a `position` (centre, top, bottom, lower third, the corners, full) or a `box` in
+  fractions, with opacity and fades. Words are drawn with Skia on a clear picture the frame's size in
+  the font asked for, wrapped to their box and made smaller until they fit, with a box behind them or
+  a shadow under them; pictures are placed in their box whole; a scene is drawn to a clear WebM at its
+  box's size (read back through libvpx-vp9, as ffmpeg's own VP9 decoder drops the alpha); a video
+  plays round when shorter. ffmpeg lays each over the joined shots from its start (setpts and enable).
+  `captions` shows each shot's line at the bottom while it is said. Drawn into Generated/overlays.
+- **The video's ends and encoding**: `fadeIn` and `fadeOut` (0.4 and 1 unless set, 0 none), applied
+  after the overlays so titles fade with the picture; `quality` draft (veryfast, CRF 26), good (medium,
+  18) or best (slow, 15). A sound's `fadeIn` and `fadeOut` on its sound line.
+- **Export** (action=export, `VideoMontage.ExportAsync`): the joined video (joined first when out of
+  date) as an MP4 of another size, a WebM (VP9 and Opus), a MOV (ProRes), a GIF (its own palette, 15
+  fps, 640 wide unless given) or its sound alone.
+
+**In the Video editor panel.** A clip's right-click menu has Speed, Reverse, Mute its sound, Look, Zoom
+and Transition in (not on the first clip), each a submenu with the current one marked, and Split at the
+playhead: both halves become the same footage, the second starting where the first stops (`in`), a
+clip a model made copied into References as "<clip> footage.mp4" so neither half is made again
+(`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. A Titles row under the clips shows the
+overlays as blocks; a right-click on the row creates a title there and asks for its words at once (the
+rename box), a double click or F2 changes them (\n for a new line), and a title's menu sets its place,
+how long it shows, moves it to the playhead, puts a box behind the words, or deletes it.
+
+Checked: VideoEditingTests join a video of a clip of the user's at 1.5× in sepia, a reversed MOV made
+an MP4, a held picture zooming in and an SVG scene frozen half way, with a wipe, a dissolve and a slide,
+a title and a picture over them, then export a GIF and an MP3; the panel driven in the built app with
+the "Night drive" demo (intro scene, a gradient clip at 1.5× warm with a circle transition, bars in
+black and white with a slide, a lower third and an end title).
 
 ### How videos did
 On this PC (RTX 5070 Ti 16 GB, ComfyUI 0.41.3), at 1280x720 and 24 fps: a frame from words took
@@ -4429,8 +4551,9 @@ not the text area) and one key down (Home); a posted WM_KEYDOWN for a letter typ
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
-| `comfyui` | Pictures, video, sound, music, speech and 3D models with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
-| `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg (see Videos) |
+| `comfyui` | Raster pictures, video made from them, sound, music and speech with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
+| `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg; edits them as a video editor does and exports the video (see Videos, Editing) |
+| `render` | An SVG (SMIL) or a Three.js page drawn in Edge into a PNG, a clip or a .glb, frame by frame on a stopped clock, with a look and the page's errors (see Scenes: SVG and Three.js) |
 | `edit_sound` | Cuts, keeps, fades, makes louder or quieter a stretch of a sound, or puts another sound in its place, saved as a new WAV beside it (in an Audio editor sound, its next version; see The Audio editor panel) |
 | `run_shell` | PowerShell on Windows, `sh` elsewhere |
 | `ssh` | Commands on another computer over SSH, in a terminal that stays open between calls (see below) |

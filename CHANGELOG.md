@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a copy built into Sloperator.
 - **3D model files from Three.js.** Asked for a 3D model, the agent builds it in a Three.js scene and saves it as a
   .glb you can load anywhere, instead of guessing one from a picture.
+- **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
+  down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
+  white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
+  clock, pixels, fades through black or white). **Split at the playhead** cuts a clip in two.
+- **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, double-click
+  one to change them, and place it (centre, top, bottom, lower third, a corner) and time it from its menu. The
+  agent can also put a logo, a picture in picture, an animated SVG title or captions of the lines over the video.
+- **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an
+  animated SVG or Three.js scene, with no model making it.
+- **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, or its sound alone as an MP3.
+  Sounds fade in and out, and the video's own fades in and out can be set or turned off.
 
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
