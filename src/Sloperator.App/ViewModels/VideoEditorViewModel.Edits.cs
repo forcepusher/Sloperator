@@ -166,6 +166,8 @@ public sealed partial class VideoEditorViewModel
         var (starts, _) = _board.Timing();
         var into = item.Index < starts.Count ? PlayPosition - starts[item.Index] : -1;
         items.Add(new("Split at the playhead", free && CanSplit(shot, into), () => Split(item), "Ctrl+B"));
+        items.Add(new("Trim start to the playhead", free && CanSplit(shot, into), () => Trim(item, start: true)));
+        items.Add(new("Trim end to the playhead", free && CanSplit(shot, into), () => Trim(item, start: false)));
         return items;
     }
 
@@ -236,7 +238,6 @@ public sealed partial class VideoEditorViewModel
             return;
         var (starts, _) = _board.Timing();
         var into = PlayPosition - starts[item.Index];
-        var clip = _board.ShotVideo(shot);
         if (!CanSplit(shot, into))
             return;
         SaveNow();
@@ -245,18 +246,7 @@ public sealed partial class VideoEditorViewModel
         Remember();
         try
         {
-            string name;
-            if (shot.File is { } own && _board.FindFile(own) is { } source && source.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
-                name = own;
-            else
-            {
-                Directory.CreateDirectory(_board.ReferencesFolder);
-                var stem = Storyboard.Safe($"{item.Title} footage");
-                name = stem + ".mp4";
-                for (var n = 2; File.Exists(Path.Combine(_board.ReferencesFolder, name)); n++)
-                    name = $"{stem} {n}.mp4";
-                File.Copy(clip, Path.Combine(_board.ReferencesFolder, name));
-            }
+            var name = Footage(item, shot);
             var speed = shot.Speed ?? 1;
             var second = new VideoShot
             {
@@ -266,8 +256,6 @@ public sealed partial class VideoEditorViewModel
                 Color = shot.Color is { } k ? new VideoColor { Brightness = k.Brightness, Contrast = k.Contrast, Saturation = k.Saturation, Look = k.Look } : null,
                 Freeze = shot.Freeze is { } f && f > into ? f - into : null,
             };
-            shot.File = name;
-            shot.Scene = null;
             shot.Seconds = into;
             if (shot.Freeze >= into)
                 shot.Freeze = null;
@@ -285,6 +273,77 @@ public sealed partial class VideoEditorViewModel
             Reload();
         }
         Rebuild();
+    }
+
+    /// <summary>
+    /// Cuts a clip's start or its end off at the playhead, as an editor's trim does, the clips after it moving up.
+    /// A clip a model made becomes footage for it first (a copy in References), so it isn't made again.
+    /// </summary>
+    private void Trim(ShotItem item, bool start)
+    {
+        if (Busy(_board.Folder) || FindShot(item) is not { } shot)
+            return;
+        var (starts, _) = _board.Timing();
+        var into = PlayPosition - starts[item.Index];
+        if (!CanSplit(shot, into))
+            return;
+        SaveNow();
+        StopPlaying();
+        DropViewer();
+        Remember();
+        try
+        {
+            Footage(item, shot);
+            if (start)
+            {
+                shot.In += into * (shot.Speed ?? 1);
+                shot.Seconds -= into;
+                shot.Freeze = shot.Freeze is { } f && f > into ? f - into : null;
+            }
+            else
+            {
+                shot.Seconds = into;
+                if (shot.Freeze >= into)
+                    shot.Freeze = null;
+            }
+            _board.Normalize();
+            Changed();
+            SaveNow();
+            VideoMaker.TakeClip(_board, shot);
+            Status = start ? $"Cut the first {into:0.0} s of {item.Title} off." : $"Cut {item.Title} off after {into:0.0} s.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ShowError($"The clip couldn't be trimmed: {ex.Message}", ex);
+            Reload();
+        }
+        Rebuild();
+        // On the clip's first frame now: what was under the playhead.
+        if (start)
+            SeekStrip(starts[item.Index]);
+    }
+
+    /// <summary>
+    /// What a clip is cut from, so it can be cut without being made again: the MP4 of the user's it is made of, else its
+    /// clip (a model's, or a scene drawn) copied into References as "&lt;clip&gt; footage.mp4". It is made of that from then on.
+    /// </summary>
+    private string Footage(ShotItem item, VideoShot shot)
+    {
+        string name;
+        if (shot.File is { } own && _board.FindFile(own) is { } source && source.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+            name = own;
+        else
+        {
+            Directory.CreateDirectory(_board.ReferencesFolder);
+            var stem = Storyboard.Safe($"{item.Title} footage");
+            name = stem + ".mp4";
+            for (var n = 2; File.Exists(Path.Combine(_board.ReferencesFolder, name)); n++)
+                name = $"{stem} {n}.mp4";
+            File.Copy(_board.ShotVideo(shot), Path.Combine(_board.ReferencesFolder, name));
+        }
+        shot.File = name;
+        shot.Scene = null;
+        return name;
     }
 
     // ---- the Titles row --------------------------------------------------------------------------------------

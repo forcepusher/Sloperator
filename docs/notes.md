@@ -2077,11 +2077,15 @@ and Transition in (not on the first clip), each a submenu with the current one m
 Move later (the transition into it goes with it), and Split at the
 playhead (Ctrl+B, on the clip under the playhead; in a transition, the one coming in): both halves become the same footage, the second starting where the first stops (`in`), a
 clip a model made copied into References as "<clip> footage.mp4" so neither half is made again
-(`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. Space plays the video from the
+(`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. Trim start and Trim end to the playhead
+cut a clip's start (`in` moves on, the playhead goes to its new first frame) or its end off, the clips
+after it moving up, made of footage the same way (`Footage`): a model's clip has its length in its stamp,
+and cut by its length alone it would be made again. Space plays the video from the
 playhead or pauses it with the timeline or the panel focused, seen on its way down (tunnel) as a clip's
 button took it for a click; not in a box being typed in, nor on the panel's buttons. (Checked in the app:
-the bars clip moved before the city one and back with Ctrl+Z, Ctrl+B at 0:06.8 split it 1.5 s in, and
-Space played from 0:00 to 0:01.5 and paused there.) A Titles row under the clips shows the
+the bars clip moved before the city one and back with Ctrl+Z, Ctrl+B at 0:06.8 split it 1.5 s in, its
+start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken back), and Space
+played from 0:00 to 0:01.5 and paused there.) A Titles row under the clips shows the
 overlays as blocks, those that show at once one above the other (the row grows past two lanes, 22 pixels each); a right-click on the row creates a title
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change

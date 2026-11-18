@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
   down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
   white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
-  clock, pixels, fades through black or white). **Split at the playhead** (Ctrl+B) cuts a clip in two, **Move
-  earlier** and **Move later** change the clips' order, and Space plays the video from the playhead or pauses it.
+  clock, pixels, fades through black or white). **Split at the playhead** (Ctrl+B) cuts a clip in two, **Trim
+  start** and **Trim end to the playhead** cut a clip's start or end off, **Move earlier** and **Move later** change
+  the clips' order, and Space plays the video from the playhead or pauses it.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
   corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
