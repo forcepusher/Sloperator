@@ -116,6 +116,9 @@ public sealed partial class VideoEditorViewModel
             else
                 foreach (var picture in pictures)
                     added.Add(Storyboard.KeepPicture(picture, _board.ReferencesFolder));
+            // Dropped on the clips, each is a clip of its own, as it is; on the titles, shown over the video from there.
+            if (place is { Row: "video" or "titles" } && added.Count > 0)
+                AddDropped(added, place);
             var at = place is { Row: "sounds" } ? place.Seconds : PlayPosition;
             var soundLine = place is { Row: "sounds" } ? place.SoundLine : 0;
             foreach (var file in sounds)
@@ -147,6 +150,8 @@ public sealed partial class VideoEditorViewModel
         Status = added.Count switch
         {
             0 => Status,
+            _ when place is { Row: "video" } && pictures.Count > 0 => pictures.Count == 1 ? $"Added {Path.GetFileName(added[0])} as a clip." : $"Added {pictures.Count} clips.",
+            _ when place is { Row: "titles" } && pictures.Count > 0 => $"Put {Path.GetFileName(added[0])}{(pictures.Count > 1 ? $" and {pictures.Count - 1} more" : "")} over the video: right-click it for its place.",
             1 => $"Copied {Path.GetFileName(added[0])} in: say in the chat what to do with it.",
             _ => $"Copied {added.Count} files in: say in the chat what to do with them.",
         };
@@ -154,6 +159,38 @@ public sealed partial class VideoEditorViewModel
         if (added.Count > 0)
             ShowFile(added[0]);
         return true;
+    }
+
+    /// <summary>
+    /// Videos and pictures dropped on the Video clips row: a clip each after the last, made of the file as it is
+    /// (an MP4 taken in at once; another kind, or a picture held for 3 s, made when it is made); on the Titles
+    /// row, shown over the video from where they were dropped (a picture as a logo at the top right).
+    /// </summary>
+    private void AddDropped(IReadOnlyList<string> copies, VideoDropPlace place)
+    {
+        var clips = new List<VideoShot>();
+        foreach (var copy in copies)
+        {
+            var seconds = Storyboard.IsVideoFile(copy) ? Math.Clamp(_previews.Decoder?.Probe(copy)?.Duration.TotalSeconds ?? 5, 0.5, 60) : 3;
+            var name = _board.InReferences(copy);
+            if (place.Row == "titles")
+                _board.Overlays.Add(new VideoOverlay
+                {
+                    Id = _board.NewId("o"), File = name, Start = Math.Max(0, Math.Round(place.Seconds * 10) / 10), Seconds = Math.Round(seconds * 10) / 10,
+                    Position = Storyboard.IsVideoFile(copy) ? "bottom right" : "top right",
+                });
+            else
+            {
+                var shot = new VideoShot { Id = _board.NewId("s"), Name = Path.GetFileNameWithoutExtension(copy), File = name, Seconds = Math.Round(seconds * 10) / 10, Seed = Storyboard.NewSeed() };
+                _board.Shots.Add(shot);
+                clips.Add(shot);
+            }
+        }
+        _board.Normalize();
+        Changed();
+        SaveNow();
+        foreach (var shot in clips)
+            VideoMaker.TakeClip(_board, shot);
     }
 
     /// <summary>
