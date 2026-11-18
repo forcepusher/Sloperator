@@ -17,6 +17,7 @@ public sealed partial class VideoEditorViewModel
         {
             "references" => [new("Create", free, CreateReference)],
             "video" => [new("Create", free, AddShot)],
+            "titles" => [new("Create", free, () => CreateTitle(seconds))],
             "sounds" => [new("Create", free, () => CreateSound(seconds, soundLine)), null, new("Delete sound line", free && _board.SoundLines > 1, () => DeleteSoundLine(soundLine))],
             _ => [],
         };
@@ -45,12 +46,10 @@ public sealed partial class VideoEditorViewModel
     public IReadOnlyList<PanelMenuItem?> MenuFor(ShotItem shot)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<PanelMenuItem?>
-        {
-            new("Generate", free, () => Generate(shot)),
-            null,
-            new("Delete", free, () => DeleteShot(shot)),
-        };
+        var items = new List<PanelMenuItem?> { new("Generate", free && !shot.Shot.Assembled, () => Generate(shot)), null };
+        items.AddRange(ClipEdits(shot, free));
+        items.Add(null);
+        items.Add(new("Delete", free, () => DeleteShot(shot)));
         AddVersions(items, shot);
         items.Add(null);
         items.Add(new("Create", free, AddShot));
@@ -414,6 +413,9 @@ public sealed partial class VideoEditorViewModel
                 break;
             case SoundItem sound:
                 RenameSound(sound, name);
+                break;
+            case OverlayItem overlay:
+                SetWords(overlay, name);
                 break;
         }
     }

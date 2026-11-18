@@ -43,6 +43,7 @@ public sealed partial class VideoEditorViewModel
             Sounds.Add(new SoundItem(sound));
         for (var i = 0; i < _board.SoundLines; i++)
             SoundLines.Add(new SoundLineItem(i, _board.LineVolume(i), SetLineVolume));
+        RebuildOverlays();
         _loading = false;
         Relabel();
         RefreshReferences();

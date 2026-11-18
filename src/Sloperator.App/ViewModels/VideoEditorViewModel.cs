@@ -259,6 +259,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             end = Math.Max(end, line.AddSeconds + 56 / Pps);
         }
         AddShotX = Lead + length * Pps + 4;
+        LayoutOverlays(length);
         TimelineWidth = Math.Max(Lead + end * Pps, AddReferenceX + CardWidth) + 240;
         OnPropertyChanged(nameof(PlayheadX));
         OnPropertyChanged(nameof(EndX));

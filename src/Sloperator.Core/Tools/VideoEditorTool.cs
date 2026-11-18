@@ -412,7 +412,7 @@ public sealed class VideoEditorTool : Tool
     }
 
     /// <summary>How a shot's clip is edited, in words: "in 1.5 s, speed 2, reversed"; empty when it isn't.</summary>
-    internal static string Edits(VideoShot s)
+    public static string Edits(VideoShot s)
     {
         var parts = new List<string>();
         if (s.In > 0) parts.Add($"in {N(s.In)} s");

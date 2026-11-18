@@ -342,6 +342,25 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     private static string N(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
 
     /// <summary>
+    /// The clip of a shot made of an MP4 of the user's, taken in now without a job (the Video editor's
+    /// split): copied into its place and stamped as made. False when its file isn't an MP4 there is.
+    /// </summary>
+    public static bool TakeClip(Storyboard board, VideoShot shot)
+    {
+        if (shot.File is not { } name || board.FindFile(name) is not { } source || !source.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+            return false;
+        var target = board.ShotVideo(shot);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+        {
+            MediaRelease.Release(target);
+            File.Copy(source, target, overwrite: true);
+        }
+        WriteStamp(board.ShotMeta(shot), ShotStamp(board, shot), "file", null);
+        return true;
+    }
+
+    /// <summary>
     /// A clip whose camera moved where its shot holds it still, held still after the fact
     /// (<see cref="VideoSteady"/>): LTX pushed in, panned or tilted on every locked-off shot of a
     /// night of videos. What was done, for the notes; null when the camera held still or nothing could be read.

@@ -65,7 +65,7 @@ public partial class VideoEditorPanel : UserControl
 
     /// <summary>The row (References, Video clips or the sound lines) a visual is in, by its Tag.</summary>
     private static Control? RowOf(Visual? visual) =>
-        visual?.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => c.Tag is "references" or "video" or "sounds");
+        visual?.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => c.Tag is "references" or "video" or "titles" or "sounds");
 
     /// <summary>Where on the timeline a pointer is: its row, the time there, the sound line, and the card or sound under it.</summary>
     private VideoDropPlace? PlaceAt(Visual? source, Func<Visual, Point> at)
@@ -185,6 +185,24 @@ public partial class VideoEditorPanel : UserControl
         if ((sender as Control)?.DataContext is SoundItem sound)
         {
             PanelMenu.Open(Vm.MenuFor(sound), sender as Control, null, Vm.FileOf(sound));
+            e.Handled = true;
+        }
+    }
+
+    private void OnOverlayMenu(object? sender, ContextRequestedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is OverlayItem overlay)
+        {
+            PanelMenu.Open(Vm.MenuFor(overlay), sender as Control);
+            e.Handled = true;
+        }
+    }
+
+    private void OnOverlayDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is OverlayItem overlay)
+        {
+            Vm.AskWords(overlay);
             e.Handled = true;
         }
     }

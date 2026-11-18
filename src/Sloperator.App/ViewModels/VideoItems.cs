@@ -119,12 +119,19 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public string Number => (Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>What the camera does, as a name for the block ("static close-up"), else the start of what happens.</summary>
-    public string Name => Shot.Camera.Trim() is { Length: > 0 } camera ? camera : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "a new clip";
+    /// <remarks>One made of a file or a scene is named by that file.</remarks>
+    public string Name => Shot.Scene is { } scene ? Path.GetFileName(scene) : Shot.File is { } file ? Path.GetFileName(file)
+        : Shot.Camera.Trim() is { Length: > 0 } camera ? camera : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "a new clip";
 
-    /// <summary>What happens in it, as Sloperator asked for it.</summary>
-    public string Summary => Shot.Prompt.Trim() is { Length: > 0 } p ? p : "Say in the chat what happens in it.";
+    /// <summary>What happens in it, as Sloperator asked for it (what it is made of, for a file or a scene), and how it is edited.</summary>
+    public string Summary =>
+        (Shot.Scene is { } scene ? $"Drawn from the scene {Path.GetFileName(scene)}" : Shot.File is { } file ? $"Your file {Path.GetFileName(file)}"
+            : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "Say in the chat what happens in it.") +
+        (Sloperator.Core.Tools.VideoEditorTool.Edits(Shot) is { Length: > 0 } edits ? $"\nEdited: {edits}" : "") +
+        (Shot.Transition != VideoShot.Cut && Index > 0 ? $"\nTransition in: {Shot.Transition}" : "");
 
-    public string LengthText => $"{Shot.Seconds:0.#} s";
+    /// <summary>Its length, and its speed when it plays faster or slower.</summary>
+    public string LengthText => $"{Shot.Seconds:0.#} s" + (Shot.Speed is { } speed ? $" · {speed:0.##}×" : "") + (Shot.Reverse ? " · reversed" : "");
 
     [ObservableProperty]
     private FrameItem? _first;
@@ -155,7 +162,8 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public double SlotWidth => Math.Min(FullSlotWidth, Math.Floor((BlockWidth - 16) / 2));
 
     /// <summary>The block has room for its frame slots; a narrower one is picked whole (zoom in to reach its frames).</summary>
-    public bool HasSlots => SlotWidth >= 8;
+    /// <remarks>One made of a file or a scene has no frames.</remarks>
+    public bool HasSlots => !Shot.Assembled && SlotWidth >= 8;
 
     /// <summary>The slots are full size: one not made shows File… and Generate (a narrower one has them on its right-click menu).</summary>
     public bool SlotsRoomy => SlotWidth >= FullSlotWidth;
@@ -345,3 +353,29 @@ public sealed class VideoPick(string path, string caption)
 
 /// <summary>What the viewer shows for something with no picture to play: a piece not made yet, the video not joined.</summary>
 public sealed record PictureView(Bitmap? Picture, string Caption, string? Missing, string? Path = null);
+
+/// <summary>
+/// Something shown over the video on the Titles row: words, a picture, a video or a scene, from where
+/// it starts for as long as it shows. Its words are typed in a box (F2 or a double click).
+/// </summary>
+public sealed partial class OverlayItem(VideoOverlay overlay) : ObservableObject
+{
+    public VideoOverlay Overlay { get; } = overlay;
+    public string Id => Overlay.Id;
+
+    /// <summary>What it shows, as its block says it: the words, or the file's or scene's name.</summary>
+    public string Title => Overlay.Text.Trim().Length > 0 && Overlay.File is null && Overlay.Scene is null ? Overlay.Text.Trim().Replace("\\n", " ").ReplaceLineEndings(" ")
+        : Path.GetFileName(Overlay.Scene ?? Overlay.File ?? Overlay.Id);
+
+    public string Tip => $"{Title} · from {Overlay.Start:0.#} s{(Overlay.Seconds > 0 ? $" for {Overlay.Seconds:0.#} s" : " to the end")}, " +
+                         $"{(Overlay.Position.Length > 0 ? Overlay.Position : "centre")}. Double-click to change the words; right-click for its place and length";
+
+    [ObservableProperty]
+    private double _x;
+
+    [ObservableProperty]
+    private double _blockWidth;
+
+    [ObservableProperty]
+    private bool _isSelected;
+}

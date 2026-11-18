@@ -267,6 +267,9 @@
               <Border Height="112">
                 <TextBlock Text="Video clips" Margin="10,10,6,0" />
               </Border>
+              <Border Height="{x:Static vm:VideoEditorViewModel.TitlesRowHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+                <TextBlock Text="Titles" Margin="10,0,6,0" VerticalAlignment="Center" />
+              </Border>
               <ItemsControl ItemsSource="{Binding SoundLines}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:SoundLineItem">
@@ -401,6 +404,35 @@
                     </Button>
                   </Canvas>
                 </Panel>
+
+                <!-- Titles: words, pictures and scenes over the video, each from where it starts for as long as it shows.
+                     Right-click the row to create one; double-click one to change its words. -->
+                <Border Height="{x:Static vm:VideoEditorViewModel.TitlesRowHeight}" Tag="titles" Background="Transparent" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+                  <ItemsControl ItemsSource="{Binding Overlays}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <Canvas />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.Styles>
+                      <Style Selector="ContentPresenter" x:DataType="vm:OverlayItem">
+                        <Setter Property="Canvas.Left" Value="{Binding X}" />
+                        <Setter Property="Canvas.Top" Value="4" />
+                      </Style>
+                    </ItemsControl.Styles>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:OverlayItem">
+                        <Border Classes="block clip" Classes.selected="{Binding IsSelected}" Width="{Binding BlockWidth}" Height="38" Cursor="Hand" Background="Transparent"
+                                ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}" ContextRequested="OnOverlayMenu" DoubleTapped="OnOverlayDoubleTapped">
+                          <DockPanel Margin="8,0">
+                            <PathIcon DockPanel.Dock="Left" Data="M5 4v3h5.5v12h3V7H19V4z" Width="11" Height="11" Foreground="{StaticResource BbMuted}" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding Title}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          </DockPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Border>
 
                 <!-- The sound lines: each sound a clip from where it starts for as long as it plays, dragged along
                      and between sound lines, trimmed at either edge, overlapping as they please. -->
