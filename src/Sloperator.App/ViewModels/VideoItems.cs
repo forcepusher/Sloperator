@@ -368,7 +368,7 @@ public sealed partial class OverlayItem(VideoOverlay overlay) : ObservableObject
         : Path.GetFileName(Overlay.Scene ?? Overlay.File ?? Overlay.Id);
 
     public string Tip => $"{Title} · from {Overlay.Start:0.#} s{(Overlay.Seconds > 0 ? $" for {Overlay.Seconds:0.#} s" : " to the end")}, " +
-                         $"{(Overlay.Position.Length > 0 ? Overlay.Position : "centre")}. Double-click to change the words; right-click for its place and length";
+                         $"{(Overlay.Position.Length > 0 ? Overlay.Position : "centre")}. Drag it or its edges; double-click to change the words; right-click for its place and length";
 
     [ObservableProperty]
     private double _x;

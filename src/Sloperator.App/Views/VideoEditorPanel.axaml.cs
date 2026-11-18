@@ -198,15 +198,6 @@ public partial class VideoEditorPanel : UserControl
         }
     }
 
-    private void OnOverlayDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as Control)?.DataContext is OverlayItem overlay)
-        {
-            Vm.AskWords(overlay);
-            e.Handled = true;
-        }
-    }
-
     private void OnSoundLineMenu(object? sender, ContextRequestedEventArgs e)
     {
         if ((sender as Control)?.DataContext is SoundLineItem soundLine)
@@ -408,6 +399,62 @@ public partial class VideoEditorPanel : UserControl
     }
 
     private void OnSoundCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _sound = null;
+
+    // ---- a title dragged: moved along its row, or made to start or end elsewhere at an edge ---------------------
+
+    private (OverlayItem Item, string Mode, Point From, double Start, double Seconds, bool Moved)? _overlay;
+
+    private void OnOverlayPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control block || block.DataContext is not OverlayItem item || !e.GetCurrentPoint(block).Properties.IsLeftButtonPressed)
+            return;
+        // A double click: its words to change (handled here, as the press before it was, for the drag).
+        if (e.ClickCount == 2)
+        {
+            _overlay = null;
+            Vm.AskWords(item);
+            e.Handled = true;
+            return;
+        }
+        var mode = (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("handle"))?.Tag as string ?? "move";
+        _overlay = (item, mode, e.GetPosition(Timeline), item.Overlay.Start, Vm.ShowSeconds(item), false);
+        e.Pointer.Capture(block);
+        e.Handled = true;
+    }
+
+    private void OnOverlayMoved(object? sender, PointerEventArgs e)
+    {
+        if (_overlay is not { } o)
+            return;
+        var at = e.GetPosition(Timeline);
+        if (!o.Moved && Point.Distance(at, o.From) < 4)
+            return;
+        _overlay = o with { Moved = true };
+        var dx = (at.X - o.From.X) / Vm.Pps;
+        switch (o.Mode)
+        {
+            case "left":
+                dx = Math.Clamp(dx, -o.Start, o.Seconds - 0.2);
+                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds - dx);
+                break;
+            case "right":
+                Vm.MoveOverlay(o.Item, o.Start, Math.Max(0.2, o.Seconds + dx));
+                break;
+            default:
+                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds);
+                break;
+        }
+    }
+
+    private void OnOverlayReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_overlay is null)
+            return;
+        _overlay = null;
+        e.Pointer.Capture(null);
+    }
+
+    private void OnOverlayCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _overlay = null;
 
     // ---- dragging the timeline sideways --------------------------------------------------------------
 

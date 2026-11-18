@@ -423,11 +423,16 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:OverlayItem">
                         <Border Classes="block clip" Classes.selected="{Binding IsSelected}" Width="{Binding BlockWidth}" Height="38" Cursor="Hand" Background="Transparent"
-                                ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}" ContextRequested="OnOverlayMenu" DoubleTapped="OnOverlayDoubleTapped">
-                          <DockPanel Margin="8,0">
-                            <PathIcon DockPanel.Dock="Left" Data="M5 4v3h5.5v12h3V7H19V4z" Width="11" Height="11" Foreground="{StaticResource BbMuted}" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding Title}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          </DockPanel>
+                                ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}" ContextRequested="OnOverlayMenu"
+                                PointerPressed="OnOverlayPressed" PointerMoved="OnOverlayMoved" PointerReleased="OnOverlayReleased" PointerCaptureLost="OnOverlayCaptureLost">
+                          <Panel>
+                            <DockPanel Margin="8,0">
+                              <PathIcon DockPanel.Dock="Left" Data="M5 4v3h5.5v12h3V7H19V4z" Width="11" Height="11" Foreground="{StaticResource BbMuted}" Margin="0,0,6,0" />
+                              <TextBlock Text="{Binding Title}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <Border Classes="handle" Tag="left" Width="6" HorizontalAlignment="Left" Cursor="SizeWestEast" ToolTip.Tip="Drag to start it earlier or later" />
+                            <Border Classes="handle" Tag="right" Width="6" HorizontalAlignment="Right" Cursor="SizeWestEast" ToolTip.Tip="Drag to show it longer or shorter" />
+                          </Panel>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>

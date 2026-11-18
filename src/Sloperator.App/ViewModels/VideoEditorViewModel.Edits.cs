@@ -191,7 +191,7 @@ public sealed partial class VideoEditorViewModel
         var words = o.File is null && o.Scene is null;
         return
         [
-            new("Change the words", free && words, () => RenameAsked?.Invoke(item, o.Text.Replace("\\n", "\n")), "F2"),
+            new("Change the words", free && words, () => RenameAsked?.Invoke(item, o.Text.Replace("\\n", "\n"))),
             new("Place", free, () => { })
             {
                 Items = Places.Select(p => (PanelMenuItem?)new PanelMenuItem($"{Mark(o.Box is null && o.Position == p.Position)}{p.Name}", free,
@@ -221,6 +221,18 @@ public sealed partial class VideoEditorViewModel
     /// <summary>The words typed for a title (a line break as \n).</summary>
     private void SetWords(OverlayItem item, string words) =>
         Edit(() => _board.Overlay(item.Id)?.Let(x => x.Text = words.ReplaceLineEndings("\n")));
+
+    /// <summary>A title dragged along the row, or at an edge: where it starts and how long it shows, in tenths of a second.</summary>
+    public void MoveOverlay(OverlayItem item, double start, double seconds)
+    {
+        var overlay = item.Overlay;
+        (overlay.Start, overlay.Seconds) = (Math.Max(0, Math.Round(start * 10) / 10), Math.Max(0.2, Math.Round(seconds * 10) / 10));
+        Relayout();
+        Changed();
+    }
+
+    /// <summary>How long a title shows on the row: its seconds, else to the video's end.</summary>
+    public double ShowSeconds(OverlayItem item) => item.Overlay.Seconds > 0 ? item.Overlay.Seconds : Math.Max(1, Length - item.Overlay.Start);
 
     /// <summary>A double click on a title: its words to change.</summary>
     public void AskWords(OverlayItem item)
