@@ -48,7 +48,7 @@ public sealed class VideoEditorTool : Tool
         ("tries", Int("action=shot: up to this many tries, each with a new seed, until the check passes (default 1); action=sound: songs to make, the best kept (default 3; foley is made once)"), false),
         ("output", Str("action=export: the file to save the video as (.mp4, .webm, .mov, .gif; .mp3, .wav or .m4a for its sound alone)"), false),
         ("width", Int("action=export: its width (the height follows unless given)"), false),
-        ("height", Int("action=export: its height"), false));
+        ("height", Int("action=export: its height; with width, the video is cut to that shape (1080x1920 for a vertical one) rather than stretched"), false));
 
     public override string Describe(JsonObject args)
     {

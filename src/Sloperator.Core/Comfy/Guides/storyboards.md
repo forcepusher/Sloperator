@@ -169,7 +169,8 @@ so no clip is made again for it (action=join after a change).
   none). A sound's "fadeIn" and "fadeOut" fade it on its sound line.
 - "quality": draft (quick to join while trying things), good (the usual) or best.
 - action=export with output saves the joined video as another file: a smaller MP4 (width), a GIF,
-  a WebM, a MOV, or its sound alone as an MP3.
+  a WebM, a MOV, or its sound alone as an MP3; width and height together cut it to that shape (1080
+  by 1920 for a vertical one keeps its middle).
 
 ## Models and changes
 - "model" is what a piece is made with. Set it only when the person names or describes a model or

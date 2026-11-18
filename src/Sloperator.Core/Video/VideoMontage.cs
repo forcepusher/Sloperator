@@ -421,7 +421,10 @@ public static class VideoMontage
             throw new VideoException("The video isn't joined yet: join it first (action=join), then export it.");
         var (_, length) = board.Timing();
         var ext = Path.GetExtension(output).ToLowerInvariant();
-        var size = width is > 0 || height is > 0 ? $"scale={(width is > 0 ? Even(width.Value).ToString(CultureInfo.InvariantCulture) : "-2")}:{(height is > 0 ? Even(height.Value).ToString(CultureInfo.InvariantCulture) : "-2")}" : null;
+        // Both given: the frame filled and cut to that shape (a vertical 1080x1920 from a 16:9 video keeps its middle), not stretched.
+        var size = width is > 0 && height is > 0
+            ? $"scale={Even(width.Value)}:{Even(height.Value)}:force_original_aspect_ratio=increase,crop={Even(width.Value)}:{Even(height.Value)},setsar=1"
+            : width is > 0 || height is > 0 ? $"scale={(width is > 0 ? Even(width.Value).ToString(CultureInfo.InvariantCulture) : "-2")}:{(height is > 0 ? Even(height.Value).ToString(CultureInfo.InvariantCulture) : "-2")}" : null;
         var args = new List<string> { "-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-i", source };
         switch (ext)
         {

@@ -257,5 +257,9 @@ public sealed class VideoEditingTests : IDisposable
         Assert.True(new FileInfo(gif).Length > 1000);
         var sound = await VideoMontage.ExportAsync(board, ffmpeg, Path.Combine(_dir, "out", "sound.mp3"), null, null, null, ct);
         Assert.True(File.Exists(sound));
+        // A vertical one from it: its middle, cut to that shape, not stretched.
+        var vertical = await VideoMontage.ExportAsync(board, ffmpeg, Path.Combine(_dir, "out", "vertical.mp4"), 360, 640, null, ct);
+        var tall = decoder.Probe(vertical);
+        Assert.Equal((360, 640), (tall!.Width, tall.Height));
     }
 }
