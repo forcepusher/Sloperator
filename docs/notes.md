@@ -2030,7 +2030,9 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   box's size (read back through libvpx-vp9, as ffmpeg's own VP9 decoder drops the alpha); a video
   plays round when shorter. ffmpeg lays each over the joined shots from its start (setpts and enable);
   a picture or video with a `key` colour (a green screen) goes in as it is, scaled into its box, with
-  chromakey (similarity 0.15, blend 0.08) taking that colour out.
+  chromakey (similarity 0.15, blend 0.08) taking that colour out. Words with a `motion` (slide up, down,
+  left or right) come in from 8% of the frame's height (10% of its width) off their place, the offset
+  easing to none over their fade in (half a second at least) in overlay's x and y.
   `captions` shows each shot's line at the bottom while it is said. Drawn into Generated/overlays.
 - **The video's ends and encoding**: `fadeIn` and `fadeOut` (0.4 and 1 unless set, 0 none), applied
   after the overlays so titles fade with the picture; `quality` draft (veryfast, CRF 26), good (medium,

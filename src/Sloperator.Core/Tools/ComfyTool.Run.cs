@@ -256,7 +256,8 @@ public sealed partial class ComfyTool
     internal static string ViewsNote(IEnumerable<ComfyTemplate> templates)
     {
         var list = templates.ToList();
-        var multi = list.Where(t => MultiView().IsMatch(t.Name)).Select(t => t.Name).Take(2).ToList();
+        // Not Hunyuan3D's: the user found its models terrible (2026-11-19).
+        var multi = list.Where(t => MultiView().IsMatch(t.Name) && !t.Name.Contains("hunyuan", StringComparison.OrdinalIgnoreCase)).Select(t => t.Name).Take(2).ToList();
         var angles = list.FirstOrDefault(t => t.Name.Contains("angles", StringComparison.OrdinalIgnoreCase)
                                               && t.Name.Contains("character", StringComparison.OrdinalIgnoreCase))?.Name;
         return "Note: a 3D model made from one picture guesses the sides it can't see, and a figure drawn from the front often comes out as a relief. " +

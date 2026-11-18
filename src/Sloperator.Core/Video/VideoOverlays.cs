@@ -19,6 +19,13 @@ public sealed record OverlayInput(string File, bool Still, int X, int Y, int Wid
 
     /// <summary>A picture the frame's size with what it shows drawn in place (words, a picture placed): laid at 0,0 as it is.</summary>
     public bool Framed { get; init; }
+
+    /// <summary>Where it starts from as it comes in, in pixels from its place (it eases there over <see cref="SlideSeconds"/>); 0, 0 for no slide.</summary>
+    public int SlideX { get; init; }
+
+    public int SlideY { get; init; }
+
+    public double SlideSeconds { get; init; }
 }
 
 /// <summary>
@@ -68,6 +75,16 @@ public static class VideoOverlays
             var fadeOut = o.FadeOut ?? (words ? 0.3 : 0);
             (fadeIn, fadeOut) = (Math.Min(fadeIn, seconds / 2), Math.Min(fadeOut, seconds / 2));
             var opacity = o.Opacity ?? 1;
+            // A slide in: from a little way off its place, as long as its fade in (at least half a second).
+            var (slideX, slideY) = o.Motion switch
+            {
+                "slide up" => (0, (int)Math.Round(h * 0.08)),
+                "slide down" => (0, -(int)Math.Round(h * 0.08)),
+                "slide left" => ((int)Math.Round(w * 0.1), 0),
+                "slide right" => (-(int)Math.Round(w * 0.1), 0),
+                _ => (0, 0),
+            };
+            var slideSeconds = Math.Min(Math.Max(fadeIn, 0.5), seconds / 2);
             try
             {
                 Directory.CreateDirectory(folder);
@@ -75,7 +92,7 @@ public static class VideoOverlays
                 {
                     var png = Path.Combine(folder, Storyboard.Safe(o.Id) + ".png");
                     DrawWords(o, w, h, png);
-                    inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity) { Framed = true });
+                    inputs.Add(new OverlayInput(png, true, 0, 0, w, h, start, seconds, fadeIn, fadeOut, opacity) { Framed = true, SlideX = slideX, SlideY = slideY, SlideSeconds = slideSeconds });
                 }
                 else if (o.Scene is { } sceneName)
                 {

@@ -129,7 +129,11 @@ public static class VideoMontage
             f.Append($",setpts=PTS-STARTPTS+{N(overlay.Start)}/TB[o{k}];");
             var (x, y) = overlay.Framed
                 ? ("0", "0")
-                : ($"'{overlay.X}+({overlay.Width}-overlay_w)*{N(overlay.AlignX)}'", $"'{overlay.Y}+({overlay.Height}-overlay_h)*{N(overlay.AlignY)}'");
+                : ($"{overlay.X}+({overlay.Width}-overlay_w)*{N(overlay.AlignX)}", $"{overlay.Y}+({overlay.Height}-overlay_h)*{N(overlay.AlignY)}");
+            // A slide in: the offset eases from its full length to none (the square of what is left of it).
+            string Slide(int by) => by == 0 || overlay.SlideSeconds <= 0 ? "" : $"+{by}*pow(1-min(1,(t-{N(overlay.Start)})/{N(overlay.SlideSeconds)}),2)";
+            string Place(string at, int by) => at + Slide(by) is var e && e == "0" ? e : $"'{e}'";
+            (x, y) = (Place(x, overlay.SlideX), Place(y, overlay.SlideY));
             f.Append($"[{video}][o{k}]overlay=x={x}:y={y}:eof_action=pass:enable='between(t,{N(overlay.Start)},{N(end)})'[ov{k}];");
             video = $"ov{k}";
             k++;

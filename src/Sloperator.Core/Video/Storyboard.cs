@@ -855,6 +855,14 @@ public sealed partial class Storyboard
             o.Color = Clean(o.Color);
             o.Background = Clean(o.Background);
             o.Key = Clean(o.Key);
+            o.Motion = (o.Motion ?? "").Trim().ToLowerInvariant().Replace('-', ' ').Replace('_', ' ') switch
+            {
+                "slide up" or "up" or "rise" or "rises" => "slide up",
+                "slide down" or "down" or "drop" or "drops" => "slide down",
+                "slide left" or "left" or "slide in from the right" => "slide left",
+                "slide right" or "right" or "slide in from the left" => "slide right",
+                _ => null,
+            };
             if (o.Box is { } box)
             {
                 box.X = Math.Clamp(box.X, 0, 0.99);
@@ -1264,6 +1272,9 @@ public sealed class VideoOverlay
 
     /// <summary>A colour taken out of a picture or video shown (a green screen: #00FF00), so what is behind shows there; null none.</summary>
     public string? Key { get; set; }
+
+    /// <summary>How it comes in: "slide up", "slide down", "slide left" or "slide right" into its place, easing to a stop; none fades only.</summary>
+    public string? Motion { get; set; }
 
     /// <summary>"Title 1", its name or its words.</summary>
     [JsonIgnore]

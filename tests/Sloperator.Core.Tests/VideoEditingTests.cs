@@ -78,6 +78,9 @@ public sealed class VideoEditingTests : IDisposable
         Assert.Contains("-loop", args);
         Assert.Contains("[1:v]format=rgba,fade=t=in:st=0:d=0.3:alpha=1,fade=t=out:st=1.7:d=0.3:alpha=1,setpts=PTS-STARTPTS+1/TB[o0]", graph);
         Assert.Contains("overlay=x=0:y=0:eof_action=pass:enable='between(t,1,3)'", graph);
+        // Words that slide up into place: from 29 pixels below, easing to a stop over half a second.
+        var (slid, _, _) = VideoMontage.Plan(board, _ => true, "out.mp4", [new("title.png", true, 0, 0, 640, 360, 1, 2, 0.3, 0.3, 1) { Framed = true, SlideY = 29, SlideSeconds = 0.5 }]);
+        Assert.Contains("overlay=x=0:y='0+29*pow(1-min(1,(t-1)/0.5),2)'", Graph(slid));
         Assert.Contains("[2:v]scale=200:150:force_original_aspect_ratio=decrease,chromakey=0x00FF00:0.15:0.08,format=rgba,colorchannelmixer=aa=0.8,setpts=PTS-STARTPTS+2/TB[o1]", graph);
         Assert.Contains("overlay=x='400+(200-overlay_w)*1':y='200+(150-overlay_h)*1'", graph);
     }
@@ -229,7 +232,7 @@ public sealed class VideoEditingTests : IDisposable
                        {"id": "s2", "file": {{System.Text.Json.Nodes.JsonValue.Create(Path.Combine(_dir, "elsewhere.mov")).ToJsonString()}}, "seconds": 1.5, "transition": "wipeleft", "reverse": true},
                        {"id": "s3", "file": "still.png", "seconds": 2, "zoom": "in", "transition": "dissolve"},
                        {"id": "s4", "scene": "sting.svg", "seconds": 2, "transition": "slideup", "line": "", "freeze": 1.5}],
-             "overlays": [{"text": "A title", "position": "center", "start": 0.2, "seconds": 1.5},
+             "overlays": [{"text": "A title", "position": "center", "start": 0.2, "seconds": 1.5, "motion": "slide up"},
                           {"file": "still.png", "position": "top right", "start": 1, "seconds": 3, "opacity": 0.7},
                           {"file": "green.mp4", "position": "bottom left", "start": 2, "seconds": 2, "key": "#00FF00"}],
              "sounds": [], "fadeOut": 0.5}

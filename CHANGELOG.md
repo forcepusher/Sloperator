@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
   corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
-  the lines over the video, with a green screen taken out. A sound's menu fades it in or out.
+  the lines over the video, with a green screen taken out, and words that fade or slide in. A sound's menu fades it in or out.
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
 - **Ctrl+Z in the Video editor** takes back its last edits. Videos and pictures dropped on the clips become clips, and
   on the titles, pictures over the video.

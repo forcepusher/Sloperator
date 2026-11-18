@@ -1277,7 +1277,9 @@ public class ComfyToolTests : IDisposable
             new ComfyTemplate("workflows/Mesh/3d_hunyuan3d_multiview_to_model", "", "", "", "user", []),
             new ComfyTemplate("workflows/ImageRotate/templates-1_click_multiple_character_angles-v1.0", "", "", "", "user", []),
             new ComfyTemplate("workflows/Image/nova-furry-v17", "", "", "", "user", [])]);
-        Assert.Contains("a multi-view template (workflows/Mesh/3d_hunyuan3d_multiview_to_model)", note);
+        // Hunyuan3D's isn't offered: the user found its models terrible (2026-11-19).
+        Assert.DoesNotContain("hunyuan", note);
+        Assert.Contains("a multi-view 3D workflow takes", note);
         Assert.Contains("(workflows/ImageRotate/templates-1_click_multiple_character_angles-v1.0 turns the camera;", note);
         Assert.Contains("rotate the camera 90 degrees left and right", ComfyTool.ViewsNote([]));
     }

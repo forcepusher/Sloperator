@@ -155,7 +155,8 @@ so no clip is made again for it (action=join after a change).
   "transitionSeconds" its length (0.5 to 1 reads well).
 - "overlays": what shows over the video for a while: [{id, text (a title, a caption, any words;
   \n breaks a line) or file (a picture, SVG or video: a logo, picture in picture) or scene (an SVG
-  or Three.js page drawn with a clear background), start, seconds (0 to the end), position (center,
+  or Three.js page drawn with a clear background), start, seconds (0 to the end), motion (slide up,
+  slide down, slide left or slide right into its place as it comes in), position (center,
   top, bottom, lower third, top left, top right, bottom left, bottom right, full) or box {x, y,
   width, height}, opacity, fadeIn, fadeOut, and for words: font (Segoe UI, Arial, Georgia, Impact,
   Consolas…), size (a fraction of the frame's height: 0.09 a title, 0.05 a caption), color
