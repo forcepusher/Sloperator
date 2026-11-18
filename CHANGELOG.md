@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
 - **Ctrl+Z in the Video editor** takes back its last edits. Videos and pictures dropped on the clips become clips, and
   on the titles, pictures over the video.
+- **Voice-overs.** Ask for narration over a video and the agent says it in the voice you describe, with the music
+  going quieter under it.
 - **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an
   animated SVG or Three.js scene, with no model making it.
 - **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, its sound alone as an MP3, or

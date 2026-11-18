@@ -728,7 +728,15 @@ with a slide, an "Episode one" lower third, an end title):
 | "a flat icon of a paper plane for my app, as a PNG" | SVG rendered at 512; 0.3 min | SVG rendered at 1024; 4.4 min |
 | "play clip 2 at half speed with a dissolve into it, make clip 3 black and white with a slow zoom in, add a lower-third title 'Chapter one' from 3 s to 6 s, fade the end out over 2 seconds, then export a GIF" | all set in one storyboard change, joined and checked; then asked before exporting, as its title would print over "Episode one" | the same, with "Chapter one" put in "Episode one"'s place (and said so), noticed clip 3 was black and white already, exported the GIF; 7.3 min |
 
-No request went to Python, Pillow or a canvas script, and none to ComfyUI. Found on the way: the whole
+No request went to Python, Pillow or a canvas script, and none to ComfyUI. All three in one video: asked
+for "a 15 second promo video for a coffee shop called Bean There: open with an animated logo, then a 3D
+coffee cup slowly turning, then two photos of a cosy cafe with slow zooms, with the shop's name as a
+title near the end. No AI video clips", Haiku looked for cafe photos on the PC, made two with ComfyUI's
+Z-Image-Turbo, wrote the logo as an SVG and the cup as a Three.js page, made a storyboard of two scene
+shots and two picture shots with zooms, and joined it in 5.5 minutes. Its title first went into a shot
+("overlays" in s4), where nothing reads it, and didn't show: a change now says which fields nothing
+reads (`VideoEditorTool.UnknownFields`). The shot judge read the cup's handle turning behind it as a
+jump: scene shots, like the person's footage, now get no fresh look made for a video model's faults. Found on the way: the whole
 video's judge asked to redo the person's own colour bars as "a test pattern", so it is now told which
 shots are the person's footage or a scene (`VideoCheck.Shows`); and the overview now says when two
 titles print over each other. Also checked in the built app: the trimmed single-file exe (29 MB, no
@@ -2042,6 +2050,11 @@ the joined video is out of date when a piece's .json or the video's is newer tha
 - **The video's ends and encoding**: `fadeIn` and `fadeOut` (0.4 and 1 unless set, 0 none), applied
   after the overlays so titles fade with the picture; `quality` draft (veryfast, CRF 26), good (medium,
   18) or best (slow, 15). A sound's `fadeIn` and `fadeOut` on its sound line.
+- **Voice-overs** (a sound of source speech): its `text` said by VoxCPM2 (the same workflow as the
+  shots' lines, `SpeechWorkflow`) in the voice its `tags` describe, else the video's `voice`, from
+  where it starts, not lip-synced; made into Generated as FLAC (as ComfyUI saves speech); its stamp its
+  words, voice and seed. When the video is joined, the other sounds go quieter (0.35) for as long as it
+  plays (its seconds, else its file's length less its trim), as they do under a shot's line; it doesn't.
 - **Export** (action=export, `VideoMontage.ExportAsync`): the joined video (joined first when out of
   date) as an MP4 of another size, a WebM (VP9 and Opus), a MOV (ProRes), a GIF (its own palette, 15
   fps, 640 wide unless given) or its sound alone.
