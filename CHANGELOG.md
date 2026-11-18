@@ -21,14 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
   corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
-  the lines over the video, with a green screen taken out, and words that fade or slide in. A sound's menu fades it in or out.
+  the lines over the video, take a green screen out, and fade or slide words in. A sound's menu fades it in or out.
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
 - **Ctrl+Z in the Video editor** takes back its last edits. Videos and pictures dropped on the clips become clips, and
   on the titles, pictures over the video.
 - **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an
   animated SVG or Three.js scene, with no model making it.
-- **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, or its sound alone as an MP3.
-  Sounds fade in and out, and the video's own fades in and out can be set or turned off.
+- **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, its sound alone as an MP3, or
+  cut to another shape, such as a vertical one. Sounds fade in and out, and the video's own fades can be set or
+  turned off.
 
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
