@@ -174,6 +174,29 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void A_file_from_elsewhere_a_shot_or_overlay_is_made_of_is_copied_into_references()
+    {
+        var outside = Directory.CreateTempSubdirectory("sl-outside-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(outside, "holiday.mp4"), "video");
+            File.WriteAllText(Path.Combine(outside, "logo.png"), "png");
+            var board = Storyboard.Parse($$"""
+                {"shots": [{"id": "s1", "file": {{System.Text.Json.Nodes.JsonValue.Create(Path.Combine(outside, "holiday.mp4")).ToJsonString()}}}],
+                 "overlays": [{"id": "o1", "file": {{System.Text.Json.Nodes.JsonValue.Create(Path.Combine(outside, "logo.png")).ToJsonString()}}}]}
+                """);
+            board.Folder = _dir;
+            var taken = board.TakeInPictures();
+            Assert.Equal(2, taken.Count);
+            Assert.Equal("holiday.mp4", board.Shots[0].File);
+            Assert.Equal("logo.png", board.Overlays[0].File);
+            Assert.True(File.Exists(Path.Combine(_dir, "References", "holiday.mp4")));
+            Assert.Equal(Path.Combine(_dir, "References", "logo.png"), board.FindFile("logo"));
+        }
+        finally { Directory.Delete(outside, true); }
+    }
+
+    [Fact]
     public void Words_are_drawn_where_their_place_puts_them()
     {
         var png = Path.Combine(_dir, "title.png");

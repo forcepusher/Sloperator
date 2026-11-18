@@ -348,6 +348,26 @@ public sealed partial class Storyboard
         foreach (var frame in Frames)
             try { frame.Of = TakeVideo(frame.Of) ?? frame.Of; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
+        // A video or picture a shot or an overlay is made of, given by its path: copied in too, so the video's folder
+        // holds all it is made of (a scene stays where it is: a page loads the files beside it).
+        string? TakeFile(string? name)
+        {
+            if (name?.Trim().Trim('"').Trim() is not { Length: > 0 } given || !Path.IsPathRooted(given))
+                return null;
+            var full = Path.GetFullPath(given);
+            if (full.StartsWith(video, StringComparison.OrdinalIgnoreCase) || !File.Exists(full) ||
+                !IsVideoFile(full) && !PictureExtensions.Contains(Path.GetExtension(full), StringComparer.OrdinalIgnoreCase) && !Path.GetExtension(full).Equals(".svg", StringComparison.OrdinalIgnoreCase))
+                return null;
+            var copy = InReferences(KeepPicture(full, ReferencesFolder));
+            taken.Add((full, copy));
+            return copy;
+        }
+        foreach (var shot in Shots)
+            try { shot.File = TakeFile(shot.File) ?? shot.File; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
+        foreach (var overlay in Overlays)
+            try { overlay.File = TakeFile(overlay.File) ?? overlay.File; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
         // A sound of the user's given by its path goes into Sounds the same way, and is that copy from then on.
         foreach (var sound in Sounds)
             try
