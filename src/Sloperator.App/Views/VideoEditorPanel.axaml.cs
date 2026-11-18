@@ -31,6 +31,17 @@ public partial class VideoEditorPanel : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, (_, _) => Dispatcher.UIThread.Post(() => (DataContext as VideoEditorViewModel)?.DragOver(null)), handledEventsToo: true);
+        // Pressed anywhere in it, a right-click too, the panel takes the keys from the chat: Ctrl+Z after an edit
+        // made from a clip's menu went to the chat's box, or the side panels' list it was opened from.
+        Focusable = true;
+        AddHandler(PointerPressedEvent, OnPressedIn, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyDownEvent, OnSpace, RoutingStrategies.Tunnel);
+    }
+
+    private void OnPressedIn(object? sender, PointerPressedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused || focused != this && !this.IsVisualAncestorOf(focused))
+            Focus();
     }
 
     private VideoEditorViewModel? _vm;
@@ -55,9 +66,20 @@ public partial class VideoEditorPanel : UserControl
 
     private VideoEditorViewModel Vm => (VideoEditorViewModel)DataContext!;
 
+    private TopLevel? _top;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _top = TopLevel.GetTopLevel(this);
+        _top?.AddHandler(KeyDownEvent, OnUnfocusedKeyDown);
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        _top?.RemoveHandler(KeyDownEvent, OnUnfocusedKeyDown);
+        _top = null;
         _viewer?.Close();
     }
 
@@ -139,9 +161,46 @@ public partial class VideoEditorPanel : UserControl
         // The key its menu shows beside Rename.
         else if (e.Key == Key.F2 && e.KeyModifiers == KeyModifiers.None && Vm.AskRenamePicked())
             e.Handled = true;
-        // An edit made here taken back: a clip's speed, look or transition, a split, a title.
-        else if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control && Vm.Undo())
+        else
+            OnEditKeys(e);
+    }
+
+    /// <summary>
+    /// An edit made here taken back (Ctrl+Z), and made again (Ctrl+Y, Ctrl+Shift+Z): a clip's speed, look or transition,
+    /// a split, a title. Ctrl+B splits the clip under the playhead, as in other editors.
+    /// </summary>
+    private void OnEditKeys(KeyEventArgs e)
+    {
+        if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control && Vm.Undo())
             e.Handled = true;
+        else if ((e.Key == Key.Y && e.KeyModifiers == KeyModifiers.Control || e.Key == Key.Z && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift)) && Vm.Redo())
+            e.Handled = true;
+        else if (e.Key == Key.B && e.KeyModifiers == KeyModifiers.Control && Vm.SplitAtPlayhead())
+            e.Handled = true;
+    }
+
+    /// <summary>
+    /// A key pressed with nothing in the window focused: the clip that was went as the timeline was laid out anew after
+    /// an edit (made from its menu, or by Ctrl+Z itself). The panel's keys work on: a second Ctrl+Z did nothing.
+    /// </summary>
+    private void OnUnfocusedKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!e.Handled && ReferenceEquals(e.Source, _top) && IsEffectivelyVisible && DataContext is VideoEditorViewModel)
+            OnEditKeys(e);
+    }
+
+    /// <summary>
+    /// Space plays the video from the playhead, or pauses it, as in any editor, with the timeline or the panel focused:
+    /// seen before a clip's button, which takes Space as a click. Not in a box being typed in, nor on the panel's buttons.
+    /// </summary>
+    private void OnSpace(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Space || e.KeyModifiers != KeyModifiers.None || DataContext is not VideoEditorViewModel vm
+            || TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused
+            || focused is TextBox || focused != this && !Timeline.IsVisualAncestorOf(focused))
+            return;
+        vm.PlayStripCommand.Execute(null);
+        e.Handled = true;
     }
 
     // ---- menus: the videos, a row, a card, a clip, a sound, a sound line ---------------------------------------------
@@ -314,6 +373,7 @@ public partial class VideoEditorPanel : UserControl
         if (sender is not Control handle || handle.DataContext is not ShotItem shot)
             return;
         _stretch = (shot, e.GetPosition(Timeline).X, shot.Shot.Seconds);
+        Vm.Remember();
         e.Pointer.Capture(handle);
         e.Handled = true;
         Vm.Show(shot);
@@ -358,6 +418,7 @@ public partial class VideoEditorPanel : UserControl
         var mode = (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("handle"))?.Tag as string ?? "move";
         var a = sound.Sound;
         _sound = (sound, mode, e.GetPosition(SoundRows), a.Start, a.SoundLine, a.Trim, sound.PlaySeconds(Vm.Length), false);
+        Vm.Remember();
         e.Pointer.Capture(clip);
         e.Handled = true;
     }

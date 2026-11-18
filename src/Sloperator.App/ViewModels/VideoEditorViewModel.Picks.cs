@@ -111,6 +111,7 @@ public sealed partial class VideoEditorViewModel
         try
         {
             SaveNow(force: true); // a new video's folder is made with it
+            Remember(); // Ctrl+Z takes the clips, titles and sounds dropped back out; their copies stay in References
             if (pictures.Count > 0 && place?.Card is ReferenceCard { IsNew: true, Frame: { } fill })
                 added.Add(FillReference(fill, pictures[0]));
             else

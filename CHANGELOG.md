@@ -17,14 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
   down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
   white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
-  clock, pixels, fades through black or white). **Split at the playhead** cuts a clip in two.
+  clock, pixels, fades through black or white). **Split at the playhead** (Ctrl+B) cuts a clip in two, **Move
+  earlier** and **Move later** change the clips' order, and Space plays the video from the playhead or pauses it.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
   corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
   the lines over the video, take a green screen out, and fade or slide words in. A sound's menu fades it in or out.
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
-- **Ctrl+Z in the Video editor** takes back its last edits. Videos and pictures dropped on the clips become clips, and
-  on the titles, pictures over the video.
+- **Undo and Redo in the Video editor:** Ctrl+Z takes back its last edits, a clip's length or a sound dragged too, and
+  Ctrl+Y makes them again; both are on the rows' right-click menus. Videos and pictures dropped on the clips become
+  clips, and on the titles, pictures over the video.
 - **Voice-overs.** Ask for narration over a video and the agent says it in the voice you describe, with the music
   going quieter under it.
 - **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an

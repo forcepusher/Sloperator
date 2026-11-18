@@ -2073,18 +2073,31 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   fps, 640 wide unless given) or its sound alone.
 
 **In the Video editor panel.** A clip's right-click menu has Speed, Reverse, Mute its sound, Look, Zoom
-and Transition in (not on the first clip), each a submenu with the current one marked, and Split at the
-playhead: both halves become the same footage, the second starting where the first stops (`in`), a
+and Transition in (not on the first clip), each a submenu with the current one marked, Move earlier and
+Move later (the transition into it goes with it), and Split at the
+playhead (Ctrl+B, on the clip under the playhead; in a transition, the one coming in): both halves become the same footage, the second starting where the first stops (`in`), a
 clip a model made copied into References as "<clip> footage.mp4" so neither half is made again
-(`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. A Titles row under the clips shows the
+(`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. Space plays the video from the
+playhead or pauses it with the timeline or the panel focused, seen on its way down (tunnel) as a clip's
+button took it for a click; not in a box being typed in, nor on the panel's buttons. (Checked in the app:
+the bars clip moved before the city one and back with Ctrl+Z, Ctrl+B at 0:06.8 split it 1.5 s in, and
+Space played from 0:00 to 0:01.5 and paused there.) A Titles row under the clips shows the
 overlays as blocks, those that show at once one above the other (the row grows past two lanes, 22 pixels each); a right-click on the row creates a title
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change
 when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, puts
 a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
-the panel's own edits (menus, splits, a title dragged), 50 at most, each with its clips' .json as they
-were, so a split taken back leaves its clip made as before. Videos and pictures dropped on the Video
-clips row become clips made of them (an MP4 taken in at once), on the Titles row overlays from there.
+the panel's own edits (menus, splits, a title, a clip's length or a sound dragged, files dropped), 50 at
+most, each with its clips' .json as they were, so a split taken back leaves its clip made as before;
+Ctrl+Y (or Ctrl+Shift+Z) makes them again, and the Video clips, Titles and sound rows' menus have both
+with their keys (`EditHistory`). What Ctrl+Z took back is made again only while the storyboard is as
+Ctrl+Z left it: an edit since, here or by the agent, drops it. Another video opened starts with none
+(before, Ctrl+Z there wrote the video before's storyboard into its folder). A press anywhere in the panel, a right-click
+too, gives it the keys: after an edit from a clip's menu, Ctrl+Z went to the side panels' list or the
+chat's box, and a second Ctrl+Z did nothing once the clip it was on was laid out anew (checked in the
+app: two speed changes from the menu taken back and made again with two presses each). Videos and
+pictures dropped on the Video clips row become clips made of them (an MP4 taken in at once), on the
+Titles row overlays from there.
 **Make the video** with nothing to make (every clip and sound there and up to date: only edits since)
 joins the video right in the panel, without the chat (the demo: 2 s), its tip saying so; with anything
 to make it goes to the chat as before, which makes, looks and joins. A clip made of a

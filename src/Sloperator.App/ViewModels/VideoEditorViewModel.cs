@@ -119,6 +119,8 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     /// <summary>Another video is shown: what was picked of the one before goes from the chat's box.</summary>
     private void Opened()
     {
+        // The edits of the video before aren't taken back here: Ctrl+Z wrote its storyboard into this video's folder.
+        _history.Clear();
         Status = "";
         Rebuild();
         OnPropertyChanged(nameof(Folder));

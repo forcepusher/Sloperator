@@ -54,18 +54,15 @@ public sealed partial class VideoEditorViewModel
         }
     }
 
-    /// <summary>
-    /// The storyboard before each edit made here, the latest last, for Ctrl+Z (as many as 50), with its clips'
-    /// .json as they were: a split stamps the halves made from their footage, and taken back, the clip is made as before.
-    /// </summary>
-    private readonly List<(string Json, Dictionary<string, string> Metas)> _undo = [];
+    /// <summary>The edits made here, for Ctrl+Z and Ctrl+Y; another video opened starts with none.</summary>
+    private readonly EditHistory _history = new();
 
-    /// <summary>Keeps the storyboard as it is now, to go back to with <see cref="Undo"/>.</summary>
-    public void Remember()
+    /// <summary>Keeps the storyboard as it is now, to go back to with <see cref="Undo"/>: before an edit, or at the press of a drag.</summary>
+    public void Remember() => _history.Keep(_board.ToJson(), ClipFiles);
+
+    /// <summary>Each clip's .json as it is now, by its path: a split stamps the halves made from their footage.</summary>
+    private IReadOnlyDictionary<string, string> ClipFiles()
     {
-        var now = _board.ToJson();
-        if (_undo.Count > 0 && _undo[^1].Json == now)
-            return;
         var metas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var shot in _board.Shots)
             try
@@ -75,32 +72,46 @@ public sealed partial class VideoEditorViewModel
                     metas[meta] = File.ReadAllText(meta);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        _undo.Add((now, metas));
-        if (_undo.Count > 50)
-            _undo.RemoveAt(0);
+        return metas;
     }
 
     /// <summary>
     /// Ctrl+Z: the storyboard as it was before the last edit made here (its timing, speeds, looks, transitions,
-    /// titles; a split's halves are one clip again, the footage it copied stays). False when there is none.
+    /// titles, sounds; a split's halves are one clip again, the footage it copied stays). False when there is none.
     /// </summary>
-    public bool Undo()
+    public bool Undo() => !Busy(_board.Folder) && PutBack(_history.Undo(_board.ToJson(), ClipFiles), "Took the last change back.");
+
+    /// <summary>Ctrl+Y: the edit Ctrl+Z took back, made again; false when there is none, or the video changed since.</summary>
+    public bool Redo() => !Busy(_board.Folder) && PutBack(_history.Redo(_board.ToJson(), ClipFiles), "Made the change again.");
+
+    private bool PutBack(EditHistory.State? state, string said)
     {
-        if (_undo.Count == 0 || Busy(_board.Folder))
+        if (state is null)
             return false;
-        var (json, metas) = _undo[^1];
-        _undo.RemoveAt(_undo.Count - 1);
         var folder = _board.Folder;
-        _board = Storyboard.Parse(json);
+        _board = Storyboard.Parse(state.Json);
         _board.Folder = folder;
-        foreach (var (meta, text) in metas)
+        foreach (var (meta, text) in state.Files)
             try { File.WriteAllText(meta, text); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         Changed();
         SaveNow();
         Rebuild();
-        Status = "Took the last change back.";
+        _history.Left(_board.ToJson());
+        Status = said;
         return true;
+    }
+
+    /// <summary>Undo and Redo, at the end of a row's menu, with their keys.</summary>
+    private PanelMenuItem?[] UndoItems(bool free)
+    {
+        var now = _board.ToJson();
+        return
+        [
+            null,
+            new("Undo", free && _history.CanUndo(now), () => Undo(), "Ctrl+Z"),
+            new("Redo", free && _history.CanRedo(now), () => Redo(), "Ctrl+Y"),
+        ];
     }
 
     /// <summary>A change made here: saved, and the timeline built again with it.</summary>
@@ -118,7 +129,7 @@ public sealed partial class VideoEditorViewModel
 
     private static string Mark(bool on) => on ? "● " : "";
 
-    /// <summary>What right-clicking a clip offers to edit it: speed, reverse, sound, look, zoom, the transition into it, and split.</summary>
+    /// <summary>What right-clicking a clip offers to edit it: speed, reverse, sound, look, zoom, the transition into it, its place, and split.</summary>
     private List<PanelMenuItem?> ClipEdits(ShotItem item, bool free)
     {
         var shot = item.Shot;
@@ -149,10 +160,43 @@ public sealed partial class VideoEditorViewModel
                 Items = TransitionChoices.Select(t => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Transition == t.Name)}{t.Label}", free,
                     () => Edit(() => FindShot(item)?.Let(x => x.Transition = t.Name)))).ToList(),
             });
+        var at = _board.Shots.IndexOf(shot);
+        items.Add(new("Move earlier", free && at > 0, () => MoveShot(item, -1)));
+        items.Add(new("Move later", free && at >= 0 && at < _board.Shots.Count - 1, () => MoveShot(item, 1)));
         var (starts, _) = _board.Timing();
         var into = item.Index < starts.Count ? PlayPosition - starts[item.Index] : -1;
-        items.Add(new("Split at the playhead", free && !shot.Reverse && into > 0.2 && into < shot.Seconds - 0.2 && File.Exists(_board.ShotVideo(shot)), () => Split(item)));
+        items.Add(new("Split at the playhead", free && CanSplit(shot, into), () => Split(item), "Ctrl+B"));
         return items;
+    }
+
+    /// <summary>A clip moved one place earlier or later in the video, with the transition into it.</summary>
+    private void MoveShot(ShotItem item, int by) => Edit(() =>
+    {
+        if (FindShot(item) is not { } shot)
+            return;
+        var at = _board.Shots.IndexOf(shot);
+        if (at + by < 0 || at + by >= _board.Shots.Count)
+            return;
+        _board.Shots.RemoveAt(at);
+        _board.Shots.Insert(at + by, shot);
+    });
+
+    /// <summary>Whether a clip can be split this far into it: made, not reversed, and a fifth of a second either side.</summary>
+    private bool CanSplit(VideoShot shot, double into) =>
+        !shot.Reverse && into > 0.2 && into < shot.Seconds - 0.2 && File.Exists(_board.ShotVideo(shot));
+
+    /// <summary>Ctrl+B: the clip under the playhead split there, as its menu's Split at the playhead does; false when none can be.</summary>
+    public bool SplitAtPlayhead()
+    {
+        if (Busy(_board.Folder))
+            return false;
+        var (starts, _) = _board.Timing();
+        // The last clip begun by then: in a transition, the one coming in.
+        var item = Shots.LastOrDefault(s => s.Index < starts.Count && starts[s.Index] < PlayPosition);
+        if (item is null || FindShot(item) is not { } shot || !CanSplit(shot, PlayPosition - starts[item.Index]))
+            return false;
+        Split(item);
+        return true;
     }
 
     private static readonly (string Look, string Name)[] Looks =
@@ -193,7 +237,7 @@ public sealed partial class VideoEditorViewModel
         var (starts, _) = _board.Timing();
         var into = PlayPosition - starts[item.Index];
         var clip = _board.ShotVideo(shot);
-        if (into <= 0.2 || into >= shot.Seconds - 0.2 || !File.Exists(clip))
+        if (!CanSplit(shot, into))
             return;
         SaveNow();
         StopPlaying();

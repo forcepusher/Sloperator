@@ -16,9 +16,9 @@ public sealed partial class VideoEditorViewModel
         return row switch
         {
             "references" => [new("Create", free, CreateReference)],
-            "video" => [new("Create", free, AddShot)],
-            "titles" => [new("Create", free, () => CreateTitle(seconds))],
-            "sounds" => [new("Create", free, () => CreateSound(seconds, soundLine)), null, new("Delete sound line", free && _board.SoundLines > 1, () => DeleteSoundLine(soundLine))],
+            "video" => [new("Create", free, AddShot), .. UndoItems(free)],
+            "titles" => [new("Create", free, () => CreateTitle(seconds)), .. UndoItems(free)],
+            "sounds" => [new("Create", free, () => CreateSound(seconds, soundLine)), null, new("Delete sound line", free && _board.SoundLines > 1, () => DeleteSoundLine(soundLine)), .. UndoItems(free)],
             _ => [],
         };
     }
