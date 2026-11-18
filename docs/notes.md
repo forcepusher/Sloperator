@@ -2022,9 +2022,13 @@ and Transition in (not on the first clip), each a submenu with the current one m
 playhead: both halves become the same footage, the second starting where the first stops (`in`), a
 clip a model made copied into References as "<clip> footage.mp4" so neither half is made again
 (`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. A Titles row under the clips shows the
-overlays as blocks; a right-click on the row creates a title there and asks for its words at once (the
-rename box), a double click or F2 changes them (\n for a new line), and a title's menu sets its place,
-how long it shows, moves it to the playhead, puts a box behind the words, or deletes it.
+overlays as blocks, those that show at once one above the other; a right-click on the row creates a title
+there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
+handled on the press, as the press before it starts a drag), dragging moves it and its edges change
+when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, puts
+a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). A clip made of a
+file or a scene counts as said (Generate makes it, Make the video isn't greyed), and shows its file
+and how it is edited in its tooltip.
 
 Checked: VideoEditingTests join a video of a clip of the user's at 1.5× in sepia, a reversed MOV made
 an MP4, a held picture zooming in and an SVG scene frozen half way, with a wipe, a dissolve and a slide,

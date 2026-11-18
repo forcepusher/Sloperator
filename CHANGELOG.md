@@ -18,9 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
   white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
   clock, pixels, fades through black or white). **Split at the playhead** cuts a clip in two.
-- **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, double-click
-  one to change them, and place it (centre, top, bottom, lower third, a corner) and time it from its menu. The
-  agent can also put a logo, a picture in picture, an animated SVG title or captions of the lines over the video.
+- **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
+  or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
+  corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
+  the lines over the video. A sound's menu fades it in or out.
 - **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an
   animated SVG or Three.js scene, with no model making it.
 - **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, or its sound alone as an MP3.
