@@ -728,7 +728,11 @@ with a slide, an "Episode one" lower third, an end title):
 | "a flat icon of a paper plane for my app, as a PNG" | SVG rendered at 512; 0.3 min | SVG rendered at 1024; 4.4 min |
 | "play clip 2 at half speed with a dissolve into it, make clip 3 black and white with a slow zoom in, add a lower-third title 'Chapter one' from 3 s to 6 s, fade the end out over 2 seconds, then export a GIF" | all set in one storyboard change, joined and checked; then asked before exporting, as its title would print over "Episode one" | the same, with "Chapter one" put in "Episode one"'s place (and said so), noticed clip 3 was black and white already, exported the GIF; 7.3 min |
 
-No request went to Python, Pillow or a canvas script, and none to ComfyUI. All three in one video: asked
+No request went to Python, Pillow or a canvas script, and none to ComfyUI. The Excel and Word part: asked
+for "a one page Word document about how we roast our coffee, with a simple diagram of the five steps, and
+a sheet in an Excel workbook with this week's sales ... and a chart of them", Haiku drew the diagram as an
+SVG, rendered it to a PNG and put it in the .docx, and gave the workbook a real bar chart ("chart: bar" in
+write_file), in 74 s. All three in one video: asked
 for "a 15 second promo video for a coffee shop called Bean There: open with an animated logo, then a 3D
 coffee cup slowly turning, then two photos of a cosy cafe with slow zooms, with the shop's name as a
 title near the end. No AI video clips", Haiku looked for cafe photos on the PC, made two with ComfyUI's
