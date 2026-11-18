@@ -27,12 +27,15 @@ public sealed class VideoEditorTool : Tool
         "The video is its folder, which the user also sees in Sloperator's Video editor panel beside the chat. The user calls the shots clips: clip 1 is the first. " +
         "Before you write or change a storyboard the first time in a chat, read action=guide: the storyboard's fields, how to write its frames, shots and sounds, how each action makes them, and what the folder holds. " +
         "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
-        "action=join puts the video together; action=check looks at a piece or the whole video; action=models lists the installed models.";
+        "action=join puts the video together; action=export saves the joined video as another file (output: .mp4, .webm, .mov, .gif, or .mp3 for its sound; width/height); " +
+        "action=check looks at a piece or the whole video; action=models lists the installed models. " +
+        "It edits as a video editor does, all in the storyboard: a shot can be the user's own video or picture (file) or an SVG or Three.js scene (scene), trimmed (in), " +
+        "sped up or slowed (speed), reversed, frozen, cropped, zoomed or panned, coloured, with any of 40 transitions; titles, captions, logos and picture in picture go in overlays; sounds fade in and out.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "check", "models"), true),
+        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "check", "models"), true),
         ("path", Str("The video's folder (or the name of a video in the videos folder); a new video's folder for action=storyboard"), false),
         ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound)"), false),
         ("storyboard", new JsonObject { ["type"] = "object", ["description"] = "action=storyboard: the storyboard, or the parts of it to change (frames and shots by id)" }, false),
@@ -42,7 +45,10 @@ public sealed class VideoEditorTool : Tool
         ("seed", Int("action=frame or shot: a new seed (another result from the same prompt)"), false),
         ("model", Str("action=frame or shot: what it is made with, a model or workflow in words or by name (\"\" for the best installed)"), false),
         ("from", StrArray("action=frame: what it is made from: frames' ids, references' folders (\"Mira\") or pictures in them (\"Mira/side.png\") in References, or a picture of the user's from elsewhere by its full path"), false),
-        ("tries", Int("action=shot: up to this many tries, each with a new seed, until the check passes (default 1); action=sound: songs to make, the best kept (default 3; foley is made once)"), false));
+        ("tries", Int("action=shot: up to this many tries, each with a new seed, until the check passes (default 1); action=sound: songs to make, the best kept (default 3; foley is made once)"), false),
+        ("output", Str("action=export: the file to save the video as (.mp4, .webm, .mov, .gif; .mp3, .wav or .m4a for its sound alone)"), false),
+        ("width", Int("action=export: its width (the height follows unless given)"), false),
+        ("height", Int("action=export: its height"), false));
 
     public override string Describe(JsonObject args)
     {
@@ -55,6 +61,7 @@ public sealed class VideoEditorTool : Tool
             "shot" => $"Make shot {id}" + (GetNumber(args, "tries") is > 1 and var t ? $" ({t} tries at most)" : ""),
             "sound" => $"Make sound {id}",
             "join" => "Join the video",
+            "export" => $"Export the video" + (GetString(args, "output") is { Length: > 0 } o ? $" to {Path.GetFileName(o)}" : ""),
             "check" => id is null ? "Check the video" : $"Check {id}",
             "models" => "List the installed models for videos",
             "guide" => "Read the storyboard guide",
@@ -97,8 +104,9 @@ public sealed class VideoEditorTool : Tool
                 "shot" => await ShotAsync(board, RequireId(args), (int)Math.Clamp(GetNumber(args, "tries") ?? 1, 1, 8), ctx, ct).ConfigureAwait(false),
                 "sound" or "song" => await SoundAsync(board, GetString(args, "id"), (int)Math.Clamp(GetNumber(args, "tries") ?? 3, 1, 8), ctx, ct).ConfigureAwait(false),
                 "join" or "montage" => await JoinAsync(board, ctx, ct).ConfigureAwait(false),
+                "export" => await ExportAsync(board, args, ctx, ct).ConfigureAwait(false),
                 "check" => await CheckAsync(board, GetString(args, "id"), ctx, ct).ConfigureAwait(false),
-                _ => throw new ToolArgumentException("action must be guide, storyboard, frame, shot, sound, join, check or models."),
+                _ => throw new ToolArgumentException("action must be guide, storyboard, frame, shot, sound, join, export, check or models."),
             };
             return _note is { } note ? result with { Text = note + result.Text } : result;
         }
@@ -235,7 +243,7 @@ public sealed class VideoEditorTool : Tool
             throw new VideoException("ComfyUI isn't available in this run.");
         if (_maker is null)
         {
-            _maker = new VideoMaker(hub, ctx.Media) { Judge = ctx.ToolsDirectory is { } tools ? new SongJudge(Path.Combine(tools, "songeval")) : null };
+            _maker = new VideoMaker(hub, ctx.Media) { Judge = ctx.ToolsDirectory is { } tools ? new SongJudge(Path.Combine(tools, "songeval")) : null, Scenes = RenderTool.Renderer(ctx) };
             // From before it may be started: when the task is over, a ComfyUI Sloperator started is closed.
             _maker.Use();
             ctx.AfterRun(nameof(VideoEditorTool), () =>
@@ -335,7 +343,7 @@ public sealed class VideoEditorTool : Tool
             var s = board.Shots[i];
             var join = i == 0 ? "" : s.First is not null && s.First == board.Shots[i - 1].Last ? $", goes on from {board.Shots[i - 1].Id}" : $", a {s.Transition} from {board.Shots[i - 1].Id}";
             if (i > 0 && s.Transition != VideoShot.Cut && !join.Contains(s.Transition, StringComparison.Ordinal)) join += $" ({s.Transition})";
-            var frames = $"{s.First ?? "no first frame"} → {(s.LipSync ? "(lip-synced, first frame only)" : s.Last ?? "no last frame")}";
+            var frames = s.Scene is { } scene ? $"the scene {scene}" : s.File is { } clipFile ? $"the user's file {clipFile}" : $"{s.First ?? "no first frame"} → {(s.LipSync ? "(lip-synced, first frame only)" : s.Last ?? "no last frame")}";
             var made = File.Exists(board.ShotVideo(s));
             var staleFrames = new[] { s.First, s.LipSync ? null : s.Last }.OfType<string>().Where(stale.Contains).Distinct().ToList();
             var current = VideoMaker.IsCurrent(board, s) && staleFrames.Count == 0;
@@ -344,7 +352,8 @@ public sealed class VideoEditorTool : Tool
                           (s.Model is { } sm ? $" Made with \"{sm}\"." : "") +
                           (s.Motion is { } motion && !s.LipSync ? $" Moves as the video {motion}" + (board.ReferenceVideo(motion) is null ? " (not in References!)." : ".") : "") +
                           (Storyboard.Speaks(s) ? $" Says: \"{s.Line.Trim().ReplaceLineEndings(" ")}\"" + (VideoMaker.LineIsCurrent(board, s) ? " (said)." : " (not said yet).") : "") +
-                          $" Seed {s.Seed}. " +
+                          (Edits(s) is { Length: > 0 } edits ? $" Edited: {edits}." : "") +
+                          (s.Assembled ? " " : $" Seed {s.Seed}. ") +
                           (!made ? "Not made." : current ? $"Made: {board.ShotVideo(s)}" :
                            VideoMaker.IsCurrent(board, s) ? $"Made, but to be made again after frame {string.Join(", ", staleFrames)}: {board.ShotVideo(s)}" : $"Made, but out of date: {board.ShotVideo(s)}"));
             if (!current)
@@ -378,6 +387,15 @@ public sealed class VideoEditorTool : Tool
                     todo.Add($"sound {a.Id} (action=sound)");
             }
         }
+        if (board.Overlays.Count > 0)
+        {
+            sb.AppendLine("Overlays:");
+            foreach (var o in board.Overlays)
+                sb.AppendLine($"  {o.Id}: " + (o.Text.Trim().Length > 0 && o.File is null && o.Scene is null ? $"the words \"{o.Text.Trim().ReplaceLineEndings(" / ").Clip(200)}\"" : o.Scene is { } sc ? $"the scene {sc}" : $"the file {o.File}") +
+                              $", from {N(o.Start)} s" + (o.Seconds > 0 ? $" for {N(o.Seconds)} s" : " to the end") + (o.Box is { } b ? $", in the box {N(b.X)},{N(b.Y)} {N(b.Width)}x{N(b.Height)}" : $", {(o.Position.Length > 0 ? o.Position : "centre")}") + ".");
+        }
+        var (fadeIn, fadeOut) = VideoMontage.Fades(board);
+        sb.AppendLine($"Fades in over {N(fadeIn)} s, out over {N(fadeOut)} s" + (board.Captions ? "; the lines are captioned" : "") + (board.Quality.Length > 0 ? $"; quality {board.Quality}" : "") + ".");
         if (board.Shots.Any(Storyboard.Speaks))
             sb.AppendLine("The lines' voice: " + (board.Voice.Trim().Length > 0 ? board.Voice.Trim() : "not described (voice): the voice model picks one") + ".");
         var video = board.JoinedFile;
@@ -391,6 +409,22 @@ public sealed class VideoEditorTool : Tool
         else
             sb.Append("Everything is made and joined.");
         return sb.ToString();
+    }
+
+    /// <summary>How a shot's clip is edited, in words: "in 1.5 s, speed 2, reversed"; empty when it isn't.</summary>
+    internal static string Edits(VideoShot s)
+    {
+        var parts = new List<string>();
+        if (s.In > 0) parts.Add($"in {N(s.In)} s");
+        if (s.Speed is { } speed) parts.Add($"speed {N(speed)}");
+        if (s.Reverse) parts.Add("reversed");
+        if (s.Freeze is { } freeze) parts.Add($"frozen from {N(freeze)} s");
+        if (s.Volume is { } volume) parts.Add(volume == 0 ? "muted" : $"volume {N(volume)}");
+        if (s.Crop is { } crop) parts.Add($"cropped to {N(crop.X)},{N(crop.Y)} {N(crop.Width)}x{N(crop.Height)}");
+        if (s.Zoom is { } zoom) parts.Add($"zoom {N(zoom.From.Scale)}→{N(zoom.To.Scale)}");
+        if (s.Color is { } color) parts.Add("colour " + string.Join(" ", new[] { color.Brightness != 0 ? $"brightness {N(color.Brightness)}" : null, color.Contrast != 1 ? $"contrast {N(color.Contrast)}" : null, color.Saturation != 1 ? $"saturation {N(color.Saturation)}" : null, color.Look.Length > 0 ? color.Look : null }.OfType<string>()));
+        if (s.TransitionSeconds > 0) parts.Add($"transition {N(s.TransitionSeconds)} s");
+        return string.Join(", ", parts);
     }
 
     /// <summary>What is installed for each kind of job, to name in a frame's, shot's or the song's model.</summary>
@@ -574,12 +608,15 @@ public sealed class VideoEditorTool : Tool
                           (await LookAtFrameAsync(board, frame, ctx, ct).ConfigureAwait(false) is { } seen && seen.Contains("To fix:", StringComparison.Ordinal) ? " " + seen.ReplaceLineEndings(" ") : ""));
             }
         var piece = VideoPiece.Of(shot);
-        if (tries <= 1)
+        if (tries <= 1 || shot.Assembled)
         {
             var made = await KeepingVersionAsync(board, piece, () => Maker(ctx).MakeShotAsync(board, shot, ctx.Progress, ctx.UserMessage, ct)).ConfigureAwait(false);
             var look = await LookAtShotAsync(board, shot, made.File, ctx, ct).ConfigureAwait(false);
             RememberLook(made.Meta, look.Text, look.Faults);
-            return Result(board, shot, $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} with {made.Template}: {made.File}\nIts ComfyUI workflow (fixed seed {shot.Seed}): {Storyboard.WorkflowOf(made.File)}", [.. first, .. made.Notes], look, made.File);
+            var said = shot.Assembled
+                ? $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} from {shot.Scene ?? shot.File}: {made.File}"
+                : $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} with {made.Template}: {made.File}\nIts ComfyUI workflow (fixed seed {shot.Seed}): {Storyboard.WorkflowOf(made.File)}";
+            return Result(board, shot, said, [.. first, .. made.Notes], look, made.File);
         }
 
         // Tries with new seeds until a check passes; the best one is kept as the shot's clip, and
@@ -778,12 +815,14 @@ public sealed class VideoEditorTool : Tool
     private async Task<ToolResult> JoinAsync(Storyboard board, ToolContext ctx, CancellationToken ct)
     {
         var stale = board.Shots.Where(s => File.Exists(board.ShotVideo(s)) && !VideoMaker.IsCurrent(board, s)).Select(s => s.Id).ToList();
-        var made = await VideoMontage.JoinAsync(board, ctx.Media?.Ffmpeg, ctx.Media, ctx.Progress, ct).ConfigureAwait(false);
+        var made = await VideoMontage.JoinAsync(board, ctx.Media?.Ffmpeg, ctx.Media, ctx.Progress, ct, RenderTool.Renderer(ctx)).ConfigureAwait(false);
         var preview = MediaPreview.ForFiles([made.File], ctx.Media, ctx.SeesImages);
         var sb = new StringBuilder();
         sb.AppendLine($"Joined the video in {Chats.ChatTimes.Stopwatch(made.Took)}: {made.File}");
         sb.AppendLine(string.Join("\n", preview.Lines));
-        sb.AppendLine($"It fades in from black over its first {N(VideoMontage.FadeIn)} s and out over its last {N(VideoMontage.FadeOut)} s on purpose, so a dark first or last frame is that, not a fault.");
+        var (fadeIn, fadeOut) = VideoMontage.Fades(board);
+        if (fadeIn > 0 || fadeOut > 0)
+            sb.AppendLine($"It fades in from black over its first {N(fadeIn)} s and out over its last {N(fadeOut)} s on purpose (fadeIn and fadeOut set them), so a dark first or last frame is that, not a fault.");
         foreach (var note in made.Notes)
             sb.AppendLine("Note: " + note);
         if (stale.Count > 0)
@@ -792,6 +831,25 @@ public sealed class VideoEditorTool : Tool
         return new ToolResult(sb.ToString(), preview.Image, ImageCaption: preview.Image is null ? null : "The video:", Files: [made.File]);
     }
 
+
+    /// <summary>The joined video saved as another file, of another kind or size (joined first when it is out of date).</summary>
+    private async Task<ToolResult> ExportAsync(Storyboard board, JsonObject args, ToolContext ctx, CancellationToken ct)
+    {
+        var output = GetString(args, "output") is { Length: > 0 } o ? ctx.ResolvePath(o)
+            : throw new ToolArgumentException("Give output: the file to save the video as (.mp4, .webm, .mov, .gif, or .mp3 for its sound).");
+        var ffmpeg = ctx.Media?.Ffmpeg ?? throw new VideoException("Exporting needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
+        var joined = "";
+        if (!File.Exists(board.JoinedFile) || board.JoinedIsStale)
+        {
+            var made = await VideoMontage.JoinAsync(board, ffmpeg, ctx.Media, ctx.Progress, ct, RenderTool.Renderer(ctx)).ConfigureAwait(false);
+            joined = $"Joined it first, as it was out of date: {made.File}\n";
+        }
+        var width = GetNumber(args, "width") is > 0 and var w ? (int?)w : null;
+        var height = GetNumber(args, "height") is > 0 and var h ? (int?)h : null;
+        var file = await VideoMontage.ExportAsync(board, ffmpeg, output, width, height, ctx.Progress, ct).ConfigureAwait(false);
+        var look = MediaPreview.ForFiles([file], ctx.Media, ctx.SeesImages);
+        return new ToolResult($"{joined}Exported {file}\n{string.Join("\n", look.Lines)}", look.Image, ImageCaption: look.Image is null ? null : look.Caption, Files: [file]);
+    }
 
     private static string N(double d) => d.ToString("0.##", CultureInfo.InvariantCulture);
 }

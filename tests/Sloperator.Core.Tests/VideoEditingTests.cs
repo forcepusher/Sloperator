@@ -1,0 +1,204 @@
+using System.Diagnostics;
+using Sloperator.Core.Comfy;
+using Sloperator.Core.Media;
+using Sloperator.Core.Render;
+using Sloperator.Core.Tools;
+using Sloperator.Core.Video;
+using SkiaSharp;
+using Xunit;
+
+namespace Sloperator.Core.Tests;
+
+/// <summary>
+/// The video tool edits as a video editor does: clips trimmed, sped up, reversed, frozen, cropped,
+/// zoomed and coloured, any of ffmpeg's transitions between them, titles and pictures over them,
+/// sounds faded, shots made of the user's files or of scenes drawn, and the video exported.
+/// </summary>
+public sealed class VideoEditingTests : IDisposable
+{
+    private readonly string _dir = Directory.CreateTempSubdirectory("sl-edit-").FullName;
+
+    public void Dispose()
+    {
+        for (var i = 0; i < 10; i++)
+            try { Directory.Delete(_dir, recursive: true); return; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Thread.Sleep(200); }
+    }
+
+    private Storyboard Video(string json)
+    {
+        var board = Storyboard.Parse(json);
+        board.Folder = _dir;
+        foreach (var shot in board.Shots)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(board.ShotVideo(shot))!);
+            File.WriteAllText(board.ShotVideo(shot), "");
+        }
+        return board;
+    }
+
+    private static string Graph(List<string> args) => args[args.IndexOf("-filter_complex") + 1];
+
+    [Fact]
+    public void A_clip_is_cut_as_its_shot_says_before_it_fills_the_frame()
+    {
+        var board = Video("""
+            {"width": 640, "height": 360, "fps": 24, "shots": [
+              {"id": "s1", "seconds": 3, "in": 1.5, "speed": 2, "reverse": true, "crop": {"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.5}, "color": "bw", "zoom": "in", "freeze": 2},
+              {"id": "s2", "seconds": 2, "transition": "wipe", "transitionSeconds": 0.6, "speed": 0.25, "volume": 0},
+              {"id": "s3", "seconds": 2, "transition": "iris", "color": {"brightness": 0.2, "saturation": 1.5, "look": "warm"}}],
+             "fadeIn": 0, "quality": "draft"}
+            """);
+        var (args, length, _) = VideoMontage.Plan(board, _ => true, "out.mp4");
+        var graph = Graph(args);
+        Assert.Contains("[0:v]trim=start=1.5,setpts=PTS-STARTPTS,reverse,setpts=PTS/2,crop=iw*0.5:ih*0.5:iw*0.1:ih*0.2,hue=s=0,trim=duration=2,setpts=PTS-STARTPTS,tpad=", graph);
+        Assert.Contains("scale=1280:720,zoompan=z='(1+(0.25)*min(on/71,1))'", graph);
+        Assert.Contains("eq=brightness=0.1:contrast=1:saturation=1.5,colorbalance=", graph);
+        Assert.Contains("xfade=transition=wipeleft:duration=0.6:offset=2.4", graph);
+        Assert.Contains("xfade=transition=circleopen:duration=0.8:offset=3.6", graph);
+        // Its sound follows its picture: trimmed, reversed, twice as fast; a muted clip is silence.
+        Assert.Contains("[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=start=1.5,asetpts=PTS-STARTPTS,areverse,atempo=2,atrim=duration=2,", graph);
+        Assert.Contains("anullsrc=r=48000:cl=stereo,atrim=duration=2,aformat=sample_fmts=fltp:channel_layouts=stereo[a1]", graph);
+        Assert.DoesNotContain("fade=t=in", graph);
+        Assert.Contains("veryfast", args);
+        Assert.Equal(3 + 2 - 0.6 + 2 - 0.8, length, 3);
+    }
+
+    [Theory]
+    [InlineData(0.25, "atempo=0.5,atempo=0.5")]
+    [InlineData(0.8, "atempo=0.8")]
+    [InlineData(3, "atempo=2,atempo=1.5")]
+    [InlineData(8, "atempo=2,atempo=2,atempo=2")]
+    public void A_speed_is_tempo_steps_ffmpeg_takes(double speed, string tempo) =>
+        Assert.Equal(tempo, string.Join(",", VideoMontage.Tempo(speed)));
+
+    [Theory]
+    [InlineData("Wipe", "wipeleft")]
+    [InlineData("cross-fade", "dissolve")]
+    [InlineData("fade to black", "fade")]
+    [InlineData("dip to white", "fadewhite")]
+    [InlineData("slideup", "slideup")]
+    [InlineData("star wars swirl", "cut")]
+    public void Transitions_are_known_by_their_usual_names(string said, string named) =>
+        Assert.Equal(named, Storyboard.TransitionNamed(said));
+
+    [Fact]
+    public void Edits_and_overlays_are_kept_with_the_video_and_read_back()
+    {
+        var board = Video("""
+            {"title": "Kept", "shots": [{"id": "s1", "seconds": 4, "in": 1, "speed": 1, "volume": 0.5, "zoom": "out", "transition": "slideleft"}],
+             "sounds": [{"id": "a1", "source": "file", "place": "References/rain.mp3", "fadeIn": 1, "fadeOut": 2}],
+             "overlays": [{"text": "Hello", "position": "lower third", "start": 1, "seconds": 2}, {"id": "logo", "file": "logo.png", "position": {"x": 0.8, "y": 0.05, "width": 0.15, "height": 0.15}, "opacity": 0.8}],
+             "fadeOut": 2, "captions": true, "quality": "best"}
+            """);
+        Assert.Null(board.Shots[0].Speed); // 1 is as it is
+        Assert.Equal(0.5, board.Shots[0].Volume);
+        Assert.Equal(1.25, board.Shots[0].Zoom!.From.Scale);
+        Assert.Equal(["o1", "logo"], board.Overlays.Select(o => o.Id));
+        Assert.Equal(0.8, board.Overlays[1].Box!.X);
+        board.Save();
+        var again = Storyboard.Load(_dir);
+        Assert.Equal(1, again.Shots[0].In);
+        Assert.Equal("slideleft", again.Shots[0].Transition);
+        Assert.Equal(2, again.Sounds[0].FadeOut);
+        Assert.Equal("Hello", again.Overlays[0].Text);
+        Assert.Equal("lower third", again.Overlays[0].Position);
+        Assert.Equal(2, again.FadeOut);
+        Assert.True(again.Captions);
+        Assert.Equal("best", again.Quality);
+        var overview = VideoEditorTool.Overview(again);
+        Assert.Contains("Edited: in 1 s, volume 0.5, zoom 1.25→1", overview);
+        Assert.Contains("o1: the words \"Hello\", from 1 s for 2 s, lower third.", overview);
+
+        // A change matched by id, as the shots are.
+        var changed = Storyboard.Merge(again, System.Text.Json.Nodes.JsonNode.Parse("""{"overlays": [{"id": "o1", "text": "Bye"}, {"id": "logo", "delete": true}]}""")!.AsObject());
+        Assert.Equal("Bye", Assert.Single(changed.Overlays).Text);
+    }
+
+    [Fact]
+    public void Words_are_drawn_where_their_place_puts_them()
+    {
+        var png = Path.Combine(_dir, "title.png");
+        VideoOverlays.DrawWords(new VideoOverlay { Text = "Top", Position = "top", Background = "#FF0000" }, 640, 360, png);
+        using var bitmap = SKBitmap.Decode(png);
+        Assert.Equal((640, 360), (bitmap.Width, bitmap.Height));
+        // The red box behind the words near the top, nothing at the bottom.
+        var red = Enumerable.Range(0, 80).Any(y => bitmap.GetPixel(320, y) is { Red: > 200, Green: < 60, Alpha: > 200 });
+        Assert.True(red);
+        Assert.Equal(0, bitmap.GetPixel(320, 340).Alpha);
+    }
+
+    /// <summary>A test clip from ffmpeg's own pattern and a tone.</summary>
+    private static void TestClip(string ffmpeg, string file, double seconds, string pattern = "testsrc2")
+    {
+        var psi = new ProcessStartInfo(ffmpeg) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
+        foreach (var a in new[] { "-hide_banner", "-y", "-f", "lavfi", "-i", $"{pattern}=size=320x180:rate=24:duration={seconds}", "-f", "lavfi", "-i", $"sine=frequency=440:duration={seconds}",
+                     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", file })
+            psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi)!;
+        p.StandardError.ReadToEnd();
+        p.WaitForExit();
+        Assert.Equal(0, p.ExitCode);
+    }
+
+    [Fact]
+    public async Task A_video_of_the_users_clips_a_picture_and_a_scene_is_joined_with_titles_over_it_and_exported()
+    {
+        var decoder = new FfmpegDecoder(() => []);
+        var ffmpeg = decoder.Program;
+        if (ffmpeg is null)
+            Assert.Skip("No ffmpeg on this PC.");
+        if (Web.HeadlessBrowser.FindExecutable() is null)
+            Assert.Skip("No Edge or Chrome on this PC.");
+        var ct = TestContext.Current.CancellationToken;
+        var references = Path.Combine(_dir, "References");
+        Directory.CreateDirectory(references);
+        TestClip(ffmpeg, Path.Combine(references, "walk.mp4"), 4);
+        TestClip(ffmpeg, Path.Combine(_dir, "elsewhere.mov"), 2, "smptebars");
+        using (var bitmap = new SKBitmap(200, 100))
+        {
+            using (var canvas = new SKCanvas(bitmap)) canvas.Clear(SKColors.MediumPurple);
+            using var stream = File.Create(Path.Combine(references, "still.png"));
+            bitmap.Encode(stream, SKEncodedImageFormat.Png, 100);
+        }
+        File.WriteAllText(Path.Combine(references, "sting.svg"), """
+            <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#113"/>
+            <circle cx="60" cy="180" r="40" fill="#fc0"><animate attributeName="cx" from="60" to="580" dur="2s" fill="freeze"/></circle></svg>
+            """);
+        var board = Storyboard.Create(_dir, "Edit test");
+        board = Storyboard.Merge(board, System.Text.Json.Nodes.JsonNode.Parse($$"""
+            {"width": 640, "height": 360, "fps": 24,
+             "frames": [{"id": "f1", "delete": true}, {"id": "f2", "delete": true}],
+             "shots": [{"id": "s1", "file": "walk.mp4", "seconds": 2, "in": 1, "speed": 1.5, "color": "sepia", "first": null, "last": null},
+                       {"id": "s2", "file": {{System.Text.Json.Nodes.JsonValue.Create(Path.Combine(_dir, "elsewhere.mov")).ToJsonString()}}, "seconds": 1.5, "transition": "wipeleft", "reverse": true},
+                       {"id": "s3", "file": "still.png", "seconds": 2, "zoom": "in", "transition": "dissolve"},
+                       {"id": "s4", "scene": "sting.svg", "seconds": 2, "transition": "slideup", "line": "", "freeze": 1.5}],
+             "overlays": [{"text": "A title", "position": "center", "start": 0.2, "seconds": 1.5},
+                          {"file": "still.png", "position": "top right", "start": 1, "seconds": 3, "opacity": 0.7}],
+             "sounds": [], "fadeOut": 0.5}
+            """)!.AsObject());
+        board.Save();
+        Assert.All(board.Shots, s => Assert.True(s.Assembled));
+        Assert.Empty(board.Frames);
+
+        var maker = new VideoMaker(ComfyHub.For(Path.Combine(_dir, ".comfy")), decoder) { Scenes = new SceneRenderer(Path.Combine(_dir, ".browser")) };
+        foreach (var shot in board.Shots)
+        {
+            var made = await maker.MakeShotAsync(board, shot, null, CancellationToken.None, ct);
+            Assert.True(File.Exists(made.File), shot.Id);
+            Assert.True(VideoMaker.IsCurrent(board, shot), shot.Id);
+        }
+        var joined = await VideoMontage.JoinAsync(board, ffmpeg, decoder, null, ct, new SceneRenderer(Path.Combine(_dir, ".browser")));
+        Assert.Empty(joined.Notes);
+        var info = decoder.Probe(joined.File);
+        Assert.NotNull(info);
+        // 2 + 1.5 - 0.8 (wipe) + 2 - 0.5 (dissolve) + 2 - 0.8 (slide).
+        Assert.InRange(info!.Duration.TotalSeconds, 5.2, 5.6);
+        Assert.False(board.JoinedIsStale);
+
+        var gif = await VideoMontage.ExportAsync(board, ffmpeg, Path.Combine(_dir, "out", "small.gif"), 320, null, null, ct);
+        Assert.True(new FileInfo(gif).Length > 1000);
+        var sound = await VideoMontage.ExportAsync(board, ffmpeg, Path.Combine(_dir, "out", "sound.mp3"), null, null, null, ct);
+        Assert.True(File.Exists(sound));
+    }
+}

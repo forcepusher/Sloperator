@@ -281,6 +281,13 @@ public sealed partial class Storyboard
             ["voiceSeed"] = VoiceSeed,
             ["soundLines"] = SoundLines,
             ["soundLineVolumes"] = SoundLineVolumes.All(v => v == 1) ? null : new JsonArray([.. SoundLineVolumes.Select(v => (JsonNode)JsonValue.Create(v))]),
+            // What is laid over the joined video and how it is joined: the video's own, not a piece's.
+            ["overlays"] = Overlays.Count == 0 ? null : JsonSerializer.SerializeToNode(Overlays, typeof(List<VideoOverlay>), Readable),
+            ["fadeIn"] = FadeIn,
+            ["fadeOut"] = FadeOut,
+            ["quality"] = Quality.Length > 0 ? Quality : null,
+            // Not null when off: a bool is read from true or false only.
+            ["captions"] = Captions ? JsonValue.Create(true) : JsonValue.Create(false),
             ["shots"] = new JsonArray([.. Shots.Select(s => (JsonNode)JsonValue.Create(s.Id))]),
         }));
         foreach (var (meta, kind, _) in Metas(Folder).ToList())

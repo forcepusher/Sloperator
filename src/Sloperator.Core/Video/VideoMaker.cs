@@ -203,6 +203,8 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public async Task<VideoMade> MakeShotAsync(Storyboard board, VideoShot shot, Action<string>? progress, CancellationToken userMessage, CancellationToken ct, string? tryFile = null)
     {
         using var making = MakingIn(board);
+        if (shot.Assembled)
+            return await AssembleShotAsync(board, shot, progress, ct).ConfigureAwait(false);
         var first = board.Frame(shot.First);
         var last = board.Frame(shot.Last);
         string? Picture(VideoFrame? frame)
@@ -278,6 +280,66 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         VideoVersions.Remember(workflow, VideoPiece.Of(shot).Settings(board));
         return new VideoMade(target, workflow, run.Template, run.Took, [.. notes, .. run.Notes]);
     }
+
+    /// <summary>Draws the scenes a shot is made of (SVG, Three.js); none given: one in Sloperator's temporary folder.</summary>
+    public Render.SceneRenderer? Scenes { get; init; }
+
+    /// <summary>How much of its source a shot uses: what its trim cuts off and its length at its speed.</summary>
+    private static double SourceSeconds(VideoShot shot) => shot.In + shot.Seconds * (shot.Speed ?? 1);
+
+    /// <summary>
+    /// A shot no model makes: a video of the user's as it is (made an MP4 when it is another kind), a
+    /// picture of the user's held for the shot (cut to the video's frame), or a scene drawn (an SVG
+    /// moving with SMIL, a Three.js page) at the video's size and frame rate.
+    /// </summary>
+    private async Task<VideoMade> AssembleShotAsync(Storyboard board, VideoShot shot, Action<string>? progress, CancellationToken ct)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var named = shot.Scene ?? shot.File!;
+        var source = board.FindFile(named) ?? throw new VideoException(
+            $"Shot {shot.Id} is made of {named}, which isn't in its References folder ({board.ReferencesFolder}) or there: copy it in, or give its full path.");
+        var target = board.ShotVideo(shot);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        var notes = new List<string>();
+        var temp = Path.Combine(Path.GetDirectoryName(target)!, "." + Path.GetFileNameWithoutExtension(target) + ".making.mp4");
+        var ffmpeg = media?.Ffmpeg;
+        if (Render.SceneRenderer.Handles(source))
+        {
+            var scenes = Scenes ?? new Render.SceneRenderer(Path.Combine(Path.GetTempPath(), "Sloperator", "render", "browser"));
+            var made = await scenes.RenderAsync(source, temp, new Render.SceneOptions
+            {
+                Width = board.Width, Height = board.Height, Fps = board.Fps, Seconds = SourceSeconds(shot), Still = false,
+            }, ffmpeg, progress, ct).ConfigureAwait(false);
+            notes.AddRange(made.Notes);
+            notes.AddRange(made.Errors.Select(e => "The scene's error: " + e));
+        }
+        else
+        {
+            if (ffmpeg is null)
+                throw new VideoException("A clip from a file needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
+            var picture = !Storyboard.IsVideoFile(source);
+            if (!picture && Path.GetExtension(source).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+                File.Copy(source, temp, overwrite: true);
+            else
+            {
+                var (w, h) = (board.Width, board.Height);
+                List<string> args = picture
+                    ? ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-loop", "1", "-framerate", board.Fps.ToString(CultureInfo.InvariantCulture), "-t", N(SourceSeconds(shot)), "-i", source,
+                       "-vf", $"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "16", temp]
+                    : ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-i", source, "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
+                       "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", temp];
+                await VideoMontage.RunAsync(ffmpeg, args, temp, SourceSeconds(shot), picture ? "Holding the picture" : "Reading the video", "make the clip", progress, ct).ConfigureAwait(false);
+            }
+        }
+        MediaRelease.Release(target);
+        File.Move(temp, target, overwrite: true);
+        var meta = board.ShotMeta(shot);
+        WriteStamp(meta, ShotStamp(board, shot), Render.SceneRenderer.Handles(source) ? "scene" : "file", null);
+        VideoVersions.Remember(meta, VideoPiece.Of(shot).Settings(board));
+        return new VideoMade(target, meta, null, clock.Elapsed, notes);
+    }
+
+    private static string N(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// A clip whose camera moved where its shot holds it still, held still after the fact
@@ -822,6 +884,16 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public static string ShotStamp(Storyboard board, VideoShot shot)
     {
         var sb = new StringBuilder();
+        // A clip of the user's or a scene drawn: the file it is made of, and for a picture or a scene, how much of it and at what size.
+        if (shot.Assembled)
+        {
+            var named = shot.Scene ?? shot.File!;
+            var source = board.FindFile(named);
+            sb.Append("assembled|").Append(named).Append('|').Append(source is null ? "missing" : FileStamp(source));
+            if (source is null || !Storyboard.IsVideoFile(source))
+                sb.Append('|').Append(SourceSeconds(shot).ToString(CultureInfo.InvariantCulture)).Append('|').Append(board.Fps).Append('|').Append(board.Width).Append('x').Append(board.Height);
+            return Hash(sb.ToString());
+        }
         // Numbers as the invariant culture writes them: a video moved to a PC that writes 5,5 for 5.5 stays made.
         sb.Append(ShotPrompt(shot)).Append('|').Append(shot.Seed).Append('|').Append(shot.Seconds.ToString(CultureInfo.InvariantCulture)).Append('|').Append(board.Fps).Append('|')
           .Append(board.Width).Append('x').Append(board.Height).Append('|').Append(shot.LipSync).Append('|').Append(shot.Set?.ToJsonString());

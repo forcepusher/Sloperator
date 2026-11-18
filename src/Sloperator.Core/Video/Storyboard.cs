@@ -51,6 +51,60 @@ public sealed partial class Storyboard
     /// <summary>The seed the lines are said with.</summary>
     public long VoiceSeed { get; set; }
 
+    /// <summary>Titles, captions, pictures and scenes shown over the video, each for a while.</summary>
+    public List<VideoOverlay> Overlays { get; set; } = [];
+
+    /// <summary>Seconds the video fades in from black over at its start, and out over at its end; null its usual (0.4 and 1), 0 none.</summary>
+    public double? FadeIn { get; set; }
+
+    public double? FadeOut { get; set; }
+
+    /// <summary>The shots' lines shown as captions at the bottom while they are said.</summary>
+    public bool Captions { get; set; }
+
+    /// <summary>How the joined video is encoded: draft (quick, larger and softer), good (the usual) or best (slow, the sharpest).</summary>
+    public string Quality { get; set; } = "";
+
+    public VideoOverlay? Overlay(string? id) => id is null ? null : Overlays.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The transitions there are, by the name a shot gives (ffmpeg's xfade names, and a dissolve and a fade through black).</summary>
+    public static readonly IReadOnlyList<string> Transitions =
+    [
+        VideoShot.Cut, VideoShot.Dissolve, VideoShot.Fade, "fadewhite", "wipeleft", "wiperight", "wipeup", "wipedown", "slideleft", "slideright", "slideup", "slidedown",
+        "smoothleft", "smoothright", "smoothup", "smoothdown", "circleopen", "circleclose", "circlecrop", "rectcrop", "radial", "pixelize", "zoomin", "hblur", "distance",
+        "squeezeh", "squeezev", "diagtl", "diagtr", "diagbl", "diagbr", "hlslice", "hrslice", "vuslice", "vdslice", "coverleft", "coverright", "revealleft", "revealright",
+    ];
+
+    /// <summary>A transition as a person or a model may name it ("wipe", "iris", "fade to white"), as <see cref="Transitions"/> has it; cut for none it knows.</summary>
+    public static string TransitionNamed(string? name)
+    {
+        var n = (name ?? "").Trim().ToLowerInvariant().Replace(" ", "").Replace("-", "").Replace("_", "");
+        return n switch
+        {
+            "" or "cut" or "none" or "hardcut" => VideoShot.Cut,
+            "dissolve" or "crossfade" or "crossdissolve" or "mix" => VideoShot.Dissolve,
+            "fade" or "fadetoblack" or "fadeblack" or "black" or "dip" or "diptoblack" or "fadethroughblack" => VideoShot.Fade,
+            "fadetowhite" or "white" or "diptowhite" or "flash" or "fadethroughwhite" => "fadewhite",
+            "wipe" => "wipeleft",
+            "slide" or "push" or "pushleft" => "slideleft",
+            "pushright" => "slideright",
+            "smooth" => "smoothleft",
+            "circle" or "iris" or "irisopen" => "circleopen",
+            "irisclose" => "circleclose",
+            "zoom" => "zoomin",
+            "blur" => "hblur",
+            "clock" or "clockwipe" => "radial",
+            "pixel" or "pixels" or "pixelate" => "pixelize",
+            "squeeze" => "squeezeh",
+            "cover" => "coverleft",
+            "reveal" => "revealleft",
+            _ => Transitions.FirstOrDefault(t => t == n) ?? VideoShot.Cut,
+        };
+    }
+
+    /// <summary>The looks a shot's colours may take.</summary>
+    public static readonly IReadOnlyList<string> Looks = ["", "bw", "sepia", "warm", "cool", "vintage"];
+
     /// <summary>The video's folder; not saved.</summary>
     [JsonIgnore]
     public string Folder { get; set; } = "";
@@ -146,6 +200,35 @@ public sealed partial class Storyboard
     /// else a picture anywhere by its full path. Null when it names none that is there, or a frame
     /// of the video (whose picture may not be made yet: see <see cref="Frame"/>).
     /// </summary>
+    /// <summary>
+    /// Any file a shot or an overlay names (a video, a picture, an SVG or a page): by its full path, in
+    /// References or the video's folder, with or without its extension; null when there is none.
+    /// </summary>
+    public string? FindFile(string name)
+    {
+        name = name.Trim().Trim('"').Trim();
+        if (name.Length == 0)
+            return null;
+        try
+        {
+            if (Path.IsPathRooted(name))
+                return File.Exists(name) ? Path.GetFullPath(name) : null;
+            if (Folder.Length == 0)
+                return null;
+            var relative = name.Replace('/', Path.DirectorySeparatorChar);
+            foreach (var place in new[] { Path.Combine(ReferencesFolder, relative), Path.Combine(Folder, relative) })
+                if (File.Exists(place))
+                    return Path.GetFullPath(place);
+            if (Directory.Exists(ReferencesFolder))
+                foreach (var file in Directory.EnumerateFiles(ReferencesFolder, "*", SearchOption.AllDirectories))
+                    if (string.Equals(Path.GetFileName(file), name, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(Path.GetFileNameWithoutExtension(file), name, StringComparison.OrdinalIgnoreCase) && !file.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        return Path.GetFullPath(file);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or IOException or UnauthorizedAccessException) { }
+        return null;
+    }
+
     public string? ReferenceFile(string name)
     {
         name = name.Trim().Trim('"').Trim().TrimEnd('/', '\\');
@@ -401,7 +484,8 @@ public sealed partial class Storyboard
             var video = JoinedFile;
             if (!File.Exists(video))
                 return false;
-            var newest = Shots.Select(ShotVideo).Concat(Sounds.Select(SoundFile)).Where(File.Exists)
+            // Its pieces' .json too, as a clip's speed or a title changes there, and the video's own.
+            var newest = Shots.Select(ShotVideo).Concat(Sounds.Select(SoundFile)).Concat(Shots.Select(ShotMeta)).Concat(Sounds.Select(SoundMeta)).Append(VideoMeta).Where(File.Exists)
                 .Select(File.GetLastWriteTimeUtc).DefaultIfEmpty(DateTime.MinValue).Max();
             return File.GetLastWriteTimeUtc(video) < newest;
         }
@@ -440,13 +524,17 @@ public sealed partial class Storyboard
         return (starts, at);
     }
 
-    /// <summary>How long a shot overlaps the one before it.</summary>
-    public static double Overlap(VideoShot shot) => shot.Transition switch
-    {
-        VideoShot.Dissolve => Math.Min(DissolveSeconds, shot.Seconds / 2),
-        VideoShot.Fade => Math.Min(FadeSeconds, shot.Seconds / 2),
-        _ => 0,
-    };
+    /// <summary>How long a shot overlaps the one before it: its transition's length (a cut none).</summary>
+    public static double Overlap(VideoShot shot) => shot.Transition == VideoShot.Cut ? 0 : Math.Min(
+        shot.TransitionSeconds > 0 ? shot.TransitionSeconds : shot.Transition switch
+        {
+            VideoShot.Dissolve => DissolveSeconds,
+            VideoShot.Fade => FadeSeconds,
+            _ => OtherTransitionSeconds,
+        }, shot.Seconds / 2);
+
+    /// <summary>How long a wipe, slide or any transition but a dissolve or a fade takes, unless a shot says.</summary>
+    public const double OtherTransitionSeconds = 0.8;
 
     /// <summary>
     /// The next free id with this prefix: f1, f2… for frames, s1, s2… for shots. A piece's files are
@@ -455,7 +543,7 @@ public sealed partial class Storyboard
     /// </summary>
     public string NewId(string prefix)
     {
-        var taken = Frames.Select(f => f.Id).Concat(Shots.Select(s => s.Id)).Concat(Sounds.Select(s => s.Id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var taken = Frames.Select(f => f.Id).Concat(Shots.Select(s => s.Id)).Concat(Sounds.Select(s => s.Id)).Concat(Overlays.Select(o => o.Id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         for (var n = 1; ; n++)
             if (!taken.Contains(prefix + n))
                 return prefix + n;
@@ -475,7 +563,8 @@ public sealed partial class Storyboard
         for (var i = 0; i < Shots.Count; i++)
         {
             var shot = Shots[i];
-            if (shot.First is not null && Frame(shot.First) is not null)
+            // A clip of the user's or a scene drawn starts on no picture a model makes.
+            if (shot.First is not null && Frame(shot.First) is not null || shot.Assembled)
                 continue;
             // The people and places the shots around it are made from.
             var near = Enumerable.Range(1, Shots.Count).SelectMany(d => new[] { i - d, i + d }).Where(j => j >= 0 && j < Shots.Count)
@@ -555,6 +644,32 @@ public sealed partial class Storyboard
                 Text(shot, key);
         foreach (var sound in (root["sounds"] as JsonArray ?? []).OfType<JsonObject>())
             Text(sound, "id");
+        foreach (var overlay in (root["overlays"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            Text(overlay, "id");
+            // "position": {"x": …} for a box of its own.
+            if (overlay["position"] is JsonObject box && overlay["box"] is null)
+            {
+                overlay["box"] = box.DeepClone();
+                overlay.Remove("position");
+            }
+        }
+        // "zoom": "in" or "out" for the usual slow push in or pull out, "left" or "right" for a pan.
+        foreach (var shot in (root["shots"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            // "color": "bw" for a look alone.
+            if (shot["color"] is JsonValue c && c.TryGetValue<string>(out var look))
+                shot["color"] = new JsonObject { ["look"] = look };
+            if (shot["zoom"] is JsonValue z && z.TryGetValue<string>(out var zoom))
+                shot["zoom"] = zoom.Trim().ToLowerInvariant() switch
+                {
+                    "in" or "push in" or "zoom in" => JsonNode.Parse("""{"from": {"scale": 1}, "to": {"scale": 1.25}}"""),
+                    "out" or "pull out" or "zoom out" => JsonNode.Parse("""{"from": {"scale": 1.25}, "to": {"scale": 1}}"""),
+                    "left" or "pan left" => JsonNode.Parse("""{"from": {"scale": 1.2, "x": 0.6}, "to": {"scale": 1.2, "x": 0.4}}"""),
+                    "right" or "pan right" => JsonNode.Parse("""{"from": {"scale": 1.2, "x": 0.4}, "to": {"scale": 1.2, "x": 0.6}}"""),
+                    _ => null,
+                };
+        }
         if (root["sound"] is JsonObject old && old["voice"] is JsonValue voice && root["voice"] is null)
             root["voice"] = voice.DeepClone();
         root.Remove("sound");
@@ -636,12 +751,53 @@ public sealed partial class Storyboard
             s.Motion = Clean(s.Motion);
             // A line is said lip-synced: a shot is lip-synced when it has one, and only then.
             s.LipSync = s.Line.Trim().Length > 0;
-            s.Transition = s.Transition?.Trim().ToLowerInvariant() switch
+            s.Transition = TransitionNamed(s.Transition);
+            s.TransitionSeconds = Math.Clamp(s.TransitionSeconds, 0, 10);
+            s.File = Clean(s.File);
+            s.Scene = Clean(s.Scene);
+            s.In = Math.Clamp(s.In, 0, 36000);
+            s.Speed = s.Speed is { } speed && Math.Abs(speed - 1) > 0.001 ? Math.Round(Math.Clamp(speed, 0.1, 10), 3) : null;
+            s.Freeze = s.Freeze is >= 0 and var freeze && freeze < s.Seconds ? freeze : null;
+            s.Volume = s.Volume is { } volume && Math.Abs(volume - 1) > 0.001 ? Math.Round(Math.Clamp(volume, 0, 4), 3) : null;
+            if (s.Crop is { } crop)
             {
-                VideoShot.Dissolve or "crossfade" or "cross-fade" or "mix" => VideoShot.Dissolve,
-                VideoShot.Fade or "fade to black" or "fadeblack" or "black" => VideoShot.Fade,
-                _ => VideoShot.Cut,
-            };
+                crop.X = Math.Clamp(crop.X, 0, 0.95);
+                crop.Y = Math.Clamp(crop.Y, 0, 0.95);
+                crop.Width = Math.Clamp(crop.Width <= 0 ? 1 : crop.Width, 0.05, 1 - crop.X);
+                crop.Height = Math.Clamp(crop.Height <= 0 ? 1 : crop.Height, 0.05, 1 - crop.Y);
+                if (crop is { X: 0, Y: 0, Width: 1, Height: 1 })
+                    s.Crop = null;
+            }
+            if (s.Zoom is { } zoom)
+            {
+                zoom.From ??= new VideoView();
+                zoom.To ??= new VideoView();
+                foreach (var view in new[] { zoom.From, zoom.To })
+                {
+                    view.Scale = Math.Clamp(view.Scale <= 0 ? 1 : view.Scale, 1, 8);
+                    view.X = Math.Clamp(view.X, 0, 1);
+                    view.Y = Math.Clamp(view.Y, 0, 1);
+                }
+                if (zoom.From.Scale == 1 && zoom.To.Scale == 1)
+                    s.Zoom = null;
+            }
+            if (s.Color is { } color)
+            {
+                color.Brightness = Math.Clamp(color.Brightness, -1, 1);
+                color.Contrast = Math.Clamp(color.Contrast, 0, 2);
+                color.Saturation = Math.Clamp(color.Saturation, 0, 3);
+                color.Look = color.Look?.Trim().ToLowerInvariant() switch
+                {
+                    "bw" or "b&w" or "black and white" or "black & white" or "mono" or "monochrome" or "grayscale" or "greyscale" => "bw",
+                    "sepia" or "old" or "old photo" => "sepia",
+                    "warm" or "warmer" or "golden" => "warm",
+                    "cool" or "cold" or "cooler" or "blue" => "cool",
+                    "vintage" or "retro" or "film" => "vintage",
+                    _ => "",
+                };
+                if (color is { Brightness: 0, Contrast: 1, Saturation: 1, Look: "" })
+                    s.Color = null;
+            }
             if (Frame(s.First) is null) s.First = null;
             if (Frame(s.Last) is null) s.Last = null;
         }
@@ -674,8 +830,46 @@ public sealed partial class Storyboard
             a.Trim = Math.Clamp(a.Trim, 0, 3600);
             a.Seconds = Math.Clamp(a.Seconds, 0, 3600);
             a.Volume = Math.Clamp(a.Volume, 0, 2);
+            a.FadeIn = Math.Clamp(a.FadeIn, 0, 60);
+            a.FadeOut = Math.Clamp(a.FadeOut, 0, 60);
             a.SoundLine = Math.Clamp(a.SoundLine, 0, MaxSoundLines - 1);
         }
+        Overlays ??= [];
+        foreach (var o in Overlays)
+        {
+            if (string.IsNullOrWhiteSpace(o.Id) || !seen.Add(o.Id.Trim()))
+                o.Id = NextFree("o", seen);
+            o.Id = o.Id.Trim();
+            o.Text ??= "";
+            o.File = Clean(o.File);
+            o.Scene = Clean(o.Scene);
+            o.Name = Clean(o.Name);
+            o.Position = (o.Position ?? "").Trim().ToLowerInvariant().Replace('-', ' ').Replace('_', ' ');
+            o.Start = Math.Clamp(o.Start, 0, 36000);
+            o.Seconds = Math.Clamp(o.Seconds, 0, 36000);
+            o.Opacity = o.Opacity is { } opacity && opacity < 0.999 ? Math.Clamp(opacity, 0, 1) : null;
+            o.FadeIn = o.FadeIn is { } fi ? Math.Clamp(fi, 0, 10) : null;
+            o.FadeOut = o.FadeOut is { } fo ? Math.Clamp(fo, 0, 10) : null;
+            o.Size = o.Size is { } size ? Math.Clamp(size > 1 ? size / Height : size, 0.01, 0.5) : null;
+            o.Font = Clean(o.Font);
+            o.Color = Clean(o.Color);
+            o.Background = Clean(o.Background);
+            if (o.Box is { } box)
+            {
+                box.X = Math.Clamp(box.X, 0, 0.99);
+                box.Y = Math.Clamp(box.Y, 0, 0.99);
+                box.Width = Math.Clamp(box.Width <= 0 ? 1 : box.Width, 0.01, 1);
+                box.Height = Math.Clamp(box.Height <= 0 ? 1 : box.Height, 0.01, 1);
+            }
+        }
+        FadeIn = FadeIn is { } fadeIn ? Math.Clamp(fadeIn, 0, 10) : null;
+        FadeOut = FadeOut is { } fadeOut ? Math.Clamp(fadeOut, 0, 10) : null;
+        Quality = (Quality ?? "").Trim().ToLowerInvariant() switch
+        {
+            "draft" or "fast" or "quick" or "preview" or "low" => "draft",
+            "best" or "high" or "highest" or "max" or "final" => "best",
+            _ => "",
+        };
         SoundLines = Math.Clamp(Math.Max(SoundLines, Sounds.Select(a => a.SoundLine + 1).DefaultIfEmpty(1).Max()), 1, MaxSoundLines);
         SoundLineVolumes = [.. Enumerable.Range(0, SoundLines).Select(i => i < (SoundLineVolumes?.Count ?? 0) ? Math.Round(Math.Clamp(SoundLineVolumes![i], 0, 2), 2) : 1)];
         if (VoiceSeed <= 0)
@@ -732,7 +926,7 @@ public sealed partial class Storyboard
         foreach (var (key, value) in change)
         {
             var name = JsonKey(key);
-            if (name is "frames" or "shots" or "sounds" && value is JsonArray items)
+            if (name is "frames" or "shots" or "sounds" or "overlays" && value is JsonArray items)
                 json[name] = MergeList(json[name] as JsonArray ?? [], items);
             // The lines' voice, as a model may still give it.
             else if (name is "sound")
@@ -928,6 +1122,148 @@ public sealed class VideoShot
 
     /// <summary>Changes to the workflow after the storyboard's own, as the comfyui tool's set takes them.</summary>
     public JsonObject? Set { get; set; }
+
+    // ---- what it is made of, when no model makes it -----------------------------------------------
+
+    /// <summary>A video or picture of the user's (in References, or by its full path, copied in) that is the clip as it is: no model makes it.</summary>
+    public string? File { get; set; }
+
+    /// <summary>An SVG (moving with SMIL) or a Three.js page (in References, or by its full path) drawn into the clip.</summary>
+    public string? Scene { get; set; }
+
+    // ---- editing: how its clip is cut and shown in the video, all done as the video is joined ------
+
+    /// <summary>Seconds cut off the start of its clip.</summary>
+    public double In { get; set; }
+
+    /// <summary>How fast its clip plays (0.5 is half speed, 2 twice); null as it is.</summary>
+    public double? Speed { get; set; }
+
+    /// <summary>Its clip played backwards.</summary>
+    public bool Reverse { get; set; }
+
+    /// <summary>Seconds into the shot where its picture stops and holds to the end (a freeze frame); null: it doesn't.</summary>
+    public double? Freeze { get; set; }
+
+    /// <summary>How loud its clip's own sound is, 1 as it is and 0 silent; null as it is.</summary>
+    public double? Volume { get; set; }
+
+    /// <summary>The part of its picture kept, the rest cut away; null all of it.</summary>
+    public VideoBox? Crop { get; set; }
+
+    /// <summary>A slow zoom or pan over the shot (Ken Burns), from one view to another; null none.</summary>
+    public VideoZoom? Zoom { get; set; }
+
+    /// <summary>Its colours: brightness, contrast, saturation and a look; null as they are.</summary>
+    public VideoColor? Color { get; set; }
+
+    /// <summary>How long the transition into it lasts, in seconds; 0 its usual (a dissolve 0.5, a fade 1, the others 0.8).</summary>
+    public double TransitionSeconds { get; set; }
+
+    /// <summary>Whether no model makes its clip: it is a file of the user's or a scene drawn.</summary>
+    [JsonIgnore]
+    public bool Assembled => File is { Length: > 0 } || Scene is { Length: > 0 };
+}
+
+/// <summary>A part of a picture, in fractions of it: 0,0 is its top left, 1,1 its bottom right.</summary>
+public sealed class VideoBox
+{
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Width { get; set; } = 1;
+    public double Height { get; set; } = 1;
+}
+
+/// <summary>A slow zoom or pan over a shot: the view at its start and at its end.</summary>
+public sealed class VideoZoom
+{
+    public VideoView From { get; set; } = new();
+    public VideoView To { get; set; } = new();
+}
+
+/// <summary>A view of a picture: how far in (1 the whole picture, 2 half of it) and the point it is centred on, in fractions.</summary>
+public sealed class VideoView
+{
+    public double Scale { get; set; } = 1;
+    public double X { get; set; } = 0.5;
+    public double Y { get; set; } = 0.5;
+}
+
+/// <summary>A shot's colours.</summary>
+public sealed class VideoColor
+{
+    /// <summary>-1 to 1, 0 as it is.</summary>
+    public double Brightness { get; set; }
+
+    /// <summary>0 to 2, 1 as it is.</summary>
+    public double Contrast { get; set; } = 1;
+
+    /// <summary>0 (grey) to 3, 1 as it is.</summary>
+    public double Saturation { get; set; } = 1;
+
+    /// <summary>A look over it: bw, sepia, warm, cool, vintage, or none.</summary>
+    public string Look { get; set; } = "";
+}
+
+/// <summary>
+/// Something shown over the video for a while: a title, a caption or any words (drawn by Sloperator),
+/// a picture or a video of the user's (a logo, picture in picture), or a scene drawn (an SVG title
+/// moving with SMIL, a Three.js logo), where the video's frame puts it.
+/// </summary>
+public sealed class VideoOverlay
+{
+    public string Id { get; set; } = "";
+
+    /// <summary>What it is called in the panel.</summary>
+    public string? Name { get; set; }
+
+    /// <summary>Words to show (a title, a caption); lines split at \n.</summary>
+    public string Text { get; set; } = "";
+
+    /// <summary>A picture or video (in References, or by its full path) to show.</summary>
+    public string? File { get; set; }
+
+    /// <summary>An SVG or Three.js page (in References, or by its full path) drawn over the video, with a clear background.</summary>
+    public string? Scene { get; set; }
+
+    /// <summary>Where it starts in the video, in seconds.</summary>
+    public double Start { get; set; }
+
+    /// <summary>How long it shows; 0 to the video's end.</summary>
+    public double Seconds { get; set; }
+
+    /// <summary>Where on the frame: center, top, bottom, lower third, top left, top right, bottom left, bottom right or full; <see cref="Box"/> instead for a place of its own.</summary>
+    public string Position { get; set; } = "";
+
+    /// <summary>Its place on the frame, in fractions; null: by <see cref="Position"/>.</summary>
+    public VideoBox? Box { get; set; }
+
+    /// <summary>0 to 1; null fully there.</summary>
+    public double? Opacity { get; set; }
+
+    /// <summary>Seconds it fades in and out over; null: words 0.3, the rest none.</summary>
+    public double? FadeIn { get; set; }
+
+    public double? FadeOut { get; set; }
+
+    /// <summary>The words' font (a font on the PC: Segoe UI, Arial, Georgia, Impact…); null Segoe UI.</summary>
+    public string? Font { get; set; }
+
+    /// <summary>The words' height as a fraction of the frame's; null by its place (a title bigger than a caption).</summary>
+    public double? Size { get; set; }
+
+    /// <summary>The words' colour (#RRGGBB); null white.</summary>
+    public string? Color { get; set; }
+
+    /// <summary>A box behind the words (#RRGGBB or #RRGGBBAA); null none, with a shadow under the words instead.</summary>
+    public string? Background { get; set; }
+
+    /// <summary>Bold words; null bold.</summary>
+    public bool? Bold { get; set; }
+
+    /// <summary>"Title 1", its name or its words.</summary>
+    [JsonIgnore]
+    public string Label => Name is { Length: > 0 } name ? name : Text.Trim() is { Length: > 0 } text ? text.Split('\n')[0].Clip(30) : Id;
 }
 
 /// <summary>
@@ -964,6 +1300,11 @@ public sealed class VideoSound
 
     /// <summary>How loud, 1 as it is.</summary>
     public double Volume { get; set; } = 1;
+
+    /// <summary>Seconds it fades in over from where it starts, and out over before it stops.</summary>
+    public double FadeIn { get; set; }
+
+    public double FadeOut { get; set; }
 
     /// <summary>A song's style: genre, instruments, voice, tempo ("dreamy synthwave, female vocals, 90 BPM"); foley's, what is heard ("footsteps on gravel, wind"), which it can do without.</summary>
     public string Tags { get; set; } = "";

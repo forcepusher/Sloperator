@@ -133,6 +133,41 @@ they want), so write them well.
 - A sound file of the person's ("source": "file") is copied into the video's Sounds folder as it is.
 - "soundLineVolumes" turns whole sound lines up or down, one number for each (1 as they are).
 
+## Editing
+The storyboard edits the video as a video editor does; all of this is done as the video is joined,
+so no clip is made again for it (action=join after a change).
+- A shot needs no model when it is made of something: "file" is a video or picture of the person's
+  in References (or by its full path), used as it is (a picture is held for the shot's seconds);
+  "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,
+  as the render tool draws it (a title card, a logo sting, an animated diagram, a 3D product turn).
+  action=shot makes it from that in seconds. Use them for footage the person gives and for vector
+  and 3D shots; the models make the rest.
+- Cutting a clip: "in" (seconds cut off its start), "seconds" (how long it plays), "speed" (0.5 half
+  speed, 2 twice; its sound follows), "reverse": true, "freeze" (seconds into the shot where the
+  picture stops and holds), "volume" (its own sound, 0 silent).
+- Its picture: "crop" {x, y, width, height} in fractions of the picture; "zoom" a slow zoom or pan,
+  "in", "out", "left", "right", or {"from": {"scale": 1, "x": 0.5, "y": 0.5}, "to": {"scale": 1.3,
+  "x": 0.6, "y": 0.4}} (scale 2 shows half the picture; x and y are the point it centres on);
+  "color" {brightness -1..1, contrast 0..2, saturation 0..3, look: bw, sepia, warm, cool or vintage}.
+- "transition" into a shot: cut, dissolve, fade (through black), fadewhite, wipeleft, wiperight,
+  wipeup, wipedown, slideleft, slideright, slideup, slidedown, smoothleft, circleopen, circleclose,
+  radial, pixelize, zoomin, hblur, diagtl, coverleft, revealleft and more of ffmpeg's xfade;
+  "transitionSeconds" its length (0.5 to 1 reads well).
+- "overlays": what shows over the video for a while: [{id, text (a title, a caption, any words;
+  \n breaks a line) or file (a picture, SVG or video: a logo, picture in picture) or scene (an SVG
+  or Three.js page drawn with a clear background), start, seconds (0 to the end), position (center,
+  top, bottom, lower third, top left, top right, bottom left, bottom right, full) or box {x, y,
+  width, height}, opacity, fadeIn, fadeOut, and for words: font (Segoe UI, Arial, Georgia, Impact,
+  Consolas…), size (a fraction of the frame's height: 0.09 a title, 0.05 a caption), color
+  (#RRGGBB), background (#RRGGBBAA for a box behind them; none gives a shadow), bold}]. Matched by
+  id like the shots.
+- "captions": true shows each shot's line at the bottom while it is said.
+- "fadeIn" and "fadeOut": the seconds the video fades from and to black (0.4 and 1 unless set; 0 for
+  none). A sound's "fadeIn" and "fadeOut" fade it on its sound line.
+- "quality": draft (quick to join while trying things), good (the usual) or best.
+- action=export with output saves the joined video as another file: a smaller MP4 (width), a GIF,
+  a WebM, a MOV, or its sound alone as an MP3.
+
 ## Models and changes
 - "model" is what a piece is made with. Set it only when the person names or describes a model or
   workflow, to the name of an installed one (action=models lists them; words work too, "z image
