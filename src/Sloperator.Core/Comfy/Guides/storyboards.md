@@ -160,7 +160,9 @@ so no clip is made again for it (action=join after a change).
   width, height}, opacity, fadeIn, fadeOut, and for words: font (Segoe UI, Arial, Georgia, Impact,
   Consolas…), size (a fraction of the frame's height: 0.09 a title, 0.05 a caption), color
   (#RRGGBB), background (#RRGGBBAA for a box behind them; none gives a shadow), bold}]. Matched by
-  id like the shots.
+  id like the shots: a new one gets an id no overlay has (o3 after o1 and o2), and the person's
+  titles stay unless they ask for them to go. Two in the same place at the same time print over
+  each other: put one elsewhere or after the other.
 - "captions": true shows each shot's line at the bottom while it is said.
 - "fadeIn" and "fadeOut": the seconds the video fades from and to black (0.4 and 1 unless set; 0 for
   none). A sound's "fadeIn" and "fadeOut" fade it on its sound line.
