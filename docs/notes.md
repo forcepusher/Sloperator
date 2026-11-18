@@ -734,7 +734,12 @@ shots are the person's footage or a scene (`VideoCheck.Shows`); and the overview
 titles print over each other. Also checked in the built app: the trimmed single-file exe (29 MB, no
 trim warnings), asked in the chat for "a 3 second animated title card that says Hello there", wrote an
 SVG, rendered it at 1920x1080, saw from the frames that its bar started full width, fixed it and
-rendered again; the clip played in the chat and Auto opened it in File inspector.
+rendered again; the clip played in the chat and Auto opened it in File inspector. In the Debug build's
+panel, with clip 2 picked: Haiku, "Play this clip backwards at half speed and make it black and white,
+then make the video", set speed 0.5, reverse and bw on s2, joined and looked (1.7 min); qwen3.8, with
+clip 3 picked, "Add a title that says Scene two, sliding up into the bottom of the picture as this clip
+starts, for 2 seconds. Then make the video", added o3 at the clip's start with motion slide up, found
+it hard to read in the joined video and gave it a box behind the words, and joined again.
 
 ### How the 3D methods did
 The bench (2026-11-19, the workstation's RTX 5070 Ti, the CLI with --yes, one plain request each:
@@ -2046,7 +2051,7 @@ and Transition in (not on the first clip), each a submenu with the current one m
 playhead: both halves become the same footage, the second starting where the first stops (`in`), a
 clip a model made copied into References as "<clip> footage.mp4" so neither half is made again
 (`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. A Titles row under the clips shows the
-overlays as blocks, those that show at once one above the other; a right-click on the row creates a title
+overlays as blocks, those that show at once one above the other (the row grows past two lanes, 22 pixels each); a right-click on the row creates a title
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change
 when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, puts

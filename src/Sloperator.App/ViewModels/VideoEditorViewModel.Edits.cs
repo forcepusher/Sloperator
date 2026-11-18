@@ -9,8 +9,12 @@ public sealed partial class VideoEditorViewModel
     // (the user, 2026-11-19: "Do your best to provide a fully featured video editing experience"). Each is a
     // change to the storyboard, done when the video is joined: no clip is made again for it.
 
-    /// <summary>How tall the Titles row is.</summary>
-    public const double TitlesRowHeight = 48;
+    /// <summary>How tall the Titles row is at least, and each lane of titles that show at once in it.</summary>
+    public const double TitlesRowHeight = 48, TitleLaneHeight = 22;
+
+    /// <summary>How tall the Titles row is now: taller when more titles show at once than two lanes hold.</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private double _titlesHeight = TitlesRowHeight;
 
     /// <summary>The titles, captions, pictures and scenes over the video, on the Titles row.</summary>
     public ObservableCollection<OverlayItem> Overlays { get; } = [];
@@ -41,7 +45,8 @@ public sealed partial class VideoEditorViewModel
             lanes[free] = item.Overlay.Start + seconds;
             lane[item] = free;
         }
-        var height = (TitlesRowHeight - 8) / Math.Max(1, lanes.Count);
+        TitlesHeight = Math.Max(TitlesRowHeight, lanes.Count * TitleLaneHeight + 8);
+        var height = (TitlesHeight - 8) / Math.Max(1, lanes.Count);
         foreach (var (item, at) in lane)
         {
             item.Y = 4 + at * height;

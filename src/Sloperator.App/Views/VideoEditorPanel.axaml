@@ -267,7 +267,7 @@
               <Border Height="112">
                 <TextBlock Text="Video clips" Margin="10,10,6,0" />
               </Border>
-              <Border Height="{x:Static vm:VideoEditorViewModel.TitlesRowHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+              <Border Height="{Binding TitlesHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
                 <TextBlock Text="Titles" Margin="10,0,6,0" VerticalAlignment="Center" />
               </Border>
               <ItemsControl ItemsSource="{Binding SoundLines}">
@@ -407,7 +407,7 @@
 
                 <!-- Titles: words, pictures and scenes over the video, each from where it starts for as long as it shows.
                      Right-click the row to create one; double-click one to change its words. -->
-                <Border Height="{x:Static vm:VideoEditorViewModel.TitlesRowHeight}" Tag="titles" Background="Transparent" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+                <Border Height="{Binding TitlesHeight}" Tag="titles" Background="Transparent" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
                   <ItemsControl ItemsSource="{Binding Overlays}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
