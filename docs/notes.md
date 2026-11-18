@@ -740,7 +740,11 @@ Z-Image-Turbo, wrote the logo as an SVG and the cup as a Three.js page, made a s
 shots and two picture shots with zooms, and joined it in 5.5 minutes. Its title first went into a shot
 ("overlays" in s4), where nothing reads it, and didn't show: a change now says which fields nothing
 reads (`VideoEditorTool.UnknownFields`). The shot judge read the cup's handle turning behind it as a
-jump: scene shots, like the person's footage, now get no fresh look made for a video model's faults. Found on the way: the whole
+jump: scene shots, like the person's footage, now get no fresh look made for a video model's faults.
+qwen3.8, asked the same of "a bike shop called Spoke and Pedal" with "a title that slides in near the end
+and a voice-over saying Ride further", made it all in 21.6 minutes: an SVG logo drawing itself in, a
+Three.js spoked wheel turning, a ComfyUI photo of the shop with a push-in, dissolves between them, the
+title sliding in and the voice-over said by VoxCPM2. Found on the way: the whole
 video's judge asked to redo the person's own colour bars as "a test pattern", so it is now told which
 shots are the person's footage or a scene (`VideoCheck.Shows`); and the overview now says when two
 titles print over each other. Also checked in the built app: the trimmed single-file exe (29 MB, no
