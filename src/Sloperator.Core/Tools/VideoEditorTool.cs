@@ -793,8 +793,10 @@ public sealed class VideoEditorTool : Tool
             throw new VideoException("The video isn't joined yet: action=join first, or give a shot's id to check that shot.");
         var check = await Task.Run(() => VideoCheck.Whole(board, video, decoder), ct).ConfigureAwait(false);
         var text = new StringBuilder(check.Text).AppendLine();
-        // Its sound as people hear it: no one has to listen to every try.
-        if (board.Sounds.Count > 0 && ctx.Comfy is { } hub && SongJudge.PythonOf(hub) is { } python && decoder.Ffmpeg is { } ffmpeg && Maker(ctx).Judge is { } judge)
+        // Its sound as people hear it: no one has to listen to every try. With music (a song, or a sound file of the
+        // person's) only: SongEval judges songs, and set up for a video whose only sound was a voice-over, it downloaded
+        // its model to judge a man talking.
+        if (board.Sounds.Any(s => s.Source is VideoSound.Song or VideoSound.FromFile) && ctx.Comfy is { } hub && SongJudge.PythonOf(hub) is { } python && decoder.Ffmpeg is { } ffmpeg && Maker(ctx).Judge is { } judge)
         {
             try
             {
