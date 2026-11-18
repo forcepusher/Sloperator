@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for 3D scenes. The agent writes an SVG or a Three.js page and turns it into a PNG, or into an MP4 clip when it
   moves, frame by frame in Edge on your PC, however heavy the scene. Three.js loads from its CDN and, offline,
   from a copy built into Sloperator.
-- **3D model files from Three.js.** Asked for a 3D model, the agent builds it in a Three.js scene and saves it as a
-  .glb you can load anywhere, instead of guessing one from a picture.
+- **3D model files.** Asked for a 3D model, the agent builds it in Three.js and saves a .glb you can load anywhere
+  (under a minute with Claude Haiku). For a realistic one, of a real thing or to match a picture, it uses ComfyUI's
+  TRELLIS.2 instead, never Hunyuan3D.
 - **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
   down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
   white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a

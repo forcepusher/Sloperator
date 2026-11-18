@@ -2,7 +2,7 @@
 Pictures and clips come from three things, each for what it does best:
 - **ComfyUI** (the comfyui tool): raster pictures (photos, paintings, illustrations, characters) and animating them.
 - **SVG** for 2D vector art: icons, logos, diagrams, charts, flat illustrations, titles and motion graphics, moving with SMIL.
-- **Three.js** in an HTML page for 3D: objects, product shots, characters and places built from shapes, scenes, and 3D model files (.glb) saved from them.
+- **Three.js** in an HTML page for 3D: objects, product shots, characters and places built from shapes, scenes, and 3D model files (.glb) saved from them. A realistic model of a real thing, a person or an animal comes from ComfyUI's TRELLIS.2 instead (a picture of it alone on plain white first), and loads into a scene with GLTFLoader.
 
 Write the scene with write_file, then call render with it. A scene that doesn't move becomes a PNG; one that moves becomes an MP4 clip. Every frame is drawn at its exact moment on a stopped clock, so a heavy scene still makes a smooth clip.
 

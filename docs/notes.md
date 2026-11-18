@@ -661,9 +661,9 @@ shows as a picture; 3D clips as a three.js page recorded frame by frame.
 
 **3D model files.** The user (2026-11-19): "Don't use Hunyan3D because it's terrible use something
 better", then "figure out which 3D model generation tool/method is best for Qwen 3.8 and Haiku (to load
-it later into Three.js), and use whatever you come up with". The comfyui tool no longer offers 3D models;
-a model is built in a Three.js page and saved as a binary glTF by `render` with output=*.glb (see
-below). The bench and what it found are under "How the 3D methods did".
+it later into Three.js), and use whatever you come up with". A model is built in a Three.js page and saved
+as a binary glTF by `render` with output=*.glb (see below), and only a realistic one comes from
+ComfyUI's TRELLIS.2; the bench and what it found are under "How the 3D methods did".
 
 ### Scenes: SVG and Three.js (render)
 The `render` tool draws an .svg or an .html page into a PNG or, when it moves, a clip (MP4; WebM or
@@ -732,9 +732,18 @@ into a 3D model with the TRELLIS.2 image-to-3D workflow"), judged from the four-
 ComfyUI has rembg without an onnxruntime: rembg prints "No onnxruntime backend found" and calls
 sys.exit, which ends ComfyUI's worker thread and leaves the job running for ever (/interrupt can't stop
 it; only a restart of ComfyUI). Run by hand without the background removal (remove_background false,
-the chair on its plain studio background), TRELLIS.2 4B took TRELLIS_TIME.
+the chair Haiku's picture shows on a plain studio background), TRELLIS.2 4B took 10.8 minutes (the bare
+mesh after 4.5): a chair true to the picture, curved back and wood grain, far more real than either
+model's, but standing on a slab of the studio's floor (the background kept), 475,892 triangles and
+20.8 MB.
 
-**What is used.** TRELLIS_VERDICT
+**What is used.** A model built in Three.js by default: right first time on both models, in under a
+minute on Haiku, small (60 to 700 KB), in named parts that can be changed and animated, and on any PC.
+TRELLIS.2 only for a realistic model (a real thing, a person or an animal, or one to match a picture),
+when it is installed, from a picture of the thing alone on plain white with no floor or shadow; never
+Hunyuan3D. The system prompt says so, the comfyui tool's description offers it, and the scenes guide
+loads its .glb into a scene. A run that asks rembg to remove a background where ComfyUI's Python can't
+run it is run with remove_background off and says so (`ComfyTool.KeepBackgrounds`).
 
 ### Previews
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under

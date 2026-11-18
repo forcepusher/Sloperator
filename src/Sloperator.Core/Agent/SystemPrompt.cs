@@ -276,7 +276,7 @@ public static class SystemPrompt
         sb.AppendLine("- Pictures and video are made one of three ways: raster (photos, paintings, illustrations, and animating them) with the comfyui tool " +
                       "(ComfyUI on this PC; it needs no MCP server); 2D vector art (icons, logos, diagrams, titles, motion graphics) as an SVG, moving with SMIL; " +
                       "3D scenes with Three.js in an HTML page. Write an SVG or Three.js scene with write_file and turn it into a PNG, or an MP4 clip when it moves, with render. " +
-                      "A 3D model file (.glb) is built in a Three.js scene and saved with render, not made by ComfyUI. " +
+                      "A 3D model file (.glb) is built in a Three.js scene and saved with render (quick, light, and on any PC); only for a realistic one (a real object, a person or animal, or one to match a picture) use ComfyUI's TRELLIS.2 image-to-3D, if it is installed, from a picture of the thing alone on a plain white background with no floor or shadow; never Hunyuan3D. " +
                       "Don't draw pictures, clips or models any other way (a Python script, Pillow, matplotlib, a canvas script, a 3D program) unless the user asks for it. " +
                       "A chart in a workbook or document is that file's own chart (write_file and edit_file make real Excel charts); a picture put in a Word, PowerPoint or PDF file is made one of the three ways, then put in. " +
                       "ComfyUI also makes sound, music and speech. Each tool's guide comes with its first answer. Give the full paths of the files you made in your answer.");
