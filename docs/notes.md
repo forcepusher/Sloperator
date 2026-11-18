@@ -716,6 +716,26 @@ MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRe
 Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
 `render` made, and Auto opens it as it does a ComfyUI result.
 
+### How the three ways did with the agent
+2026-11-19, the CLI with --yes, four plain requests each, the "Night drive" demo video in the data folder
+(an SVG intro scene, a gradient clip at 1.5× warm with a circle transition, colour bars in black and white
+with a slide, an "Episode one" lower third, an end title):
+
+| Request | Haiku 5.5 | qwen3.8 27B (q6_k_xl) |
+|---|---|---|
+| "a 4 second animated logo for a coffee shop called Bean There, as a video clip" | SVG with SMIL, rendered: a bean drawn on, the name and "coffee shop" sliding in; 0.6 min | SVG with SMIL: a cup with steam rising, beans, the name and a tagline; 7 min |
+| "a red gift box with a gold ribbon slowly spinning on a white table, in 3D" | read the render guide first, Three.js, an 8 s turn; 1.4 min | read the guide first, Three.js, fixed the bow after its first look; 7 min |
+| "a flat icon of a paper plane for my app, as a PNG" | SVG rendered at 512; 0.3 min | SVG rendered at 1024; 4.4 min |
+| "play clip 2 at half speed with a dissolve into it, make clip 3 black and white with a slow zoom in, add a lower-third title 'Chapter one' from 3 s to 6 s, fade the end out over 2 seconds, then export a GIF" | all set in one storyboard change, joined and checked; then asked before exporting, as its title would print over "Episode one" | the same, with "Chapter one" put in "Episode one"'s place (and said so), noticed clip 3 was black and white already, exported the GIF; 7.3 min |
+
+No request went to Python, Pillow or a canvas script, and none to ComfyUI. Found on the way: the whole
+video's judge asked to redo the person's own colour bars as "a test pattern", so it is now told which
+shots are the person's footage or a scene (`VideoCheck.Shows`); and the overview now says when two
+titles print over each other. Also checked in the built app: the trimmed single-file exe (29 MB, no
+trim warnings), asked in the chat for "a 3 second animated title card that says Hello there", wrote an
+SVG, rendered it at 1920x1080, saw from the frames that its bar started full width, fixed it and
+rendered again; the clip played in the chat and Auto opened it in File inspector.
+
 ### How the 3D methods did
 The bench (2026-11-19, the workstation's RTX 5070 Ti, the CLI with --yes, one plain request each:
 "Make a 3D model of a wooden chair / a cute cartoon fox character standing on its hind legs / a red
