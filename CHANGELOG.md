@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Vector and 3D pictures and clips.** Pictures and video now come from three things: ComfyUI for photos,
+  paintings and illustrations, SVG for icons, logos, diagrams and motion graphics (moving with SMIL), and Three.js
+  for 3D scenes. The agent writes an SVG or a Three.js page and turns it into a PNG, or into an MP4 clip when it
+  moves, frame by frame in Edge on your PC, however heavy the scene. Three.js loads from its CDN and, offline,
+  from a copy built into Sloperator.
+- **3D model files from Three.js.** Asked for a 3D model, the agent builds it in a Three.js scene and saves it as a
+  .glb you can load anywhere, instead of guessing one from a picture.
+
+### Changed
+- The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
+  a workbook stays a real Excel chart; a picture in a Word, PowerPoint or PDF file is made one of the three ways.
 
 ## [1.5.1] - 2026-11-17
 ### Changed

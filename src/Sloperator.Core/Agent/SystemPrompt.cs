@@ -271,8 +271,15 @@ public static class SystemPrompt
         // Which tool, and that it needs no MCP server (the rule above would send the model looking for
         // one): how to use them is in their guides (Comfy/Guides), which come with their first answer
         // in a chat. These two lines were 400 tokens of every request (2026-11-08).
-        sb.AppendLine("- To make pictures, video, sound, music, speech or 3D models, use the comfyui tool (ComfyUI on this PC; it needs no MCP server), " +
-                      "as its guide says. Give the full paths of the files you made in your answer.");
+        // The user's rule (2026-11-19): pictures and video come from exactly three things, ComfyUI for
+        // raster, SVG with SMIL for 2D vector, Three.js for 3D; a tool the user names is theirs to pick.
+        sb.AppendLine("- Pictures and video are made one of three ways: raster (photos, paintings, illustrations, and animating them) with the comfyui tool " +
+                      "(ComfyUI on this PC; it needs no MCP server); 2D vector art (icons, logos, diagrams, titles, motion graphics) as an SVG, moving with SMIL; " +
+                      "3D scenes with Three.js in an HTML page. Write an SVG or Three.js scene with write_file and turn it into a PNG, or an MP4 clip when it moves, with render. " +
+                      "A 3D model file (.glb) is built in a Three.js scene and saved with render, not made by ComfyUI. " +
+                      "Don't draw pictures, clips or models any other way (Python, Pillow, matplotlib, Blender, a canvas script) unless the user asks for it. " +
+                      "A chart in a workbook or document is that file's own chart (write_file and edit_file make real Excel charts); a picture put in a Word, PowerPoint or PDF file is made one of the three ways, then put in. " +
+                      "ComfyUI also makes sound, music and speech. Each tool's guide comes with its first answer. Give the full paths of the files you made in your answer.");
         sb.AppendLine("- A video of more than one shot (a music video, a story, an ad) is made with the video tool, from a storyboard, as its guide says.");
         // The user's rule: what can't be opened gets the right tool, not a hand-made decoder (a PDF
         // took eight minutes of inflating streams and mapping glyphs in PowerShell).

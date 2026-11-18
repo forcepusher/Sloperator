@@ -20,7 +20,7 @@ public sealed partial class ComfyTool : Tool
     // The rest of how to use it is in its guide (Comfy/Guides/comfyui.md), which comes with the first
     // call in a chat: it was 1,690 tokens of every request in every chat, most of which never use ComfyUI.
     public override string Description =>
-        "Make pictures, video, sound, music, speech and 3D models with ComfyUI on this PC: the user's own, found and started for you " +
+        "Make raster pictures (photos, paintings, illustrations), video from them, sound, music and speech with ComfyUI on this PC: the user's own, found and started for you " +
         "(action=install sets one up only when the PC has none). " +
         "Never write node, input or model names from memory: start from a template (action=templates: search finds them, name shows one as a workflow), " +
         "or look them up (action=nodes, action=models). " +
