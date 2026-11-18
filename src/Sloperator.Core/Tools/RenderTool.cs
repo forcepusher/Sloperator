@@ -90,8 +90,10 @@ public sealed class RenderTool : Tool
         if (options.Transparent && Path.GetExtension(made.Output).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
             text.Append("\nAn MP4 can't keep a clear background: render to .webm or .mov for that.");
         var look = MediaPreview.ForFiles([made.Output], ctx.Media, ctx.SeesImages);
+        // What the file is, without the movement measured from its pixels: made for a video model's camera, it read a
+        // logo's bar growing and words fading as the camera tilting, and Haiku said its readings didn't match the frames.
         if (look.Lines.Count > 0)
-            text.Append('\n').Append(look.Lines[0]);
+            text.Append('\n').Append(look.Lines[0].Split('\n')[0].TrimEnd());
         if (GuideFor(ctx) is { } guide)
             text.Append("\n\n").Append(guide);
         return new ToolResult(text.ToString(), look.Image, ImageCaption: look.Image is null ? null : look.Caption, Files: [made.Output]);
