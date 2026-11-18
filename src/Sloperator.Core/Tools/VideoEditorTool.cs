@@ -781,7 +781,10 @@ public sealed class VideoEditorTool : Tool
             sung = heard.Words is null ? "No words are said in this shot's line." : $"The words said in this shot's line: \"{heard.Words.ReplaceLineEndings(" ").Clip(600)}\".";
             text.AppendLine(sung + $" ({heard.Model} listened to it.)");
         }
-        if (ctx.Ask is { } ask)
+        // The person's own footage is theirs: how it looks isn't judged (a look asked to redo their colour bars).
+        if (shot.File is not null)
+            text.AppendLine("It is the person's own footage, shown as it is with its edits: its look isn't judged.");
+        else if (ctx.Ask is { } ask)
         {
             ctx.Progress?.Invoke($"Two fresh looks at shot {shot.Id}: physics and bodies, then behaviour over time…");
             if (await VideoCheck.JudgeShotAsync(board, shot, look, sung, ask, ct).ConfigureAwait(false) is { Length: > 0 } judged)

@@ -107,7 +107,7 @@ public static partial class VideoCheck
         var sb = new StringBuilder();
         sb.AppendLine($"You are the quality judge for one shot of an AI-made video{Title(board)}. Video models often make \"slop\" that a viewer spots instantly at normal speed: " +
                       "physically impossible events and unnatural motion, not just warped faces. Your job is to catch it, and also not to reject a shot for nothing.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}" + (shot.Camera.Trim().Length > 0 ? $" The camera: {shot.Camera.Trim().TrimEnd('.')}." : ""));
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}" + (shot.Camera.Trim().Length > 0 ? $" The camera: {shot.Camera.Trim().TrimEnd('.')}." : ""));
         Says(shot, heard, sb);
         sb.AppendLine("What the shot asks for never excuses impossible physics or behaviour: if it asks for flying food, splashes or a messy action, the food must still come from a real source " +
                       "(a plate, a fork, a mouth) and fall naturally, and people must still move like real people.");
@@ -142,7 +142,7 @@ public static partial class VideoCheck
         var sb = new StringBuilder();
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: behaviour over time. Video models often make people or animals freeze in a pose, " +
                       "hold an awkward position far too long, or move in ways no real person would, even when every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         Says(shot, heard, sb);
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         // A girl walking steadily to a mailbox read as frozen for 2 s and then teleporting, from frames 0.7 s apart.
@@ -172,7 +172,7 @@ public static partial class VideoCheck
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: whether the world in it stays put. Video models often let the background drift " +
                       "(the moon wandering across the sky, trees or buildings sliding, growing or shrinking) and let people or animals slide, float or sink against the ground, " +
                       "while every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         sb.AppendLine("What the camera should do: " + (shot.Camera.Trim().Length > 0 ? shot.Camera.Trim().TrimEnd('.') + "." : "nothing said (most likely it holds still)."));
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         if (motion is { Length: > 0 })
@@ -200,7 +200,7 @@ public static partial class VideoCheck
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: whether things move as the shot asks. Video models often move a subject the wrong way, " +
                       "bend a body into a pose nobody asked for, turn a head or walk toward the wrong side, make a prop move by itself or someone do something unasked, " +
                       "while every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         sb.AppendLine("What the camera should do: " + (shot.Camera.Trim().Length > 0 ? shot.Camera.Trim().TrimEnd('.') + "." : "nothing said (most likely it holds still)."));
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         if (motion is { Length: > 0 })
@@ -529,6 +529,10 @@ public static partial class VideoCheck
     /// footage, a scene drawn) what it is, and that it isn't to be made again. Told only its empty prompt, a judge
     /// asked to redo the person's own colour bars as "a test pattern" (2026-11-19).
     /// </summary>
+    /// <summary>What a shot should show, for the looks at the shot itself: its prompt, else, for a scene drawn, that it is one.</summary>
+    internal static string Intent(VideoShot s) => s.Prompt.Trim() is { Length: > 0 } p ? p
+        : s.Scene is { } scene ? $"an animated scene drawn from {Path.GetFileName(scene)}" : s.File is { } file ? $"the person's own footage, {Path.GetFileName(file)}" : "";
+
     internal static string Shows(VideoShot s) => !s.Assembled ? s.Prompt.Trim().ReplaceLineEndings(" ")
         : (s.Scene is { } scene ? $"a scene drawn from {Path.GetFileName(scene)}" : $"the person's own footage, {Path.GetFileName(s.File!)}") +
           (s.Prompt.Trim() is { Length: > 0 } p ? $": {p.ReplaceLineEndings(" ")}" : "") + " (not made by a model, so never ask to redo it; judge only how it is cut and joined)";
