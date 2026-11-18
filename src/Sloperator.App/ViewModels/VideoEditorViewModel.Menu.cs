@@ -80,6 +80,7 @@ public sealed partial class VideoEditorViewModel
             new("File…", free && (!generated || !sound.IsMade), () => _ = PickFileForAsync(sound)),
             new("Foley", free && generated, () => MakeFoley(sound)),
             new("Music", free && generated, () => MakeMusic(sound)),
+            new("Voice-over", free && generated, () => MakeVoice(sound)),
             null,
             new("Rename", free, () => RenameAsked?.Invoke(sound, sound.Title), "F2"),
             new("Delete", free, () => DeleteSound(sound)),
@@ -351,6 +352,23 @@ public sealed partial class VideoEditorViewModel
             Status = $"Say in the chat what music {Lower(sound.Title)} should be (its style, and words if it is sung), and Sloperator makes it.";
     }
 
+    /// <summary>A voice-over on a sound: said once the chat is told its words (else at once, its words said).</summary>
+    private void MakeVoice(SoundItem item)
+    {
+        if (item.Sound.Source != VideoSound.Speech)
+        {
+            item.Sound.Source = VideoSound.Speech;
+            Changed();
+            SaveNow(force: true);
+            Rebuild();
+        }
+        if (Sounds.FirstOrDefault(s => s.Id == item.Id) is not { } sound)
+            return;
+        Generate(sound);
+        if (sound.Sound.Text.Trim().Length == 0)
+            Status = $"Say in the chat what {Lower(sound.Title)} says and in what voice, and Sloperator says it.";
+    }
+
     /// <summary>Generate: the piece goes into the chat's box; with what to make said, Sloperator makes it, else the user says what it should be.</summary>
     private void Generate(IVideoPiece piece)
     {
@@ -359,6 +377,7 @@ public sealed partial class VideoEditorViewModel
         {
             FrameItem f => f.Frame.Prompt.Trim().Length > 0,
             ShotItem s => s.Shot.Prompt.Trim().Length > 0 || s.Shot.Assembled,
+            SoundItem { Sound.Source: VideoSound.Speech } v => v.Sound.Text.Trim().Length > 0,
             SoundItem a => a.Sound.Tags.Trim().Length > 0,
             _ => false,
         };

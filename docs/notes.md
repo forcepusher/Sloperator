@@ -2055,6 +2055,11 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   where it starts, not lip-synced; made into Generated as FLAC (as ComfyUI saves speech); its stamp its
   words, voice and seed. When the video is joined, the other sounds go quieter (0.35) for as long as it
   plays (its seconds, else its file's length less its trim), as they do under a shot's line; it doesn't.
+  A sound's menu in the panel has Voice-over beside Foley and Music. SongEval judges the joined video's
+  sound only when it has music (a song or a sound file of the person's): set up for a video whose only
+  sound was a voice-over, it downloaded its model to judge a man talking. Checked: Haiku, asked to add
+  "Some roads only open at night" at 1 s "in a calm, deep male voice", wrote a speech sound, made it
+  (VoxCPM2, 30 s, 2.1 s long; Gemma heard "some roads only open at night"), joined and checked the video.
 - **Export** (action=export, `VideoMontage.ExportAsync`): the joined video (joined first when out of
   date) as an MP4 of another size, a WebM (VP9 and Opus), a MOV (ProRes), a GIF (its own palette, 15
   fps, 640 wide unless given) or its sound alone.
