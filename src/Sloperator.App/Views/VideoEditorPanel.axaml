@@ -417,12 +417,12 @@
                     <ItemsControl.Styles>
                       <Style Selector="ContentPresenter" x:DataType="vm:OverlayItem">
                         <Setter Property="Canvas.Left" Value="{Binding X}" />
-                        <Setter Property="Canvas.Top" Value="4" />
+                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
                       </Style>
                     </ItemsControl.Styles>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:OverlayItem">
-                        <Border Classes="block clip" Classes.selected="{Binding IsSelected}" Width="{Binding BlockWidth}" Height="38" Cursor="Hand" Background="Transparent"
+                        <Border Classes="block clip" Classes.selected="{Binding IsSelected}" Width="{Binding BlockWidth}" Height="{Binding BlockHeight}" Cursor="Hand" Background="Transparent"
                                 ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}" ContextRequested="OnOverlayMenu"
                                 PointerPressed="OnOverlayPressed" PointerMoved="OnOverlayMoved" PointerReleased="OnOverlayReleased" PointerCaptureLost="OnOverlayCaptureLost">
                           <Panel>

@@ -24,11 +24,28 @@ public sealed partial class VideoEditorViewModel
 
     private void LayoutOverlays(double length)
     {
-        foreach (var item in Overlays)
+        // Titles that show at once go one above the other, each in the first lane free at its start.
+        var lanes = new List<double>();
+        var lane = new Dictionary<OverlayItem, int>();
+        foreach (var item in Overlays.OrderBy(o => o.Overlay.Start))
         {
             var seconds = item.Overlay.Seconds > 0 ? item.Overlay.Seconds : Math.Max(1, length - item.Overlay.Start);
             item.X = Lead + item.Overlay.Start * Pps;
             item.BlockWidth = Math.Max(8, seconds * Pps - 2);
+            var free = lanes.FindIndex(end => end <= item.Overlay.Start + 0.001);
+            if (free < 0)
+            {
+                lanes.Add(0);
+                free = lanes.Count - 1;
+            }
+            lanes[free] = item.Overlay.Start + seconds;
+            lane[item] = free;
+        }
+        var height = (TitlesRowHeight - 8) / Math.Max(1, lanes.Count);
+        foreach (var (item, at) in lane)
+        {
+            item.Y = 4 + at * height;
+            item.BlockHeight = Math.Max(10, height - 2);
         }
     }
 

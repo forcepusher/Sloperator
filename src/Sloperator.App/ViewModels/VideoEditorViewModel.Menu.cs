@@ -46,7 +46,7 @@ public sealed partial class VideoEditorViewModel
     public IReadOnlyList<PanelMenuItem?> MenuFor(ShotItem shot)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<PanelMenuItem?> { new("Generate", free && !shot.Shot.Assembled, () => Generate(shot)), null };
+        var items = new List<PanelMenuItem?> { new("Generate", free, () => Generate(shot)), null };
         items.AddRange(ClipEdits(shot, free));
         items.Add(null);
         items.Add(new("Delete", free, () => DeleteShot(shot)));
@@ -358,7 +358,7 @@ public sealed partial class VideoEditorViewModel
         var said = piece switch
         {
             FrameItem f => f.Frame.Prompt.Trim().Length > 0,
-            ShotItem s => s.Shot.Prompt.Trim().Length > 0,
+            ShotItem s => s.Shot.Prompt.Trim().Length > 0 || s.Shot.Assembled,
             SoundItem a => a.Sound.Tags.Trim().Length > 0,
             _ => false,
         };

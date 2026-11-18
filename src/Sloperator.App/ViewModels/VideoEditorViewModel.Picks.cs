@@ -276,7 +276,7 @@ public sealed partial class VideoEditorViewModel
                 "Say in the chat to make it, or what should be heard."),
             { Piece: { } piece } => new PictureView(null, $"{piece.Title} is not made yet", "Say in the chat what it should be, or to make it."),
             // The video's name: what is said with nothing picked is about all of it.
-            null => new PictureView(null, VideoName is { Length: > 0 } name ? name : "The video", _board.Shots.All(s => s.Prompt.Trim().Length == 0)
+            null => new PictureView(null, VideoName is { Length: > 0 } name ? name : "The video", _board.Shots.All(s => s.Prompt.Trim().Length == 0 && !s.Assembled)
                 ? "Say in the chat what video you want."
                 : "The whole video is selected."),
             _ => new PictureView(null, pick.Caption, "It isn't there."),

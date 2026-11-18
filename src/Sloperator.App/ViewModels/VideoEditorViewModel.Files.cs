@@ -92,7 +92,7 @@ public sealed partial class VideoEditorViewModel
     private string StateOf(IVideoPiece item, bool made, bool current)
     {
         if (!made)
-            return item is ShotItem s && s.Shot.Prompt.Trim().Length == 0 ? "Say what happens in it" : "Not made yet";
+            return item is ShotItem s && s.Shot.Prompt.Trim().Length == 0 && !s.Shot.Assembled ? "Say what happens in it" : "Not made yet";
         if (!current)
             return "Changed: make it again";
         return VideoVersions.LookIn(item.Piece.Meta(_board)) is { } look

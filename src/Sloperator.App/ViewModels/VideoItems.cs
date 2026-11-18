@@ -376,6 +376,13 @@ public sealed partial class OverlayItem(VideoOverlay overlay) : ObservableObject
     [ObservableProperty]
     private double _blockWidth;
 
+    /// <summary>Where it sits in the row and how tall it is: titles that show at once share the row's height, one above the other.</summary>
+    [ObservableProperty]
+    private double _y = 4;
+
+    [ObservableProperty]
+    private double _blockHeight = 38;
+
     [ObservableProperty]
     private bool _isSelected;
 }

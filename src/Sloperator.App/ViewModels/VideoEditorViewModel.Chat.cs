@@ -105,7 +105,7 @@ public sealed partial class VideoEditorViewModel
         var note = "Nothing in it is picked: what they say is about the whole video. When they describe it or ask for changes, read the storyboard first, " +
                    "then lay it out or change it with action=storyboard and make nothing unless they ask. " +
                    $"When they ask to make the video: {MakeTheVideo}";
-        if (_board.Shots.All(s => s.Prompt.Trim().Length == 0))
+        if (_board.Shots.All(s => s.Prompt.Trim().Length == 0 && !s.Assembled))
             note += " The video is new: give it a title (its folder is renamed to it), a reference for each person or place that comes back, frames made from those, shots as long as their action " +
                     "(2 to 8 seconds) from different angles, each with a name, its first frame and a last one when where it ends matters, the lines when people speak, " +
                     "and a song on a sound line when they want music. Take out the empty starting shot and frames (s1, f1, f2) if you don't use them.";
@@ -142,7 +142,8 @@ public sealed partial class VideoEditorViewModel
     /// </summary>
     private string? CantMakeVideo() =>
         _board.Shots.Count == 0 ? "The video has no clips yet: say in the chat what video you want first" :
-        _board.Shots.Any(s => s.Prompt.Trim().Length == 0) ? "Some clips don't say what happens in them yet: click them and say it in the chat" : null;
+        // A clip made of a file or a scene says what it is by that.
+        _board.Shots.Any(s => s.Prompt.Trim().Length == 0 && !s.Assembled) ? "Some clips don't say what happens in them yet: click them and say it in the chat" : null;
 
     private bool CanMakeVideo() => CantMakeVideo() is null;
 
