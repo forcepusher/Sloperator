@@ -137,7 +137,7 @@ public sealed partial class VideoEditorViewModel
 
     /// <summary>Whether the video's folder is written into now (a piece being made, the chat at work on it): renamed or deleted, the work went astray.</summary>
     private bool Busy(string folder) =>
-        VideoMaker.IsMaking(folder) || SamePath(folder, _board.Folder) && _chat.VideoCall() is { } call && IsThisVideo(call.Args);
+        VideoMaker.IsMaking(folder) || SamePath(folder, _board.Folder) && (_joining || _chat.VideoCall() is { } call && IsThisVideo(call.Args));
 
     // ---- creating: a card or clip that is a file of the user's or generated --------------------------------------
 

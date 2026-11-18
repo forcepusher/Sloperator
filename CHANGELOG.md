@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or its edges to time it, double-click it to change its words, and place it (centre, top, bottom, lower third, a
   corner) from its menu. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
   the lines over the video, with a green screen taken out. A sound's menu fades it in or out.
+- **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
 - **Ctrl+Z in the Video editor** takes back its last edits. Videos and pictures dropped on the clips become clips, and
   on the titles, pictures over the video.
 - **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an

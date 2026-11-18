@@ -2051,7 +2051,10 @@ when it starts and ends, and its menu sets its place, how long it shows, moves i
 a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
 the panel's own edits (menus, splits, a title dragged), 50 at most, each with its clips' .json as they
 were, so a split taken back leaves its clip made as before. Videos and pictures dropped on the Video
-clips row become clips made of them (an MP4 taken in at once), on the Titles row overlays from there. A clip made of a
+clips row become clips made of them (an MP4 taken in at once), on the Titles row overlays from there.
+**Make the video** with nothing to make (every clip and sound there and up to date: only edits since)
+joins the video right in the panel, without the chat (the demo: 2 s), its tip saying so; with anything
+to make it goes to the chat as before, which makes, looks and joins. A clip made of a
 file or a scene counts as said (Generate makes it, Make the video isn't greyed), and shows its file
 and how it is edited in its tooltip.
 

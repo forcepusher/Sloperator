@@ -127,12 +127,61 @@ public sealed partial class VideoEditorViewModel
     private const string FixIt = "When a piece's fresh look finds something wrong, change what it is made from (its prompt, its frames, the seed) " +
                                  "and make it again, up to twice. ";
 
-    /// <summary>Makes every piece not made or out of date, each looked at and fixed, then joins the video and looks at it: in the chat.</summary>
+    /// <summary>
+    /// Makes every piece not made or out of date, each looked at and fixed, then joins the video and looks at it: in the chat.
+    /// With every clip and sound made and up to date (only edits since: a speed, a transition, a title), it joins them
+    /// here instead, in seconds, as a video editor shows its edits.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanMakeVideo))]
     private void MakeVideo()
     {
-        if (CanMakeVideo())
+        if (!CanMakeVideo())
+            return;
+        if (OnlyJoin())
+            _ = JoinHereAsync();
+        else
             _chat.SendFromSidePanel("Make the video.");
+    }
+
+    /// <summary>Whether there is nothing to make, only to join: every clip and sound there and up to date, and ffmpeg to join them.</summary>
+    private bool OnlyJoin() =>
+        _board.Shots.Count > 0 && _previews.Decoder?.Ffmpeg is not null && _board.Shots.All(s => VideoMaker.IsCurrent(_board, s)) &&
+        _board.Sounds.All(a => a.Source == VideoSound.FromFile ? File.Exists(_board.SoundFile(a)) : VideoMaker.IsCurrent(_board, a));
+
+    /// <summary>The video is being joined here (Make the video with nothing to make).</summary>
+    private bool _joining;
+
+    private async Task JoinHereAsync()
+    {
+        _joining = true;
+        MakeVideoCommand.NotifyCanExecuteChanged();
+        SaveNow(force: true);
+        StopPlaying();
+        DropViewer();
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser"));
+        try
+        {
+            Status = "Joining the clips…";
+            var made = await Task.Run(() => VideoMontage.JoinAsync(board, _previews.Decoder?.Ffmpeg, _previews.Decoder,
+                p => Avalonia.Threading.Dispatcher.UIThread.Post(() => Status = p), CancellationToken.None, scenes));
+            Status = $"Joined in {made.Took.TotalSeconds:0.#} s: {Path.GetFileName(made.File)}." + (made.Notes.Count > 0 ? " " + string.Join(" ", made.Notes) : "");
+        }
+        catch (Exception ex) when (ex is VideoException or IOException or UnauthorizedAccessException or Core.Render.RenderException)
+        {
+            ShowError($"The video couldn't be joined: {ex.Message}", ex);
+        }
+        finally
+        {
+            _joining = false;
+            MakeVideoCommand.NotifyCanExecuteChanged();
+            RefreshStates();
+            RefreshViewer();
+            OnPropertyChanged(nameof(LengthText));
+            OnPropertyChanged(nameof(HasJoinedVideo));
+            OnPropertyChanged(nameof(MakeVideoTip));
+        }
     }
 
     /// <summary>
@@ -145,9 +194,9 @@ public sealed partial class VideoEditorViewModel
         // A clip made of a file or a scene says what it is by that.
         _board.Shots.Any(s => s.Prompt.Trim().Length == 0 && !s.Assembled) ? "Some clips don't say what happens in them yet: click them and say it in the chat" : null;
 
-    private bool CanMakeVideo() => CantMakeVideo() is null;
+    private bool CanMakeVideo() => !_joining && CantMakeVideo() is null;
 
-    public string MakeVideoTip => CantMakeVideo() ?? "Makes what's missing or changed, checks it and joins the video";
+    public string MakeVideoTip => CantMakeVideo() ?? (OnlyJoin() ? "Joins the clips with their edits and titles, here, in seconds" : "Makes what's missing or changed, checks it and joins the video");
 
     // ---- what the chat is doing -------------------------------------------------------------------------
 
