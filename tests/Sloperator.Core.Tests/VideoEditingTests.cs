@@ -141,6 +141,18 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void Background_removal_is_turned_off_where_a_workflow_asks_for_it()
+    {
+        // rembg without onnxruntime ends ComfyUI's worker and the job never finishes (TRELLIS.2, 2026-11-19).
+        var workflow = ComfyWorkflow.FromApi(System.Text.Json.Nodes.JsonNode.Parse("""
+            {"194": {"class_type": "Trellis2PreProcessImage", "inputs": {"padding": 10, "remove_background": true, "max_size": 1024}},
+             "195": {"class_type": "Other", "inputs": {"remove_background": false}}, "196": {"class_type": "Text", "inputs": {"text": "x"}}}
+            """));
+        Assert.Equal(["194"], ComfyTool.KeepBackgrounds(workflow));
+        Assert.False((bool)workflow.Nodes["194"]!["inputs"]!["remove_background"]!);
+    }
+
+    [Fact]
     public void Words_are_drawn_where_their_place_puts_them()
     {
         var png = Path.Combine(_dir, "title.png");

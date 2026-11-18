@@ -44,6 +44,32 @@ public sealed partial class ComfyTool
         }
     }
 
+    /// <summary>
+    /// Whether ComfyUI's own Python has rembg without onnxruntime: rembg then prints "No onnxruntime backend
+    /// found" and calls sys.exit, which ends ComfyUI's worker thread, and the job never finishes (only a restart
+    /// of ComfyUI ends it). False when that can't be told (the Desktop app, the PC's own Python).
+    /// </summary>
+    private static async Task<bool> BackgroundRemovalBrokenAsync(ComfyApi api, CancellationToken ct)
+    {
+        if (await ComfyHub.FoldersAsync(api, ct).ConfigureAwait(false) is not { } dirs || !dirs.TryGetValue("code", out var code) ||
+            ComfyInstall.FromFolder(code) is not { Kind: ComfyInstallKind.Portable or ComfyInstallKind.Venv, SitePackages: { } site })
+            return false;
+        return Directory.Exists(Path.Combine(site, "rembg")) && !Directory.Exists(Path.Combine(site, "onnxruntime"));
+    }
+
+    /// <summary>Turns off every remove_background a workflow asks for; the nodes it was on in.</summary>
+    internal static List<string> KeepBackgrounds(ComfyWorkflow workflow)
+    {
+        var kept = new List<string>();
+        foreach (var (id, node) in workflow.Nodes)
+            if (node?["inputs"] is JsonObject inputs && inputs["remove_background"] is JsonValue v && v.TryGetValue<bool>(out var on) && on)
+            {
+                inputs["remove_background"] = false;
+                kept.Add(id);
+            }
+        return kept;
+    }
+
     private async Task<ToolResult> RunAsync(JsonObject args, ComfyHub hub, ComfyApi api, ToolContext ctx, CancellationToken ct)
     {
         var library = await hub.LibraryAsync(api, ct).ConfigureAwait(false);
@@ -116,6 +142,11 @@ public sealed partial class ComfyTool
         if (problems.Count > 0)
             return Fail($"Nothing was run; fix these in {what} and run it again:\n- " + string.Join("\n- ", problems.Take(40)) +
                         (problems.Count > 40 ? $"\n- … and {problems.Count - 40} more" : ""));
+
+        if (await BackgroundRemovalBrokenAsync(api, ct).ConfigureAwait(false) && KeepBackgrounds(workflow) is { Count: > 0 } kept)
+            warnings.Add($"ComfyUI's Python has rembg without onnxruntime, and rembg then quits ComfyUI's worker, which leaves the job running for ever " +
+                         $"(a TRELLIS.2 job hung 30 minutes on it): background removal was turned off in node {string.Join(", ", kept)}, so the picture's own background stays. " +
+                         "Use a picture of the thing alone on a plain white background, or install onnxruntime into ComfyUI's Python for background removal.");
 
         var clientId = "sloperator-" + Guid.NewGuid().ToString("N")[..12];
         var (promptId, refused) = await ComfyRunner.QueueAsync(api, workflow, clientId, ct).ConfigureAwait(false);

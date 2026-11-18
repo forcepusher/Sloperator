@@ -716,6 +716,26 @@ MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRe
 Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
 `render` made, and Auto opens it as it does a ComfyUI result.
 
+### How the 3D methods did
+The bench (2026-11-19, the workstation's RTX 5070 Ti, the CLI with --yes, one plain request each:
+"Make a 3D model of a wooden chair / a cute cartoon fox character standing on its hind legs / a red
+sports car as a .glb file that I'll load into Three.js later", once saying "Build it in Three.js and
+save it with the render tool", once "Use ComfyUI: make a picture of it first, then turn that picture
+into a 3D model with the TRELLIS.2 image-to-3D workflow"), judged from the four-sided looks:
+
+| | Haiku 5.5 | qwen3.8 27B (q6_k_xl) |
+|---|---|---|
+| Three.js | chair 40 s, fox 45 s, car 54 s; all right first time, stylized: a slatted chair, a toy-like fox with a face, ears, belly and tail, a low sports car with a wing | chair 5 min, fox 12 min, car 25 min; all right: a ladder-back chair (its slats stood proud of the back), a fox much like Haiku's, a wedge car with spoked wheels |
+| TRELLIS.2 | never finished: the job hung in "PreProcess Image" for 30 minutes | not run: the same hang would have held the server |
+
+**Why TRELLIS hung.** Its PreProcess Image node removes the background with rembg, and this PC's
+ComfyUI has rembg without an onnxruntime: rembg prints "No onnxruntime backend found" and calls
+sys.exit, which ends ComfyUI's worker thread and leaves the job running for ever (/interrupt can't stop
+it; only a restart of ComfyUI). Run by hand without the background removal (remove_background false,
+the chair on its plain studio background), TRELLIS.2 4B took TRELLIS_TIME.
+
+**What is used.** TRELLIS_VERDICT
+
 ### Previews
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under
 a reply that names them by their full path (whatever made them: ComfyUI, a script, Blender, a
