@@ -29,6 +29,7 @@ they want), so write them well.
     and timing from its first frame, with a template that follows a video: LTX's IC-LoRA control or
     Wan Animate; not with a line)}]
   - sounds: [{id, name, source: song (made by Sloperator: tags = its style, lyrics, model, seed),
+    speech (a voice-over Sloperator makes: text = what it says, tags = the voice),
     foley (made by Sloperator from what the clips under it show: tags = what is heard, which it can
     do without; model, seed) or file (the person's: file = its full path, copied into Sounds),
     soundLine (from 0), start (seconds into the video), trim (seconds cut off its start), seconds
@@ -131,6 +132,9 @@ they want), so write them well.
   a door, rain), made from the clips themselves, so make them first. "tags" says what is heard
   ("gravel footsteps, wind"); it can be left empty. For music use a song: foley keeps music out.
 - A sound file of the person's ("source": "file") is copied into the video's Sounds folder as it is.
+- A voice-over Sloperator makes ("source": "speech"): "text" is what it says, "tags" the voice (age,
+  voice, manner; else the video's "voice"); it is said from where it "start"s, not lip-synced, and the
+  music on the other sound lines goes quieter under it.
 - "soundLineVolumes" turns whole sound lines up or down, one number for each (1 as they are).
 
 ## Editing

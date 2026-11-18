@@ -23,7 +23,9 @@ public static class VideoMontage
     /// <summary>The ffmpeg command line that joins the video, and how long the video is.</summary>
     /// <param name="hasSound">Whether a file has a sound track (shots made without one get silence).</param>
     /// <param name="overlays">What is laid over the joined video (<see cref="VideoOverlays.PrepareAsync"/>).</param>
-    public static (List<string> Arguments, double Length, List<string> Notes) Plan(Storyboard board, Func<string, bool> hasSound, string output, IReadOnlyList<OverlayInput>? overlays = null)
+    /// <param name="lengthOf">How long a sound file plays, in seconds (null when it can't be told): music goes quieter under a voice-over for as long as it speaks.</param>
+    public static (List<string> Arguments, double Length, List<string> Notes) Plan(Storyboard board, Func<string, bool> hasSound, string output, IReadOnlyList<OverlayInput>? overlays = null,
+        Func<string, double?>? lengthOf = null)
     {
         if (board.Shots.Count == 0)
             throw new VideoException("The video has no shots to join.");
@@ -152,7 +154,12 @@ public static class VideoMontage
             // from where it starts in the video, at its volume, faded in and out as it says; quieter
             // while someone speaks, so the line is heard over it.
             var (starts, _) = board.Timing();
-            var speaking = lines.Keys.Select(i => $"between(t,{N(starts[i])},{N(starts[i] + board.Shots[i].Seconds)})").ToList();
+            // Quieter while someone speaks: a shot's line, and a voice-over for as long as it plays (its own length, else its file's).
+            var voiceOvers = sounds.Where(s => s.Source == VideoSound.Speech)
+                .Select(s => (s.Start, Plays: s.Seconds > 0 ? s.Seconds : lengthOf?.Invoke(board.SoundFile(s)) is { } l ? Math.Max(0.1, l - s.Trim) : 0))
+                .Where(v => v.Plays > 0).ToList();
+            var speaking = lines.Keys.Select(i => $"between(t,{N(starts[i])},{N(starts[i] + board.Shots[i].Seconds)})")
+                .Concat(voiceOvers.Select(v => $"between(t,{N(v.Start)},{N(v.Start + v.Plays)})")).ToList();
             var duck = speaking.Count == 0 ? "" : $",volume='if({string.Join("+", speaking)},0.35,1)':eval=frame";
             var mix = new StringBuilder($"[{audio}]");
             for (var j = 0; j < sounds.Count; j++)
@@ -166,7 +173,7 @@ public static class VideoMontage
                 f.Append($"[{board.Shots.Count + j}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=start={N(sound.Trim)},asetpts=PTS-STARTPTS{cut}{soundFades},volume={N(sound.Volume * board.LineVolume(sound.SoundLine))},")
                  // Stamped again by their samples after the delay: a sound trimmed at its start (atrim
                  // start > 0) lost its delay in apad and atrim (ffmpeg 8.1), and played from 0 s.
-                 .Append($"adelay={delay}|{delay},asetpts=N/SR/TB,apad=whole_dur={N(length)},atrim=duration={N(length)},asetpts=PTS-STARTPTS{duck}[s{j}];");
+                 .Append($"adelay={delay}|{delay},asetpts=N/SR/TB,apad=whole_dur={N(length)},atrim=duration={N(length)},asetpts=PTS-STARTPTS{(sound.Source == VideoSound.Speech ? "" : duck)}[s{j}];");
                 mix.Append($"[s{j}]");
             }
             f.Append(mix).Append($"amix=inputs={sounds.Count + 1}:duration=first:normalize=0[mixed];");
@@ -409,7 +416,7 @@ public static class VideoMontage
             progress?.Invoke("Drawing the titles and overlays…");
             overlays = await VideoOverlays.PrepareAsync(board, length, scenes, ffmpeg, notes, ct).ConfigureAwait(false);
         }
-        var (args, joined, planNotes) = Plan(board, file => decoder?.Probe(file)?.HasAudio ?? true, temp, overlays);
+        var (args, joined, planNotes) = Plan(board, file => decoder?.Probe(file)?.HasAudio ?? true, temp, overlays, file => decoder?.Probe(file)?.Duration.TotalSeconds);
         await RunAsync(ffmpeg, args, output, joined, "Joining the shots", "join the shots", progress, ct).ConfigureAwait(false);
         return new VideoMade(output, null, null, clock.Elapsed, [.. planNotes, .. notes]);
     }

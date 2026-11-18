@@ -244,7 +244,7 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     public string Title => Sound.Label;
 
     /// <summary>"Sound file", "Foley" or "Music".</summary>
-    public string Kind => Sound.Source switch { VideoSound.FromFile => "Sound file", VideoSound.Foley => "Foley", _ => "Music" };
+    public string Kind => Sound.Source switch { VideoSound.FromFile => "Sound file", VideoSound.Foley => "Foley", VideoSound.Speech => "Voice-over", _ => "Music" };
 
     /// <summary>A song nothing is said of yet: File…, Foley or Music decides what it is.</summary>
     public bool IsNew => Sound.Source == VideoSound.Song && !IsMade && Sound.Tags.Trim().Length == 0;
@@ -252,7 +252,8 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     /// <summary>What it is, for its tooltip: a new one, what to do with it.</summary>
     public string Summary => IsNew ? "Pick File…, Foley or Music, or say in the chat what it should be."
         : Sound.Source == VideoSound.Foley ? "Foley: the sounds of what the clips under it show" + (Sound.Tags.Trim() is { Length: > 0 } heard ? $" ({heard})" : "")
-        : Sound.Source == VideoSound.Song ? $"Music: {Sound.Tags.Trim()}" : Kind;
+        : Sound.Source == VideoSound.Song ? $"Music: {Sound.Tags.Trim()}"
+        : Sound.Source == VideoSound.Speech ? $"Voice-over: \"{Sound.Text.Trim()}\"" : Kind;
 
     /// <summary>How long its file is, in seconds; 0 while it isn't known.</summary>
     public double FileSeconds { get; set; }

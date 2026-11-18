@@ -56,7 +56,8 @@ public sealed partial class Storyboard
     public string PlaceFor(VideoShot shot) => $"{GeneratedName}/{Safe(shot.Id)}.mp4";
 
     /// <summary>Where a song is made, for one not placed yet: "Generated/a1.mp3".</summary>
-    public string PlaceFor(VideoSound sound) => $"{GeneratedName}/{Safe(sound.Id)}.mp3";
+    /// <remarks>A voice-over is FLAC, as ComfyUI saves speech.</remarks>
+    public string PlaceFor(VideoSound sound) => $"{GeneratedName}/{Safe(sound.Id)}{(sound.Source == VideoSound.Speech ? ".flac" : ".mp3")}";
 
     /// <summary>
     /// The shot a frame belongs to: the first that ends on it (the frame a shot after starts on is

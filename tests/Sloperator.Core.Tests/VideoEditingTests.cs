@@ -197,6 +197,42 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void Music_goes_quieter_under_a_voice_over_and_the_voice_over_does_not()
+    {
+        var board = Video("""
+            {"shots": [{"id": "s1", "seconds": 8}],
+             "sounds": [{"id": "a1", "source": "file", "place": "References/song.mp3"}, {"id": "a2", "source": "narration", "text": "Welcome to Bean There.", "start": 2}]}
+            """);
+        Assert.Equal(VideoSound.Speech, board.Sounds[1].Source);
+        Assert.EndsWith(".flac", board.SoundFile(board.Sounds[1]));
+        Directory.CreateDirectory(board.ReferencesFolder);
+        Directory.CreateDirectory(board.GeneratedFolder);
+        File.WriteAllText(board.SoundFile(board.Sounds[0]), "");
+        File.WriteAllText(board.SoundFile(board.Sounds[1]), "");
+        var (args, _, _) = VideoMontage.Plan(board, _ => true, "out.mp4", null, file => file.EndsWith(".flac") ? 3.5 : 60);
+        var graph = Graph(args);
+        Assert.Contains("asetpts=PTS-STARTPTS,volume='if(between(t,2,5.5),0.35,1)':eval=frame[s0]", graph);
+        Assert.Contains("asetpts=PTS-STARTPTS[s1]", graph);
+        Assert.Contains("voice-over saying \"Welcome to Bean There.\"", VideoEditorTool.Overview(board));
+    }
+
+    [Fact]
+    public void Fields_nothing_reads_are_said_and_titles_in_a_shot_are_sent_to_the_overlays()
+    {
+        var change = System.Text.Json.Nodes.JsonNode.Parse("""
+            {"title": "Promo", "shots": [{"id": "s4", "overlays": [{"text": "Bean There"}], "speed": 2, "duration": 3}], "music": "jazz", "overlays": [{"id": "o1", "text": "Hi", "animation": "pop"}]}
+            """)!.AsObject();
+        var said = VideoEditorTool.UnknownFields(change);
+        Assert.NotNull(said);
+        Assert.Contains("\"overlays\" in shot s4 (titles and words over the video go in the storyboard's own overlays", said);
+        Assert.Contains("\"duration\" in shot s4 (no such field)", said);
+        Assert.Contains("\"music\" (the storyboard has no such field)", said);
+        Assert.Contains("\"animation\" in overlay o1", said);
+        Assert.DoesNotContain("speed", said);
+        Assert.Null(VideoEditorTool.UnknownFields(System.Text.Json.Nodes.JsonNode.Parse("""{"shots": [{"id": "s1", "Speed": 2, "zoom": "in"}], "fadeOut": 1}""")!.AsObject()));
+    }
+
+    [Fact]
     public void Words_are_drawn_where_their_place_puts_them()
     {
         var png = Path.Combine(_dir, "title.png");

@@ -89,7 +89,7 @@ public sealed class VideoEditorTool : Tool
                 _guideShown = ctx.ContextResets;
                 return new ToolResult(Guide());
             }
-            _note = null;
+            _note = args["storyboard"] is JsonObject given ? UnknownFields(given) : null;
             var board = LoadOrCreate(args, ctx, create: action == "storyboard");
             _lastFolder = board.Folder;
             if (action != "storyboard" && Changes(args, action) is { Count: > 0 } changes && Fits(board, args, action))
@@ -368,6 +368,15 @@ public sealed class VideoEditorTool : Tool
                         (Math.Abs(a.Volume - 1) > 0.001 ? $", volume {N(a.Volume)}" : "");
             if (a.Source == VideoSound.FromFile)
                 sb.AppendLine($"  {a.Id} \"{a.Label}\" ({where}): the user's sound file " + (File.Exists(file) ? file : $"{file}, which isn't there."));
+            else if (a.Source == VideoSound.Speech)
+            {
+                var current = VideoMaker.IsCurrent(board, a);
+                sb.AppendLine($"  {a.Id} \"{a.Label}\" ({where}): a voice-over saying \"{a.Text.Trim().ReplaceLineEndings(" ").Clip(300)}\"" +
+                              (a.Tags.Trim().Length > 0 ? $" in the voice \"{a.Tags.Trim()}\"" : " in the video's voice") + $", seed {a.Seed}. " +
+                              (!File.Exists(file) ? "Not made." : current ? $"Made: {file}" : $"Made, but out of date (its words or voice changed): {file}"));
+                if (!current)
+                    todo.Add($"sound {a.Id} (action=sound)");
+            }
             else if (a.Source == VideoSound.Foley)
             {
                 var current = VideoMaker.IsCurrent(board, a);
@@ -421,6 +430,43 @@ public sealed class VideoEditorTool : Tool
         else
             sb.Append("Everything is made and joined.");
         return sb.ToString();
+    }
+
+    private static readonly string[] RootFields = ["title", "width", "height", "fps", "frames", "shots", "sounds", "soundLines", "soundLineVolumes", "voice", "voiceSeed",
+        "overlays", "fadeIn", "fadeOut", "captions", "quality", "style", "story", "workflows", "sound"];
+
+    private static readonly Dictionary<string, string[]> ItemFields = new()
+    {
+        ["shots"] = ["id", "name", "place", "first", "last", "seconds", "prompt", "camera", "model", "seed", "lipSync", "motion", "line", "transition", "set", "file", "scene",
+                     "in", "speed", "reverse", "freeze", "volume", "crop", "zoom", "color", "transitionSeconds", "delete"],
+        ["frames"] = ["id", "name", "reference", "prompt", "model", "seed", "from", "file", "of", "set", "place", "delete"],
+        ["sounds"] = ["id", "name", "source", "file", "soundLine", "start", "trim", "seconds", "volume", "fadeIn", "fadeOut", "tags", "lyrics", "text", "model", "seed", "set", "place", "delete"],
+        ["overlays"] = ["id", "name", "text", "file", "scene", "start", "seconds", "position", "box", "opacity", "fadeIn", "fadeOut", "font", "size", "color", "background", "bold",
+                        "key", "motion", "delete"],
+    };
+
+    /// <summary>
+    /// What a change gives that the storyboard has no field for, said first, so it isn't taken for done: titles put
+    /// in a shot (Haiku's first try at a promo's title, which then never showed) belong in the video's overlays.
+    /// </summary>
+    internal static string? UnknownFields(JsonObject change)
+    {
+        static string Key(string k) => k.Length == 0 ? k : char.ToLowerInvariant(k[0]) + k[1..];
+        var said = new List<string>();
+        foreach (var (key, value) in change)
+        {
+            var name = Key(key);
+            if (!RootFields.Contains(name))
+                said.Add($"\"{key}\" (the storyboard has no such field)");
+            else if (ItemFields.TryGetValue(name, out var fields) && value is JsonArray items)
+                foreach (var item in items.OfType<JsonObject>())
+                    foreach (var (field, _) in item)
+                        if (!fields.Contains(Key(field)))
+                            said.Add(name == "shots" && Key(field) is "overlays" or "titles" or "title" or "text" or "caption" or "captions"
+                                ? $"\"{field}\" in shot {item["id"]} (titles and words over the video go in the storyboard's own overlays, with start in seconds into the video)"
+                                : $"\"{field}\" in {name[..^1]} {item["id"]} (no such field)");
+        }
+        return said.Count == 0 ? null : "Left out, as nothing in a storyboard reads them: " + string.Join("; ", said.Distinct().Take(12)) + ".\n";
     }
 
     /// <summary>How a shot's clip is edited, in words: "in 1.5 s, speed 2, reversed"; empty when it isn't.</summary>
@@ -565,6 +611,8 @@ public sealed class VideoEditorTool : Tool
             return new ToolResult(File.Exists(board.SoundFile(sound)) ? $"Sound {sound.Id} is the user's file {board.SoundFile(sound)}; nothing to make." : $"Sound {sound.Id} is a file of the user's, and it isn't there.");
         if (sound.Source == VideoSound.Foley)
             return await FoleyAsync(board, sound, ctx, ct).ConfigureAwait(false);
+        if (sound.Source == VideoSound.Speech)
+            return await SpeechAsync(board, sound, ctx, ct).ConfigureAwait(false);
         var songSeed = sound.Seed;
         var made = await KeepingVersionAsync(board, VideoPiece.Of(sound), () => Maker(ctx).MakeSongAsync(board, sound, ctx.Progress, ctx.UserMessage, ct, tries)).ConfigureAwait(false);
         // The seed of the song kept; not over a seed the Video editor panel gave meanwhile.
@@ -585,6 +633,21 @@ public sealed class VideoEditorTool : Tool
         foreach (var note in made.Notes)
             sb.AppendLine("Note: " + note);
         return new ToolResult(sb.ToString().TrimEnd(), preview.Image, ImageCaption: preview.Image is null ? null : "The song:", Files: [made.File]);
+    }
+
+    private async Task<ToolResult> SpeechAsync(Storyboard board, VideoSound sound, ToolContext ctx, CancellationToken ct)
+    {
+        var made = await KeepingVersionAsync(board, VideoPiece.Of(sound), () => Maker(ctx).MakeSpeechAsync(board, sound, ctx.Progress, ctx.UserMessage, ct)).ConfigureAwait(false);
+        var preview = MediaPreview.ForFiles([made.File], ctx.Media, ctx.SeesImages);
+        var sb = new StringBuilder();
+        sb.AppendLine($"The voice-over is made in {Chats.ChatTimes.Stopwatch(made.Took)} with VoxCPM2: {made.File}");
+        sb.AppendLine(string.Join("\n", preview.Lines));
+        if (await HearAsync(ctx, made.File, ct).ConfigureAwait(false) is { } heard)
+            sb.AppendLine(heard.Words is null ? $"{heard.Model} heard no words in it: make it again with another seed." : $"Its words, as {heard.Model} heard them: \"{heard.Words.ReplaceLineEndings(" ").Clip(1500)}\" Check them against its text.");
+        sb.AppendLine("Music on the other sound lines goes quieter under it when the video is joined.");
+        foreach (var note in made.Notes)
+            sb.AppendLine("Note: " + note);
+        return new ToolResult(sb.ToString().TrimEnd(), preview.Image, ImageCaption: preview.Image is null ? null : "The voice-over:", Files: [made.File]);
     }
 
     private async Task<ToolResult> FoleyAsync(Storyboard board, VideoSound sound, ToolContext ctx, CancellationToken ct)
@@ -781,9 +844,12 @@ public sealed class VideoEditorTool : Tool
             sung = heard.Words is null ? "No words are said in this shot's line." : $"The words said in this shot's line: \"{heard.Words.ReplaceLineEndings(" ").Clip(600)}\".";
             text.AppendLine(sung + $" ({heard.Model} listened to it.)");
         }
-        // The person's own footage is theirs: how it looks isn't judged (a look asked to redo their colour bars).
+        // The person's own footage is theirs: how it looks isn't judged (a look asked to redo their colour bars); a scene
+        // is drawn as it is written, and the looks made for a video model's faults read a cup turning as a jump.
         if (shot.File is not null)
             text.AppendLine("It is the person's own footage, shown as it is with its edits: its look isn't judged.");
+        else if (shot.Scene is not null)
+            text.AppendLine("It is a scene drawn as its page or SVG is written: look at its frames above yourself, and change the scene if they aren't right.");
         else if (ctx.Ask is { } ask)
         {
             ctx.Progress?.Invoke($"Two fresh looks at shot {shot.Id}: physics and bodies, then behaviour over time…");

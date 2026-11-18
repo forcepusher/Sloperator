@@ -472,6 +472,37 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         return ComfyWorkflow.FromApi(nodes);
     }
 
+    /// <summary>What a voice-over is made from: its words, its voice and its seed.</summary>
+    public static string SpeechStamp(Storyboard board, VideoSound sound) =>
+        Hash($"speech|{sound.Text.Trim()}|{VoiceOf(board, sound)}|{sound.Seed}|{sound.Model}|{sound.Set?.ToJsonString()}");
+
+    /// <summary>The voice a voice-over is said in: its own tags, else the video's.</summary>
+    private static string VoiceOf(Storyboard board, VideoSound sound) => sound.Tags.Trim() is { Length: > 0 } own ? own : board.Voice.Trim();
+
+    /// <summary>A voice-over on a sound line: its words said by VoxCPM2 in the voice its tags (else the video's voice) describe.</summary>
+    public async Task<VideoMade> MakeSpeechAsync(Storyboard board, VideoSound sound, Action<string>? progress, CancellationToken userMessage, CancellationToken ct)
+    {
+        using var making = MakingIn(board);
+        if (sound.Text.Trim().Length == 0)
+            throw new VideoException($"Sound {sound.Id} is a voice-over with nothing to say yet: give it text, the words it says.");
+        Use();
+        var notes = new List<string>();
+        var api = await hub.ConnectAsync(null, notes, progress, ct).ConfigureAwait(false);
+        var library = await hub.LibraryAsync(api, ct).ConfigureAwait(false);
+        var workflow = SpeechWorkflow(library, sound.Text.Trim(), VoiceOf(board, sound), sound.Seed, null, "", Prefix(board, sound.Id))
+                       ?? throw new VideoException("A voice-over needs VoxCPM2's nodes in ComfyUI (the ComfyUI-VoxCPM custom node pack), and they aren't installed: install the pack.");
+        workflow.FillAdvancedDefaults(library);
+        var stamp = SpeechStamp(board, sound);
+        var target = board.SoundFile(sound);
+        var run = await RunWorkflowAsync(api, library, workflow, board.SoundMeta(sound), stamp, "VoxCPM2", "audio", progress, userMessage, ct).ConfigureAwait(false);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        MediaRelease.Release(target);
+        File.Copy(run.Output, target, overwrite: true);
+        Restamp(board.SoundMeta(sound), stamp);
+        VideoVersions.Remember(board.SoundMeta(sound), VideoPiece.Of(sound).Settings(board));
+        return new VideoMade(target, board.SoundMeta(sound), "VoxCPM2", run.Took, [.. notes, .. run.Notes]);
+    }
+
     public static bool LineIsCurrent(Storyboard board, VideoShot shot) =>
         File.Exists(board.ShotLine(shot)) && MadeStamp(board.ShotLineMeta(shot)) is { } made && made == LineStamp(board, shot);
 
@@ -1045,6 +1076,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         {
             VideoSound.FromFile => true,
             VideoSound.Foley => MadeStamp(board.SoundMeta(sound)) == FoleyStamp(board, sound),
+            VideoSound.Speech => MadeStamp(board.SoundMeta(sound)) == SpeechStamp(board, sound),
             _ => MadeStamp(board.SoundMeta(sound)) is { } made && made.Split(':') is [var hash, var length] && hash == SongHash(sound)
                  && double.TryParse(length, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) && seconds >= SongSeconds(board, sound),
         };

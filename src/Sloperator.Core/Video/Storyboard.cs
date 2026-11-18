@@ -838,12 +838,14 @@ public sealed partial class Storyboard
             {
                 VideoSound.FromFile or "audio" or "user" => VideoSound.FromFile,
                 VideoSound.Foley or "sfx" or "sound effects" or "effects" or "video to audio" => VideoSound.Foley,
+                VideoSound.Speech or "voice" or "voice over" or "voiceover" or "voice-over" or "narration" or "narrator" or "tts" or "speak" => VideoSound.Speech,
                 _ => VideoSound.Song,
             };
             if (a.Source != VideoSound.FromFile && a.Seed <= 0)
                 a.Seed = NewSeed();
             a.Tags ??= "";
             a.Lyrics ??= "";
+            a.Text ??= "";
             a.Model = Clean(a.Model);
             a.Name = Clean(a.Name);
             a.Start = Math.Clamp(a.Start, 0, 3600);
@@ -1308,7 +1310,7 @@ public sealed class VideoOverlay
 /// </summary>
 public sealed class VideoSound
 {
-    public const string FromFile = "file", Song = "song", Foley = "foley";
+    public const string FromFile = "file", Song = "song", Foley = "foley", Speech = "speech";
 
     public string Id { get; set; } = "";
 
@@ -1346,6 +1348,9 @@ public sealed class VideoSound
 
     /// <summary>A song's words; none makes an instrumental.</summary>
     public string Lyrics { get; set; } = "";
+
+    /// <summary>What a voice-over says (source speech), in the voice its tags describe, else the video's.</summary>
+    public string Text { get; set; } = "";
 
     /// <summary>What a song or foley is made with, as <see cref="VideoFrame.Model"/>: a music or video-to-audio model or workflow.</summary>
     public string? Model { get; set; }
