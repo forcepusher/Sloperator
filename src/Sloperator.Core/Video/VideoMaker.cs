@@ -939,7 +939,8 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         {
             var named = shot.Scene ?? shot.File!;
             var source = board.FindFile(named);
-            sb.Append("assembled|").Append(named).Append('|').Append(source is null ? "missing" : FileStamp(source));
+            // By its file's name, not its path: copied into References, the same file keeps the clip made.
+            sb.Append("assembled|").Append(Path.GetFileName(named.Trim().Trim('"'))).Append('|').Append(source is null ? "missing" : FileStamp(source));
             if (source is null || !Storyboard.IsVideoFile(source))
                 sb.Append('|').Append(SourceSeconds(shot).ToString(CultureInfo.InvariantCulture)).Append('|').Append(board.Fps).Append('|').Append(board.Width).Append('x').Append(board.Height);
             return Hash(sb.ToString());

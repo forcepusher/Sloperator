@@ -363,7 +363,14 @@ public sealed partial class Storyboard
             return copy;
         }
         foreach (var shot in Shots)
-            try { shot.File = TakeFile(shot.File) ?? shot.File; }
+            try
+            {
+                shot.File = TakeFile(shot.File) ?? shot.File;
+                // An SVG scene is one file: copied in too, so the clip can be drawn again when the scratch folder it was
+                // written in is cleared. A page stays, as it loads the files beside it.
+                if (shot.Scene is { } scene && Path.GetExtension(scene).Equals(".svg", StringComparison.OrdinalIgnoreCase))
+                    shot.Scene = TakeFile(scene) ?? shot.Scene;
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
         foreach (var overlay in Overlays)
             try { overlay.File = TakeFile(overlay.File) ?? overlay.File; }
