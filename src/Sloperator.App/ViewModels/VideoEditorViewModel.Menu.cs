@@ -83,6 +83,9 @@ public sealed partial class VideoEditorViewModel
             null,
             new("Rename", free, () => RenameAsked?.Invoke(sound, sound.Title), "F2"),
             new("Delete", free, () => DeleteSound(sound)),
+            null,
+            new($"{(sound.Sound.FadeIn > 0 ? "● " : "")}Fade in", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeIn = s.FadeIn > 0 ? 0 : 1))),
+            new($"{(sound.Sound.FadeOut > 0 ? "● " : "")}Fade out", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeOut = s.FadeOut > 0 ? 0 : 2))),
         };
         AddVersions(items, sound);
         return items;

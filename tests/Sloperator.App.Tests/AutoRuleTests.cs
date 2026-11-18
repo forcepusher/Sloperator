@@ -168,6 +168,11 @@ public sealed class AutoRuleTests : IDisposable
         // Looking things up shows nothing.
         Assert.Null(AtStart("comfyui", """{"action":"templates","search":"video"}"""));
         Assert.Null(AtEnd("comfyui", """{"action":"models"}"""));
+        // A scene drawn by render: what it made, as a ComfyUI run's (the editor's picture, else the inspector).
+        var clip = Path.Combine(_dir, "Logo", "logo.mp4");
+        Assert.Equal(new AutoTarget(SidePanelNames.FileInspector, clip), AtEnd("render", """{"file":"logo.svg"}""", made: [clip]));
+        Assert.Equal(new AutoTarget(SidePanelNames.ImageEditor, lighthouse), AtEnd("render", """{"file":"scene.html"}""", made: [Path.Combine(lighthouse, "scene.png")]));
+        Assert.Null(AtStart("render", """{"file":"logo.svg"}"""));
     }
 
     [Fact]
