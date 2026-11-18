@@ -87,6 +87,9 @@ public sealed class RenderTool : Tool
             text.Append('\n').Append(note);
         if (made.Errors.Count > 0)
             text.Append("\nThe page's errors (fix them and render again):\n").AppendJoin("\n", made.Errors.Select(e => "- " + e));
+        // Beside a scene written in the scratch folder, the result is out of the user's sight: said, so what they asked for goes to them.
+        if (output is null && ctx.ScratchDirectory is { } scratch && Projects.FolderPath.IsIn(made.Output, Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratch))))
+            text.Append("\nIt is in Sloperator's scratch folder, beside the scene: when it is what the user asked for, render it again with output where it should go.");
         if (options.Transparent && Path.GetExtension(made.Output).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
             text.Append("\nAn MP4 can't keep a clear background: render to .webm or .mov for that.");
         var look = MediaPreview.ForFiles([made.Output], ctx.Media, ctx.SeesImages);
