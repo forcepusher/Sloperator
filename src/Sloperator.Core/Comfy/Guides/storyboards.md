@@ -141,7 +141,9 @@ so no clip is made again for it (action=join after a change).
   "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,
   as the render tool draws it (a title card, a logo sting, an animated diagram, a 3D product turn).
   action=shot makes it from that in seconds. Use them for footage the person gives and for vector
-  and 3D shots; the models make the rest.
+  and 3D shots; the models make the rest. A still shot of a generated picture (a slideshow, no video
+  model) is a reference made first (action=frame on a frame with "reference": true and a name), then a
+  shot with "file": its picture in References ("Cafe.png") and a "zoom".
 - Cutting a clip: "in" (seconds cut off its start), "seconds" (how long it plays), "speed" (0.5 half
   speed, 2 twice; its sound follows), "reverse": true, "freeze" (seconds into the shot where the
   picture stops and holds), "volume" (its own sound, 0 silent).
