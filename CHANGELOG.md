@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
   used when it is there; only a WebM, a MOV or an MP3 needs it.
 - **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Subtitles beside the video.** When a video has spoken lines or a voice-over, making it also writes them as a
+  subtitle file next to it (the video's name with .srt), which players show and sites take as its subtitles.
 - **A line round a title's letters** (**Line round the letters** on a title's menu, or ask the agent for outlined
   or meme-style words), so the words read over any picture.
 - **Animated GIFs in videos.** A GIF can be a clip of a video or lie over it as a sticker that keeps its clear

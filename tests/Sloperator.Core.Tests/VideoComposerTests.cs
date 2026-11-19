@@ -426,6 +426,38 @@ public sealed class VideoComposerTests : IDisposable
         }
     }
 
+
+    [Fact]
+    public void What_is_said_is_written_as_subtitles_beside_the_video()
+    {
+        var board = Video("""
+            {"title": "Talk", "fadeIn": 0, "fadeOut": 0, "shots": [
+              {"id": "s1", "seconds": 3, "place": "level 0 3s.mp4", "line": "Hello there."},
+              {"id": "s2", "seconds": 2, "place": "level 0 2s.mp4"},
+              {"id": "s3", "seconds": 4, "place": "level 0 4s.mp4", "line": "It was a long day,\nand a longer night."}],
+             "sounds": [{"id": "a1", "source": "speech", "place": "level 0.1 2s.wav", "text": "Meanwhile, elsewhere.", "start": 3.25, "seconds": 1.5},
+                        {"id": "a2", "source": "speech", "place": "level 0.1 9s.wav", "text": "Past the end.", "start": 8.5}]}
+            """);
+        var lines = VideoSubtitles.Lines(board, new Levels());
+        // A shot's line from 0.4 s into its shot to the shot's end; a voice-over while it plays; all in order, none past the video's end.
+        Assert.Equal(4, lines.Count);
+        Assert.Equal((0.4, 3.0, "Hello there."), lines[0]);
+        Assert.Equal((3.25, 4.75, "Meanwhile, elsewhere."), lines[1]);
+        Assert.Equal(5.4, lines[2].From, 3);
+        Assert.Equal((8.5, 9.0, "Past the end."), lines[3]);
+        var file = VideoSubtitles.Write(board, new Levels());
+        Assert.Equal(Path.Combine(_dir, "Talk.srt"), file);
+        var text = File.ReadAllText(file!);
+        Assert.StartsWith("1\r\n00:00:00,400 --> 00:00:03,000\r\nHello there.\r\n\r\n2\r\n00:00:03,250 --> 00:00:04,750\r\nMeanwhile, elsewhere.\r\n\r\n", text);
+        Assert.Contains("3\r\n00:00:05,400 --> 00:00:09,000\r\nIt was a long day,\r\nand a longer night.\r\n\r\n", text);
+        // Nothing said any more: the file of the join before goes.
+        foreach (var shot in board.Shots)
+            shot.Line = "";
+        board.Sounds.Clear();
+        Assert.Null(VideoSubtitles.Write(board, new Levels()));
+        Assert.False(File.Exists(Path.Combine(_dir, "Talk.srt")));
+    }
+
 #if WINDOWS
     /// <summary>A clip written here: a flat colour, with a tone when it has a pitch.</summary>
     private static void Clip(string path, (byte R, byte G, byte B) colour, double seconds, double hz = 0, int width = 320, int height = 180, int fps = 15)

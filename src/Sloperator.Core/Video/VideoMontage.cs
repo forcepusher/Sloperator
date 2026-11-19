@@ -444,6 +444,16 @@ public static class VideoMontage
     public static async Task<VideoMade> JoinAsync(Storyboard board, string? ffmpeg, IMediaDecoder? decoder, Action<string>? progress, CancellationToken ct,
         Render.SceneRenderer? scenes = null)
     {
+        var made = await JoinVideoAsync(board, ffmpeg, decoder, progress, ct, scenes).ConfigureAwait(false);
+        // What is said, as subtitles beside the video.
+        return VideoSubtitles.Write(board, decoder) is { } subtitles
+            ? made with { Notes = [.. made.Notes, $"What is said is also in {Path.GetFileName(subtitles)} beside the video: subtitles a player shows and a site takes."] }
+            : made;
+    }
+
+    private static async Task<VideoMade> JoinVideoAsync(Storyboard board, string? ffmpeg, IMediaDecoder? decoder, Action<string>? progress, CancellationToken ct,
+        Render.SceneRenderer? scenes)
+    {
         // No ffmpeg: joined here, drawn frame by frame and written with the OS's own encoder.
         if (ffmpeg is null && decoder is not null && VideoComposer.Joins(decoder))
             return await VideoComposer.JoinAsync(board, decoder, progress, ct, scenes).ConfigureAwait(false);

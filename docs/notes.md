@@ -2507,6 +2507,13 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+**Subtitles beside the video** (`VideoSubtitles`, 2026-11-19): every join, with ffmpeg or without, writes what
+is said as `<title>.srt` next to `<title>.mp4`: each shot's line from `LineLead` into its shot to the shot's
+end (as the captions burnt into the picture are timed), each voice-over while it plays (its seconds, else its
+file's length, else 0.4 s a word), in order, cut at the video's end; the file of an earlier join goes when
+nothing is said any more. The join's result tells the agent the file is there. Not tied to "captions": that
+burns the words into the picture, this leaves them a viewer's choice.
+
 **A line round a title's letters** (`VideoOverlay.Outline`, 2026-11-19): white words over a light picture had
 only their shadow to be read by. `outline` (#RRGGBB) strokes each line of the words under its fill, a tenth of
 the letters' height with round joins (`VideoOverlays.Words`); the title's menu has **Line round the letters**,
