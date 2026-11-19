@@ -718,6 +718,17 @@ MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRe
 Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
 `render` made, and Auto opens it as it does a ComfyUI result.
 
+**Files a scene names by their full path** (2026-11-19): asked for a caption and an arrow on a photo, Haiku
+wrote an SVG with `<image href="file:///C:/…/holiday.png">`, which is the natural thing, and the render came out
+as the caption alone: the page is served from `https://scene.sloperator/`, and a browser lets an https page load
+nothing from `file:`. It copied the photo beside the scene and rendered again (9 calls, 32 s). Now the scene's
+text (and its CSS and scripts) is served with such names rewritten (`Localized`: `file:///C:/…` and
+`href|src|url` followed by a drive path) to `https://scene.sloperator/__file/C:/…`, which `AnswerAsync` reads
+from the disk, for what a picture is made of only (pictures, fonts, clips, sounds, 3D models: `MediaKinds`),
+so a page can't read a document or a key file through it. The guide says a picture is named by its full path
+unless it is beside the file. Checked: SceneRendererTests draw over a photo in another folder named both ways,
+and a text file asked for the same way is refused with an error the scene's author sees.
+
 ### How the three ways did with the agent
 2026-11-19, the CLI with --yes, four plain requests each, the "Night drive" demo video in the data folder
 (an SVG intro scene, a gradient clip at 1.5× warm with a circle transition, colour bars in black and white

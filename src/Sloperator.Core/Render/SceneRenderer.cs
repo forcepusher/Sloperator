@@ -654,6 +654,20 @@ public sealed partial class SceneRenderer(string profileRoot)
             if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Host.Equals(Host, StringComparison.OrdinalIgnoreCase))
             {
                 var relative = Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+                // A picture, font, clip or model the scene names by its full path on this PC (see Localized).
+                if (relative.StartsWith(Elsewhere + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                {
+                    var named = relative[(Elsewhere.Length + 1)..];
+                    if (!Path.IsPathRooted(named) || !MediaKinds.Contains(Path.GetExtension(named).ToLowerInvariant()) || !File.Exists(named))
+                    {
+                        error(File.Exists(named) ? $"The page asked for {named}: only a picture, a font, a clip, a sound or a 3D model is read from outside the scene's folder."
+                                                 : $"The page asked for {named}, which isn't there.");
+                        await FulfillAsync(browser, id, 404, "text/plain", []).ConfigureAwait(false);
+                        return;
+                    }
+                    await FulfillAsync(browser, id, 200, ContentType(named), await File.ReadAllBytesAsync(named).ConfigureAwait(false)).ConfigureAwait(false);
+                    return;
+                }
                 var file = Path.GetFullPath(Path.Combine(folder, relative));
                 var inside = file.StartsWith(Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
                 if (relative.Length == 0 || (relative.Equals("favicon.ico", StringComparison.OrdinalIgnoreCase) && !File.Exists(file)))
@@ -670,6 +684,8 @@ public sealed partial class SceneRenderer(string profileRoot)
                 var bytes = await File.ReadAllBytesAsync(file).ConfigureAwait(false);
                 if (string.Equals(file, scene, StringComparison.OrdinalIgnoreCase) && Path.GetExtension(file).ToLowerInvariant() is ".html" or ".htm")
                     bytes = Encoding.UTF8.GetBytes(WithImportMap(Encoding.UTF8.GetString(bytes)));
+                if (Path.GetExtension(file).ToLowerInvariant() is ".svg" or ".html" or ".htm" or ".css" or ".js" or ".mjs")
+                    bytes = Encoding.UTF8.GetBytes(Localized(Encoding.UTF8.GetString(bytes)));
                 await FulfillAsync(browser, id, 200, ContentType(file), bytes).ConfigureAwait(false);
                 return;
             }
@@ -712,6 +728,35 @@ public sealed partial class SceneRenderer(string profileRoot)
                 new JsonObject { ["name"] = "Cache-Control", ["value"] = "no-store" }),
             ["body"] = Convert.ToBase64String(body),
         });
+
+    /// <summary>The path on the page's own host under which a file named by its full path on this PC is served.</summary>
+    private const string Elsewhere = "__file";
+
+    /// <summary>What a scene may take from outside its own folder: what a picture is made of, not documents or code.</summary>
+    private static readonly HashSet<string> MediaKinds =
+        [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg", ".avif", ".mp4", ".webm", ".mp3", ".wav", ".ogg", ".woff", ".woff2", ".ttf", ".otf", ".glb", ".gltf", ".hdr", ".exr"];
+
+    /// <summary>
+    /// A scene's text with the files it names by their full path (<c>file:///C:/…/photo.png</c>, or <c>href="C:\…\photo.png"</c>)
+    /// named on the page's own host instead, where <see cref="AnswerAsync"/> reads them from the disk. The page is served
+    /// over https, and a browser lets such a page load nothing from <c>file:</c>: a caption over the user's photo came
+    /// out as the caption alone, until the model copied the photo beside the scene and rendered again.
+    /// </summary>
+    internal static string Localized(string text)
+    {
+        if (!text.Contains(":/", StringComparison.Ordinal) && !text.Contains(":\\", StringComparison.Ordinal))
+            return text;
+        static string Served(string path) =>
+            $"https://{Host}/{Elsewhere}/" + string.Join('/', Uri.UnescapeDataString(path).Replace('\\', '/').Split('/').Select(Uri.EscapeDataString)).Replace("%3A", ":");
+        text = FileUrl().Replace(text, m => Served(m.Groups[1].Value));
+        return DrivePath().Replace(text, m => m.Groups[1].Value + Served(m.Groups[2].Value));
+    }
+
+    [GeneratedRegex(@"file:/{2,3}([A-Za-z]:/[^""'<>)\s]+)")]
+    private static partial Regex FileUrl();
+
+    [GeneratedRegex(@"((?:href|src|url)\s*[=(]\s*[""']?)([A-Za-z]:[\\/][^""'<>)]+)")]
+    private static partial Regex DrivePath();
 
     /// <summary>The page with an import map for three.js put first in it, when it imports "three" and has no import map.</summary>
     internal static string WithImportMap(string html)

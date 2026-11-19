@@ -12,7 +12,7 @@ Write the scene with write_file, then call render with it. A scene that doesn't 
 - The clip is as long as the last animation that ends; with only repeating ones (`repeatCount="indefinite"`), one loop of them all. `seconds` sets another length.
 - CSS `@keyframes` in a `<style>` work too. No script is needed.
 - Where the SVG draws nothing the picture is white: give it a background of its own, or render with transparent=true for an icon or a logo that goes over other things.
-- Text uses the fonts on this PC (Segoe UI, Arial, Georgia, Consolas, Impact); keep it as text, not paths, so it stays sharp. A picture beside the file: `<image href="photo.png" .../>`.
+- Text uses the fonts on this PC (Segoe UI, Arial, Georgia, Consolas, Impact); keep it as text, not paths, so it stays sharp. A picture of the user's, to draw over (a caption, an arrow, a frame) or beside: `<image href="photo.png" .../>` by its name when it is beside the file, else by its full path.
 - Morph a shape by animating `d` between paths with the same commands; draw a line on with `stroke-dasharray` and an animated `stroke-dashoffset`.
 
 ## Three.js

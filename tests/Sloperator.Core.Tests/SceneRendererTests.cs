@@ -338,6 +338,65 @@ public class SceneRendererTests
         Assert.Equal(7.3, SceneRenderer.NaturalLength(JsonNode.Parse("""{"smilLoops": [7.3, 6.1]}""")!.AsObject()).Length, 3);
     }
 
+    [Fact]
+    public async Task A_scene_draws_over_a_picture_named_by_its_full_path_from_another_folder()
+    {
+        var (folder, renderer) = Setup();
+        var ct = TestContext.Current.CancellationToken;
+        var elsewhere = Directory.CreateTempSubdirectory("sl-scene-photo ").FullName;
+        try
+        {
+            // The user's photo, somewhere else on the disk: green all over.
+            var photo = Path.Combine(elsewhere, "my photo.png");
+            using (var green = new SKBitmap(64, 32))
+            {
+                green.Erase(new SKColor(0, 160, 60));
+                using var data = green.Encode(SKEncodedImageFormat.Png, 100);
+                File.WriteAllBytes(photo, data.ToArray());
+            }
+            // A caption's bar over it, the photo named as a file: URL in one scene and by its plain path in the other.
+            foreach (var href in new[] { new Uri(photo).AbsoluteUri, photo })
+            {
+                var file = Path.Combine(folder, "captioned.svg");
+                File.WriteAllText(file, $"""
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32" width="640" height="320">
+                      <image href="{href}" width="64" height="32"/>
+                      <rect y="24" width="64" height="8" fill="#ffffff"/>
+                    </svg>
+                    """);
+                var made = await renderer.RenderAsync(file, Path.Combine(folder, "captioned.png"), new SceneOptions { Width = 640, Height = 320 }, null, null, ct);
+                Assert.Empty(made.Errors);
+                using var bitmap = SKBitmap.Decode(made.Output);
+                var (top, bottom) = (bitmap.GetPixel(320, 100), bitmap.GetPixel(320, 300));
+                Assert.Equal((0, 160, 60), (top.Red, top.Green, top.Blue));
+                Assert.Equal(SKColors.White, bottom);
+            }
+            // What isn't a picture, a font, a clip or a model isn't read from elsewhere, and the scene is told.
+            var secret = Path.Combine(elsewhere, "notes.txt");
+            File.WriteAllText(secret, "private");
+            var asking = Path.Combine(folder, "asking.svg");
+            File.WriteAllText(asking, $"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"><image href="{new Uri(secret).AbsoluteUri}" width="64" height="32"/><rect width="64" height="32" fill="#102040"/></svg>""");
+            var refused = await renderer.RenderAsync(asking, Path.Combine(folder, "asking.png"), new SceneOptions(), null, null, ct);
+            Assert.Contains(refused.Errors, e => e.Contains("only a picture", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Delete(folder);
+            Delete(elsewhere);
+        }
+    }
+
+    [Fact]
+    public void A_scenes_full_paths_are_named_on_its_own_host()
+    {
+        Assert.Equal("""<image href="https://scene.sloperator/__file/C:/Users/me/My%20Pictures/a.png"/>""", SceneRenderer.Localized("""<image href="file:///C:/Users/me/My%20Pictures/a.png"/>"""));
+        Assert.Equal("""<img src='https://scene.sloperator/__file/D:/x/b%20c.jpg'>""", SceneRenderer.Localized("""<img src='D:\x\b c.jpg'>"""));
+        Assert.Equal("""background: url(https://scene.sloperator/__file/C:/t/p.webp)""", SceneRenderer.Localized("""background: url(C:/t/p.webp)"""));
+        // What is on the web, beside the scene, or no path at all stays as it is.
+        foreach (var same in new[] { """<image href="photo.png"/>""", """<a href="https://example.com/a.png">""", "const ratio = 16 / 9; // a:b", """<image href="data:image/png;base64,AAAA"/>""" })
+            Assert.Equal(same, SceneRenderer.Localized(same));
+    }
+
     private static void Delete(string folder)
     {
         for (var i = 0; i < 10; i++)
