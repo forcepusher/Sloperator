@@ -146,5 +146,5 @@ public sealed class RenderTool : Tool
 
     /// <summary>The renderer whose browser profiles are in Sloperator's scratch folder.</summary>
     internal static SceneRenderer Renderer(ToolContext ctx) =>
-        new(Path.Combine(ctx.ScratchDirectory ?? Path.Combine(Path.GetTempPath(), "Sloperator"), "render", "browser"));
+        new(Path.Combine(ctx.ScratchDirectory ?? Path.Combine(Path.GetTempPath(), "Sloperator"), "render", "browser")) { Writer = ctx.Media };
 }

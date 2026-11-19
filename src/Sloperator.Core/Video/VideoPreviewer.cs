@@ -8,28 +8,49 @@ namespace Sloperator.Core.Video;
 /// The video at a moment, drawn from its clips as the storyboard edits them, for the Video editor's viewer: the
 /// clip under the playhead at its own frame (its start trimmed, its speed, backwards, frozen), turned, mirrored,
 /// cropped, fitted to the frame, zoomed and coloured, with the clip before it showing through a transition, the
-/// titles and pictures over it, and the video's fades. What joining the video does with ffmpeg, done here with
-/// Skia at a small size and at once, so the playhead shows a frame as it is moved and Play shows the clips, where
-/// the panel showed each clip's first picture and nothing of an edit until the video was joined again. A look at
-/// it, not the video itself: a wipe, a slide or a clock comes in as a wipe from the left, grain and sharpening
-/// aren't drawn, and a scene over the video and a keyed picture or video (a green screen) aren't shown.
+/// titles, pictures, videos and scenes over it (a green screen taken out), and the video's fades. Drawn with Skia:
+/// at a small size and at once for the viewer, so the playhead shows a frame as it is moved and Play shows the
+/// clips, and at the video's own size frame after frame to join it where there is no ffmpeg
+/// (<see cref="VideoComposer"/>), so the file is what the viewer showed. Where ffmpeg joins the video
+/// (<see cref="VideoMontage.Plan"/>) the two are close, not the same to the pixel: each transition here is drawn
+/// as its name says, which ffmpeg's own may do a little differently. A scene over the video shows once its frames
+/// are drawn (<see cref="SceneFrames"/>): joining draws them, the viewer shows them from then on.
 /// </summary>
-public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : IDisposable
+public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : IDisposable
 {
     private readonly object _gate = new();
+
+    /// <summary>
+    /// Where a scene laid over the video has its frames, a PNG each (<see cref="Render.SceneOptions.Frames"/>): the
+    /// folder named after the overlay in the video's Generated\overlays, drawn at the size its box has in the video.
+    /// </summary>
+    public static string SceneFrames(Storyboard board, VideoOverlay overlay) => Path.Combine(board.GeneratedFolder, "overlays", Storyboard.Safe(overlay.Id) + ".frames");
 
     /// <summary>A clip's reader, the frame it gave last and when that frame shows.</summary>
     private sealed class Source(IVideoReader reader) : IDisposable
     {
         public IVideoReader Reader { get; } = reader;
+        /// <summary>The frame showing now: one of <see cref="Held"/>.</summary>
         public SKBitmap? Frame { get; set; }
+
+        /// <summary>The frames read and kept, with their times, oldest first: the one showing, and going backwards the few before it.</summary>
+        public List<(double Time, SKBitmap Frame)> Held { get; } = [];
         public double Time { get; set; } = -1;
         public long Used { get; set; }
 
         public void Dispose()
         {
-            Frame?.Dispose();
+            Forget();
             Reader.Dispose();
+        }
+
+        /// <summary>The frames kept let go, none showing: the reader went somewhere else.</summary>
+        public void Forget()
+        {
+            foreach (var (_, frame) in Held)
+                frame.Dispose();
+            Held.Clear();
+            Frame = null;
         }
     }
 
@@ -160,6 +181,17 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             var sigma = (float)Math.Max(1, height / 90.0);
             paint.ImageFilter = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp);
         }
+        if (effects.Contains("sharpen"))
+        {
+            // What a soft copy of the picture lacks, added to it again (an unsharp mask); after a blur when a clip has both.
+            // Skia's own sharpening kernel took 270 ms a 720p frame on a laptop, this 15.
+            const float more = 1.0f;
+            var radius = Math.Max(0.8f, height / 720f);
+            using var soft = SKImageFilter.CreateBlur(radius, radius, SKShaderTileMode.Clamp, paint.ImageFilter);
+            var sharper = SKImageFilter.CreateArithmetic(0, 1 + more, -more, 0, true, soft, paint.ImageFilter);
+            paint.ImageFilter?.Dispose();
+            paint.ImageFilter = sharper;
+        }
         SKColorFilter? colours = shot.Color is { } color ? Colours(color) : null;
         if (effects.Contains("invert"))
         {
@@ -203,6 +235,8 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             using var corners = new SKPaint { Shader = shader };
             draw.DrawRect(0, 0, width, height, corners);
         }
+        if (effects.Contains("grain"))
+            Grain(draw, width, height, into);
         return result.Snapshot();
     }
 
@@ -254,51 +288,7 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             return SKColorFilter.CreateCompose(after, eq);
     }
 
-    /// <summary>The clip coming in over the one before it, <paramref name="t"/> of the way through (0 to 1).</summary>
-    private static void Transition(SKCanvas canvas, SKImage? before, SKImage? now, string transition, double t, int width, int height)
-    {
-        t = Math.Clamp(t, 0, 1);
-        using var paint = new SKPaint();
-        void Draw(SKImage? image, double alpha)
-        {
-            if (image is null || alpha <= 0.002)
-                return;
-            paint.Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(alpha, 0, 1)));
-            canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest), paint);
-        }
-        switch (transition)
-        {
-            case VideoShot.Fade or "fadewhite":
-                // Through black, or white: out over the first half, in over the second.
-                canvas.Clear(transition == VideoShot.Fade ? SKColors.Black : SKColors.White);
-                if (t < 0.5) Draw(before, 1 - t * 2);
-                else Draw(now, t * 2 - 1);
-                break;
-            case var name when name.StartsWith("wipe", StringComparison.Ordinal) || name.StartsWith("slide", StringComparison.Ordinal) || name.StartsWith("smooth", StringComparison.Ordinal)
-                               || name.StartsWith("cover", StringComparison.Ordinal) || name.StartsWith("reveal", StringComparison.Ordinal):
-                Draw(before, 1);
-                canvas.Save();
-                canvas.ClipRect(SKRect.Create((float)(width * t), height));
-                Draw(now, 1);
-                canvas.Restore();
-                break;
-            case "circleopen" or "circleclose" or "circlecrop" or "radial":
-                Draw(before, 1);
-                canvas.Save();
-                var radius = (float)(Math.Sqrt(width * (double)width + height * (double)height) / 2 * t);
-                using (var circle = new SKRoundRect(SKRect.Create(width / 2f - radius, height / 2f - radius, radius * 2, radius * 2), radius))
-                    canvas.ClipRoundRect(circle, antialias: true);
-                Draw(now, 1);
-                canvas.Restore();
-                break;
-            default:
-                Draw(before, 1);
-                Draw(now, t);
-                break;
-        }
-    }
-
-    // ---- titles and pictures over the video ----------------------------------------------------------------------
+    // ---- titles, pictures, videos and scenes over the video --------------------------------------------------------
 
     private void DrawOverlays(SKCanvas canvas, Storyboard board, double seconds, double length, int width, int height)
     {
@@ -309,32 +299,32 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             if (shows <= 0.01 || seconds < start || seconds >= start + shows)
                 continue;
             var words = o.Text.Trim().Length > 0 && o.File is null && o.Scene is null;
-            // A video over the video (picture in picture): its own frame then, playing round when it is shorter, in its box.
-            if (!words && o.Scene is null && o.Key is null && o.File is { } name && board.FindFile(name) is { } clip && Storyboard.IsVideoFile(clip))
+            var into = seconds - start;
+            var fadeIn = Math.Min(o.FadeIn ?? (words ? 0.3 : 0), shows / 2);
+            var fadeOut = Math.Min(o.FadeOut ?? (words ? 0.3 : 0), shows / 2);
+            var alpha = (o.Opacity ?? 1) * (fadeIn > 0 && into < fadeIn ? into / fadeIn : 1) * (fadeOut > 0 && into > shows - fadeOut ? (shows - into) / fadeOut : 1);
+            using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(alpha, 0, 1))) };
+
+            // What moves (a scene, or a video: picture in picture): its own frame then, whole in its box, playing round when it is shorter.
+            var video = !words && o.Scene is null && o.File is { } name && board.FindFile(name) is { } found && Storyboard.IsVideoFile(found) ? found : null;
+            if (o.Scene is not null || video is not null)
             {
-                if (SourceOf(clip) is { } source && source.Reader.Duration.TotalSeconds is > 0 and var runs && Read(source, (seconds - start) % runs) is { } frame)
-                {
-                    var (place, ax, ay, _) = VideoOverlays.Place(o.Position, false);
-                    var box = o.Box ?? place;
-                    var (bw, bh) = (Math.Max(2, box.Width * width), Math.Max(2, box.Height * height));
-                    var scale = Math.Min(bw / frame.Width, bh / frame.Height);
-                    var (w, h) = (frame.Width * scale, frame.Height * scale);
-                    var within = seconds - start;
-                    var (fi, fo) = (Math.Min(o.FadeIn ?? 0, shows / 2), Math.Min(o.FadeOut ?? 0, shows / 2));
-                    var a = (o.Opacity ?? 1) * (fi > 0 && within < fi ? within / fi : 1) * (fo > 0 && within > shows - fo ? (shows - within) / fo : 1);
-                    using var over = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(a, 0, 1))) };
-                    using var still = SKImage.FromBitmap(frame);
-                    canvas.DrawImage(still, SKRect.Create((float)(box.X * width + (bw - w) * ax), (float)(box.Y * height + (bh - h) * ay), (float)w, (float)h),
-                        new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None), over);
-                }
+                var (frame, owned) = video is not null ? VideoFrame(video, into, VideoOverlays.ParseColour(o.Key)) : (SceneFrame(board, o, into), false);
+                if (frame is null)
+                    continue;
+                var (place, ax, ay, _) = VideoOverlays.Place(o.Position, false);
+                var box = o.Box ?? place;
+                var (bw, bh) = (Math.Max(2, box.Width * width), Math.Max(2, box.Height * height));
+                var scale = Math.Min(bw / frame.Width, bh / frame.Height);
+                var (w, h) = (frame.Width * scale, frame.Height * scale);
+                using (var still = SKImage.FromBitmap(frame))
+                    canvas.DrawImage(still, SKRect.Create((float)(box.X * width + (bw - w) * ax), (float)(box.Y * height + (bh - h) * ay), (float)w, (float)h), Smooth, paint);
+                if (owned)
+                    frame.Dispose();
                 continue;
             }
             if (Drawn(board, o, words, width, height) is not { } picture)
                 continue;
-            var fadeIn = Math.Min(o.FadeIn ?? (words ? 0.3 : 0), shows / 2);
-            var fadeOut = Math.Min(o.FadeOut ?? (words ? 0.3 : 0), shows / 2);
-            var into = seconds - start;
-            var alpha = (o.Opacity ?? 1) * (fadeIn > 0 && into < fadeIn ? into / fadeIn : 1) * (fadeOut > 0 && into > shows - fadeOut ? (shows - into) / fadeOut : 1);
             // A slide in: from a little way off its place, easing to a stop (the square of what is left of it).
             var (slideX, slideY) = o.Motion switch
             {
@@ -346,16 +336,72 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             };
             var slideSeconds = Math.Min(Math.Max(fadeIn, 0.5), shows / 2);
             var left = slideSeconds > 0 ? Math.Pow(1 - Math.Min(1, into / slideSeconds), 2) : 0;
-            using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(alpha, 0, 1))) };
             using var image = SKImage.FromBitmap(picture);
-            canvas.DrawImage(image, (float)(slideX * left), (float)(slideY * left), new SKSamplingOptions(SKFilterMode.Nearest), paint);
+            canvas.DrawImage(image, (float)(slideX * left), (float)(slideY * left), Plain, paint);
         }
+    }
+
+    /// <summary>A video's frame <paramref name="into"/> seconds into showing it, round again when it is shorter; a copy with <paramref name="key"/> taken out (the caller's to let go) when there is one.</summary>
+    private (SKBitmap? Frame, bool Owned) VideoFrame(string clip, double into, SKColor? key)
+    {
+        if (SourceOf(clip) is not { } source || source.Reader.Duration.TotalSeconds is not (> 0 and var runs) || Read(source, into % runs) is not { } frame)
+            return (null, false);
+        if (key is not { } colour)
+            return (frame, false);
+        var keyed = frame.Copy();
+        KeyOut(keyed, colour);
+        return (keyed, true);
+    }
+
+    /// <summary>The scene frame last read for each overlay: playing reads each once, a still playhead reads none again.</summary>
+    private readonly Dictionary<string, (string File, SKBitmap Frame)> _sceneFrames = [];
+
+    /// <summary>How many frames each scene's folder has, and when the folder was looked at (it is looked at again after a join draws it).</summary>
+    private readonly Dictionary<string, (int Count, long Stamp)> _sceneCounts = [];
+
+    /// <summary>
+    /// The frame of a scene laid over the video, <paramref name="into"/> seconds into showing it, from the frames drawn
+    /// for it (<see cref="SceneFrames"/>); null until they are drawn.
+    /// </summary>
+    private SKBitmap? SceneFrame(Storyboard board, VideoOverlay o, double into)
+    {
+        var folder = SceneFrames(board, o);
+        try
+        {
+            if (!Directory.Exists(folder))
+                return null;
+            var stamp = Directory.GetLastWriteTimeUtc(folder).Ticks;
+            if (!_sceneCounts.TryGetValue(folder, out var known) || known.Stamp != stamp)
+                _sceneCounts[folder] = known = (Directory.GetFiles(folder, "*.png").Length, stamp);
+            if (known.Count == 0)
+                return null;
+            var file = Path.Combine(folder, Render.SceneRenderer.FrameName((int)Math.Floor(into * Math.Max(1, board.Fps) + 1e-6) % known.Count));
+            if (_sceneFrames.TryGetValue(folder, out var last) && last.File == file)
+                return last.Frame;
+            var decoded = SKBitmap.Decode(file);
+            if (decoded is null)
+                return null;
+            if (decoded.ColorType != SKColorType.Bgra8888 || decoded.AlphaType != SKAlphaType.Premul)
+            {
+                var plain = new SKBitmap(new SKImageInfo(decoded.Width, decoded.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+                using (decoded)
+                    decoded.CopyTo(plain, SKColorType.Bgra8888);
+                decoded = plain;
+            }
+            if (VideoOverlays.ParseColour(o.Key) is { } key)
+                KeyOut(decoded, key);
+            if (_sceneFrames.TryGetValue(folder, out last))
+                last.Frame.Dispose();
+            _sceneFrames[folder] = (file, decoded);
+            return decoded;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>An overlay's words or picture on a clear picture the size of the frame, drawn once for each look and size; null for what isn't shown here.</summary>
     private SKBitmap? Drawn(Storyboard board, VideoOverlay o, bool words, int width, int height)
     {
-        var key = $"{width}x{height}|{o.Text}|{o.File}|{o.Position}|{o.Box?.X},{o.Box?.Y},{o.Box?.Width},{o.Box?.Height}|{o.Font}|{o.Size}|{o.Color}|{o.Background}|{o.Bold}";
+        var key = $"{width}x{height}|{o.Text}|{o.File}|{o.Position}|{o.Box?.X},{o.Box?.Y},{o.Box?.Width},{o.Box?.Height}|{o.Font}|{o.Size}|{o.Color}|{o.Background}|{o.Bold}|{o.Key}";
         if (_overlays.TryGetValue(key, out var known))
             return known;
         if (_overlays.Count > 64)
@@ -369,12 +415,15 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
         {
             if (words)
                 drawn = VideoOverlays.Words(o, width, height);
-            else if (o.Scene is null && o.Key is null && o.File is { } name && board.FindFile(name) is { } file && !Storyboard.IsVideoFile(file))
+            else if (o.Scene is null && o.File is { } name && board.FindFile(name) is { } file && !Storyboard.IsVideoFile(file))
             {
                 var (place, ax, ay, _) = VideoOverlays.Place(o.Position, false);
                 var box = o.Box ?? place;
                 var rect = SKRectI.Create((int)Math.Round(box.X * width), (int)Math.Round(box.Y * height), Math.Max(2, (int)Math.Round(box.Width * width)), Math.Max(2, (int)Math.Round(box.Height * height)));
                 drawn = VideoOverlays.Picture(file, rect, ax, ay, width, height);
+                // A colour taken out of a photo or a drawing (a green screen); an SVG has its own clear background.
+                if (drawn is not null && VideoOverlays.ParseColour(o.Key) is { } colour && !SvgFile.Handles(file))
+                    KeyOut(drawn, colour);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException) { }
@@ -409,28 +458,50 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
         return source;
     }
 
+    /// <summary>How many frames are kept on the way to one asked for behind the last: a clip played backwards finds its next few there.</summary>
+    private const int KeptBack = 12;
+
     /// <summary>
     /// The frame showing at <paramref name="time"/>: the one read last when it is still showing, the next ones when the
-    /// time is a little on (playing), else the reader goes there.
+    /// time is a little on (playing), else the reader goes there. Going backwards (a clip in reverse) the reader goes
+    /// to a little before and keeps the frames on the way, so one seek serves a dozen frames, not each its own:
+    /// three seconds of a reversed 720p clip took 30 s to join before, read from its key frame again for every frame.
     /// </summary>
     private static SKBitmap? Read(Source source, double time)
     {
         var reader = source.Reader;
         var step = reader.FrameRate > 0 ? 1 / reader.FrameRate : 1 / 24.0;
-        if (source.Frame is not null && time >= source.Time - 1e-4 && time < source.Time + step - 1e-4)
+        bool Shows(double at) => time >= at - 1e-4 && time < at + step - 1e-4;
+        if (source.Frame is not null && Shows(source.Time))
             return source.Frame;
+        foreach (var (at, held) in source.Held)
+            if (Shows(at))
+            {
+                (source.Frame, source.Time) = (held, at);
+                return held;
+            }
         try
         {
+            var backwards = source.Frame is not null && time < source.Time && source.Time - time < 1.5;
             if (source.Frame is null || time < source.Time || time > source.Time + 1)
-                reader.Seek(TimeSpan.FromSeconds(Math.Max(0, time)));
+            {
+                reader.Seek(TimeSpan.FromSeconds(Math.Max(0, backwards ? time - (KeptBack - 1) * step : time)));
+                source.Forget();
+            }
+            var keep = backwards ? KeptBack : 1;
             // On to the frame showing then; a reader that lands a little before reads on.
-            for (var n = 0; n < 90; n++)
+            for (var n = 0; n < 90 + keep; n++)
             {
                 if (reader.Next() is not { } next)
                     break;
-                source.Frame?.Dispose();
-                source.Frame = MediaPreview.ToBitmap(next.Frame);
-                source.Time = next.Time.TotalSeconds;
+                var frame = MediaPreview.ToBitmap(next.Frame);
+                source.Held.Add((next.Time.TotalSeconds, frame));
+                while (source.Held.Count > keep)
+                {
+                    source.Held[0].Frame.Dispose();
+                    source.Held.RemoveAt(0);
+                }
+                (source.Frame, source.Time) = (frame, next.Time.TotalSeconds);
                 if (source.Time + step > time + 1e-4)
                     break;
             }
@@ -450,6 +521,10 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             foreach (var overlay in _overlays.Values)
                 overlay?.Dispose();
             _overlays.Clear();
+            foreach (var scene in _sceneFrames.Values)
+                scene.Frame.Dispose();
+            _sceneFrames.Clear();
+            _sceneCounts.Clear();
         }
     }
 

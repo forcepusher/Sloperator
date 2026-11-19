@@ -143,9 +143,9 @@ public sealed partial class VideoEditorViewModel
             _chat.SendFromSidePanel("Make the video.");
     }
 
-    /// <summary>Whether there is nothing to make, only to join: every clip and sound there and up to date, and ffmpeg to join them.</summary>
+    /// <summary>Whether there is nothing to make, only to join: every clip and sound there and up to date, and something to join them with (ffmpeg, or the PC's own encoder).</summary>
     private bool OnlyJoin() =>
-        _board.Shots.Count > 0 && _previews.Decoder?.Ffmpeg is not null && _board.Shots.All(s => VideoMaker.IsCurrent(_board, s)) &&
+        _board.Shots.Count > 0 && (_previews.Decoder?.Ffmpeg is not null || VideoComposer.Joins(_previews.Decoder)) && _board.Shots.All(s => VideoMaker.IsCurrent(_board, s)) &&
         _board.Sounds.All(a => a.Source == VideoSound.FromFile ? File.Exists(_board.SoundFile(a)) : VideoMaker.IsCurrent(_board, a));
 
     /// <summary>The video is being joined here (Make the video with nothing to make).</summary>
@@ -160,7 +160,7 @@ public sealed partial class VideoEditorViewModel
         DropViewer();
         var board = Storyboard.Parse(_board.ToJson());
         board.Folder = _board.Folder;
-        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser"));
+        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser")) { Writer = _previews.Decoder };
         try
         {
             Status = "Joining the clips…";

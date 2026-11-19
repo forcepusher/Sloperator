@@ -12,7 +12,7 @@ namespace Sloperator.Platform.Windows;
 /// The COM interfaces are called through their vtables (<see cref="ComAbi"/>).
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed unsafe class MediaFoundationDecoder : IMediaDecoder
+public sealed unsafe partial class MediaFoundationDecoder : IMediaDecoder
 {
     public MediaInfo? Probe(string path)
     {

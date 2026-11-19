@@ -69,6 +69,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, its sound alone as an MP3, or
   cut to another shape, such as a vertical one. Sounds fade in and out, and the video's own fades can be set or
   turned off.
+- **Videos need nothing installed.** Joining a video, turning an animated SVG or Three.js scene into a clip, making
+  a clip from a picture or from a MOV, WMV or AVI of yours, and exporting as an MP4 of any size, a GIF or a WAV are
+  now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
+  used when it is there; only a WebM, a MOV or an MP3 needs it.
+- **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- The Video editor's viewer shows every transition as it will look (a wipe from its own side, slides, circles, a
+  clock's hand, blinds and the rest), film grain, sharpening, a green screen taken out, and, once the video has
+  been made, a scene laid over it.
 
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in

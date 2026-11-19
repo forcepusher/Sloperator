@@ -71,6 +71,12 @@ public interface IMediaDecoder
 
     /// <summary>The ffmpeg program a decoder reads with, when it uses one: also the agent's, to cut or join media.</summary>
     string? Ffmpeg => null;
+
+    /// <summary>Whether <see cref="Write"/> makes video files here.</summary>
+    bool Writes => false;
+
+    /// <summary>A new video file at <paramref name="path"/> (.mp4), to write frame after frame; null where the decoder writes none.</summary>
+    IMediaWriter? Write(string path, MediaWriterOptions options) => null;
 }
 
 /// <summary>Plays a sound through the PC's speakers, for the chat's audio and video players.</summary>
@@ -100,6 +106,10 @@ public sealed class FallbackDecoder(params IMediaDecoder[] decoders) : IMediaDec
 
     public string? Ffmpeg => decoders.Select(d => d.Ffmpeg).FirstOrDefault(f => f is not null);
 
+    public bool Writes => decoders.Any(d => d.Writes);
+
+    public IMediaWriter? Write(string path, MediaWriterOptions options) => decoders.Where(d => d.Writes).Select(d => d.Write(path, options)).FirstOrDefault(w => w is not null);
+
     private static T? Try<T>(Func<T?> read) where T : class
     {
         try
@@ -112,4 +122,38 @@ public sealed class FallbackDecoder(params IMediaDecoder[] decoders) : IMediaDec
             return null;
         }
     }
+}
+
+/// <summary>What a video file is written as: its frame (even sides), its frames a second, and whether it has sound.</summary>
+/// <param name="Quality">"draft", "best", or anything else for the usual: how many bits a second of picture gets.</param>
+public sealed record MediaWriterOptions(int Width, int Height, int Fps, bool Sound = false, string? Quality = null)
+{
+    /// <summary>The sound a writer takes: stereo at 48 kHz, as interleaved floats.</summary>
+    public const int SoundRate = 48000, SoundChannels = 2;
+
+    /// <summary>
+    /// The picture's bits a second: a fifth of a bit for each pixel of each frame as usual (12 Mbit/s at 1080p30, where
+    /// a drawn scene's flat colours and a filmed clip both come out clean), half that for a draft, half as much again for the best.
+    /// </summary>
+    public int VideoBitrate => (int)Math.Clamp(Width * (long)Height * Fps * (Quality switch { "draft" => 0.1, "best" => 0.3, _ => 0.2 }), 400_000, 60_000_000);
+
+    /// <summary>How good the picture is kept, of 100, where a writer encodes by quality: the bits then follow what each stretch needs.</summary>
+    public int VideoQuality => Quality switch { "draft" => 60, "best" => 92, _ => 80 };
+}
+
+/// <summary>
+/// Writes a video file (an MP4: H.264 with AAC sound) frame after frame, with what the OS has for it, so a clip is
+/// made and a video joined where there is no ffmpeg. The frames and the sound are given in step, some sound after
+/// each frame or so; the file is whole only after <see cref="Finish"/>.
+/// </summary>
+public interface IMediaWriter : IDisposable
+{
+    /// <summary>The next frame, at the size the writer was opened with.</summary>
+    void Frame(RawImage frame);
+
+    /// <summary>The sound that comes next: stereo at 48 kHz, interleaved (<see cref="MediaWriterOptions.SoundRate"/>).</summary>
+    void Sound(ReadOnlySpan<float> samples);
+
+    /// <summary>Ends the file; what was written is a video from here on.</summary>
+    void Finish();
 }

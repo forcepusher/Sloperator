@@ -444,6 +444,9 @@ public static class VideoMontage
     public static async Task<VideoMade> JoinAsync(Storyboard board, string? ffmpeg, IMediaDecoder? decoder, Action<string>? progress, CancellationToken ct,
         Render.SceneRenderer? scenes = null)
     {
+        // No ffmpeg: joined here, drawn frame by frame and written with the OS's own encoder.
+        if (ffmpeg is null && decoder is not null && VideoComposer.Joins(decoder))
+            return await VideoComposer.JoinAsync(board, decoder, progress, ct, scenes).ConfigureAwait(false);
         if (ffmpeg is null)
             throw new VideoException("Joining the shots needs ffmpeg, and there is none on this PC: download a portable build (ffmpeg's own site links them, such as gyan.dev's " +
                                     "ffmpeg-release-essentials.zip) and unpack it into Sloperator's SloperatorData\\tools, where it is found, then join again.");

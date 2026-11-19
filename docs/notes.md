@@ -2323,15 +2323,16 @@ of a look, a turn, a title or a transition was seen until the video was joined a
 - **What is drawn**: the clip under the playhead at its own frame (`SourceTime`: its `in`, its speed, held from
   its freeze, backwards from the file's end, its last frame once the file has run out), turned, mirrored and cropped
   (`Turned`), put in the frame as its `fit` says (filling it, whole with black beside it, or whole over a blurred
-  copy of itself), with its effects (blur, pixelate, a vignette, a negative; not grain or sharpening), its slow zoom
+  copy of itself), with its effects (blur, sharpening, pixelate, a vignette, a negative, grain), its slow zoom
   or pan, and its colours (`Colours`: its light and colour as ffmpeg's eq has them, then its look; warm, cool and
-  vintage are near, not the same). In a transition the clip before it shows too: a dissolve mixes them, a fade goes
-  through black or white, a wipe, slide, cover, reveal or smooth one comes in as a wipe from the left, a circle or
-  clock as a growing circle, any other as a dissolve. Over that the titles and pictures (the same `VideoOverlays.Words`
-  and `Picture` the joined video's are drawn with, at this size, kept by what they say), fading and sliding in as
-  joined, a video laid over the video (picture in picture) at its own frame in its box, the captions when they are
-  on, and the video's own fades. Not shown: a scene over the video, a keyed picture or video (a green screen). All
-  with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
+  vintage are near, not the same). In a transition the clip before it shows too, each transition drawn as its name
+  says (`VideoPreviewer.Transitions.cs`; at first every wipe and slide came in from the left and a clock was a
+  circle). Over that the titles and pictures (the same `VideoOverlays.Words` and `Picture` the joined video's are
+  drawn with, at this size, kept by what they say), fading and sliding in as joined, a video laid over the video
+  (picture in picture) at its own frame in its box, a colour keyed out of either (a green screen), a scene once its
+  frames are drawn (joining draws them), the captions when they are on, and the video's own fades. All with Skia,
+  at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop. The same code at the
+  video's own size makes the file where there is no ffmpeg (see "Videos without ffmpeg").
 - **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a file, five at most (the clip
   under the playhead, the one before it in a transition, a video or two over them), kept by the file and when it
   was written. Playing on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
@@ -2377,6 +2378,75 @@ an MP4, a held picture zooming in and an SVG scene frozen half way, with a wipe,
 a title and a picture over them, then export a GIF and an MP3; the panel driven in the built app with
 the "Night drive" demo (intro scene, a gradient clip at 1.5× warm with a circle transition, bars in
 black and white with a slide, a lower third and an end title).
+
+### Videos without ffmpeg (the built-in path)
+ffmpeg is not on a PC until someone puts it there, and the laptop this was built on had none: joining a video,
+a clip of a drawn scene, a clip from a picture and every export stopped with "needs ffmpeg". The user's ask
+(2026-11-19) was to improve without being held to the technology chosen so far, so the whole chain now also
+runs on what Windows and Sloperator have. ffmpeg stays first where there is one (`IMediaDecoder.Ffmpeg`): its
+x264 is the better encoder and its path is the one a year of videos went through. The built-in path is taken
+only when it is null.
+
+- **The writer** (`IMediaWriter`, `MediaFoundationDecoder.Write` in `MediaFoundationWriter.cs`): Media
+  Foundation's Sink Writer through its vtable, like the reader. H.264 High in an MP4, AAC at 192 kbit/s (the most
+  the encoder makes), stereo 48 kHz. Frames go in as NV12, converted from BGRA here (BT.709 above 576 lines,
+  BT.601 below, 16 to 235; two rows at a time on all cores), because the writer's own RGB input came out with
+  whatever matrix the converter picked. Two encoder settings matter, passed with the input type:
+  `CODECAPI_AVEncMPVDefaultBPictureCount` 0, since with B-frames the file's first frame read back at 0.033 s (one
+  frame late, behind its sound, and a clip cut from it a frame off); and rate control by quality
+  (`AVEncCommonRateControlMode` 3 with `AVEncCommonQuality` 60, 80 or 92 for draft, usual and best), so flat drawn
+  scenes come out small and film large. `MF_MPEG4SINK_MOOV_BEFORE_MDAT` was tried and dropped: Finalize failed
+  with "Access is denied" on the writer's own stream, and with a read-write stream of ours the file came out
+  twice the size and unreadable. Throttling is off (`MF_SINK_WRITER_DISABLE_THROTTLING`), the frames and the sound
+  are written side by side. Measured on the laptop: 90 frames of 1280x720 in 0.9 s, 150 of 1920x1080 in 3.3 s, 30
+  of 3840x2160 in 3 s; colour bars read back within 3 of 255.
+- **The picture** is `VideoPreviewer` at the video's own size (`VideoComposer.JoinAsync`): the same code that
+  draws the viewer's frame draws every frame of the file, so what was seen is what is made. For that it now draws
+  every transition by its name (wipes, slides, smooth and diagonal wipes with a soft edge, cover and reveal,
+  circles, the crops through black, a clock's hand, squeezes, zoom, blocks, a sideways blur, ten slices), film
+  grain (a fixed tile of specks, 1.5 px at 720p, blended as overlay, moved by the frame's number so a frame looks
+  the same whenever it is drawn), sharpening, a colour keyed out (`KeyOut`, ffmpeg chromakey's measure: 0.15
+  similar, 0.08 blend, on the colour not the brightness) and scenes over the video. Two things were slow and
+  changed: Skia's 3x3 sharpening kernel took 270 ms a 720p frame, an unsharp mask (blur, then
+  `CreateArithmetic(0, 2, -1, 0)`) 15; and a reversed clip seeked for every frame, so going backwards the reader
+  now goes to 12 frames before and keeps them. Grain as first drawn (1 px, strength 46) made 3 s of 720p weigh
+  15 MB; at 1.5 px and 22 it is 3 MB and looks like film rather than sensor noise.
+- **A scene over the video** can't be an MP4 (no clear background) and a WebM needs ffmpeg, so it is drawn as a
+  folder of PNGs, one a frame (`SceneOptions.Frames`, `VideoPreviewer.SceneFrames`: `Generated\overlays\<id>.frames`),
+  with a `drawn.txt` naming the scene's write time, box, rate and length so it is drawn again only when one of
+  them changes. The viewer shows them from then on.
+- **The sound** is `VideoSoundMix.Mix`, which does what the ffmpeg graph does (see `VideoMontage.Plan`): each
+  clip's sound cut as its shot is, a spoken line in place of it, clips at half under a song, one fading into the
+  next through a transition, the sound lines placed, trimmed, faded, at their volume, music at 35% while someone
+  speaks (eased over 80 ms rather than switched), the end faded, and a limiter at 0.95 (5 ms ahead, 50 ms
+  release). A clip at another speed keeps its pitch through `SoundStretch.Tempo` (WSOLA: 40 ms stretches, half
+  over the one before, each taken from within 10 ms of where it lines up best), where the editor's own preview
+  still just plays it faster.
+- **Scene clips** (`SceneRenderer.WriteAsync`): each screenshot decoded and handed to the writer. A 3 s SMIL
+  scene at 1024x576 took 7 s, as with ffmpeg: the browser is the slow part.
+- **GIFs** (`GifWriter`) are written here when there is no ffmpeg: each frame gets its
+  own table of up to 255 colours (median cut over 5-bit bins, the table's entries the real average of what fell
+  in them, so a flat colour is itself and the same in every frame), an ordered dither only where the nearest
+  colour is more than 8 off, only the box of what changed since the frame before, and tables as short as the
+  colours need. A frame the same as the last costs 30 bytes. The first version dithered everything and gave each
+  bin's middle as its colour: a flat background came out dotted, and a ball left a ghost trail where the next
+  frame's table differed.
+- **Clips from files** (`VideoComposer.Hold`, `Transcode`) and **exports** (`ExportAsync`: MP4 at any size, GIF,
+  WAV). A WebM, a MOV, an MP3 or an M4A still needs ffmpeg and says what is made without it. Foley still cuts its
+  stretch with ffmpeg (it needs ComfyUI in any case).
+
+Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo, 15.5 s of 1280x720 at
+24 fps with rotated, blurred and vignetted clips and two titles, joined in 8.3 s; 19 s of 720p30 with eight
+transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
+picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
+
+Not done: the index at the file's start (for playing while it downloads; moving the `moov` box after the fact
+would do it), a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
+never came), and making the built-in path the only one so the viewer and the file can't differ.
+
+Checked: VideoComposerTests (the mix by level, tempo keeping pitch, the key, a file written and read back, a
+real join with a dissolve, a wipe, a turned negative clip and a keyed picture, an SVG to MP4 and GIF and laid
+over a video as frames, exports and a held picture), all against Windows' own encoder.
 
 ### How videos did
 On this PC (RTX 5070 Ti 16 GB, ComfyUI 0.41.3), at 1280x720 and 24 fps: a frame from words took

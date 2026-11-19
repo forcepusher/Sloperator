@@ -924,7 +924,9 @@ public sealed class VideoEditorTool : Tool
     {
         var output = GetString(args, "output") is { Length: > 0 } o ? ctx.ResolvePath(o)
             : throw new ToolArgumentException("Give output: the file to save the video as (.mp4, .webm, .mov, .gif, or .mp3 for its sound).");
-        var ffmpeg = ctx.Media?.Ffmpeg ?? throw new VideoException("Exporting needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
+        var ffmpeg = ctx.Media?.Ffmpeg;
+        if (ffmpeg is null && !VideoComposer.Joins(ctx.Media))
+            throw new VideoException("Exporting needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
         var joined = "";
         if (!File.Exists(board.JoinedFile) || board.JoinedIsStale)
         {
@@ -933,7 +935,10 @@ public sealed class VideoEditorTool : Tool
         }
         var width = GetNumber(args, "width") is > 0 and var w ? (int?)w : null;
         var height = GetNumber(args, "height") is > 0 and var h ? (int?)h : null;
-        var file = await VideoMontage.ExportAsync(board, ffmpeg, output, width, height, ctx.Progress, ct).ConfigureAwait(false);
+        // Without ffmpeg: an MP4 at any size, a GIF, or the sound as a WAV, made with what the PC has.
+        var file = ffmpeg is not null
+            ? await VideoMontage.ExportAsync(board, ffmpeg, output, width, height, ctx.Progress, ct).ConfigureAwait(false)
+            : await VideoComposer.ExportAsync(board, ctx.Media!, output, width, height, ctx.Progress, ct).ConfigureAwait(false);
         var look = MediaPreview.ForFiles([file], ctx.Media, ctx.SeesImages);
         return new ToolResult($"{joined}Exported {file}\n{string.Join("\n", look.Lines)}", look.Image, ImageCaption: look.Image is null ? null : look.Caption, Files: [file]);
     }

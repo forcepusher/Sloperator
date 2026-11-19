@@ -184,11 +184,33 @@ public sealed class VideoPreviewerTests : IDisposable
         Assert.Equal(0, Reds(preview.FrameAt(board, 2.1)!));
         Assert.True(Reds(preview.FrameAt(board, 2.5)!) > 10);
         Assert.Equal(0, Reds(preview.FrameAt(board, 2.9)!));
-        // A wipe comes in from the left: the new clip at the left, the old one still at the right.
+        // A wipe to the left: its edge goes from the right to the left, the new clip behind it, the old one still at the left.
         board.Shots[1].Transition = "wipeleft";
         var wipe = preview.FrameAt(board, 1.5)!;
-        Assert.Equal(200, At(wipe, 0.3, 0.6).G);
-        Assert.Equal(100, At(wipe, 0.8, 0.6).G);
+        Assert.Equal(100, At(wipe, 0.3, 0.6).G);
+        Assert.Equal(200, At(wipe, 0.8, 0.6).G);
+        // To the right, the other way round; and down, from the top.
+        board.Shots[1].Transition = "wiperight";
+        Assert.Equal(200, At(preview.FrameAt(board, 1.5)!, 0.3, 0.6).G);
+        Assert.Equal(100, At(preview.FrameAt(board, 1.5)!, 0.8, 0.6).G);
+        board.Shots[1].Transition = "wipedown";
+        Assert.Equal(200, At(preview.FrameAt(board, 1.5)!, 0.6, 0.3).G);
+        Assert.Equal(100, At(preview.FrameAt(board, 1.5)!, 0.6, 0.8).G);
+        // A circle opening shows the new clip in the middle first; one closing keeps the old clip there last.
+        board.Shots[1].Transition = "circleopen";
+        Assert.Equal(200, At(preview.FrameAt(board, 1.3)!, 0.5, 0.6).G);
+        Assert.Equal(100, At(preview.FrameAt(board, 1.3)!, 0.95, 0.9).G);
+        board.Shots[1].Transition = "circleclose";
+        Assert.Equal(100, At(preview.FrameAt(board, 1.7)!, 0.5, 0.6).G);
+        Assert.Equal(200, At(preview.FrameAt(board, 1.7)!, 0.95, 0.9).G);
+        // Every transition there is draws something of its own all the way through, and ends on the new clip.
+        foreach (var name in Storyboard.Transitions.Where(t => t != VideoShot.Cut))
+        {
+            board.Shots[1].Transition = name;
+            foreach (var at in new[] { 1.0, 1.25, 1.5, 1.75, 1.95 })
+                Assert.NotNull(preview.FrameAt(board, at));
+            Assert.Equal(200, At(preview.FrameAt(board, 2.05)!, 0.6, 0.6).G);
+        }
     }
 
     [Fact]

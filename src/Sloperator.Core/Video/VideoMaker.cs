@@ -305,7 +305,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         var ffmpeg = media?.Ffmpeg;
         if (Render.SceneRenderer.Handles(source))
         {
-            var scenes = Scenes ?? new Render.SceneRenderer(Path.Combine(Path.GetTempPath(), "Sloperator", "render", "browser"));
+            var scenes = Scenes ?? new Render.SceneRenderer(Path.Combine(Path.GetTempPath(), "Sloperator", "render", "browser")) { Writer = media };
             var made = await scenes.RenderAsync(source, temp, new Render.SceneOptions
             {
                 Width = board.Width, Height = board.Height, Fps = board.Fps, Seconds = SourceSeconds(shot), Still = false,
@@ -315,11 +315,23 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         }
         else
         {
-            if (ffmpeg is null)
-                throw new VideoException("A clip from a file needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
             var picture = !Storyboard.IsVideoFile(source);
             if (!picture && Path.GetExtension(source).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
                 File.Copy(source, temp, overwrite: true);
+            else if (ffmpeg is null)
+            {
+                // No ffmpeg: a picture held, or another kind of video read and written again, with what the PC has.
+                if (media is null || !VideoComposer.Joins(media))
+                    throw new VideoException("A clip from a file needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
+                progress?.Invoke(picture ? "Holding the picture…" : "Reading the video…");
+                await Task.Run(() =>
+                {
+                    if (picture)
+                        VideoComposer.Hold(source, temp, board.Width, board.Height, board.Fps, SourceSeconds(shot), media);
+                    else
+                        VideoComposer.Transcode(source, temp, media, progress, ct);
+                }, ct).ConfigureAwait(false);
+            }
             else
             {
                 var (w, h) = (board.Width, board.Height);

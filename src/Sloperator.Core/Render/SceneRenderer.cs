@@ -29,6 +29,9 @@ public sealed record SceneOptions
     /// <summary>True for a picture, false for a clip; null: by the output's extension, else by whether the scene moves.</summary>
     public bool? Still { get; init; }
 
+    /// <summary>A clip as a folder of PNGs, one a frame (<see cref="SceneRenderer.FrameName"/>), at the output's path: no encoder needed, and a clear background kept.</summary>
+    public bool Frames { get; init; }
+
     /// <summary>
     /// A folder the result goes into when no output is given, under a name no file there has ("plane.png", then
     /// "plane 2.png"): a picture's folder in the Image editor, where each result is the picture's next version.
@@ -51,6 +54,9 @@ public sealed record SceneMade(string Output, bool Clip, int Width, int Height, 
 /// </summary>
 public sealed partial class SceneRenderer(string profileRoot)
 {
+    /// <summary>What writes a clip where there is no ffmpeg (<see cref="Media.IMediaDecoder.Write"/>); null where nothing does.</summary>
+    public Media.IMediaDecoder? Writer { get; init; }
+
     private const string Host = "scene.sloperator";
 
     /// <summary>The longest side a scene is drawn at, and the most frames a clip has.</summary>
@@ -83,7 +89,7 @@ public sealed partial class SceneRenderer(string profileRoot)
             throw new RenderException($"There is no file {scene}.");
         if (!Handles(scene))
             throw new RenderException("Only an SVG (.svg) or an HTML page (.html) can be drawn: write the scene as one of those first.");
-        if (output is not null && IsPicture(output) is null && !IsModel(output))
+        if (output is not null && !options.Frames && IsPicture(output) is null && !IsModel(output))
             throw new RenderException("The output must be a picture (.png, .jpg, .webp), a clip (.mp4, .webm, .mov, .gif) or, for a Three.js scene, a 3D model (.glb).");
         var gate = Gates.GetOrAdd(Path.GetFullPath(profileRoot), _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct).ConfigureAwait(false);
@@ -203,9 +209,9 @@ public sealed partial class SceneRenderer(string profileRoot)
 
         info = await browser.EvaluateAsync("window.__scene.info()", call, ct).ConfigureAwait(false) as JsonObject ?? info;
         var natural = NaturalLength(info);
-        if (output is not null && IsModel(output))
+        if (output is not null && !options.Frames && IsModel(output))
             return await SaveModelAsync(browser, Path.GetFullPath(output), options.At ?? 0, width, height, errors, notes, Error, clock, ct).ConfigureAwait(false);
-        var still = options.Still ?? (output is not null ? IsPicture(output) : null);
+        var still = options.Frames ? false : options.Still ?? (output is not null ? IsPicture(output) : null);
         if (still is null)
         {
             progress?.Invoke("Seeing whether the scene movesвЂ¦");
@@ -241,14 +247,29 @@ public sealed partial class SceneRenderer(string profileRoot)
         }
         else
         {
-            if (ffmpeg is null)
-                throw new RenderException("Making a clip needs ffmpeg, and there is none on this PC: download a portable build (ffmpeg's own site links them, such as gyan.dev's " +
-                                          "ffmpeg-release-essentials.zip) and unpack it into Sloperator's SloperatorData\\tools, where it is found, then render again.");
             var seconds = Math.Clamp(options.Seconds ?? (natural.Length > 0 ? natural.Length : 5), 1.0 / fps, MaxFrames / (double)fps);
             if (options.Seconds is null && natural.Length <= 0)
                 notes.Add("The scene names no length of its own (no SMIL or CSS animation ends), so the clip is 5 s: give seconds for another.");
             var frames = Math.Max(1, (int)Math.Round(seconds * fps));
-            var middle = await EncodeAsync(browser, output, width, height, fps, frames, options.Transparent, ffmpeg, progress, ct).ConfigureAwait(false);
+            byte[]? middle;
+            if (options.Frames)
+            {
+                // A picture a frame, in a folder: what is laid over a video joined without ffmpeg, its clear background kept.
+                Directory.CreateDirectory(output);
+                middle = await FramesAsync(browser, fps, frames, progress, ct, (i, png) => File.WriteAllBytes(Path.Combine(output, FrameName(i)), png)).ConfigureAwait(false);
+            }
+            else if (ffmpeg is not null)
+                middle = await EncodeAsync(browser, output, width, height, fps, frames, options.Transparent, ffmpeg, progress, ct).ConfigureAwait(false);
+            else if (Writer?.Writes == true && Path.GetExtension(output).ToLowerInvariant() is ".mp4" or ".m4v")
+                middle = await WriteAsync(browser, output, width, height, fps, frames, Writer, progress, ct).ConfigureAwait(false);
+            else if (Path.GetExtension(output).Equals(".gif", StringComparison.OrdinalIgnoreCase))
+                middle = await GifAsync(browser, output, width, height, fps, frames, options.Transparent, progress, ct).ConfigureAwait(false);
+            else
+                throw new RenderException(Writer?.Writes == true
+                    ? $"Without ffmpeg a clip is made as an .mp4 (no clear background) or a .gif, and {Path.GetFileName(output)} is neither: give one of those, or for a .webm or a .mov " +
+                      "download a portable ffmpeg and unpack it into Sloperator's SloperatorData\\tools, then render again."
+                    : "Making a clip needs ffmpeg, and there is none on this PC: download a portable build (ffmpeg's own site links them, such as gyan.dev's " +
+                      "ffmpeg-release-essentials.zip) and unpack it into Sloperator's SloperatorData\\tools, where it is found, then render again.");
             if (middle is not null && Blank(middle) is { } colour)
                 notes.Add($"The middle frame is all one colour ({colour}): the scene drew nothing there.");
             made = new SceneMade(output, true, width, height, frames / (double)fps, fps, frames, [], notes, TimeSpan.Zero);
@@ -375,6 +396,94 @@ public sealed partial class SceneRenderer(string profileRoot)
             ["format"] = "png", ["fromSurface"] = true, ["captureBeyondViewport"] = false, ["optimizeForSpeed"] = true,
         }, TimeSpan.FromSeconds(60), ct).ConfigureAwait(false);
         return Convert.FromBase64String((string?)shot["data"] ?? throw new RenderException("The browser gave back no picture of the page."));
+    }
+
+    /// <summary>The name of a clip's frame in a folder of them (<see cref="SceneOptions.Frames"/>).</summary>
+    public static string FrameName(int index) => $"{index:00000}.png";
+
+    /// <summary>Draws every frame and hands its PNG to <paramref name="take"/>; returns the middle frame, to check.</summary>
+    private static async Task<byte[]?> FramesAsync(DevToolsBrowser browser, int fps, int frames, Action<string>? progress, CancellationToken ct, Action<int, byte[]> take)
+    {
+        byte[]? middle = null;
+        var clock = Stopwatch.StartNew();
+        for (var i = 0; i < frames; i++)
+        {
+            await browser.EvaluateAsync($"window.__scene.seek({N(i / (double)fps)})", TimeSpan.FromSeconds(60), ct).ConfigureAwait(false);
+            var png = await ShotAsync(browser, ct).ConfigureAwait(false);
+            if (i == frames / 2)
+                middle = png;
+            take(i, png);
+            if (i % 5 == 0 || i == frames - 1)
+                progress?.Invoke($"Drawing frame {i + 1} of {frames}" + (i > 4 ? $" · {Remaining(clock.Elapsed, i + 1, frames)} left" : ""));
+        }
+        return middle;
+    }
+
+    /// <summary>
+    /// Draws every frame and writes the clip with the OS's own encoder (<see cref="Media.IMediaWriter"/>): an MP4 made where
+    /// there is no ffmpeg. Returns the middle frame, to check.
+    /// </summary>
+    private static async Task<byte[]?> WriteAsync(DevToolsBrowser browser, string output, int width, int height, int fps, int frames, Media.IMediaDecoder media,
+        Action<string>? progress, CancellationToken ct)
+    {
+        var temp = Path.Combine(Path.GetDirectoryName(output)!, "." + Path.GetFileNameWithoutExtension(output) + ".rendering" + Path.GetExtension(output));
+        try
+        {
+            byte[]? middle;
+            using (var writer = media.Write(temp, new Media.MediaWriterOptions(width, height, fps))
+                                ?? throw new RenderException("The clip can't be written on this PC: Windows gave no H.264 encoder, and there is no ffmpeg."))
+            {
+                middle = await FramesAsync(browser, fps, frames, progress, ct, (_, png) => writer.Frame(Frame(png, width, height))).ConfigureAwait(false);
+                writer.Finish();
+            }
+            Media.MediaRelease.Release(output); // the clip made before may be playing in the chat
+            File.Move(temp, output, overwrite: true);
+            return middle;
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
+    }
+
+    /// <summary>Draws every frame into an animated GIF (<see cref="Media.GifWriter"/>), its clear background kept when asked: made with nothing but Sloperator. Returns the middle frame, to check.</summary>
+    private static async Task<byte[]?> GifAsync(DevToolsBrowser browser, string output, int width, int height, int fps, int frames, bool transparent, Action<string>? progress, CancellationToken ct)
+    {
+        var temp = Path.Combine(Path.GetDirectoryName(output)!, "." + Path.GetFileNameWithoutExtension(output) + ".rendering.gif");
+        try
+        {
+            byte[]? middle;
+            using (var gif = new Media.GifWriter(temp, width, height, fps, transparent))
+            {
+                middle = await FramesAsync(browser, fps, frames, progress, ct, (_, png) => gif.Frame(Frame(png, width, height, clear: transparent))).ConfigureAwait(false);
+                gif.Finish();
+            }
+            Media.MediaRelease.Release(output);
+            File.Move(temp, output, overwrite: true);
+            return middle;
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
+    }
+
+    /// <summary>A frame's PNG as a writer takes it: BGRA at the clip's size, on black where the page is clear unless that is to stay clear.</summary>
+    private static Platform.RawImage Frame(byte[] png, int width, int height, bool clear = false)
+    {
+        using var decoded = SKBitmap.Decode(png) ?? throw new RenderException("The browser gave back a picture that can't be read.");
+        using var frame = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
+        using (var canvas = new SKCanvas(frame))
+        {
+            canvas.Clear(clear ? SKColors.Transparent : SKColors.Black);
+            using var image = SKImage.FromBitmap(decoded);
+            canvas.DrawImage(image, SKRect.Create(width, height), new SKSamplingOptions(decoded.Width == width && decoded.Height == height ? SKFilterMode.Nearest : SKFilterMode.Linear));
+        }
+        var bgra = new byte[width * height * 4];
+        System.Runtime.InteropServices.Marshal.Copy(frame.GetPixels(), bgra, 0, bgra.Length);
+        return new Platform.RawImage(width, height, bgra);
     }
 
     /// <summary>Draws every frame and pipes it to ffmpeg; returns the middle frame, to check.</summary>
