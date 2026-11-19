@@ -2487,8 +2487,17 @@ Qwen 3.8 22 minutes to the joined file (20 calls, none failed), both through `vi
 `action=edit` calls, right the first time. "A video called Pulse out of four animated SVG scenes with my song
 under it and every cut exactly on the beat" (a 112 BPM loop) took Haiku 3 minutes: it asked for the beat with
 `action=check`, made each clip six beats long after the 0.29 s before the first beat, and the cuts fell at
-3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes, no IL
+3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes then, 30,958,913 with all of this round in; no IL
 warnings, 246 s to publish) joined the demo in the app in 10.3 s, the same bytes as the Debug build's.
+
+Qwen 3.8 on the same tasks, the laptop, no ffmpeg (2026-11-19): the cut and the GIF of holiday.mp4 took 2
+minutes (6 calls, none failed). The beat-cut Pulse video: with the first build it never got to a storyboard in
+six minutes (ffprobe hunt, then its own beat finder in PowerShell; stopped); with `check` taking the sound file
+it asked for the beat as its first step, trimmed the song's first 0.29 s so beat one falls at 0, made four
+clips of 3.216 s (six beats of 0.536 s) with cuts, and had the video joined 13 minutes in (29.5 minutes with
+its own checking and a contact sheet; 35 calls, 2 failed). The caption and arrow on a photo took it 6 to 8
+minutes either way: with the hint in `edit_picture` it drew with an SVG and `render` instead of base64 through
+PowerShell, but spent as long finding the sun's place by reading pixels in a script.
 
 The index is moved to the file's start once the file is closed (`Mp4Index.MoveFirst`: the `moov` box before
 `mdat`, every `stco`/`co64` offset moved on by its size), which is ffmpeg's `+faststart`: a video sent to a chat or
