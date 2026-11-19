@@ -99,7 +99,7 @@ public sealed unsafe partial class MediaFoundationDecoder
                     Check(SetUInt64(type, PixelAspect, (1UL << 32) | 1));
                     Check(SetUInt32(type, Mpeg2Profile, 100 /* High */));
                 });
-                SetInput(_video, type =>
+                Action<nint> picture = type =>
                 {
                     Check(SetGuid(type, MajorType, VideoType));
                     Check(SetGuid(type, SubType, Nv12));
@@ -111,7 +111,8 @@ public sealed unsafe partial class MediaFoundationDecoder
                     Check(SetUInt32(type, AllIndependent, 1));
                     Check(SetUInt32(type, YuvMatrix, _hd ? 1u /* BT.709 */ : 2u /* BT.601 */));
                     Check(SetUInt32(type, NominalRange, 2 /* 16 to 235 */));
-                }, encoder =>
+                };
+                Action<nint> settings = encoder =>
                 {
                     // No frames that lean on later ones: with them the file's first frame showed a frame late (0.033 s at 30
                     // frames a second), behind its sound, and a clip cut from it began a frame off.
@@ -120,7 +121,17 @@ public sealed unsafe partial class MediaFoundationDecoder
                     // out small, a filmed clip's grain large, where a fixed rate starved one and wasted on the other.
                     Check(SetUInt32(encoder, RateControl, 3 /* by quality */));
                     Check(SetUInt32(encoder, EncoderQuality, (uint)options.VideoQuality));
-                });
+                };
+                // An encoder that won't take those settings (another maker's, an older Windows') still writes the video: by
+                // its average bit rate, as the stream above says, where this one goes by quality.
+                try
+                {
+                    SetInput(_video, picture, settings);
+                }
+                catch (COMException)
+                {
+                    SetInput(_video, picture);
+                }
                 if (options.Sound)
                 {
                     const uint channels = MediaWriterOptions.SoundChannels, hz = MediaWriterOptions.SoundRate;

@@ -21,7 +21,6 @@ public static class VideoComposer
     public static async Task<VideoMade> JoinAsync(Storyboard board, IMediaDecoder decoder, Action<string>? progress, CancellationToken ct, Render.SceneRenderer? scenes = null)
     {
         var notes = new List<string>();
-        var (_, length) = board.Timing();
         await DrawScenesAsync(board, scenes, notes, progress, ct).ConfigureAwait(false);
         return await Task.Run(() => Join(board, decoder, notes, progress, ct), ct).ConfigureAwait(false);
     }
