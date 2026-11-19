@@ -50,24 +50,8 @@ public sealed partial class VideoPreviewer
             canvas.Restore();
             mask.Dispose();
         }
-        // How much of a picture shows at each point of the frame (x and y from 0 to 1), by a rule: worked out on a
-        // coarse grid and smoothed over the frame, which is all a soft edge needs. The rules are ffmpeg xfade's own.
-        SKShader Field(Func<float, float, float> shows)
-        {
-            const int across = 96, down = 54;
-            var grid = new byte[across * down * 4];
-            for (var y = 0; y < down; y++)
-                for (var x = 0; x < across; x++)
-                {
-                    var v = (byte)Math.Round(255 * Math.Clamp(shows((x + 0.5f) / across, (y + 0.5f) / down), 0, 1));
-                    var i = (y * across + x) * 4;
-                    (grid[i], grid[i + 1], grid[i + 2], grid[i + 3]) = (v, v, v, v);
-                }
-            using var bitmap = new SKBitmap(new SKImageInfo(across, down, SKColorType.Bgra8888, SKAlphaType.Premul));
-            System.Runtime.InteropServices.Marshal.Copy(grid, 0, bitmap.GetPixels(), grid.Length);
-            using var image = SKImage.FromBitmap(bitmap);
-            return image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Smooth, SKMatrix.CreateScale(w / across, h / down));
-        }
+        // How much of a picture shows at each point of the frame (x and y from 0 to 1), by a rule; the rules are ffmpeg xfade's own.
+        SKShader Field(Func<float, float, float> shows) => Mask(w, h, shows);
         // 0 below `low`, 1 above `high`, eased between.
         static float Step(float low, float high, float x)
         {

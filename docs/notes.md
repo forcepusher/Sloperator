@@ -2592,6 +2592,20 @@ third and two thirds through.
 - **The sound**: a one-channel file was 3 dB louder here than in ffmpeg's join, which spreads it at 0.707 to
   each side. `VideoSoundMix` does the same now; with it the demo's loudness by half second is within 5% of
   ffmpeg's all through (music fading in, clips crossfading, the end fading out).
+- **A shot's own edits against ffmpeg** (`enc looks`, 28 shots of one photo clip, each edited another way): the
+  turns, mirrors, fits, crop, speed, reverse, freeze and trim matched from the start (1 to 2 of 255, the floor
+  for two encoders). The colours did not, and are now ffmpeg's own (`VideoPreviewer.Looks.cs`): eq in the whole
+  numbers ffmpeg uses, on brightness alone, with its settings held as floats (-0.1 is 89 hundredths there, 90 in
+  doubles) and its colour planes a step under their middle when saturation changes; warm and cool as
+  colorbalance has them, pixel by pixel, by its odd measure of lightness (largest colour plus smallest), which
+  touches only the dark parts; vintage as its three curves (natural splines); the vignette as cos^4 of the
+  distance, with the share of video's black it also takes off; the negative of video's numbers; the blurred
+  background's edges and its 22 of 255 darker; the slow zoom by the frame (first frame at the start, last at the
+  end). Contrast went from 10.6 apart to 1.3, warm 9.1 to 1.7, vintage 8.8 to 1.8, the vignette 39.6 to 1.3,
+  the zoom 5.7 to 1.7. Still apart: the blurred background (4.5: ffmpeg's blur is a rougher one) and pixelate
+  (5.1: ffmpeg's colour blocks are twice the size of its brightness blocks, as its colour planes are half size).
+  A GIF is read whole into memory now, so its file isn't held open while it is looked at.
+
 - **What it comes to**: over 21 transitions the two joins differ by 0.1 to 2.5 of 255 a pixel on average
   (pixelize 3.4, whose blocks start a pixel apart), with a scene, a keyed picture, a picture in picture, grain,
   sharpening, a clip at double speed and one reversed in the frame. `The_video_joined_here_is_the_one_ffmpeg_joins`

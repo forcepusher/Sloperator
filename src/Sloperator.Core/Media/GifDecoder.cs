@@ -20,7 +20,7 @@ public sealed class GifDecoder : IMediaDecoder
             return false;
         try
         {
-            using var codec = SKCodec.Create(path);
+            using var codec = SKCodec.Create(new SKMemoryStream(File.ReadAllBytes(path))); // read whole: the file is not held open
             return codec is { FrameCount: > 1 };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -45,7 +45,7 @@ public sealed class GifDecoder : IMediaDecoder
             return null;
         try
         {
-            var codec = SKCodec.Create(path);
+            var codec = SKCodec.Create(new SKMemoryStream(File.ReadAllBytes(path))); // read whole, so the file is not held open while it is looked at
             if (codec is not { FrameCount: > 1 })
             {
                 codec?.Dispose();

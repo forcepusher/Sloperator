@@ -148,7 +148,10 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         var duration = source.Reader.Duration.TotalSeconds;
         if (Read(source, SourceTime(shot, into, duration)) is not { } frame)
             return null;
-        using var seen = Turned(frame, shot);
+        using var turned = Turned(frame, shot);
+        // Its colours next, before it is fitted into the frame, as ffmpeg's chain has them.
+        using var toned = shot.Color is { } color ? Coloured(turned, color) : null;
+        var seen = toned ?? turned;
         using var fitted = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         var canvas = fitted.Canvas;
         canvas.Clear(SKColors.Black);
@@ -158,10 +161,11 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         var (fill, whole) = (Math.Max(width / w, height / h), Math.Min(width / w, height / h));
         if (shot.Fit == "blur")
         {
-            // Whole, over a copy of itself that fills the frame, blurred and a little darker.
+            // Whole, over a copy of itself that fills the frame, blurred and darker (by what ffmpeg's eq takes off for
+            // -0.06: 22 of 255). The blur takes the frame's own edge for what lies beyond it, or the edges come out dark.
             var sigma = (float)Math.Max(2, height / 36.0);
-            using var blur = SKImageFilter.CreateBlur(sigma, sigma);
-            using var dim = SKColorFilter.CreateColorMatrix([1, 0, 0, 0, -0.06f, 0, 1, 0, 0, -0.06f, 0, 0, 1, 0, -0.06f, 0, 0, 0, 1, 0]);
+            using var blur = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp, null, SKRect.Create(width, height));
+            using var dim = SKColorFilter.CreateColorMatrix([1, 0, 0, 0, -0.0867f, 0, 1, 0, 0, -0.0867f, 0, 0, 1, 0, -0.0867f, 0, 0, 0, 1, 0]);
             using var behind = new SKPaint { ImageFilter = blur, ColorFilter = dim };
             canvas.DrawImage(seen, Placed(fill), sampling, behind);
             canvas.DrawImage(seen, Placed(whole), sampling);
@@ -170,7 +174,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
             canvas.DrawImage(seen, Placed(shot.Fit == "fit" ? whole : fill), sampling);
         using var fittedImage = fitted.Snapshot();
 
-        // Its effects, then the slow zoom or pan over it, then its colours.
+        // Its effects, then the slow zoom or pan over it.
         using var result = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         var draw = result.Canvas;
         draw.Clear(SKColors.Black);
@@ -179,7 +183,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         if (effects.Contains("blur"))
         {
             var sigma = (float)Math.Max(1, height / 90.0);
-            paint.ImageFilter = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp);
+            paint.ImageFilter = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp, null, SKRect.Create(width, height));
         }
         if (effects.Contains("sharpen"))
         {
@@ -192,17 +196,20 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
             paint.ImageFilter?.Dispose();
             paint.ImageFilter = sharper;
         }
-        SKColorFilter? colours = shot.Color is { } color ? Colours(color) : null;
+        SKColorFilter? colours = null;
         if (effects.Contains("invert"))
         {
-            var negative = SKColorFilter.CreateColorMatrix([-1, 0, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, 0, 1, 0]);
-            colours = colours is null ? negative : SKColorFilter.CreateCompose(negative, colours);
+            // A negative as ffmpeg makes it, of video's own numbers (255 less each, where black is 16 and the colours'
+            // middle 128): a little lighter than one of the picture's, and a trace greener.
+            colours = SKColorFilter.CreateColorMatrix([-1, 0, 0, 0, 1.0104f, 0, -1, 0, 0, 1.0216f, 0, 0, -1, 0, 1.0089f, 0, 0, 0, 1, 0]);
         }
         paint.ColorFilter = colours;
         draw.Save();
         if (shot.Zoom is { } zoom && shot.Seconds > 0)
         {
-            var t = Math.Clamp(into / shot.Seconds, 0, 1);
+            // By the frame, as ffmpeg's zoompan counts it: the first frame at the start, the last at the end (not a frame short of it).
+            var steps = Math.Max(1, (int)Math.Round(shot.Seconds * board.Fps) - 1);
+            var t = Math.Clamp(Math.Floor(into * board.Fps + 1e-6) / steps, 0, 1);
             double Lerp(double a, double b) => a + (b - a) * t;
             var scale = Math.Max(1, Lerp(zoom.From.Scale, zoom.To.Scale));
             // The point it centres on, kept so the view stays inside the picture.
@@ -215,11 +222,9 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         }
         if (effects.Contains("pixelate"))
         {
-            // Blocks a thirtieth of the frame's height: drawn small, then large again without smoothing.
+            // Blocks a thirtieth of the frame's height, each the average of what it covers, then large again without smoothing.
             var block = Math.Max(2, height / 30);
-            using var small = SKSurface.Create(new SKImageInfo(Math.Max(1, width / block), Math.Max(1, height / block), SKColorType.Bgra8888, SKAlphaType.Premul));
-            small.Canvas.DrawImage(fittedImage, SKRect.Create(small.Canvas.DeviceClipBounds.Width, small.Canvas.DeviceClipBounds.Height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-            using var blocks = small.Snapshot();
+            using var blocks = Blocks(fittedImage, Math.Max(1, width / block), Math.Max(1, height / block));
             draw.DrawImage(blocks, SKRect.Create(width, height), new SKSamplingOptions(SKFilterMode.Nearest), paint);
         }
         else
@@ -229,11 +234,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         paint.ImageFilter?.Dispose();
         if (effects.Contains("vignette"))
         {
-            // Dark towards the corners, clear in the middle.
-            using var shader = SKShader.CreateRadialGradient(new SKPoint(width / 2f, height / 2f), (float)(Math.Sqrt(width * (double)width + height * (double)height) / 2),
-                [SKColors.Transparent, SKColors.Transparent, SKColors.Black.WithAlpha(150)], [0, 0.45f, 1], SKShaderTileMode.Clamp);
-            using var corners = new SKPaint { Shader = shader };
-            draw.DrawRect(0, 0, width, height, corners);
+            Vignette(draw, width, height);
         }
         if (effects.Contains("grain"))
             Grain(draw, width, height, into);
@@ -265,27 +266,6 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         using var image = SKImage.FromBitmap(frame);
         canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
         return surface.Snapshot();
-    }
-
-    /// <summary>A shot's colours as one filter: its light and colour (as ffmpeg's eq has them), then its look.</summary>
-    internal static SKColorFilter Colours(VideoColor color)
-    {
-        var eq = SKColorFilter.CreateColorMatrix(PictureEdit.ColourMatrix(color.Brightness * 0.5, color.Contrast, color.Saturation));
-        float[]? look = color.Look switch
-        {
-            "bw" => PictureEdit.ColourMatrix(0, 1, 0),
-            "sepia" => [.393f, .769f, .189f, 0, 0, .349f, .686f, .168f, 0, 0, .272f, .534f, .131f, 0, 0, 0, 0, 0, 1, 0],
-            "warm" => [1, 0, 0, 0, 0.05f, 0, 1, 0, 0, 0.01f, 0, 0, 1, 0, -0.05f, 0, 0, 0, 1, 0],
-            "cool" => [1, 0, 0, 0, -0.05f, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0.05f, 0, 0, 0, 1, 0],
-            // Faded and a little warm: lifted blacks, less contrast, yellowed.
-            "vintage" => [0.9f, 0, 0, 0, 0.07f, 0, 0.85f, 0, 0, 0.06f, 0, 0, 0.7f, 0, 0.06f, 0, 0, 0, 1, 0],
-            _ => null,
-        };
-        if (look is null)
-            return eq;
-        using var after = SKColorFilter.CreateColorMatrix(look);
-        using (eq)
-            return SKColorFilter.CreateCompose(after, eq);
     }
 
     // ---- titles, pictures, videos and scenes over the video --------------------------------------------------------
