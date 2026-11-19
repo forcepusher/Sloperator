@@ -601,5 +601,37 @@ public sealed class VideoComposerTests : IDisposable
         await Assert.ThrowsAsync<Tools.ToolArgumentException>(() =>
             new Tools.VideoEditorTool().ExecuteAsync(new System.Text.Json.Nodes.JsonObject { ["action"] = "edit", ["path"] = source, ["output"] = source }, ctx, ct));
     }
+
+    [Fact]
+    public void A_still_clip_is_a_fault_only_where_a_model_should_have_made_it_move()
+    {
+        var media = new MediaFoundationDecoder();
+        var board = Storyboard.Parse("""
+            {"title": "Still", "width": 320, "height": 180, "fps": 15, "shots": [
+              {"id": "s1", "seconds": 2, "prompt": "a river", "place": "Generated/s1.mp4"},
+              {"id": "s2", "seconds": 2, "file": "photo.png", "place": "Generated/s2.mp4"},
+              {"id": "s3", "seconds": 2, "scene": "title.svg", "place": "Generated/s3.mp4"}]}
+            """);
+        board.Folder = _dir;
+        Directory.CreateDirectory(board.ReferencesFolder);
+        using (var photo = new SKBitmap(32, 18))
+        {
+            photo.Erase(new SKColor(90, 120, 60));
+            using var data = photo.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(Path.Combine(board.ReferencesFolder, "photo.png"), data.ToArray());
+        }
+        File.WriteAllText(Path.Combine(board.ReferencesFolder, "title.svg"), """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 18"><rect width="32" height="18" fill="#5a783c"/></svg>""");
+        foreach (var shot in board.Shots)
+            Clip(board.ShotVideo(shot), (90, 120, 60), 2);
+        // A clip a model made that stands still is a fault; the user's picture held is what it should be;
+        // a scene in which nothing changes at all is told, as its animation may not run.
+        var made = VideoCheck.Shot(board, board.Shots[0], board.ShotVideo(board.Shots[0]), media);
+        Assert.Contains("it hardly moves", made.Faults);
+        var held = VideoCheck.Shot(board, board.Shots[1], board.ShotVideo(board.Shots[1]), media);
+        Assert.Empty(held.Faults);
+        Assert.Contains("It is the picture held still.", held.Text);
+        var drawn = VideoCheck.Shot(board, board.Shots[2], board.ShotVideo(board.Shots[2]), media);
+        Assert.Contains("nothing in it moves", drawn.Faults);
+    }
 #endif
 }

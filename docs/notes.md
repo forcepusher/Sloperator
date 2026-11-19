@@ -2469,6 +2469,14 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+**"It hardly moves" and what no model made** (2026-11-19): the check that a clip moves (`DescribeMotion`: the
+frames' average change added up under 4) is for clips a video model makes, where a frozen clip is a failed one.
+On a clip from a picture of the user's it was always wrong, and on a drawn scene mostly so: a sun rising over
+hills changes a few pixels in a hundred. Haiku, told "it hardly moves" of a spring scene that was right, searched
+the web for SMIL easing and edited the scene three times (40 s of a 2.8 minute video). Now a held picture is
+said to be one, a scene with little change is said to have small things moving over a still picture (no fault),
+and only a scene in which nothing changes at all (under 0.15) is a fault, since its animation may not be running.
+
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by
 round seconds, and in the Video editor a clip's length went by half seconds. `SoundBeats` (Core/Media) finds

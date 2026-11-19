@@ -92,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a workbook stays a real Excel chart; a picture in a Word, PowerPoint or PDF file is made one of the three ways.
 
 ### Fixed
+- A clip made from a picture of yours, or from a drawn scene with small things moving over a still background,
+  is no longer reported as "it hardly moves", which sent the agent off to fix scenes that were right.
 - **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
   chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
   has them upright.

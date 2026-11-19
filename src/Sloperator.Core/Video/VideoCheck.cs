@@ -68,7 +68,7 @@ public static partial class VideoCheck
                 if (alike < 0.5)
                     faults.Add($"it doesn't end on {last.Label}");
             }
-            DescribeMotion(frames, text, faults);
+            DescribeMotion(frames, text, faults, board, shot);
             if (info.HasAudio && decoder.OpenAudio(clip) is { } sound)
                 using (sound)
                 {
@@ -824,7 +824,7 @@ public static partial class VideoCheck
     }
 
     /// <summary>How the clip moves, from how much each frame differs from the one before: frozen, or a sudden jump.</summary>
-    private static void DescribeMotion(List<(TimeSpan Time, SKBitmap Frame)> frames, StringBuilder text, List<string> faults)
+    private static void DescribeMotion(List<(TimeSpan Time, SKBitmap Frame)> frames, StringBuilder text, List<string> faults, Storyboard board, VideoShot shot)
     {
         if (frames.Count < 3)
             return;
@@ -844,6 +844,25 @@ public static partial class VideoCheck
         var ordered = changes.Order().ToList();
         var median = ordered[ordered.Count / 2];
         var total = changes.Sum();
+        // What no model made is judged as what it is. A picture of the user's held for the shot never moves, and a drawn
+        // scene is mostly a still background with small things moving over it (a sun rising over hills changes a few
+        // pixels in a hundred): "it hardly moves" sent Haiku to the web and through three edits of a scene that was right.
+        // Only a scene in which nothing at all changes is told, since its animation may not be running.
+        if (total < 4 && shot.Assembled)
+        {
+            var scene = shot.Scene is { Length: > 0 };
+            var picture = !scene && shot.File is { } name && board.FindFile(name) is { } file && !Storyboard.IsVideoFile(file);
+            if (picture)
+                text.AppendLine("It is the picture held still.");
+            else if (scene && total < 0.15)
+            {
+                text.AppendLine("Nothing in it moves at all: if the scene should move, its animation isn't running (its SMIL timing, or a render loop that never draws).");
+                faults.Add("nothing in it moves");
+            }
+            else
+                text.AppendLine(scene ? "Most of the picture stays as it is while small things move over it." : "It hardly moves: almost the same picture all through.");
+            return;
+        }
         if (total < 4)
         {
             text.AppendLine("It hardly moves: almost the same picture all through.");
