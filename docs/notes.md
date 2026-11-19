@@ -2101,7 +2101,8 @@ when it starts and ends, and its menu sets its place, how long it shows, moves i
 it comes in (fading, or sliding up, down, left or right), the words' size (small 0.045 of the frame's
 height to huge 0.14, or as its place has it), colour, font and bold, puts a box behind the words, or
 deletes it (checked in the app: a lower third made yellow, large and sliding left, joined in 2 s, slid
-in from the right). A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
+in from the right). A sound's menu fades it in (1 s) or out (2 s), and sets its volume (25% to 200%,
+on top of its line's slider). Ctrl+Z takes back
 the panel's own edits (menus, splits, a title, a clip's length or a sound dragged, files dropped), 50 at
 most, each with its clips' .json as they were, so a split taken back leaves its clip made as before;
 Ctrl+Y (or Ctrl+Shift+Z) makes them again, and the Video clips, Titles and sound rows' menus have both

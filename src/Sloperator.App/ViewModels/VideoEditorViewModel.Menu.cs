@@ -88,6 +88,12 @@ public sealed partial class VideoEditorViewModel
             null,
             new($"{(sound.Sound.FadeIn > 0 ? "● " : "")}Fade in", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeIn = s.FadeIn > 0 ? 0 : 1))),
             new($"{(sound.Sound.FadeOut > 0 ? "● " : "")}Fade out", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeOut = s.FadeOut > 0 ? 0 : 2))),
+            // How loud it is in the mix, beside its line's slider: music under a voice-over, a sound too quiet.
+            new("Volume", free, () => { })
+            {
+                Items = new[] { 0.25, 0.5, 0.75, 1, 1.5, 2 }.Select(v => (PanelMenuItem?)new PanelMenuItem($"{(Math.Abs(sound.Sound.Volume - v) < 0.001 ? "● " : "")}{v * 100:0}%", free,
+                    () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.Volume = v)))).ToList(),
+            },
         };
         AddVersions(items, sound);
         return items;
