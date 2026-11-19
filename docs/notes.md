@@ -2325,7 +2325,8 @@ of a look, a turn, a title or a transition was seen until the video was joined a
   to be copied, moved or made again (`DropViewer`, and `LetGo` for the chat's `MediaRelease`), so the files aren't
   held while the panel stands there.
 - **In the panel**: `ShowsPlayhead` (playing, or the playhead moved: a click on the ruler, the arrows, Home and End,
-  a trim) puts the frame in the viewer in the player's place, with "Clip 3 · 0:08.0" in its top left corner; picking
+  a trim) puts the frame in the viewer in the player's place, with "Clip 3 · 0:08.0" in its top left corner (a click
+  on it plays or pauses, as Space does); picking
   something else, or Esc, gives the viewer back to what is picked. A frame is drawn off the window's thread, one at a
   time, then the latest moment asked for meanwhile (`AskFrame`), so the arrows held down and Play show as many frames
   as the PC draws. A clip not made yet shows its start or end picture, as before. After an edit the frame is drawn

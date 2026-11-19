@@ -253,6 +253,13 @@ public partial class VideoEditorPanel : UserControl
         e.Handled = true;
     }
 
+    /// <summary>A click on the viewer's look at the playhead plays the video from there, or pauses it, as a click on a player does.</summary>
+    private void OnPlayFrameTapped(object? sender, TappedEventArgs e)
+    {
+        (DataContext as VideoEditorViewModel)?.PlayStripCommand.Execute(null);
+        e.Handled = true;
+    }
+
     /// <summary>Space let go where its press played or paused the video: it is no click on the clip that has the keys.</summary>
     private void OnPlayheadKeyUp(object? sender, KeyEventArgs e)
     {
