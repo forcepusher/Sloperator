@@ -128,7 +128,7 @@ public static class VideoOverlays
     }
 
     /// <summary>The shots' lines as captions at the bottom, while they are said, when the video has captions on.</summary>
-    private static IEnumerable<VideoOverlay> Captions(Storyboard board)
+    internal static IEnumerable<VideoOverlay> Captions(Storyboard board)
     {
         if (!board.Captions)
             yield break;
@@ -145,11 +145,18 @@ public static class VideoOverlays
     /// <summary>Draws an overlay's words on a clear picture the size of the frame, where its position puts them.</summary>
     internal static void DrawWords(VideoOverlay o, int width, int height, string png)
     {
+        using var bitmap = Words(o, width, height);
+        Save(bitmap, png);
+    }
+
+    /// <summary>An overlay's words on a clear picture the size of the frame, where its position puts them (the joined video's, and the panel's look at it).</summary>
+    internal static SKBitmap Words(VideoOverlay o, int width, int height)
+    {
         var (place, ax, ay, defaultSize) = Place(o.Position, true);
         var box = o.Box ?? place;
         var rect = SKRect.Create((float)(box.X * width), (float)(box.Y * height), (float)(box.Width * width), (float)(box.Height * height));
         var size = (float)((o.Size ?? defaultSize) * height);
-        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.Transparent);
         using var typeface = SKTypeface.FromFamilyName(o.Font ?? "Segoe UI", o.Bold ?? true ? SKFontStyle.Bold : SKFontStyle.Normal) ?? SKTypeface.Default;
@@ -184,7 +191,7 @@ public static class VideoOverlays
             var baseline = top + i * lineHeight + size * 0.95f;
             canvas.DrawText(lines[i], x, baseline, SKTextAlign.Left, font, paint);
         }
-        Save(bitmap, png);
+        return bitmap;
     }
 
     /// <summary>The words in lines no wider than <paramref name="width"/>, broken between words (a word longer than that on a line of its own).</summary>
@@ -213,6 +220,13 @@ public static class VideoOverlays
     /// <summary>Draws a picture (an SVG too) into its box on a clear picture the size of the frame, all of it in view.</summary>
     internal static void DrawPicture(string file, SKRectI box, double ax, double ay, int width, int height, string png)
     {
+        using var bitmap = Picture(file, box, ax, ay, width, height);
+        Save(bitmap, png);
+    }
+
+    /// <summary>A picture (an SVG too) in its box on a clear picture the size of the frame, all of it in view.</summary>
+    internal static SKBitmap Picture(string file, SKRectI box, double ax, double ay, int width, int height)
+    {
         using var picture = SvgFile.Handles(file)
             ? (SvgFile.Open(file) ?? throw new InvalidDataException($"{Path.GetFileName(file)} draws nothing.")).RenderAtLeast(Math.Max(box.Width, box.Height))
             : PictureFile.Decode(file) ?? throw new InvalidDataException($"{Path.GetFileName(file)} isn't a picture this can read.");
@@ -220,12 +234,12 @@ public static class VideoOverlays
         var (w, h) = ((float)(picture.Width * scale), (float)(picture.Height * scale));
         var x = box.Left + (float)((box.Width - w) * ax);
         var y = box.Top + (float)((box.Height - h) * ay);
-        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.Transparent);
         using var image = SKImage.FromBitmap(picture);
         canvas.DrawImage(image, SKRect.Create(x, y, w, h), new SKSamplingOptions(SKCubicResampler.Mitchell));
-        Save(bitmap, png);
+        return bitmap;
     }
 
     private static void Save(SKBitmap bitmap, string png)

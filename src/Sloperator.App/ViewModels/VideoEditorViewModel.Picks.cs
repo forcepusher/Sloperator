@@ -32,6 +32,7 @@ public sealed partial class VideoEditorViewModel
     /// <summary>Picks a card, clip, frame, sound or version: shown in the viewer, and into the chat's box.</summary>
     private void Choose(VideoPick pick)
     {
+        Scrubbed = false;
         Viewing = pick;
         _chat.Pick([(pick.Path, pick.Caption)]);
     }
@@ -67,6 +68,7 @@ public sealed partial class VideoEditorViewModel
     /// <summary>Nothing picked: what is said next is about the whole video, which the viewer shows.</summary>
     public void Clear()
     {
+        Scrubbed = false;
         Viewing = null;
         _chat.Pick([]);
     }
@@ -322,12 +324,18 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>The viewer's player of a file about to be written over, stopped; its playback, still holding the file, handed back to end.</summary>
-    internal IDisposable? LetGo(string path) =>
-        _shown is { Shown: PlayerPreview player } && string.Equals(Path.GetFullPath(player.Path), path, StringComparison.OrdinalIgnoreCase) ? player.LetGo() : null;
+    internal IDisposable? LetGo(string path)
+    {
+        // The look at the playhead reads the clips too.
+        ResetPreview();
+        return _shown is { Shown: PlayerPreview player } && string.Equals(Path.GetFullPath(player.Path), path, StringComparison.OrdinalIgnoreCase) ? player.LetGo() : null;
+    }
 
     /// <summary>Stops and lets go of what the viewer showed.</summary>
     private void DropViewer()
     {
+        // The clips' files too: one is about to be copied, moved or made again.
+        ResetPreview();
         if (_shown is { Shown: var shown })
             shown.Dispose();
         _shown = null;

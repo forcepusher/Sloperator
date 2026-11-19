@@ -36,14 +36,21 @@ public partial class VideoEditorPanel : UserControl
         Focusable = true;
         AddHandler(PointerPressedEvent, OnPressedIn, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnPlayheadKeys, RoutingStrategies.Tunnel);
+        // Space let go too: a clip's button takes that for a click, which now puts the playhead on the clip.
+        AddHandler(KeyUpEvent, OnPlayheadKeyUp, RoutingStrategies.Tunnel);
     }
 
     /// <summary>A press in the panel, a right-click too, which Avalonia doesn't focus on: the panel takes the keys.</summary>
     private void OnPressedIn(object? sender, PointerPressedEventArgs e)
     {
+        // Where on a row it was pressed, for a click on a clip, which puts the playhead there.
+        _pressed = RowOf(e.Source as Visual) is { } row ? (Vm.SecondsAt(e.GetPosition(row).X), Environment.TickCount64) : null;
         if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused || focused != this && !this.IsVisualAncestorOf(focused))
             Focus();
     }
+
+    /// <summary>The moment of the video last pressed on a row of the timeline, and when (a click made by the keyboard or a screen reader has none).</summary>
+    private (double Seconds, long At)? _pressed;
 
     private VideoEditorViewModel? _vm;
 
@@ -54,6 +61,7 @@ public partial class VideoEditorPanel : UserControl
         {
             _vm.RenameAsked -= OnRenameAsked;
             _vm.RenameVideoAsked -= OnRenameVideoAsked;
+            _vm.PropertyChanged -= OnVideoChanged;
             _vm.PickFiles = null;
         }
         _vm = DataContext as VideoEditorViewModel;
@@ -61,8 +69,24 @@ public partial class VideoEditorPanel : UserControl
         {
             _vm.RenameAsked += OnRenameAsked;
             _vm.RenameVideoAsked += OnRenameVideoAsked;
+            _vm.PropertyChanged += OnVideoChanged;
             _vm.PickFiles = PickFilesAsync;
         }
+    }
+
+    /// <summary>
+    /// The timeline follows the playhead: played, or stepped with the keys, past what is in view, the timeline scrolls
+    /// to it (a tenth of the way in while it plays, so the next stretch is ahead of it; the middle otherwise). Before,
+    /// the playhead ran out of sight at the right edge and played on unseen.
+    /// </summary>
+    private void OnVideoChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(VideoEditorViewModel.PlayheadX) || _vm is not { } vm || _pan is not null)
+            return;
+        var (from, width) = (Timeline.Offset.X, Timeline.Viewport.Width);
+        if (width <= 0 || vm.PlayheadX >= from + 8 && vm.PlayheadX <= from + width - 8)
+            return;
+        Timeline.Offset = new Vector(Math.Clamp(vm.PlayheadX - width * (vm.IsPlaying ? 0.1 : 0.5), 0, Math.Max(0, Timeline.Extent.Width - width)), 0);
     }
 
     private VideoEditorViewModel Vm => (VideoEditorViewModel)DataContext!;
@@ -229,6 +253,15 @@ public partial class VideoEditorPanel : UserControl
         e.Handled = true;
     }
 
+    /// <summary>Space let go where its press played or paused the video: it is no click on the clip that has the keys.</summary>
+    private void OnPlayheadKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space && e.KeyModifiers == KeyModifiers.None && DataContext is VideoEditorViewModel
+            && TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual focused && focused is not TextBox
+            && (focused == this || Timeline.IsVisualAncestorOf(focused)))
+            e.Handled = true;
+    }
+
     // ---- menus: the videos, a row, a card, a clip, a sound, a sound line ---------------------------------------------
 
 
@@ -377,8 +410,9 @@ public partial class VideoEditorPanel : UserControl
 
     private void OnShotClick(object? sender, RoutedEventArgs e)
     {
+        // Picked, and the playhead put where it was clicked: the viewer shows the video there, the clip as it is edited.
         if ((sender as Control)?.DataContext is ShotItem shot)
-            Vm.Show(shot);
+            Vm.ShowClip(shot, _pressed is { } pressed && Environment.TickCount64 - pressed.At < 1500 ? pressed.Seconds : null);
     }
 
     private void OnSlotClick(object? sender, RoutedEventArgs e)

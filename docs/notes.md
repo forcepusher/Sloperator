@@ -2299,6 +2299,55 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   0:00.1, 0:01.1 and 0:08.4; a lower third made yellow, large and sliding left slid in from the right in a
   video joined in 2 s; a sound's volume set to 50% and back.
 
+**The viewer shows the video under the playhead** (2026-11-19, the laptop: `VideoPreviewer` in Core/Video, the
+panel's `ShowFrameAt`, `AskFrame`, `ShowClip`). Until then the panel was a storyboard's: Play showed each clip's
+first picture and then its last while the sound lines played, moving the playhead showed nothing at all (so a split
+or a trim "at the playhead" was made blind), a picked clip played its own file, which no edit changes, and nothing
+of a look, a turn, a title or a transition was seen until the video was joined again.
+- **What is drawn**: the clip under the playhead at its own frame (`SourceTime`: its `in`, its speed, held from
+  its freeze, backwards from the file's end, its last frame once the file has run out), turned, mirrored and cropped
+  (`Turned`), put in the frame as its `fit` says (filling it, whole with black beside it, or whole over a blurred
+  copy of itself), with its effects (blur, pixelate, a vignette, a negative; not grain or sharpening), its slow zoom
+  or pan, and its colours (`Colours`: its light and colour as ffmpeg's eq has them, then its look; warm, cool and
+  vintage are near, not the same). In a transition the clip before it shows too: a dissolve mixes them, a fade goes
+  through black or white, a wipe, slide, cover, reveal or smooth one comes in as a wipe from the left, a circle or
+  clock as a growing circle, any other as a dissolve. Over that the titles and pictures (the same `VideoOverlays.Words`
+  and `Picture` the joined video's are drawn with, at this size, kept by what they say), fading and sliding in as
+  joined, the captions when they are on, and the video's own fades. Not shown: a scene or a video over the video, a
+  keyed picture. All with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
+- **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a clip, three at most (the clip
+  under the playhead, the one before it in a transition, one more), kept by the file and when it was written. Playing
+  on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
+  three seconds after the last frame asked for while nothing plays (`RestPreview`), and at once when a clip is about
+  to be copied, moved or made again (`DropViewer`, and `LetGo` for the chat's `MediaRelease`), so the files aren't
+  held while the panel stands there.
+- **In the panel**: `ShowsPlayhead` (playing, or the playhead moved: a click on the ruler, the arrows, Home and End,
+  a trim) puts the frame in the viewer in the player's place, with "Clip 3 · 0:08.0" in its top left corner; picking
+  something else, or Esc, gives the viewer back to what is picked. A frame is drawn off the window's thread, one at a
+  time, then the latest moment asked for meanwhile (`AskFrame`), so the arrows held down and Play show as many frames
+  as the PC draws. A clip not made yet shows its start or end picture, as before. After an edit the frame is drawn
+  again (`Rebuild`).
+- **A click on a clip puts the playhead there** (`ShowClip`): picked into the chat's box as before, and the
+  playhead goes where the clip was clicked (a click by the keyboard: its first moment past the transition into it),
+  so the viewer shows the clip as it is edited, and Speed, Look, Turn, Fit, Effects or a trim from its menu is seen
+  at once. Space let go is kept from the clip's button, which took it for a click: with the playhead now moved by a
+  click, Play jumped back to the clip's start.
+- **The timeline follows the playhead** (`OnVideoChanged`): played or stepped past what is in view, the timeline
+  scrolls to it (a tenth of the way in while it plays, the middle otherwise; not while the timeline is being
+  dragged). Before, it ran out of sight at the right edge and played on unseen.
+- **Play has the clips' own sound** (`VideoMix.Part.Speed`): each from where its clip starts, its `in` cut off,
+  at its volume (half under a song, as joined), sped up or slowed with the clip (higher or lower with it, where the
+  joined video keeps the pitch), not a clip played backwards. Read when the playhead is first moved, so it is there
+  by the time Play is pressed.
+- Checked: VideoPreviewerTests (a decoder of numbered frames with a white corner: the frame at each edit's moment,
+  one reader while it plays on, the corner where a mirror, a turn, a crop and a zoom put it, black beside a clip shown
+  whole, half of each clip's colour half way through a dissolve, a wipe's two sides, a title's letters only while it
+  shows, the fade in from black). In the app on the laptop, the demo: clip 3 clicked showed it turned left, mirrored,
+  whole over its blur, vignetted, with "Episode one" over it at 0:08.0; Black and white from its menu turned the
+  viewer's frame grey at once, and Ctrl+Z gave its colours back; Home, End and Space moved and played it; from a
+  click on clip 4 at 0:10.3, three seconds of Play ended on clip 5's frame at 0:13.6. Playing took about one of the
+  laptop's 20 cores and 250 MB more, given back after it stopped.
+
 **Make the video** with nothing to make (every clip and sound there and up to date: only edits since)
 joins the video right in the panel, without the chat (the demo: 2 s), its tip saying so; with anything
 to make it goes to the chat as before, which makes, looks and joins. A clip made of a

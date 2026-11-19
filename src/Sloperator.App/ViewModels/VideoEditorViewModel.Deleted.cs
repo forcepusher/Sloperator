@@ -141,6 +141,27 @@ public sealed partial class VideoEditorViewModel
         return files;
     }
 
+    // ---- a clip clicked: picked, and the playhead put there ----------------------------------------------------------
+
+    /// <summary>
+    /// A clip clicked on the timeline: picked into the chat's box, as before, and when it is made the playhead goes
+    /// where it was clicked (its start for a click with no place: the keyboard's), so the viewer shows the video there
+    /// with the clip as it is edited, and a look, a turn or a trim made from its menu is seen at once. Before, the
+    /// viewer played the clip's own file, which no edit changes. A clip not made shows what it will be, as before.
+    /// </summary>
+    public void ShowClip(ShotItem item, double? seconds)
+    {
+        Show(item);
+        if (FindShot(item) is not { } shot || !File.Exists(_board.ShotVideo(shot)) || _previews.Decoder is null)
+            return;
+        var (starts, _) = _board.Timing();
+        if (item.Index >= starts.Count)
+            return;
+        var (from, to) = (starts[item.Index], starts[item.Index] + Math.Max(0, shot.Seconds - 0.001));
+        // With no place clicked: the first moment that is all this clip, past the transition into it.
+        SeekStrip(Math.Clamp(seconds ?? from + (item.Index > 0 ? Storyboard.Overlap(shot) : 0), from, to));
+    }
+
     // ---- a frame of the video as a picture -------------------------------------------------------------------------
 
     /// <summary>Whether there is a frame under the playhead to save: something here reads video, and a clip is made.</summary>

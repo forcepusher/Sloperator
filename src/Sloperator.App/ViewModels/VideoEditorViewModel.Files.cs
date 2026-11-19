@@ -406,6 +406,9 @@ public sealed partial class VideoEditorViewModel
         StopPlaying();
         SaveNow();
         _watcher?.Dispose();
+        _restTimer?.Stop();
+        _previewer?.Dispose();
+        SetPlayFrame(null, owned: false);
         // What Delete set aside for Ctrl+Z goes to the Recycle Bin: the panel's edits end with it.
         EmptyAside();
         foreach (var shot in Shots)

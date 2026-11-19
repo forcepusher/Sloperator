@@ -51,6 +51,9 @@ public sealed partial class VideoEditorViewModel
         RefreshStates();
         foreach (var p in new[] { nameof(FrameWidth), nameof(FrameHeight), nameof(Fps), nameof(LengthText), nameof(HasJoinedVideo), nameof(VideoName) })
             OnPropertyChanged(p);
+        // The viewer's look at the playhead, with what changed.
+        if (Scrubbed && !IsPlaying)
+            ShowFrameAt(PlayPosition);
     }
 
     /// <summary>

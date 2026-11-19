@@ -535,11 +535,11 @@
       <!-- Its margin takes clicks too: away from the picture, they show the whole video. -->
       <Panel Background="Transparent" PointerPressed="OnAwayPressed">
         <Panel x:Name="ViewerBox" Margin="16,12">
-          <ContentControl Content="{Binding Viewer}" IsVisible="{Binding !IsPlaying}" />
-          <Border Classes="thumb" Background="#000000" IsVisible="{Binding IsPlaying}" views:FileMenu.Image="{Binding PlayFrame}">
+          <ContentControl Content="{Binding Viewer}" IsVisible="{Binding !ShowsPlayhead}" />
+          <Border Classes="thumb" Background="#000000" IsVisible="{Binding ShowsPlayhead}" views:FileMenu.Image="{Binding PlayFrame}">
             <Panel>
               <Image Source="{Binding PlayFrame}" Stretch="Uniform" />
-              <Border Background="#B0000000" VerticalAlignment="Bottom" HorizontalAlignment="Left" Padding="8,3" Margin="10" CornerRadius="4">
+              <Border Background="#B0000000" VerticalAlignment="Top" HorizontalAlignment="Left" Padding="8,3" Margin="10" CornerRadius="4">
                 <TextBlock Text="{Binding PlayLabel}" FontSize="12" />
               </Border>
             </Panel>

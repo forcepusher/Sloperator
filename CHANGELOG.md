@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the Image editor, as a poster or a still to work on.
 - A clip in the Video editor says how it is edited under its pictures ("black and white, vignette, turned").
 - A title or a sound dragged near a clip's start, the video's end or the playhead snaps to it.
+- **The Video editor shows what you edit as you edit it.** Its viewer shows the video under the playhead: move the
+  playhead, or click a clip, and you see that frame with the clip's speed, look, turn, crop, zoom and effects, the
+  transition into it and the titles over it. **Play** plays the clips themselves with their sound, where it
+  showed one still picture a clip. Change a clip from its menu and the viewer follows at once, with no need to
+  make the video first.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture
