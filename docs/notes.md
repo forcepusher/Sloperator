@@ -802,7 +802,9 @@ inspector, the full-screen viewer, the Image editor's list, strip and big view, 
 and Copy image use it. Checked: a 600x400 JPEG of "SKY" over "GRASS" stored on its side with orientation 6 showed
 upright in the Image editor (before: on its side), and a box dragged over its top cropped exactly that
 ("Crop 320x279.jpg"); PictureEditTests (orientations 6 and 5 told apart, an edit's file upright with no orientation
-of its own), ImageEditorTests (the big view 48x64 for a 64x48 file, the top half marked and cropped).
+of its own), ImageEditorTests (the big view 48x64 for a 64x48 file, the top half marked and cropped). Asked what is
+at the top and bottom of that photo and its size, Haiku answered sky over grass, 400 wide by 600 tall (and that the
+file's own header reads 600 by 400).
 
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under
 a reply that names them by their full path (whatever made them: ComfyUI, a script, Blender, a
@@ -1297,7 +1299,7 @@ longer what the scene draws.
   the result goes and by its extension what kind of file (over a version in the Image editor it is the next one);
   and an edit of an edit is named after the picture alone (`BaseOf` takes this class's own labels off the end of a
   name: "plane (Mirror).png", not "plane (Turn 270°) (Mirror).png"). With them Haiku did the same request in one call
-  and one file, plane_edited.webp, in 11 s.
+  and one file, plane_edited.webp, in 11 s, and qwen3.8 in one call too (plane.webp, 75 s).
 - **What the models did with it** (the CLI, each request once). Haiku 5.5: the thumbnail, crop and black and white,
   18 s. qwen3.8 27B (q6_k_xl): the same in 8.2 minutes, all three with edit_picture, after trying Python and Pillow
   only to measure where the plane was (neither is on the laptop; it measured with System.Drawing instead). In the
