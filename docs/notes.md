@@ -2263,6 +2263,9 @@ the joined video is out of date when a piece's .json or the video's is newer tha
 - A clip's card says how it is edited, after its state under the strip ("Made · sound 50%, vignette grain, turned,
   mirrored, blur behind"; `ShotItem.Marks`, `Footer`): the strip shows the clip as it was made, and an edit showed
   nowhere but in the joined video and the tooltip. Its speed and "reversed" stay beside its length.
+- The details beside the viewer say what a clip made of a file or a scene is ("Your file: clip 2.mp4", "Drawn from
+  the scene logo.svg"), its length without a seed, and "Edited: …" as the tooltip has it; they read "Prompt: (none
+  yet)" and "Made with file, picked by Sloperator" beside the person's own footage.
 - **A title or a sound dragged lands on what it is near** (`Land`): its start, or the edge dragged, within 6 pixels
   of a clip's start, the video's end or the playhead takes that moment, to the hundredth; else a tenth of a second
   as before. Dragged whole, its start is tried first, then its end. A clip that comes in over a 1.5 s dissolve
