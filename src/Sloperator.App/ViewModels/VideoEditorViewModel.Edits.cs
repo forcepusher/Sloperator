@@ -129,11 +129,13 @@ public sealed partial class VideoEditorViewModel
 
     private static string Mark(bool on) => on ? "● " : "";
 
-    /// <summary>What right-clicking a clip offers to edit it: speed, reverse, sound, look, zoom, the transition into it, its place, and split.</summary>
+    /// <summary>What right-clicking a clip offers to edit it: speed, reverse, sound, look, zoom, a freeze, the transition into it, its place, and split.</summary>
     private List<PanelMenuItem?> ClipEdits(ShotItem item, bool free)
     {
         var shot = item.Shot;
         var speed = shot.Speed ?? 1;
+        var (starts, _) = _board.Timing();
+        var into = item.Index < starts.Count ? PlayPosition - starts[item.Index] : -1;
         var items = new List<PanelMenuItem?>
         {
             new("Speed", free, () => { })
@@ -153,6 +155,9 @@ public sealed partial class VideoEditorViewModel
                 Items = Zooms.Select(z => (PanelMenuItem?)new PanelMenuItem($"{Mark(ZoomName(shot.Zoom) == z.Name)}{z.Name}", free,
                     () => Edit(() => FindShot(item)?.Let(x => x.Zoom = z.Make())))).ToList(),
             },
+            // The frame under the playhead held to the clip's end; picked again, the clip moves on as it was.
+            new($"{Mark(shot.Freeze is not null)}Freeze from the playhead", free && (shot.Freeze is not null || into > 0.05 && into < shot.Seconds - 0.05),
+                () => Edit(() => FindShot(item)?.Let(x => x.Freeze = x.Freeze is null ? Math.Round(into * 100) / 100 : null))),
         };
         if (item.Index > 0)
             items.Add(new("Transition in", free, () => { })
@@ -163,8 +168,6 @@ public sealed partial class VideoEditorViewModel
         var at = _board.Shots.IndexOf(shot);
         items.Add(new("Move earlier", free && at > 0, () => MoveShot(item, -1)));
         items.Add(new("Move later", free && at >= 0 && at < _board.Shots.Count - 1, () => MoveShot(item, 1)));
-        var (starts, _) = _board.Timing();
-        var into = item.Index < starts.Count ? PlayPosition - starts[item.Index] : -1;
         items.Add(new("Split at the playhead", free && CanSplit(shot, into), () => Split(item), "Ctrl+B"));
         items.Add(new("Trim start to the playhead", free && CanSplit(shot, into), () => Trim(item, start: true)));
         items.Add(new("Trim end to the playhead", free && CanSplit(shot, into), () => Trim(item, start: false)));
