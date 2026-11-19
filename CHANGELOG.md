@@ -79,7 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stays as it was; the result is a new file beside it.
 - The Video editor's viewer shows every transition as it will look (a wipe from its own side, slides, circles, a
   clock's hand, blinds and the rest), film grain, sharpening, a green screen taken out, and, once the video has
-  been made, a scene laid over it.
+  been made, a scene laid over it. **Play** there now sounds as the made video will: the music going quieter
+  under a voice, one clip's sound fading into the next, a clip sped up or slowed keeping its pitch, a reversed
+  clip heard backwards.
 
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in

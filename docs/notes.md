@@ -2422,6 +2422,11 @@ only when it is null.
   release). A clip at another speed keeps its pitch through `SoundStretch.Tempo` (WSOLA: 40 ms stretches, half
   over the one before, each taken from within 10 ms of where it lines up best), where the editor's own preview
   still just plays it faster.
+- **Play in the Video editor** uses the same mix once it is ready (`WarmMix`, `JoinedSound`): mixed in the
+  background when the playhead is first moved and again after each change, kept by the storyboard's text and the
+  write times of its clips and sounds (a clip made again is another sound), for videos up to five minutes (23 MB
+  a minute). Until it is ready, and for longer videos, Play mixes the parts plainly as before (`VideoMix`: mono,
+  a sped-up clip higher, no ducking, no reversed sound).
 - **Scene clips** (`SceneRenderer.WriteAsync`): each screenshot decoded and handed to the writer. A 3 s SMIL
   scene at 1024x576 took 7 s, as with ffmpeg: the browser is the slow part.
 - **GIFs** (`GifWriter`) are written here when there is no ffmpeg: each frame gets its

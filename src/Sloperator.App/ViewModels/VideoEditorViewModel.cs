@@ -123,6 +123,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         ForgetEdits();
         Scrubbed = false;
         ResetPreview();
+        _soundMix = null;
         // What a Sloperator that ended suddenly left set aside in this video's folder.
         ClearAsideFolder(Path.Combine(_board.Folder, AsideName));
         Status = "";
@@ -441,9 +442,10 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         StopPlaying();
         PlayPosition = Math.Max(0, seconds);
         Scrubbed = true;
-        // The clips' sound is read by the time Play is pressed.
+        // The clips' sound is read, and the video's sound mixed, by the time Play is pressed.
         foreach (var made in _board.Shots.Where(s => !s.Reverse && (s.Volume ?? 1) > 0))
             AudioOf(_board.ShotVideo(made));
+        WarmMix();
         ShowFrameAt(PlayPosition);
         if (playing)
             StartPlaying(PlayPosition);
@@ -452,6 +454,28 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private void StartPlaying(double from)
     {
         StopPlaying();
+        // The video's sound as joining it mixes it, when that mix is ready for the video as it is now: a clip's sound
+        // through a transition, backwards or at another speed with its pitch kept, the music under a voice, the end's fade.
+        // Before, Play mixed the clips' and lines' sounds plainly, and an edit was heard as it is only once the video was made.
+        var json = MixKey();
+        if (_soundMix is { } ready && ready.Json == json && _previews.NewAudioOutput() is { } speakers)
+        {
+            _playEnd = Math.Max(Length, 0);
+            var joined = new JoinedSound(ready.Mix);
+            joined.Seek(TimeSpan.FromSeconds(from));
+            try
+            {
+                speakers.Play(joined);
+                _playOutput = speakers;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                speakers.Dispose(); // no speakers to open
+            }
+            BeginPlaying(from);
+            return;
+        }
+        WarmMix();
         // The sounds that are read, mixed as the video joins them; with none, the frames go by the clock.
         var parts = new List<VideoMix.Part>();
         foreach (var sound in Sounds)
@@ -485,6 +509,12 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
                 output.Dispose(); // no speakers to open
             }
         }
+        BeginPlaying(from);
+    }
+
+    /// <summary>The playhead set going from a moment, by the sound's clock when there is sound.</summary>
+    private void BeginPlaying(double from)
+    {
         _playFrom = from;
         _playClock = Stopwatch.StartNew();
         IsPlaying = true;
@@ -495,6 +525,53 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     }
 
     private double _playEnd;
+
+    /// <summary>The video's sound mixed as joining it does (<see cref="VideoSoundMix"/>), for the video as its JSON was then.</summary>
+    private (string Json, float[] Mix)? _soundMix;
+    private bool _mixing;
+
+    /// <summary>The longest video whose whole sound is mixed ahead for Play (23 MB a minute while the panel is open).</summary>
+    private const double LongestMixed = 300;
+
+    /// <summary>What a mix is of: the video as written, and when each clip and sound it is made of was written (a clip made again is another sound).</summary>
+    private string MixKey()
+    {
+        static long Stamp(string file)
+        {
+            try { return File.Exists(file) ? File.GetLastWriteTimeUtc(file).Ticks : 0; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+        }
+        return _board.ToJson() + "|" + string.Join(',', _board.Shots.Select(s => Stamp(_board.ShotVideo(s))).Concat(_board.Sounds.Select(s => Stamp(_board.SoundFile(s)))));
+    }
+
+    /// <summary>Mixes the video's sound in the background when the video changed since the last mix, so Play has it.</summary>
+    private void WarmMix()
+    {
+        if (_mixing || _disposing || _previews.Decoder is not { } decoder || _board.Shots.Count == 0 || Length > LongestMixed)
+            return;
+        var json = MixKey();
+        if (_soundMix?.Json == json)
+            return;
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        _mixing = true;
+        _ = Task.Run(() =>
+        {
+            float[]? mix = null;
+            try { mix = VideoSoundMix.Mix(board, decoder, []); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException or SoundEditException) { }
+            Dispatcher.UIThread.Post(() =>
+            {
+                _mixing = false;
+                if (_disposing)
+                    return;
+                _soundMix = mix is null ? null : (json, mix);
+                // Changed again meanwhile: once more for the video as it is now.
+                if (MixKey() != json)
+                    WarmMix();
+            });
+        });
+    }
 
     private void PlayTick()
     {
@@ -705,6 +782,30 @@ internal sealed class VideoMix(IReadOnlyList<VideoMix.Part> parts, double length
     }
 
     public void Seek(TimeSpan time) => _at = Math.Max(0, (long)(time.TotalSeconds * Rate));
+
+    public void Dispose() { }
+}
+
+/// <summary>The video's sound already mixed (stereo at 48 kHz), played from a moment.</summary>
+internal sealed class JoinedSound(float[] mix) : IAudioReader
+{
+    private int _at;
+
+    public int SampleRate => VideoSoundMix.Rate;
+    public int Channels => VideoSoundMix.Channels;
+    public TimeSpan Duration => TimeSpan.FromSeconds(mix.Length / VideoSoundMix.Channels / (double)VideoSoundMix.Rate);
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        var n = Math.Min(count, mix.Length - _at);
+        if (n <= 0)
+            return 0;
+        Array.Copy(mix, _at, buffer, offset, n);
+        _at += n;
+        return n;
+    }
+
+    public void Seek(TimeSpan time) => _at = (int)Math.Clamp((long)(time.TotalSeconds * VideoSoundMix.Rate) * VideoSoundMix.Channels, 0, mix.Length);
 
     public void Dispose() { }
 }
