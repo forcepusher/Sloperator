@@ -2107,7 +2107,8 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   opened starts with none (before, Ctrl+Z there wrote the video before's storyboard into its folder), and
   so does the chat's change to this one, read in or put together with a save here: a storyboard from
   before it would take the agent's work out again (checked in the app: a title's words changed on disk
-  after a speed change here stayed through Ctrl+Z). Ctrl+Z's own save finds the clips' .json it wrote
+  after a speed change here stayed through Ctrl+Z, and so did Haiku's "The end" made "Fin" from the
+  chat in 8.8 s). Ctrl+Z's own save finds the clips' .json it wrote
   back changed and puts them together too (`_puttingBack`), which isn't the chat's change.
 - A press anywhere in the panel, a right-click too, gives it the keys: after an edit from a clip's menu,
   Ctrl+Z went to the side panels' list or the chat's box, and a second Ctrl+Z did nothing once the clip it
