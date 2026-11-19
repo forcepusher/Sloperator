@@ -351,6 +351,55 @@ public sealed class ImageEditorTests : IDisposable
     }
 
     [Fact]
+    public void The_edit_buttons_make_the_next_version_and_crop_waits_for_a_box()
+    {
+        var folder = Path.Combine(Root, "House");
+        Directory.CreateDirectory(folder);
+        Png(Path.Combine(folder, "v1.png"), 1);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            // Nothing shown yet: greyed, saying why.
+            Assert.False(vm.TurnRightCommand.CanExecute(null));
+            vm.Pick(vm.Items[0]);
+            Wait(() => vm.HasPicture);
+            Assert.True(vm.TurnRightCommand.CanExecute(null));
+            Assert.False(vm.CropCommand.CanExecute(null));
+            Assert.Equal("Drag a box over the picture first (with Area on)", vm.CropTip);
+
+            // A quarter turn: the picture's next version, its sides swapped, shown; the one before stays.
+            vm.TurnRightCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 2 && vm.HasPicture);
+            Assert.Equal(Path.Combine(folder, "Turn 90°.png"), vm.Shown!.Path);
+            Assert.Equal((48, 64), PictureFolder.SizeOf(vm.Shown.Path));
+            Assert.Equal((64, 48), PictureFolder.SizeOf(Path.Combine(folder, "v1.png")));
+
+            // A box marked: Crop keeps it, and what was picked of the version before leaves the box.
+            vm.PickArea(new DocumentArea(0, 0, 0.5, 0.5));
+            Wait(() => vm.CropCommand.CanExecute(null) && Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1);
+            Assert.Equal("Keep only the box marked, as a new version", vm.CropTip);
+            vm.CropCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 3 && vm.HasPicture);
+            Assert.Equal((24, 32), PictureFolder.SizeOf(vm.Shown!.Path));
+            Assert.Null(vm.Mark);
+            Assert.Empty(Directory.GetFiles(Picks));
+            Assert.False(vm.CropCommand.CanExecute(null));
+
+            vm.MirrorCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 4 && vm.HasPicture);
+            vm.FlipCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 5 && vm.HasPicture);
+            vm.TurnLeftCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 6 && vm.HasPicture);
+            Assert.Equal(["Crop 24x32.png", "Flip.png", "Mirror.png", "Turn 270°.png", "Turn 90°.png", "v1.png"], Directory.GetFiles(folder).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+            // A picked version tells the model of the exact edits too.
+            vm.Pick(vm.Items[0], vm.Versions[0]);
+            Assert.Contains($"is edit_picture with path \"{Path.Combine(folder, "v1.png")}\"", vm.About([vm.Versions[0].Path])!.Value.Context);
+            return 0;
+        });
+    }
+
+    [Fact]
     public void The_panel_lays_out_with_its_bar_and_columns()
     {
         HeadlessApp.Run(() =>

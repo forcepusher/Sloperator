@@ -93,10 +93,16 @@
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <!-- The version shown big (a drag marks a part to redraw, a click picks it whole), its versions under it. -->
-      <DockPanel x:Name="Middle" Grid.Column="2">
+      <DockPanel x:Name="Middle" Grid.Column="2" Grid.IsSharedSizeScope="True">
         <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
           <DockPanel views:TabOrder.LeftToRight="True">
-            <TextBlock DockPanel.Dock="Left" Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <!-- Its word in a column shared with the Edit line's, so the two stand one under the other. -->
+            <Grid DockPanel.Dock="Left">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="FootLabel" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Classes="muted" Text="Versions" VerticalAlignment="Center" Margin="0,0,12,0" />
+            </Grid>
             <!-- Prompt metadata: how the version shown was made, under it, as the File inspector's button shows a
                  file's. Always there, greyed for a version that doesn't say. -->
             <ToggleButton DockPanel.Dock="Right" Classes="ghost small" IsEnabled="{Binding HasRecipe}" Margin="12,0,0,0"
@@ -134,6 +140,24 @@
             <TextBlock Classes="muted" IsVisible="{Binding HasPicture}" Text="Click to ask about it, drag to redraw a part" ToolTip.Tip="A click picks the version shown into your message; a part of it marked by a drag (a box with Area, painted with Brush) has the agent redraw only that part"
                        TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
           </DockPanel>
+        </Border>
+        <!-- The edits made here, each a new version: Crop to the box marked, a quarter turn, a mirror. A line of the
+             foot over the versions, as the Audio editor's is. -->
+        <Border DockPanel.Dock="Bottom" Classes="bar slim foot" Padding="8,4">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" SharedSizeGroup="FootLabel" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Classes="muted" Text="Edit" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip.Tip="Each edit is saved as a new version; the ones before stay" />
+            <StackPanel Grid.Column="1" Classes="edits" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Left">
+              <Button Classes="ghost small" Content="Crop" Command="{Binding CropCommand}" ToolTip.Tip="{Binding CropTip}" ToolTip.ShowOnDisabled="True" />
+              <Button Classes="ghost small" Content="Turn left" Command="{Binding TurnLeftCommand}" ToolTip.Tip="{Binding TurnLeftTip}" ToolTip.ShowOnDisabled="True" />
+              <Button Classes="ghost small" Content="Turn right" Command="{Binding TurnRightCommand}" ToolTip.Tip="{Binding TurnRightTip}" ToolTip.ShowOnDisabled="True" />
+              <Button Classes="ghost small" Content="Mirror" Command="{Binding MirrorCommand}" ToolTip.Tip="{Binding MirrorTip}" ToolTip.ShowOnDisabled="True" />
+              <Button Classes="ghost small" Content="Flip" Command="{Binding FlipCommand}" ToolTip.Tip="{Binding FlipTip}" ToolTip.ShowOnDisabled="True" />
+            </StackPanel>
+          </Grid>
         </Border>
         <!-- How the version shown was made, with Prompt metadata on: under the picture, over the bar, at most half
              the height (set in code), scrolling past that. -->

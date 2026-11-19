@@ -1236,6 +1236,36 @@ picture of it is an SVG or page drawn with the same `save_to`).
   The scenes guide now says an SVG is drawn on white where it draws nothing (the icon's rounded corners), and to
   render with transparent=true for one that goes over other things.
 
+**Edits made by hand, and edit_picture** (2026-11-19, the laptop; until then a crop took a model drawing the picture
+again, or another program). `PictureEdit` (Core/Media, Skia) makes an exact edit of a picture file and saves it beside
+the picture as a new file, the picture left as it was: a crop (a box in pixels, or the panel's marked box in parts),
+another size (one side alone keeps the shape; smaller through mipmaps, larger with a Mitchell curve), a turn clockwise
+(a quarter turn moves whole pixels; any other angle grows the picture to hold its corners, clear where nothing is,
+white in a JPEG), a mirror or upside down, its colours (one 4x5 matrix of saturation, contrast about middle grey and
+brightness; saturation 0 is black and white), or another kind of file (PNG, JPEG at 92, WebP). A photo is read as it
+is seen (the orientation a phone writes in the file applied). In a picture's folder of the Image editor the new file is
+named after the edit alone ("Crop 573x559.png", "Turn 90°.png": its next version), elsewhere after the picture and the
+edit ("plane (Resize 256x256).jpg"), " 2" when that is taken. A PNG made from a PNG keeps its text chunks (ComfyUI's
+prompt and workflow), so Prompt metadata still says how the picture was made; not the scene stamp, as the edit is no
+longer what the scene draws.
+- **The panel's Edit line**, over the versions as the Audio editor's is (the two words in a shared column): Crop
+  (the box marked with Area; greyed with "Drag a box over the picture first" until there is one), Turn left, Turn
+  right, Mirror, Flip. Each runs off the window's thread and the folder read again shows the new version; what was
+  picked of the version before leaves the chat's box.
+- **`edit_picture`** (`EditPictureTool`) is the same for the agent: edit = crop (x, y, width, height), resize (width,
+  height), rotate (degrees), flip (way), colour (brightness, contrast, saturation) or convert, and format on any of
+  them; names a model may give are read ("mirror", "grayscale", "scale"). It answers with the file, its size before
+  and after, that it is the picture's newest version when it is one, and a look at it. A version picked in the panel
+  tells the model of it ("An exact edit of it as it is … is edit_picture with path …"); Auto shows what it made as it
+  does a render's.
+- Checked: PictureEditTests (each edit to the pixel on a picture of four blocks, the formats' first bytes, a version
+  named after its edit that keeps its prompt and loses its scene, the tool's answers); ImageEditorTests (the buttons
+  one after another, Crop waiting for a box); in the app the paper plane icon turned, mirrored and cropped to a box
+  dragged over it (versions 4 to 6, each shown as it was saved); and Haiku 5.5 in the CLI, asked for "a 256x256 JPG
+  thumbnail of it, a copy cropped to just the plane without the ring's edges, and a black and white version", made
+  all three with edit_picture (resize with format jpg; crop x 214, y 240, 604x564; colour with saturation 0) in 18 s,
+  with nothing about the tool in the system prompt.
+
 ### The Audio editor panel
 **Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the
 Image editor and the Video editor: the Image editor for sounds, with edits done at once (the user, 2026-11-07, "Add an
@@ -4767,6 +4797,7 @@ not the text area) and one key down (Home); a posted WM_KEYDOWN for a letter typ
 | `comfyui` | Raster pictures, video made from them, sound, music and speech with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
 | `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg; edits them as a video editor does and exports the video (see Videos, Editing) |
 | `render` | An SVG (SMIL) or a Three.js page drawn in Edge into a PNG, a clip or a .glb, frame by frame on a stopped clock, with a look and the page's errors (see Scenes: SVG and Three.js) |
+| `edit_picture` | An exact edit of a picture file with no model: a crop, another size, a turn, a mirror, its colours or another kind of file (PNG, JPEG, WebP), saved as a new file beside it (in an Image editor picture, its next version; see The Image editor panel) |
 | `edit_sound` | Cuts, keeps, fades, makes louder or quieter a stretch of a sound, or puts another sound in its place, saved as a new WAV beside it (in an Audio editor sound, its next version; see The Audio editor panel) |
 | `run_shell` | PowerShell on Windows, `sh` elsewhere |
 | `ssh` | Commands on another computer over SSH, in a terminal that stays open between calls (see below) |
@@ -6223,6 +6254,8 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
+- render and edit_picture: a render with save_to a picture of the Image editor's in the **Image editor** as it starts; what
+  either made once it ends, in the Image editor for one of its pictures, else in the **File inspector**.
 - comfyui and edit_sound, for a sound: a run with save_to a sound of the Audio editor's (a folder right in
   SloperatorData\sounds) in the **Audio editor** as it starts, and what a run or an edit made in one once it ends; an
   edit of any other sound in the File inspector.

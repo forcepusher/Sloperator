@@ -1,6 +1,7 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Sloperator.Core.Chats;
 using Sloperator.Core.Documents;
 using Sloperator.Core.Media;
@@ -232,6 +233,97 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
         });
     }
 
+    // ---- edits made here, each a new version --------------------------------------------------------
+    // (the Audio editor has had its Edit line since it was made; a picture took a model, or another program, to crop.)
+
+    private bool _editing;
+
+    /// <summary>The version shown is read, and no edit is being saved.</summary>
+    private bool CanEdit() => HasPicture && !_editing;
+
+    private bool CanCrop() => CanEdit() && Mark is not null;
+
+    private string NoPicture => _editing ? "An edit is being saved" : "Pick a picture that has been made first";
+
+    public string CropTip => CanCrop() ? "Keep only the box marked, as a new version" : CanEdit() ? "Drag a box over the picture first (with Area on)" : NoPicture;
+
+    public string TurnLeftTip => CanEdit() ? "A quarter turn to the left, as a new version" : NoPicture;
+
+    public string TurnRightTip => CanEdit() ? "A quarter turn to the right, as a new version" : NoPicture;
+
+    public string MirrorTip => CanEdit() ? "Its left and right swapped, as a new version" : NoPicture;
+
+    public string FlipTip => CanEdit() ? "Upside down, as a new version" : NoPicture;
+
+    private void OnEditsChanged()
+    {
+        foreach (var name in (string[])[nameof(CropTip), nameof(TurnLeftTip), nameof(TurnRightTip), nameof(MirrorTip), nameof(FlipTip)])
+            OnPropertyChanged(name);
+        CropCommand.NotifyCanExecuteChanged();
+        TurnLeftCommand.NotifyCanExecuteChanged();
+        TurnRightCommand.NotifyCanExecuteChanged();
+        MirrorCommand.NotifyCanExecuteChanged();
+        FlipCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnMarkChanged(DocumentArea? value) => OnEditsChanged();
+
+    partial void OnPictureChanged(Bitmap? value) => OnEditsChanged();
+
+    [RelayCommand(CanExecute = nameof(CanCrop))]
+    private void Crop() => Edit(new PictureEditRequest(PictureEditKind.Crop) { Area = Mark });
+
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void TurnLeft() => Edit(new PictureEditRequest(PictureEditKind.Rotate) { Degrees = 270 });
+
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void TurnRight() => Edit(new PictureEditRequest(PictureEditKind.Rotate) { Degrees = 90 });
+
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void Mirror() => Edit(new PictureEditRequest(PictureEditKind.Flip));
+
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void Flip() => Edit(new PictureEditRequest(PictureEditKind.Flip) { Vertical = true });
+
+    /// <summary>
+    /// The edit made on the version shown, off the window's thread: saved as the picture's next version
+    /// (<see cref="PictureEdit"/>), which is then shown; the version before stays.
+    /// </summary>
+    private void Edit(PictureEditRequest request)
+    {
+        if (Shown is not { } version || !CanEdit())
+            return;
+        _editing = true;
+        OnEditsChanged();
+        // What was picked is of the version before: it leaves the box.
+        Unpick();
+        var (path, root) = (version.Path, Root);
+        Task.Run(() =>
+        {
+            try
+            {
+                PictureEdit.Save(path, request, root);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _editing = false;
+                    if (Closed)
+                        return;
+                    OnEditsChanged();
+                    Refresh();
+                });
+            }
+            catch (Exception ex) when (ex is PictureEditException or IOException or UnauthorizedAccessException)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _editing = false;
+                    OnEditsChanged();
+                    Chat?.AddNotice($"The edit could not be saved: {ex.Message}", isError: ex is not PictureEditException, ex);
+                });
+            }
+        });
+    }
+
     // ---- what is picked, into the chat's box ------------------------------------------------------
 
     /// <summary>What is picked: the picture (its version shown, or none yet), or a part of the version with its mask.</summary>
@@ -445,14 +537,17 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
                 $"so it becomes the picture's next version. Its versions: {versions}.]");
         }
         var picked = opening + $"They picked version {version.Number} of {picture.Versions.Count} of the picture \"{picture.Name}\" ({version.Path}, attached below). ";
+        // What needs no model: to the pixel, at once, each its next version.
+        var exact = $"An exact edit of it as it is (a crop, another size, a turn, a mirror, its colours, another kind of file) is edit_picture with path \"{version.Path}\", " +
+                    "which saves the picture's next version. ";
         if (drawn is not null)
             return ($"Image editor · {picture.Name} · version {version.Number}",
-                picked + drawn + $"to change it, change that scene (edit_file) and draw it again with render and save_to set to the picture's folder, " +
-                $"\"{picture.Folder}\", {next}. Its versions: {versions}.]");
+                picked + drawn + $"to change what it shows, change that scene (edit_file) and draw it again with render and save_to set to the picture's folder, " +
+                $"\"{picture.Folder}\", {next}. {exact}Its versions: {versions}.]");
         return ($"Image editor · {picture.Name} · version {version.Number}",
-            picked + $"To change it or make it again, make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", {next}; " +
+            picked + $"To change what it shows or make it again, make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", {next}; " +
             "image_to_image keeps its layout, text_to_image starts afresh from the prompt in its metadata. A vector or 3D picture of it instead is an SVG or a " +
-            $"Three.js page drawn with render and the same save_to. Its versions: {versions}.]");
+            $"Three.js page drawn with render and the same save_to. {exact}Its versions: {versions}.]");
     }
 
     /// <summary>

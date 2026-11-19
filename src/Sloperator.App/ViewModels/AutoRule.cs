@@ -54,7 +54,7 @@ public static class AutoRule
 
     /// <summary>
     /// Once a call has ended, for what it left: the file a write_file or edit_file call changed (see
-    /// <see cref="ForFile"/>), what a ComfyUI run, a render or an edit_sound call made, the video worked on. Null for a call that failed,
+    /// <see cref="ForFile"/>), what a ComfyUI run, a render, an edit_picture or an edit_sound call made, the video worked on. Null for a call that failed,
     /// or one with no panel.
     /// </summary>
     /// <param name="written">The file a write_file or edit_file call changed; null when File changes has none (a file on a server, Sloperator's own).</param>
@@ -69,7 +69,7 @@ public static class AutoRule
                 return ForFile(written, places);
             case "video":
                 return new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir));
-            case "comfyui" or "edit_sound" or "render" when made is [var first, ..]:
+            case "comfyui" or "edit_sound" or "edit_picture" or "render" when made is [var first, ..]:
                 return Path.GetDirectoryName(first) is { } folder && EditorOf(folder, places) is { } editor
                     ? editor
                     : new(SidePanelNames.FileInspector, first);

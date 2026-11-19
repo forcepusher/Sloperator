@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   beside the earlier ones. A version drawn this way keeps its scene: **Prompt metadata** shows it, picking the
   version or marking a part of it and saying what to change changes the scene itself (so the rest stays exactly as
   it was), and **Show its SVG in folder** on the version's right-click menu finds the vector file.
+- **Edit pictures yourself in the Image editor.** An **Edit** line over the versions: **Crop** to the box you drag
+  over the picture, **Turn left**, **Turn right**, **Mirror** and **Flip**. Each is a new version at once; the
+  earlier ones stay.
+- **Exact picture edits from the chat.** Ask the agent to crop, resize, turn or mirror a picture, make it black and
+  white, brighter or with more contrast, or save it as a JPG, PNG or WebP: it does so to the pixel, in a moment,
+  without a model drawing the picture again. The picture you gave stays as it was.
 - **3D model files.** Asked for a 3D model, the agent builds it in Three.js and saves a .glb you can load anywhere
   (under a minute with Claude Haiku). For a realistic one, of a real thing or to match a picture, it uses ComfyUI's
   TRELLIS.2 instead, never Hunyuan3D.
