@@ -2459,6 +2459,13 @@ Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo
 transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
 picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
 
+How good the encoder is (2026-11-19, `enc psnr` in the rig): a three second zoom and pan over two of Windows'
+own wallpaper photos at 1280x720, written at each quality and read back. Brightness alone (what the encoder
+loses) came out at 34.8 to 38.6 dB for a draft (2.2 to 6.2 Mbit/s), 38.2 to 41.7 dB as usual (5.4 to 17.3
+Mbit/s) and 41.7 to 44.2 dB at best (9.8 to 31.5 Mbit/s); all three colours together 2 to 6 dB lower, most of
+that from colour being kept at half size (4:2:0), as any MP4 has it. Good to look at; x264 would get there
+with fewer bits, which is one reason ffmpeg stays first where there is one.
+
 With the models, on the laptop with no ffmpeg (2026-11-19): "a 4 second animation of a sun rising over hills as
 an animated SVG, as a video file" took Haiku 29 s (6 calls, 1920x1080) and Qwen 3.8 3.2 minutes. "A 9 second
 video called Seasons out of three animated SVG scenes, a different transition between each, a title over the
