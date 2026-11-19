@@ -2285,7 +2285,7 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   Ctrl+Z or Ctrl+Y puts a storyboard back, the files of the pieces it has come back and those of the pieces it
   hasn't go aside again (`BringBack`). They reach the Recycle Bin, from where they were (so Restore there puts them
   back in place), once the edits can't be taken back: another video opened, the chat's change to this one, the panel
-  closed (`ForgetEdits`, `EmptyAside`); what a Sloperator that ended suddenly left there goes to the bin when the
+  closed (`ForgetEdits`, `EmptyAside`, which takes the emptied ".deleted" folder away too); what a Sloperator that ended suddenly left there goes to the bin when the
   video is next opened. A sound line deleted with its sounds comes back with one Ctrl+Z. A card of References
   deleted still goes to the bin at once: a file of the person's there is in no storyboard to tell it is back.
 - **Keys on what is picked**, as their menu items: Delete deletes the clip or sound picked, Ctrl+D puts a copy of
@@ -2330,11 +2330,11 @@ of a look, a turn, a title or a transition was seen until the video was joined a
   clock as a growing circle, any other as a dissolve. Over that the titles and pictures (the same `VideoOverlays.Words`
   and `Picture` the joined video's are drawn with, at this size, kept by what they say), fading and sliding in as
   joined, a video laid over the video (picture in picture) at its own frame in its box, the captions when they are
-  on, and the video's own fades. Not shown: a scene over the video, a
-  keyed picture or video (a green screen). All with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
+  on, and the video's own fades. Not shown: a scene over the video, a keyed picture or video (a green screen). All
+  with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
 - **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a file, five at most (the clip
-  under the playhead, the one before it in a transition, a video or two over them; five), kept by the file and when it was written. Playing
-  on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
+  under the playhead, the one before it in a transition, a video or two over them), kept by the file and when it
+  was written. Playing on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
   three seconds after the last frame asked for while nothing plays (`RestPreview`), and at once when a clip is about
   to be copied, moved or made again (`DropViewer`, and `LetGo` for the chat's `MediaRelease`), so the files aren't
   held while the panel stands there.

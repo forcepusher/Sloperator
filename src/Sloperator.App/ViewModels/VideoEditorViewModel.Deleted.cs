@@ -85,6 +85,10 @@ public sealed partial class VideoEditorViewModel
         foreach (var (was, aside) in _aside)
             try
             {
+                // Its waiting folder goes too, also when Ctrl+Z brought everything in it back: it stayed there empty.
+                var marker = Path.DirectorySeparatorChar + AsideName + Path.DirectorySeparatorChar;
+                if (aside.Now.IndexOf(marker, StringComparison.OrdinalIgnoreCase) is >= 0 and var at)
+                    folders.Add(aside.Now[..(at + AsideName.Length + 1)]);
                 if (!File.Exists(aside.Now))
                     continue;
                 var from = aside.Now;
@@ -94,7 +98,6 @@ public sealed partial class VideoEditorViewModel
                     from = was;
                 }
                 RecycleBin.Put(from);
-                folders.Add(aside.Now[..(aside.Now.IndexOf(Path.DirectorySeparatorChar + AsideName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) + AsideName.Length + 1)]);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException) { }
         _aside.Clear();
