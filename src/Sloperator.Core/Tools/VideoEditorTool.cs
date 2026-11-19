@@ -224,17 +224,24 @@ public sealed partial class VideoEditorTool : Tool
         }
     }
 
-    /// <summary>" (6 s long)" after a shot's own video file, so its length needn't be found out some other way; nothing for a picture, a file that isn't there, or with no decoder.</summary>
+    /// <summary>
+    /// " (720x1280, 6 s long)" after a shot's own video file: its size as it is shown (a phone's upright video upright)
+    /// and its length, so neither has to be found out some other way. Nothing for a picture, a file that isn't there
+    /// or can't be read, or with no decoder.
+    /// </summary>
     private static string FileLength(Storyboard board, VideoShot shot, IMediaDecoder? media) =>
-        media is not null && shot.File is { } name && board.FindFile(name) is { } file && Storyboard.IsVideoFile(file) && LengthOf(file, media) is { } length
-            ? $" ({N(Math.Round(length, 2))} s long)" : "";
+        media is not null && shot.File is { } name && board.FindFile(name) is { } file && Storyboard.IsVideoFile(file) && Held(file, media) is { } info
+            ? $" ({info.Width}x{info.Height}, {N(Math.Round(info.Duration.TotalSeconds, 2))} s long)" : "";
 
     /// <summary>How long a video file runs, in seconds; null for one that can't be read or doesn't say.</summary>
-    private static double? LengthOf(string file, IMediaDecoder media)
+    private static double? LengthOf(string file, IMediaDecoder media) => Held(file, media)?.Duration.TotalSeconds;
+
+    /// <summary>What a video file holds, when it can be read and says how long it runs.</summary>
+    private static MediaInfo? Held(string file, IMediaDecoder media)
     {
         try
         {
-            return media.Probe(file) is { HasVideo: true, Duration.TotalSeconds: > 0 } info ? info.Duration.TotalSeconds : null;
+            return media.Probe(file) is { HasVideo: true, Duration.TotalSeconds: > 0 } info ? info : null;
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
         {

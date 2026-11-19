@@ -40,6 +40,8 @@ internal static class UprightPicture
             stream.CopyTo(all);
             bytes = all.ToArray();
         }
+        // A kind Skia doesn't read (a TIFF, a Targa texture, a phone's HEIC) as a PNG of it; one nothing reads is left for the decoder below to refuse.
+        bytes = PictureFile.Readable(bytes) ?? bytes;
         if (Turned(bytes) is { } upright)
             using (upright)
             {
@@ -63,7 +65,8 @@ internal static class UprightPicture
         {
             using var data = SKData.CreateCopy(bytes);
             using var codec = SKCodec.Create(data);
-            return codec is null || PictureFile.IsUpright(codec.EncodedOrigin) ? null : PictureFile.Decode(codec);
+            // One that names a wider colour space than the usual (a phone's photo) is decoded here too, into the usual one.
+            return codec is null || (PictureFile.IsUpright(codec.EncodedOrigin) && !PictureFile.HasWideColours(codec)) ? null : PictureFile.Decode(codec);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

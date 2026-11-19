@@ -2757,6 +2757,47 @@ Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold
 matrix; and, where there is an ffmpeg to make the files, picture against sound in six containers, MKV, squeezed,
 22 kHz, ten bits, colours five ways).
 
+### Awkward pictures: more kinds, and colours as they are
+The same was done for pictures (2026-11-20): 50 made with ffmpeg and Windows' own library
+(`.dev\three-techs-test\pictures.ps1`: PNG in nine kinds, JPEG in six, BMP, GIF, WebP, ICO, TIFF in seven, Targa in
+four, AVIF, JPEG 2000, EXR, Radiance, QOI, PPM, PCX, a 108-megapixel photo, a dot, a ribbon, files cut short),
+each read as the app reads it and put beside ffmpeg's reading (`enc pictures`). Everything Skia has a decoder for
+came out to the pixel: deep and grey and one-bit PNGs, every JPEG, a 12000x9000 photo in 0.4 s, a file cut short
+as far as it goes. What it has none for was simply not a picture: every TIFF, every Targa file, AVIF and the rest.
+
+- **Windows' own decoders** (`WindowsPictures`, the Windows Imaging Component through its tables, like Media
+  Foundation): a TIFF in any of its kinds (packed or not, 16 bits, grey, clear, several pages: the first), a
+  game's DDS textures, JPEG XR, and whatever the PC has an extension for (a phone's HEIC, AVIF, a camera's raw
+  files; the laptop has none of those, so only TIFF could be tried). Decoded from the file's bytes in memory, so
+  no handle is held, to BGRA with the colours scaled by the clearness. `IPlatformServices.Pictures` hands it to
+  `PictureFile.Os` when the media decoders are set up.
+- **Targa** (`TgaFile`, in Core: neither Skia nor Windows reads it): true colour in 16, 24 or 32 bits, grey, a
+  table of colours, plain or packed in runs, from the bottom up or the top down, clear only where the header
+  keeps bits for it. It has no signature, so its header has to make sense (`LooksLikeOne`), and Windows is asked
+  first.
+- **One place** takes them in: `PictureFile.Decode` goes to the other readers when Skia has no codec, and
+  `PictureFile.Codec`, which much of the code asks for a picture's size and which way up it is, gets such a
+  picture as a PNG of it (packed lightly, kept for the last six files asked for). `PictureFile.Readable` gives
+  the same to what decodes bytes itself: the window's bitmaps (`UprightPicture`) and `PictureEdit`. So read_file
+  shows the model a TIFF or a texture, edit_picture crops and converts one, and the chat, the media viewer and
+  the File inspector show them, with no other change (`PictureFile.Kinds`, `ComfyOutput.KindOf`). The video
+  editor's own list of pictures (`Storyboard.PictureExtensions`: what is a reference, what goes to ComfyUI) is
+  left as it was. Haiku, given a 16-bit TIFF and a half-clear Targa texture: said what each shows, saved the one
+  as a JPEG and the other as a PNG at half size, in 15 s.
+- **Colours named in the file**: a phone's photo is in Display P3 and a camera's often in Adobe RGB, where the
+  same numbers mean stronger colours than in sRGB. Skia reads the numbers and notes the space on the bitmap, and
+  everything after took them as sRGB: such a photo was duller here than it is, in every panel, in what the model
+  was shown, and in every copy an edit saved, which named no space at all. A red of (200, 60, 60) in P3 is
+  (217, 42, 52), a green of (60, 200, 60) is (0, 203, 11); in Adobe RGB (231, 57, 57) and (0, 201, 36).
+  `PictureFile.Usual` brings a picture to sRGB as it is read (Skia does the sums), `PictureEdit` and the window's
+  decoding do the same, and a picture that names sRGB or nothing is untouched (`enc profiles`).
+- **Left**: a 32-bit BMP's fourth byte is taken as nothing, as most programs take it (ffmpeg takes it as
+  clearness); JPEG 2000, EXR, Radiance, QOI, PPM and PCX are not read; a CMYK JPEG was not tried (nothing here
+  writes one).
+
+Tests: `PictureKindsTests` (Targa every way and cut short, as a picture to read, show and edit; a TIFF written
+by hand through Windows' decoders; P3 and Adobe RGB photos read and edited).
+
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by
 round seconds, and in the Video editor a clip's length went by half seconds. `SoundBeats` (Core/Media) finds

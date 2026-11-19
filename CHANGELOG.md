@@ -99,6 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Three.js scene laid over the video. **Play** there now sounds as the made video will: the music going quieter
   under a voice, one clip's sound fading into the next, a clip sped up or slowed keeping its pitch, a reversed
   clip heard backwards.
+- **More kinds of picture open.** TIFF (a scanner's, a print shop's), TGA and DDS (a game's textures) and, on a PC
+  that has Windows' extensions for them, a phone's HEIC and AVIF: they show in the chat and the File inspector,
+  and the agent can look at them, crop them and save them as PNG or JPEG.
 
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
@@ -110,6 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
   chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
   has them upright.
+- **Photos from a phone or a camera looked duller than they are.** Those in a wider colour range (an iPhone's
+  Display P3, a camera's Adobe RGB) had their reds and greens weakened, and a copy the agent cropped or converted
+  kept the dull colours. They are shown and saved as they look now.
 - **Most videos played with the picture a little behind the sound** (about a tenth of a second, in the chat's
   player, the Video editor and a video joined without ffmpeg): any MP4 or MOV that didn't come straight from a
   phone. The two are together now, in MKV, WMV and broadcast (.ts) files too.

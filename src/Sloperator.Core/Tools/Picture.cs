@@ -9,7 +9,8 @@ namespace Sloperator.Core.Tools;
 /// </summary>
 internal static class Picture
 {
-    private static readonly string[] Types = [".png", ".jpg", ".jpeg", ".jfif", ".gif", ".bmp", ".webp", ".ico"];
+    /// <summary>The kinds of picture file read (<see cref="PictureFile.Kinds"/>): Skia's own, Targa, and those Windows decodes (TIFF, DDS, and HEIC or AVIF where it has the extension).</summary>
+    private static readonly string[] Types = PictureFile.Kinds;
 
     /// <summary>The longest side and the most pixels a picture is shown with: about 3,000 image tokens.</summary>
     private const int MaxSide = 2048, MaxPixels = 2048 * 1536;

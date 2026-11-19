@@ -78,7 +78,7 @@ public static partial class PictureEdit
         byte[] bytes;
         using (var read = MediaFolders.ReadShared(source))
             bytes = read.ToArray();
-        using var picture = Decode(bytes) ?? throw new PictureEditException($"{Path.GetFileName(source)} can't be read as a picture (PNG, JPEG, WebP, BMP and GIF are).");
+        using var picture = Decode(bytes) ?? throw new PictureEditException($"{Path.GetFileName(source)} can't be read as a picture (PNG, JPEG, WebP, BMP, GIF, TIFF and TGA are).");
         // The kind of file: as asked (the last edit that says), else the output's, else the picture's own.
         var asked = requests.LastOrDefault(r => r.Format is not null)?.Format;
         var named = asked ?? (output is not null && Path.GetExtension(output).Length > 0 ? Path.GetExtension(output) : null);
@@ -131,11 +131,16 @@ public static partial class PictureEdit
     /// <summary>The picture as it is seen (<see cref="PictureFile.Upright"/>), its colours as stored, not multiplied by how clear they are.</summary>
     internal static SKBitmap? Decode(byte[] bytes)
     {
-        using var data = SKData.CreateCopy(bytes);
+        // A kind Skia doesn't read (a TIFF, a Targa texture) comes as a PNG of it from the readers that do.
+        if (PictureFile.Readable(bytes) is not { } readable)
+            return null;
+        using var data = SKData.CreateCopy(readable);
         using var codec = SKCodec.Create(data);
         if (codec is null)
             return null;
-        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        // In the usual colour space: a photo that names a wider one (a phone's, a camera's) is brought to it as it is
+        // read, since what is saved names none and its numbers would mean duller colours (PictureFile.Usual).
+        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul, PictureFile.HasWideColours(codec) ? SKColorSpace.CreateSrgb() : null);
         var bitmap = new SKBitmap(info);
         if (codec.GetPixels(info, bitmap.GetPixels()) is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
         {

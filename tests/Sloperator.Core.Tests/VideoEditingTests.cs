@@ -418,8 +418,8 @@ public sealed class VideoEditingTests : IDisposable
         Assert.Equal(60, Of("s6"));
         // Each file's length is said beside its shot, so it needn't be found out some other way.
         var overview = VideoEditorTool.Overview(board, new ByName());
-        Assert.Contains("the user's file 6s clip.mp4 (6 s long).", overview);
-        Assert.Contains("125.5 s, a cut from s1): the user's file 185.5s talk.mp4 (185.5 s long).", overview);
+        Assert.Contains("the user's file 6s clip.mp4 (1280x720, 6 s long).", overview);
+        Assert.Contains("125.5 s, a cut from s1): the user's file 185.5s talk.mp4 (1280x720, 185.5 s long).", overview);
         Assert.Contains("the user's file photo.png.", overview);
         Assert.DoesNotContain("long)", VideoEditorTool.Overview(board));
 
