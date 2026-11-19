@@ -161,30 +161,34 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         var (fill, whole) = (Math.Max(width / w, height / h), Math.Min(width / w, height / h));
         if (shot.Fit == "blur")
         {
-            // Whole, over a copy of itself that fills the frame, blurred and darker (by what ffmpeg's eq takes off for
-            // -0.06: 22 of 255). The blur takes the frame's own edge for what lies beyond it, or the edges come out dark.
+            // Whole, over a copy of itself that fills the frame, blurred as ffmpeg blurs (Gblur) and darker by what ffmpeg's
+            // eq takes off for a brightness of -0.06 (16 of video's steps, 19 of 255: worked out as Eq works any out).
             var sigma = (float)Math.Max(2, height / 36.0);
-            using var blur = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp, null, SKRect.Create(width, height));
-            using var dim = SKColorFilter.CreateColorMatrix([1, 0, 0, 0, -0.0867f, 0, 1, 0, 0, -0.0867f, 0, 0, 1, 0, -0.0867f, 0, 0, 0, 1, 0]);
-            using var behind = new SKPaint { ImageFilter = blur, ColorFilter = dim };
-            canvas.DrawImage(seen, Placed(fill), sampling, behind);
+            using (var filled = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul)))
+            {
+                filled.Canvas.Clear(SKColors.Black);
+                filled.Canvas.DrawImage(seen, Placed(fill), sampling);
+                using var sharp = filled.Snapshot();
+                using var soft = Gblur(sharp, sigma);
+                using var dim = Eq(new VideoColor { Brightness = -0.12 });
+                using var behind = new SKPaint { ColorFilter = dim };
+                canvas.DrawImage(soft, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest), behind);
+            }
             canvas.DrawImage(seen, Placed(whole), sampling);
         }
         else
             canvas.DrawImage(seen, Placed(shot.Fit == "fit" ? whole : fill), sampling);
-        using var fittedImage = fitted.Snapshot();
+        var effects = shot.Effects ?? [];
+        using var fittedSharp = fitted.Snapshot();
+        // A blur over the whole picture, the same way.
+        using var fittedSoft = effects.Contains("blur") ? Gblur(fittedSharp, (float)Math.Max(1, height / 90.0)) : null;
+        var fittedImage = fittedSoft ?? fittedSharp;
 
         // Its effects, then the slow zoom or pan over it.
         using var result = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         var draw = result.Canvas;
         draw.Clear(SKColors.Black);
         using var paint = new SKPaint();
-        var effects = shot.Effects ?? [];
-        if (effects.Contains("blur"))
-        {
-            var sigma = (float)Math.Max(1, height / 90.0);
-            paint.ImageFilter = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp, null, SKRect.Create(width, height));
-        }
         if (effects.Contains("sharpen"))
         {
             // What a soft copy of the picture lacks, added to it again (an unsharp mask); after a blur when a clip has both.
@@ -222,7 +226,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         }
         if (effects.Contains("pixelate"))
         {
-            // Blocks a thirtieth of the frame's height, each the average of what it covers, then large again without smoothing.
+            // Blocks a thirtieth of the frame's height, each the average of what it covers.
             var block = Math.Max(2, height / 30);
             using var blocks = Blocks(fittedImage, Math.Max(1, width / block), Math.Max(1, height / block));
             draw.DrawImage(blocks, SKRect.Create(width, height), new SKSamplingOptions(SKFilterMode.Nearest), paint);

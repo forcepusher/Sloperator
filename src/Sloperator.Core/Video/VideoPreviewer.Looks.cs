@@ -198,7 +198,12 @@ public sealed partial class VideoPreviewer
             canvas.DrawRect(frame, below);
     }
 
-    /// <summary>A picture as so many blocks across and down, each the plain average of the pixels it covers (what ffmpeg's area scaling gives).</summary>
+    /// <summary>
+    /// A picture in blocks, so many across and down, as ffmpeg makes them (scaled down by area, then up without
+    /// smoothing, in video's own form): each block has the average brightness of what it covers, and each two by two
+    /// blocks share one colour, since video keeps its colour at half the size. With one colour a block (as a
+    /// picture editor would have it) the blocks came out 5 of 255 from ffmpeg's.
+    /// </summary>
     private static SKImage Blocks(SKImage picture, int across, int down)
     {
         var (width, height) = (picture.Width, picture.Height);
@@ -213,22 +218,124 @@ public sealed partial class VideoPreviewer
         {
             pinned.Free();
         }
-        var sums = new long[across * down * 4];
-        var counts = new int[across * down];
-        for (var y = 0; y < height; y++)
+        // The average red, green and blue of every cell of a grid over the picture.
+        (float[] Average, int Across, int Down) Grid(int cellsAcross, int cellsDown)
         {
-            var row = Math.Min(down - 1, y * down / height);
+            var sums = new long[cellsAcross * cellsDown * 3];
+            var counts = new int[cellsAcross * cellsDown];
+            for (var y = 0; y < height; y++)
+            {
+                var row = Math.Min(cellsDown - 1, y * cellsDown / height);
+                for (var x = 0; x < width; x++)
+                {
+                    var (cell, i) = (row * cellsAcross + Math.Min(cellsAcross - 1, x * cellsAcross / width), (y * width + x) * 4);
+                    sums[cell * 3] += pixels[i];
+                    sums[cell * 3 + 1] += pixels[i + 1];
+                    sums[cell * 3 + 2] += pixels[i + 2];
+                    counts[cell]++;
+                }
+            }
+            var average = new float[sums.Length];
+            for (var k = 0; k < sums.Length; k++)
+                average[k] = sums[k] / (float)Math.Max(1, counts[k / 3]);
+            return (average, cellsAcross, cellsDown);
+        }
+        static float Light(float[] grid, int cell) => 0.0722f * grid[cell * 3] + 0.7152f * grid[cell * 3 + 1] + 0.2126f * grid[cell * 3 + 2];
+        var light = Grid(across, down);
+        var colour = Grid((across + 1) / 2, (down + 1) / 2);
+        var blocks = new byte[pixels.Length];
+        Parallel.For(0, height, y =>
+        {
+            var (lightRow, colourRow) = (Math.Min(light.Down - 1, y * light.Down / height), Math.Min(colour.Down - 1, y * colour.Down / height));
             for (var x = 0; x < width; x++)
             {
-                var (cell, i) = (row * across + Math.Min(across - 1, x * across / width), (y * width + x) * 4);
-                (sums[cell * 4], sums[cell * 4 + 1], sums[cell * 4 + 2], sums[cell * 4 + 3]) = (sums[cell * 4] + pixels[i], sums[cell * 4 + 1] + pixels[i + 1], sums[cell * 4 + 2] + pixels[i + 2], sums[cell * 4 + 3] + pixels[i + 3]);
-                counts[cell]++;
+                var lightCell = lightRow * light.Across + Math.Min(light.Across - 1, x * light.Across / width);
+                var colourCell = colourRow * colour.Across + Math.Min(colour.Across - 1, x * colour.Across / width);
+                // The colour of the larger block, as light as the smaller one.
+                var lift = Light(light.Average, lightCell) - Light(colour.Average, colourCell);
+                var i = (y * width + x) * 4;
+                blocks[i] = (byte)Math.Clamp(MathF.Round(colour.Average[colourCell * 3] + lift), 0, 255);
+                blocks[i + 1] = (byte)Math.Clamp(MathF.Round(colour.Average[colourCell * 3 + 1] + lift), 0, 255);
+                blocks[i + 2] = (byte)Math.Clamp(MathF.Round(colour.Average[colourCell * 3 + 2] + lift), 0, 255);
+                blocks[i + 3] = 255;
             }
+        });
+        return SKImage.FromPixelCopy(info, blocks, width * 4);
+    }
+
+    /// <summary>
+    /// A picture blurred as ffmpeg's gblur blurs it at one step, which is not quite a Gaussian blur: each row, then each
+    /// column, is run through once forwards and once backwards, every pixel taking a share of the one before it, so a
+    /// point spreads as a peak with long tails rather than as a bell. And ffmpeg blurs video's colour planes, which are
+    /// half the size, by the same number of their own pixels: the colours spread twice as far as the brightness. With a
+    /// true Gaussian for both, the blurred copy behind a fitted picture was 4.5 of 255 from ffmpeg's.
+    /// </summary>
+    private static SKImage Gblur(SKImage picture, float sigma)
+    {
+        var (width, height) = (picture.Width, picture.Height);
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var pixels = new byte[width * height * 4];
+        var pinned = System.Runtime.InteropServices.GCHandle.Alloc(pixels, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            picture.ReadPixels(info, pinned.AddrOfPinnedObject(), width * 4, 0, 0);
         }
-        var small = new byte[across * down * 4];
-        for (var cell = 0; cell < across * down; cell++)
-            for (var c = 0; c < 4; c++)
-                small[cell * 4 + c] = (byte)((sums[cell * 4 + c] + counts[cell] / 2) / Math.Max(1, counts[cell]));
-        return SKImage.FromPixelCopy(new SKImageInfo(across, down, SKColorType.Bgra8888, SKAlphaType.Premul), small, across * 4);
+        finally
+        {
+            pinned.Free();
+        }
+        // Each colour as its own plane, twice: one for the brightness, one blurred twice as wide for the colour.
+        var near = new float[3][];
+        var wide = new float[3][];
+        for (var c = 0; c < 3; c++)
+        {
+            (near[c], wide[c]) = (new float[width * height], new float[width * height]);
+            for (var i = 0; i < width * height; i++)
+                near[c][i] = wide[c][i] = pixels[i * 4 + c];
+        }
+        Parallel.For(0, 6, k => Spread(k < 3 ? near[k] : wide[k - 3], width, height, k < 3 ? sigma : sigma * 2));
+        Parallel.For(0, height, y =>
+        {
+            for (var i = y * width; i < (y + 1) * width; i++)
+            {
+                // The wider blur's colour, as light as the nearer blur.
+                var lift = 0.0722f * (near[0][i] - wide[0][i]) + 0.7152f * (near[1][i] - wide[1][i]) + 0.2126f * (near[2][i] - wide[2][i]);
+                pixels[i * 4] = (byte)Math.Clamp(MathF.Round(wide[0][i] + lift), 0, 255);
+                pixels[i * 4 + 1] = (byte)Math.Clamp(MathF.Round(wide[1][i] + lift), 0, 255);
+                pixels[i * 4 + 2] = (byte)Math.Clamp(MathF.Round(wide[2][i] + lift), 0, 255);
+                pixels[i * 4 + 3] = 255;
+            }
+        });
+        return SKImage.FromPixelCopy(info, pixels, width * 4);
+    }
+
+    /// <summary>One plane blurred in place, ffmpeg's way: along its rows, then down its columns, each forwards and back.</summary>
+    private static void Spread(float[] plane, int width, int height, float sigma)
+    {
+        var lambda = sigma * (double)sigma / 2;
+        var share = (1 + 2 * lambda - Math.Sqrt(1 + 4 * lambda)) / (2 * lambda);
+        var (nu, edge, scale) = ((float)share, (float)(1 / (1 - share)), (float)(share / lambda * (share / lambda)));
+        for (var y = 0; y < height; y++)
+        {
+            var row = y * width;
+            plane[row] *= edge;
+            for (var x = 1; x < width; x++)
+                plane[row + x] += nu * plane[row + x - 1];
+            plane[row + width - 1] *= edge;
+            for (var x = width - 1; x > 0; x--)
+                plane[row + x - 1] += nu * plane[row + x];
+        }
+        for (var x = 0; x < width; x++)
+            plane[x] *= edge;
+        for (var y = 1; y < height; y++)
+            for (int x = 0, at = y * width; x < width; x++, at++)
+                plane[at] += nu * plane[at - width];
+        for (int x = 0, at = (height - 1) * width; x < width; x++, at++)
+            plane[at] *= edge;
+        for (var y = height - 1; y > 0; y--)
+            for (int x = 0, at = y * width; x < width; x++, at++)
+                plane[at - width] += nu * plane[at];
+        for (var i = 0; i < plane.Length; i++)
+            plane[i] *= scale;
     }
 }

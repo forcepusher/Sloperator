@@ -866,5 +866,74 @@ public sealed class VideoComposerTests : IDisposable
             }
         Assert.True(worst.Count == 0, string.Join("; ", worst));
     }
+
+    [Fact]
+    public async Task A_shots_edits_look_here_as_they_do_in_ffmpegs_join()
+    {
+        var media = new MediaFoundationDecoder();
+        var both = new FallbackDecoder(media, new FfmpegDecoder(() => []));
+        var ffmpeg = both.Ffmpeg ?? "";
+        if (ffmpeg.Length == 0)
+            Assert.Skip("No ffmpeg on this PC.");
+        var ct = TestContext.Current.CancellationToken;
+        // A clip of eight bars from dark to light, each another colour, with a slope of grey under them: every look has
+        // dark and light, strong and pale colours to work on, and a mirror or a turn shows which way it went.
+        const int w = 320, h = 180;
+        (byte R, byte G, byte B)[] bars = [(20, 24, 40), (70, 30, 30), (40, 90, 60), (60, 90, 200), (200, 60, 60), (200, 150, 40), (120, 200, 220), (240, 240, 230)];
+        var board = Storyboard.Parse("""{"title": "Edits", "width": 320, "height": 180, "fps": 15, "fadeIn": 0, "fadeOut": 0, "shots": []}""");
+        board.Folder = _dir;
+        Directory.CreateDirectory(board.ReferencesFolder);
+        var clip = Path.Combine(board.ReferencesFolder, "bars.mp4");
+        using (var writer = media.Write(clip, new MediaWriterOptions(w, h, 15, Quality: "best"))!)
+        {
+            var pixels = new byte[w * h * 4];
+            for (var y = 0; y < h; y++)
+                for (var x = 0; x < w; x++)
+                {
+                    var (bar, i) = (bars[x * bars.Length / w], (y * w + x) * 4);
+                    var grey = (byte)(x * 255 / w);
+                    (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = y < h * 2 / 3 ? (bar.B, bar.G, bar.R, (byte)255) : (grey, grey, grey, (byte)255);
+                }
+            for (var f = 0; f < 15; f++)
+                writer.Frame(new RawImage(w, h, pixels));
+            writer.Finish();
+        }
+        string[] edits =
+        [
+            "", "\"rotate\": 90", "\"rotate\": 270, \"fit\": \"fit\"", "\"rotate\": 90, \"fit\": \"blur\"", "\"flip\": \"horizontal\"", "\"flip\": \"vertical\"",
+            "\"crop\": {\"x\": 0.5, \"y\": 0.25, \"width\": 0.5, \"height\": 0.5}", "\"color\": \"bw\"", "\"color\": \"sepia\"", "\"color\": \"warm\"", "\"color\": \"cool\"",
+            "\"color\": \"vintage\"", "\"color\": {\"brightness\": 0.3}", "\"color\": {\"brightness\": -0.2, \"contrast\": 0.7, \"saturation\": 0.4}", "\"color\": {\"contrast\": 1.5, \"saturation\": 1.8}",
+            "\"effects\": [\"blur\"]", "\"effects\": [\"vignette\"]", "\"effects\": [\"invert\"]", "\"effects\": [\"pixelate\"]",
+        ];
+        for (var i = 0; i < edits.Length; i++)
+            board.Shots.Add(Storyboard.Parse($$"""{"shots": [{"id": "s{{i + 1}}", "seconds": 1, "file": "bars.mp4"{{(edits[i].Length > 0 ? ", " + edits[i] : "")}}}]}""").Shots[0]);
+        board.Normalize();
+        foreach (var shot in board.Shots)
+            Assert.True(VideoMaker.TakeClip(board, shot));
+        var theirs = Path.Combine(_dir, "ffmpeg.mp4");
+        File.Move((await VideoMontage.JoinAsync(board, ffmpeg, both, null, ct)).File, theirs);
+        var ours = (await VideoMontage.JoinAsync(board, null, media, null, ct)).File;
+
+        using var a = media.OpenVideo(theirs, 0)!;
+        using var b = media.OpenVideo(ours, 0)!;
+        var (lateA, lateB) = (a.Next()!.Value.Time.TotalSeconds, b.Next()!.Value.Time.TotalSeconds);
+        var (starts, _) = board.Timing();
+        var apart = new List<string>();
+        for (var i = 0; i < board.Shots.Count; i++)
+        {
+            a.Seek(TimeSpan.FromSeconds(starts[i] + 0.5 + lateA));
+            b.Seek(TimeSpan.FromSeconds(starts[i] + 0.5 + lateB));
+            var (fa, fb) = (a.Next()!.Value.Frame, b.Next()!.Value.Frame);
+            double sum = 0;
+            var n = 0;
+            for (var y = 4; y < h; y += 8)
+                for (var x = 4; x < w; x += 8)
+                    for (var c = 0; c < 3; c++, n++)
+                        sum += Math.Abs(fa.Bgra[(y * w + x) * 4 + c] - fb.Bgra[(y * w + x) * 4 + c]);
+            if (sum / n > 6)
+                apart.Add($"{(edits[i].Length == 0 ? "as it is" : edits[i])}: {sum / n:0.0} apart");
+        }
+        Assert.True(apart.Count == 0, string.Join("; ", apart));
+    }
 #endif
 }

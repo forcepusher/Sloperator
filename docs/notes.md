@@ -2487,7 +2487,7 @@ Qwen 3.8 22 minutes to the joined file (20 calls, none failed), both through `vi
 `action=edit` calls, right the first time. "A video called Pulse out of four animated SVG scenes with my song
 under it and every cut exactly on the beat" (a 112 BPM loop) took Haiku 3 minutes: it asked for the beat with
 `action=check`, made each clip six beats long after the 0.29 s before the first beat, and the cuts fell at
-3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes then, 30,958,913 with all of this round in; no IL
+3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes then, 30,963,009 with all of this round and the ffmpeg matching in; no IL
 warnings, 246 s to publish) joined the demo in the app in 10.3 s, the same bytes as the Debug build's.
 
 Qwen 3.8 on the same tasks, the laptop, no ffmpeg (2026-11-19): the cut and the GIF of holiday.mp4 took 2
@@ -2602,8 +2602,15 @@ third and two thirds through.
   distance, with the share of video's black it also takes off; the negative of video's numbers; the blurred
   background's edges and its 22 of 255 darker; the slow zoom by the frame (first frame at the start, last at the
   end). Contrast went from 10.6 apart to 1.3, warm 9.1 to 1.7, vintage 8.8 to 1.8, the vignette 39.6 to 1.3,
-  the zoom 5.7 to 1.7. Still apart: the blurred background (4.5: ffmpeg's blur is a rougher one) and pixelate
-  (5.1: ffmpeg's colour blocks are twice the size of its brightness blocks, as its colour planes are half size).
+  the zoom 5.7 to 1.7. Two were left at first and are done too: pixelate (5.1 to 1.2), where ffmpeg's colour
+  blocks are twice the size of its brightness blocks because video keeps colour at half size (`Blocks`: each
+  block its own average brightness, each two by two blocks one colour); and ffmpeg's blur (`Gblur`, the blur
+  effect 2.7 to 1.1, the blurred copy behind a fitted picture 4.5 to 2.5), which at its one step is no Gaussian
+  but each row and column run through forwards and back with a share of the pixel before (a peak with long
+  tails), and spreads the colour planes twice as far as the brightness, for the same reason. The copy behind is
+  darker by eq's -0.06, which in ffmpeg's whole numbers is 16 steps (19 of 255), not the 22 first worked out.
+  With these every one of the 28 edits is within 2.5 of 255 of ffmpeg's, and
+  `A_shots_edits_look_here_as_they_do_in_ffmpegs_join` holds 19 of them to 6 on bars of colour and a grey slope.
   A GIF is read whole into memory now, so its file isn't held open while it is looked at.
 
 - **What it comes to**: over 21 transitions the two joins differ by 0.1 to 2.5 of 255 a pixel on average
