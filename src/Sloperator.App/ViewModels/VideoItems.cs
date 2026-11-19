@@ -199,7 +199,29 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public void Stretched() => video.Changed();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Footer))]
     private string _state = "";
+
+    /// <summary>
+    /// How the clip is edited, in a few words for its card ("black and white, vignette, turned"): its strip shows the
+    /// clip as it was made, and an edit showed nowhere but in the joined video and the tooltip. Its speed and
+    /// "reversed" are beside its length already.
+    /// </summary>
+    public string Marks => string.Join(", ", new[]
+    {
+        Shot.Freeze is not null ? "frozen" : null,
+        Shot.Volume == 0 ? "muted" : Shot.Volume is { } volume ? $"sound {volume * 100:0}%" : null,
+        Shot.Color is { Look: "bw" } ? "black and white" : Shot.Color is { Look.Length: > 0 } look ? look.Look : Shot.Color is not null ? "light" : null,
+        Shot.Effects is { Count: > 0 } effects ? string.Join(" ", effects) : null,
+        Shot.Zoom is not null ? "zoom" : null,
+        Shot.Rotate != 0 ? "turned" : null,
+        Shot.Flip is not null ? "mirrored" : null,
+        Shot.Fit == "fit" ? "bars" : Shot.Fit == "blur" ? "blur behind" : null,
+        Shot.Crop is not null ? "cropped" : null,
+    }.OfType<string>());
+
+    /// <summary>Under the clip's strip: its state, then how it is edited.</summary>
+    public string Footer => Marks.Length == 0 ? State : State.Length == 0 ? Marks : $"{State} · {Marks}";
 
     [ObservableProperty]
     private bool _isError;

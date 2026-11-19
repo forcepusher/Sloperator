@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more.
 - **Save this frame as a picture** on the Video clips row's right-click menu puts the frame under the playhead in
   the Image editor, as a poster or a still to work on.
+- A clip in the Video editor says how it is edited under its pictures ("black and white, vignette, turned").
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture

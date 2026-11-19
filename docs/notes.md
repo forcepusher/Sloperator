@@ -2234,6 +2234,9 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   clip, and its menu has what is the whole video's (Paste, Save this frame, the fades). Checked in the app: the
   demo's first frame saved from that menu as "Night drive at 0-00.0" (Frame.png), the clip's own 704x648 frame.
 - **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
+- A clip's card says how it is edited, after its state under the strip ("Made · sound 50%, vignette grain, turned,
+  mirrored, blur behind"; `ShotItem.Marks`, `Footer`): the strip shows the clip as it was made, and an edit showed
+  nowhere but in the joined video and the tooltip. Its speed and "reversed" stay beside its length.
   the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
   no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the
   piece's files aside in ".deleted" in the video's folder, under their own paths (`SetAside`, each by the piece's own
