@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the clips' order, **Duplicate** copies a clip or a title, and Space plays the video from the playhead or pauses it.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
-  lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture in picture, an animated SVG title or captions of
-  the lines over the video, take a green screen out, and fade or slide words in. A sound's menu fades it in or out.
+  lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture
+  in picture, an animated SVG title or captions of the lines over the video, take a green screen out, and fade or
+  slide words in. A sound's menu fades it in or out.
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
 - **Undo and Redo in the Video editor:** Ctrl+Z takes back its last edits, a clip's length or a sound dragged too, and
   Ctrl+Y makes them again; both are on the rows' right-click menus. Videos and pictures dropped on the clips become
