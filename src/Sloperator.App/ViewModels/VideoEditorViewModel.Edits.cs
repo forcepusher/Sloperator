@@ -172,7 +172,7 @@ public sealed partial class VideoEditorViewModel
                 Items = TransitionChoices.Select(t => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Transition == t.Name)}{t.Label}", free,
                     () => Edit(() => FindShot(item)?.Let(x => x.Transition = t.Name)))).ToList(),
             });
-        var at = _board.Shots.IndexOf(shot);
+        var at = FindShot(item) is { } now ? _board.Shots.IndexOf(now) : -1;
         items.Add(new("Move earlier", free && at > 0, () => MoveShot(item, -1)));
         items.Add(new("Move later", free && at >= 0 && at < _board.Shots.Count - 1, () => MoveShot(item, 1)));
         items.Add(new("Split at the playhead", free && CanSplit(shot, into), () => Split(item), "Ctrl+B"));
