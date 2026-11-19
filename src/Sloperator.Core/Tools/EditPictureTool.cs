@@ -15,33 +15,36 @@ public sealed class EditPictureTool : Tool
 {
     public override string Name => "edit_picture";
 
+    // Kept short: every word of it goes with every request.
     public override string Description =>
-        "Edit a picture file exactly, without changing it: the edit is saved beside it as a new file, which the result names " +
-        "(for a picture of Sloperator's Image editor panel, its next version there). " +
-        "edit: crop (keep the box x, y, width, height, in pixels from the top left), resize (to width and height in pixels; one alone keeps its shape), " +
-        "rotate (degrees clockwise), flip (way: horizontal mirrors it, vertical turns it upside down), " +
-        "colour (brightness -1 to 1, contrast and saturation around 1; saturation 0 is black and white), convert (to format). " +
-        "format (png, jpg or webp) saves any edit as that kind of file.";
+        "Edit a picture file exactly, with no model. The picture stays as it was: the result is a new file (output, else beside it, named after the edit; " +
+        "in Sloperator's Image editor, the picture's next version). " +
+        "edit: crop (keep the box x, y, width, height), resize (to width and height; one alone keeps its shape), rotate, flip, colour, " +
+        "convert (to format). Several edits in one call, saved as one file: the first here, the rest in then.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("path", Str("The picture file to edit"), true),
+        ("path", Str("The picture file"), true),
         ("edit", Str("What to do", "crop", "resize", "rotate", "flip", "colour", "convert"), true),
-        ("x", Int("crop: the box's left edge"), false),
-        ("y", Int("crop: the box's top edge"), false),
-        ("width", Int("crop: the box's width; resize: the new width"), false),
-        ("height", Int("crop: the box's height; resize: the new height"), false),
-        ("degrees", Num("rotate: degrees clockwise (90, 180, 270, or any angle)"), false),
-        ("way", Str("flip: horizontal or vertical"), false),
+        ("x", Int("crop: pixels from the left"), false),
+        ("y", Int("crop: pixels from the top"), false),
+        ("width", Int("In pixels"), false),
+        ("height", Int("In pixels"), false),
+        ("degrees", Num("rotate: clockwise"), false),
+        ("way", Str("flip", "horizontal", "vertical"), false),
         ("brightness", Num("colour: -1 to 1, 0 as it is"), false),
         ("contrast", Num("colour: 1 as it is"), false),
         ("saturation", Num("colour: 1 as it is, 0 black and white"), false),
-        ("format", Str("The kind of file to save: png, jpg or webp (default: the picture's own)"), false));
+        ("then", new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" }, ["description"] = "More edits after this one, in order, each {edit, …}" }, false),
+        ("format", Str("png, jpg or webp"), false),
+        ("output", Str("Where to save the result"), false));
 
     public override string Describe(JsonObject args)
     {
         var name = Path.GetFileName(GetString(args, "path") ?? "");
+        if (args["then"] is JsonArray { Count: > 0 })
+            return $"Edit {name}";
         return Kind(GetString(args, "edit")) switch
         {
             PictureEditKind.Crop => $"Crop {name}",
@@ -68,16 +71,15 @@ public sealed class EditPictureTool : Tool
 
     private static bool Vertical(string? way) => way?.Trim().ToLowerInvariant() is "vertical" or "v" or "upside down" or "upsidedown" or "y";
 
-    public override Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
+    /// <summary>One edit as the model wrote it, the call's own or one of its "then".</summary>
+    private static PictureEditRequest Request(JsonObject args)
     {
-        var path = ctx.ResolvePath(RequireString(args, "path"));
         var said = RequireString(args, "edit");
         var kind = Kind(said) ?? throw new ToolArgumentException("edit is one of crop, resize, rotate, flip, colour, convert.");
         static int? Whole(double? n) => n is { } v ? (int)Math.Round(v) : null;
         // "grayscale" for the edit is its colours with none left.
         var grey = said.Trim().ToLowerInvariant() is "grayscale" or "greyscale" or "bw";
-        // "mirror" says the way itself.
-        var request = new PictureEditRequest(kind)
+        return new PictureEditRequest(kind)
         {
             X = Whole(GetNumber(args, "x")), Y = Whole(GetNumber(args, "y")), Width = Whole(GetNumber(args, "width")), Height = Whole(GetNumber(args, "height")),
             Degrees = GetNumber(args, "degrees") ?? 0,
@@ -87,13 +89,30 @@ public sealed class EditPictureTool : Tool
             Saturation = grey ? 0 : GetNumber(args, "saturation") ?? 1,
             Format = GetString(args, "format") is { Length: > 0 } format ? format : null,
         };
-        if (kind == PictureEditKind.Convert && request.Format is null)
+    }
+
+    public override Task<ToolResult> ExecuteAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
+    {
+        var path = ctx.ResolvePath(RequireString(args, "path"));
+        var output = GetString(args, "output") is { Length: > 0 } o ? ctx.ResolvePath(o) : null;
+        var requests = new List<PictureEditRequest> { Request(args) };
+        // The edits after the first, each an object like the call itself; a model may write the list as text.
+        var then = args["then"];
+        if (then is JsonValue text && text.TryGetValue<string>(out var json))
+        {
+            try { then = JsonNode.Parse(json); }
+            catch (System.Text.Json.JsonException) { throw new ToolArgumentException("then is a list of edits: [{\"edit\": \"flip\"}, {\"edit\": \"resize\", \"width\": 300}]."); }
+        }
+        foreach (var more in then switch { JsonArray list => list.OfType<JsonObject>(), JsonObject one => [one], _ => [] })
+            requests.Add(Request(more));
+        // To another kind of file: said by format, or by where it is saved.
+        if (requests.Count == 1 && requests[0] is { Kind: PictureEditKind.Convert, Format: null } && (output is null || Path.GetExtension(output).Length == 0))
             throw new ToolArgumentException("convert needs format: png, jpg or webp.");
         return Task.Run(() =>
         {
             try
             {
-                var edited = PictureEdit.Save(path, request, ctx.PicturesDirectory);
+                var edited = PictureEdit.Save(path, requests, ctx.PicturesDirectory, output);
                 var version = PictureFolder.IsVersion(edited.Path, ctx.PicturesDirectory)
                     ? $" It is the picture's newest version in the Image editor; {Path.GetFileName(path)} stays as it was." : "";
                 var look = MediaPreview.ForFiles([edited.Path], ctx.Media, ctx.SeesImages);

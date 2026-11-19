@@ -1287,6 +1287,31 @@ longer what the scene draws.
   thumbnail of it, a copy cropped to just the plane without the ring's edges, and a black and white version", made
   all three with edit_picture (resize with format jpg; crop x 214, y 240, 604x564; colour with saturation 0) in 18 s,
   with nothing about the tool in the system prompt.
+- **Several edits in one call, and where it goes** (the same day, from the models' own runs). Asked to "turn it a
+  quarter turn to the left, make it 20% brighter with a bit more contrast, mirror it, and give me the result as a 300
+  pixel wide WebP", Haiku made five calls, each on the file the one before had made, and left four files nobody
+  wanted beside the one that was, the last named "plane (Turn 270°) (Brighter 0.2, Contrast 1.15) (Mirror) (Resize
+  300x300) (As WE.webp" (cut off by `Storyboard.Safe`); qwen3.8 renamed its three files afterwards as "the
+  auto-generated names are clunky". So: `then` is a list of further edits made after the call's own, in order, saved
+  as one file (`PictureEdit.Save` with a list; its label is theirs joined, its name "(Edited)"); `output` says where
+  the result goes and by its extension what kind of file (over a version in the Image editor it is the next one);
+  and an edit of an edit is named after the picture alone (`BaseOf` takes this class's own labels off the end of a
+  name: "plane (Mirror).png", not "plane (Turn 270°) (Mirror).png"). With them Haiku did the same request in one call
+  and one file, plane_edited.webp, in 11 s.
+- **What the models did with it** (the CLI, each request once). Haiku 5.5: the thumbnail, crop and black and white,
+  18 s. qwen3.8 27B (q6_k_xl): the same in 8.2 minutes, all three with edit_picture, after trying Python and Pillow
+  only to measure where the plane was (neither is on the laptop; it measured with System.Drawing instead). In the
+  Image editor's words: "A flat icon of a paper plane for my app" as a new picture, Haiku 13 s and qwen3.8 2.5
+  minutes, each an SVG drawn with render into the picture's folder (qwen wrote the scene there too and used save_to
+  at once); "Make the plane yellow, and also give me a 128 pixel wide copy of the result" with version 1 picked,
+  qwen3.8 in 2.3 minutes: the scene changed, drawn with save_to (version 2), then edit_picture resize (version 3);
+  "A 3D render of a red gift box with a gold ribbon on a white table" as a new picture, Haiku in 32 s: a Three.js
+  page, drawn with save_to, its gold made brighter after the first look and drawn again (two versions, WebGL in
+  software on the laptop).
+- **What it costs every request**: edit_picture is about 430 tokens of the tools (its description 107, its twelve
+  parameters the rest), render's save_to 50. The branch as a whole stands at 14.35k for the prompt and tools where
+  develop has 12.79k (measured as before, `.dev/three-techs-test/ctx-now`): the three ways' line in the prompt +293,
+  render 566, the video tool +247, edit_picture.
 
 ### The Audio editor panel
 **Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the

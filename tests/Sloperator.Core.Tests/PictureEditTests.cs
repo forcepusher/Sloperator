@@ -240,10 +240,53 @@ public sealed class PictureEditTests : IDisposable
         Assert.Equal("Crop quarters.png", tool.Describe(JsonNode.Parse("""{"path": "C:\\x\\quarters.png", "edit": "crop"}""")!.AsObject()));
         Assert.Equal("Save quarters.png as JPG", tool.Describe(JsonNode.Parse("""{"path": "C:\\x\\quarters.png", "edit": "convert", "format": "jpg"}""")!.AsObject()));
 
+        // Several edits in one call are one file: turned left, brighter, mirrored, 20 wide, as a WebP where it was asked to go.
+        var named = Path.Combine(_dir, "out", "small plane.webp");
+        var chain = await tool.ExecuteAsync(JsonNode.Parse("""
+            {"edit": "rotate", "degrees": -90, "then": [{"edit": "colour", "brightness": 0.2}, {"edit": "mirror"}, {"edit": "resize", "width": 10}]}
+            """)!.AsObject().With("path", source).With("output", named), ctx, ct);
+        Assert.False(chain.IsError, chain.Text);
+        Assert.StartsWith($"Turn 270°, Brighter 0.2, Mirror, Resize 10x20: saved {named}, 10x20 pixels (40x20 before).", chain.Text);
+        Assert.Equal("RIFF"u8.ToArray(), File.ReadAllBytes(named)[..4]);
+        Assert.Equal(["small plane.webp"], Directory.GetFiles(Path.Combine(_dir, "out")).Select(Path.GetFileName));
+        // With no place given, one file named for the lot; and the list written as text is read too.
+        var lot = await tool.ExecuteAsync(new JsonObject { ["path"] = source, ["edit"] = "flip", ["then"] = """[{"edit": "grayscale"}]""" }, ctx, ct);
+        Assert.Contains($"Mirror, Black and white: saved {Path.Combine(_dir, "quarters (Edited).png")}", lot.Text);
+        // An edit of an edit is named after the picture, not after the edit before as well.
+        var again = await tool.ExecuteAsync(new JsonObject { ["path"] = Path.Combine(_dir, "quarters (Crop 20x10).png"), ["edit"] = "flip" }, ctx, ct);
+        Assert.Equal(Path.Combine(_dir, "quarters (Mirror) 2.png"), again.Files![0]);
+        Assert.Equal("plane", PictureEdit.BaseOf("plane (Turn 270°) (Brighter 0.2, Contrast 1.15) (Mirror) 2"));
+        Assert.Equal("Photo (1)", PictureEdit.BaseOf("Photo (1)"));
+        // A place to save alone says the kind of file to convert to.
+        var asJpg = await tool.ExecuteAsync(new JsonObject { ["path"] = source, ["edit"] = "convert", ["output"] = Path.Combine(_dir, "out", "q.jpg") }, ctx, ct);
+        Assert.Contains("As JPG: saved", asJpg.Text);
+
         // A version of a picture of the Image editor: the edit is its next one.
         var version = Quarters(Path.Combine("pictures", "Untitled picture", "a.png"));
         var next = await tool.ExecuteAsync(new JsonObject { ["path"] = version, ["edit"] = "rotate", ["degrees"] = 180 }, ctx, ct);
         Assert.Contains("It is the picture's newest version in the Image editor; a.png stays as it was.", next.Text);
         Assert.True(File.Exists(Path.Combine(pictures, "Untitled picture", "Turn 180°.png")));
     }
+}
+
+internal static class JsonObjectTestExtensions
+{
+    /// <summary>The object with <paramref name="key"/> set: a call's arguments built in a line.</summary>
+    public static JsonObject With(this JsonObject o, string key, string value)
+    {
+        o[key] = value;
+        return o;
+    }
+}
+
+public sealed class PictureEditNameTests
+{
+    [Theory]
+    [InlineData("quarters (Crop 20x10)", "quarters")]
+    [InlineData("plane (Turn 270°) (Brighter 0.2, Contrast 1.15) (Mirror) 2", "plane")]
+    [InlineData("plane (Edited) 3", "plane")]
+    [InlineData("plane (As JPG)", "plane")]
+    [InlineData("Photo (1)", "Photo (1)")]
+    [InlineData("(Mirror)", "(Mirror)")]
+    public void An_edit_of_an_edit_is_named_after_the_picture(string name, string own) => Assert.Equal(own, PictureEdit.BaseOf(name));
 }

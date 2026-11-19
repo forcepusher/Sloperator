@@ -54,29 +54,61 @@ public sealed class PictureEditException(string message) : Exception(message);
 /// of the Image editor the new file is its next version. What the picture says of how it was made (ComfyUI's
 /// workflow in a PNG) goes with it; the scene it was drawn from doesn't, as the edit is no longer what the scene draws.
 /// </summary>
-public static class PictureEdit
+public static partial class PictureEdit
 {
     /// <summary>The longest side a picture is made.</summary>
     public const int MaxSide = 16384;
 
     /// <param name="picturesRoot">The Image editor's folder: a version there is named after the edit alone.</param>
-    public static PictureEdited Save(string source, PictureEditRequest request, string? picturesRoot)
+    public static PictureEdited Save(string source, PictureEditRequest request, string? picturesRoot) => Save(source, [request], picturesRoot);
+
+    /// <summary>
+    /// Several edits made one after another on <paramref name="source"/> and saved as one file: "turn it left, make it
+    /// brighter, mirror it, 300 wide as a WebP" asked of the tool an edit at a time left four files nobody wanted
+    /// beside the one that was.
+    /// </summary>
+    /// <param name="picturesRoot">The Image editor's folder: a version there is named after the edit alone.</param>
+    /// <param name="output">Where to save it, its extension the kind of file; null: beside the picture, named after the edit.</param>
+    public static PictureEdited Save(string source, IReadOnlyList<PictureEditRequest> requests, string? picturesRoot, string? output = null)
     {
+        if (requests.Count == 0)
+            throw new PictureEditException("No edit was asked for.");
         if (!File.Exists(source))
             throw new PictureEditException($"{source} isn't there.");
         byte[] bytes;
         using (var read = MediaFolders.ReadShared(source))
             bytes = read.ToArray();
         using var picture = Decode(bytes) ?? throw new PictureEditException($"{Path.GetFileName(source)} can't be read as a picture (PNG, JPEG, WebP, BMP and GIF are).");
-        var format = FormatOf(request.Format ?? Path.GetExtension(source)) ?? (request.Format is { } asked
-            ? throw new PictureEditException($"A picture is saved as png, jpg or webp, not \"{asked}\".")
+        // The kind of file: as asked (the last edit that says), else the output's, else the picture's own.
+        var asked = requests.LastOrDefault(r => r.Format is not null)?.Format;
+        var named = asked ?? (output is not null && Path.GetExtension(output).Length > 0 ? Path.GetExtension(output) : null);
+        var format = FormatOf(named ?? Path.GetExtension(source)) ?? (named is not null
+            ? throw new PictureEditException($"A picture is saved as png, jpg or webp, not \"{named.TrimStart('.')}\".")
             : (Extension: ".png", Kind: SKEncodedImageFormat.Png));
-        var (edited, label) = Apply(picture, request, format.Kind == SKEncodedImageFormat.Jpeg);
-        using (edited)
+        var labels = new List<string>();
+        var edited = picture;
+        try
         {
-            if (request.Kind == PictureEditKind.Convert)
-                label = $"As {format.Extension[1..].ToUpperInvariant()}";
-            var target = Target(source, label, format.Extension, picturesRoot);
+            foreach (var request in requests)
+            {
+                var (next, label) = Apply(edited, request, format.Kind == SKEncodedImageFormat.Jpeg);
+                if (!ReferenceEquals(edited, picture))
+                    edited.Dispose();
+                edited = next;
+                labels.Add(request.Kind == PictureEditKind.Convert ? $"As {format.Extension[1..].ToUpperInvariant()}" : label);
+            }
+            var said = string.Join(", ", labels);
+            string target;
+            if (output is not null)
+            {
+                target = Path.ChangeExtension(Path.GetFullPath(output), format.Extension);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                // A picture of the Image editor keeps its versions: saved over one, it is the next.
+                if (File.Exists(target) && PictureFolder.IsVersion(target, picturesRoot))
+                    target = Target(target, Path.GetFileNameWithoutExtension(target), format.Extension, picturesRoot);
+            }
+            else
+                target = Target(source, labels.Count == 1 ? labels[0] : "Edited", format.Extension, picturesRoot);
             using var image = SKImage.FromBitmap(edited);
             using var data = image.Encode(format.Kind, format.Kind == SKEncodedImageFormat.Png ? 100 : 92)
                              ?? throw new PictureEditException("The edited picture couldn't be written.");
@@ -87,7 +119,12 @@ public static class PictureEdit
             var part = target + ".part";
             File.WriteAllBytes(part, encoded);
             File.Move(part, target, overwrite: true);
-            return new PictureEdited(target, label, edited.Width, edited.Height, picture.Width, picture.Height);
+            return new PictureEdited(target, said, edited.Width, edited.Height, picture.Width, picture.Height);
+        }
+        finally
+        {
+            if (!ReferenceEquals(edited, picture))
+                edited.Dispose();
         }
     }
 
@@ -264,13 +301,29 @@ public static class PictureEdit
     };
 
     /// <summary>
+    /// A picture's name without the edits made of it here before: an edit of "plane (Turn 270°).png" is
+    /// "plane (Mirror).png", where the names piled up ("plane (Turn 270°) (Brighter 0.2) (Mirror) (Resize 300x300)")
+    /// until the last was cut off mid-word.
+    /// </summary>
+    internal static string BaseOf(string name)
+    {
+        while (OwnLabel().Match(name) is { Success: true, Index: > 0 } own)
+            name = name[..own.Index];
+        return name;
+    }
+
+    // " (Crop 10x10)", " (Brighter 0.2, Contrast 1.15) 2": a label of this class's at the end of a name.
+    [System.Text.RegularExpressions.GeneratedRegex(@" \((Crop \d+x\d+|Resize \d+x\d+|Turn [\d.]+°|Mirror|Flip|Black and white|Colour [\d.]+|Brighter [\d.]+|Darker [\d.]+|Contrast [\d.]+|As [A-Z]+|Edited)(, [^()]*)?\)( \d+)?$")]
+    private static partial System.Text.RegularExpressions.Regex OwnLabel();
+
+    /// <summary>
     /// Where the edit of <paramref name="source"/> goes: beside it, a version of a picture in <paramref name="picturesRoot"/>
     /// named after the edit, any other picture after itself and the edit; " 2", " 3" when that is taken.
     /// </summary>
     public static string Target(string source, string label, string extension, string? picturesRoot)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(source))!;
-        var name = Video.Storyboard.Safe(PictureFolder.IsVersion(source, picturesRoot) ? label : $"{Path.GetFileNameWithoutExtension(source)} ({label})");
+        var name = Video.Storyboard.Safe(PictureFolder.IsVersion(source, picturesRoot) ? label : $"{BaseOf(Path.GetFileNameWithoutExtension(source))} ({label})");
         var path = Path.Combine(folder, name + extension);
         for (var n = 2; File.Exists(path); n++)
             path = Path.Combine(folder, $"{name} {n}{extension}");

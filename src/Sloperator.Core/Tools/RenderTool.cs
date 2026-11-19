@@ -29,7 +29,7 @@ public sealed class RenderTool : Tool
     public override JsonObject Parameters => Schema(
         ("file", Str("The .svg or .html scene to draw"), false),
         ("output", Str("Where the result goes: .png (or .jpg, .webp) for a picture, .mp4 (or .webm, .mov, .gif) for a clip, .glb for a Three.js scene as a 3D model. Default: beside the scene, .png when it doesn't move, else .mp4"), false),
-        ("save_to", Str("Instead of output: a folder the result goes into under a new name each time (a picture's folder in the Image editor, where it becomes the picture's next version)"), false),
+        ("save_to", Str("Instead of output: a folder to put the result in under a new name (a picture's folder in the Image editor: its next version)"), false),
         ("seconds", Num("A clip's length; default: the SMIL or CSS animation's own, else 5"), false),
         ("fps", Int("A clip's frames a second (default 30)"), false),
         ("width", Int("Width in pixels (default: the SVG's own, at least 1024 along its longer side; 1280 for a page)"), false),
