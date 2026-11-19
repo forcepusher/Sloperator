@@ -162,6 +162,31 @@ public sealed partial class VideoEditorViewModel
         SeekStrip(Math.Clamp(seconds ?? from + (item.Index > 0 ? Storyboard.Overlap(shot) : 0), from, to));
     }
 
+    // ---- a title picked on its row ----------------------------------------------------------------------------------
+
+    /// <summary>The title picked on the Titles row, by its id: Delete and Ctrl+D work on it. It isn't the chat's to be told of.</summary>
+    private string? _titlePicked;
+
+    private void PickedTitle(string? id)
+    {
+        _titlePicked = id;
+        foreach (var overlay in Overlays)
+            overlay.IsSelected = overlay.Id == id;
+    }
+
+    /// <summary>
+    /// A title clicked (not dragged): it is the one picked, marked on its row, and the playhead goes to a moment it is
+    /// fully there, so the viewer shows it over the video as it is placed and styled. Delete then deletes it and
+    /// Ctrl+D copies it; before, a title could only be reached through its right-click menu.
+    /// </summary>
+    public void PickTitle(OverlayItem item)
+    {
+        Clear();
+        PickedTitle(item.Id);
+        var shows = ShowSeconds(item);
+        SeekStrip(item.Overlay.Start + Math.Min(shows / 2, Math.Max(0.35, item.Overlay.FadeIn ?? 0.3)));
+    }
+
     // ---- a frame of the video as a picture -------------------------------------------------------------------------
 
     /// <summary>Whether there is a frame under the playhead to save: something here reads video, and a clip is made.</summary>
@@ -226,6 +251,12 @@ public sealed partial class VideoEditorViewModel
             DeleteShot(shot);
         else if (PickedSound is { } sound)
             DeleteSound(sound);
+        else if (_titlePicked is { } title && _board.Overlay(title) is not null)
+        {
+            Edit(() => _board.Overlays.RemoveAll(o => o.Id == title));
+            PickedTitle(null);
+            Status = "Deleted the title. Ctrl+Z brings it back.";
+        }
         else
             return false;
         return true;
@@ -234,6 +265,12 @@ public sealed partial class VideoEditorViewModel
     /// <summary>Ctrl+D: a copy of the clip picked right after it, as Duplicate of its menu does; false when no clip is picked.</summary>
     public bool DuplicatePicked()
     {
+        // A title picked: its copy from where it stops, as Duplicate of its menu.
+        if (!Busy(_board.Folder) && PickedShot is null && _titlePicked is { } title && Overlays.FirstOrDefault(o => o.Id == title) is { } picked)
+        {
+            DuplicateTitle(picked);
+            return true;
+        }
         if (Busy(_board.Folder) || PickedShot is not { } shot)
             return false;
         Duplicate(shot);

@@ -23,7 +23,7 @@ public sealed partial class VideoEditorViewModel
     {
         Overlays.Clear();
         foreach (var overlay in _board.Overlays)
-            Overlays.Add(new OverlayItem(overlay));
+            Overlays.Add(new OverlayItem(overlay) { IsSelected = overlay.Id == _titlePicked });
     }
 
     private void LayoutOverlays(double length)

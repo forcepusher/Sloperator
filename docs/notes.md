@@ -2271,6 +2271,12 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   as before. Dragged whole, its start is tried first, then its end. A clip that comes in over a 1.5 s dissolve
   starts at 6.5 s, and a title put at "about there" started at 6.4. Checked in the app: the "Episode one" title
   let go 0.04 s short of clip 3's start was at 6.5, and dragged on by half a second at 7.
+- **A title clicked is picked** (`PickTitle`): marked on its row, the playhead put at a moment it is fully there, so
+  the viewer shows it over the video as it is placed and styled; Delete deletes it and Ctrl+D copies it (both taken
+  back by Ctrl+Z), as a clip's. It isn't put in the chat's box. Before, a title was reached only through its
+  right-click menu, and its block never showed as picked. Checked in the app: "Night drive" clicked stood outlined
+  with the playhead at 0:00.8 and its words over clip 1; Ctrl+D put a copy at 3 s, Ctrl+Z took it away, Delete took
+  the title out and Ctrl+Z brought it back.
 - **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
   the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
   no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the

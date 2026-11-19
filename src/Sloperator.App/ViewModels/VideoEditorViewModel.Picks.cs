@@ -33,6 +33,7 @@ public sealed partial class VideoEditorViewModel
     private void Choose(VideoPick pick)
     {
         Scrubbed = false;
+        PickedTitle(null);
         Viewing = pick;
         _chat.Pick([(pick.Path, pick.Caption)]);
     }
@@ -69,6 +70,7 @@ public sealed partial class VideoEditorViewModel
     public void Clear()
     {
         Scrubbed = false;
+        PickedTitle(null);
         Viewing = null;
         _chat.Pick([]);
     }

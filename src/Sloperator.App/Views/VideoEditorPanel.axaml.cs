@@ -593,10 +593,13 @@ public partial class VideoEditorPanel : UserControl
 
     private void OnOverlayReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_overlay is null)
+        if (_overlay is not { } released)
             return;
         _overlay = null;
         e.Pointer.Capture(null);
+        // Clicked, not dragged: it is the title picked, and the playhead goes to it.
+        if (!released.Moved)
+            Vm.PickTitle(released.Item);
     }
 
     private void OnOverlayCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _overlay = null;

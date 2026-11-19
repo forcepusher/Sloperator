@@ -40,9 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   add effects: blur, sharpen, vignette, film grain, negative, pixelate. A clip's menu also sets how loud its own
   sound is and how long the transition into it takes, and the rows' menus turn the video's fade in and out and
   captions on or off. Ask for any of it in the chat too.
-- **Delete, copy and paste in the Video editor:** Delete removes the clip or sound you picked, Ctrl+D duplicates a
-  clip, Ctrl+C and Ctrl+V copy it to after the clip under the playhead. **Ctrl+Z brings a deleted clip or sound
-  back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more.
+- **Delete, copy and paste in the Video editor:** Delete removes the clip, title or sound you picked, Ctrl+D duplicates a
+  clip or a title, Ctrl+C and Ctrl+V copy a clip to after the clip under the playhead. **Ctrl+Z brings what you deleted
+  back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more. Click a
+  title to pick it and see it in the viewer.
 - **Save this frame as a picture** on the Video clips row's right-click menu puts the frame under the playhead in
   the Image editor, as a poster or a still to work on.
 - A clip in the Video editor says how it is edited under its pictures ("black and white, vignette, turned").
