@@ -71,6 +71,9 @@ public sealed partial class VideoEditorViewModel
                     _board = StoryboardMerge.Merge(Storyboard.Parse(_savedJson), _board, theirs);
                     _board.Folder = folder;
                     merged = true;
+                    // The chat's change is in it now: a storyboard from before would take it out again.
+                    if (!_puttingBack)
+                        _history.Clear();
                 }
             }
             _board.Save();
@@ -356,6 +359,8 @@ public sealed partial class VideoEditorViewModel
                 {
                     _savedJson = json;
                     _board = fresh;
+                    // Changed by the chat: Ctrl+Z put back a storyboard from before it, and the agent's work went.
+                    _history.Clear();
                     Rebuild();
                     return;
                 }

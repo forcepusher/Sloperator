@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in picture, an animated SVG title or captions of the lines over the video, take a green screen out, and fade or
   slide words in. A sound's menu fades it in or out and sets how loud it is.
 - **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
-- **Undo and Redo in the Video editor:** Ctrl+Z takes back its last edits, a clip's length or a sound dragged too, and
-  Ctrl+Y makes them again; both are on the rows' right-click menus. Videos and pictures dropped on the clips become
+- **Undo and Redo in the Video editor:** Ctrl+Z takes back your last edits there (not the agent's), a clip's length or
+  a sound dragged too, and Ctrl+Y makes them again; both are on the rows' right-click menus. Videos and pictures dropped on the clips become
   clips, and on the titles, pictures over the video.
 - **Voice-overs.** Ask for narration over a video and the agent says it in the voice you describe, with the music
   going quieter under it.

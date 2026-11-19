@@ -54,8 +54,11 @@ public sealed partial class VideoEditorViewModel
         }
     }
 
-    /// <summary>The edits made here, for Ctrl+Z and Ctrl+Y; another video opened starts with none.</summary>
+    /// <summary>The edits made here, for Ctrl+Z and Ctrl+Y; another video opened, or the chat's change to this one, starts with none.</summary>
     private readonly EditHistory _history = new();
+
+    /// <summary>While Ctrl+Z or Ctrl+Y writes its clips' .json back: the save after it finds them changed, and it isn't the chat.</summary>
+    private bool _puttingBack;
 
     /// <summary>Keeps the storyboard as it is now, to go back to with <see cref="Undo"/>: before an edit, or at the press of a drag.</summary>
     public void Remember() => _history.Keep(_board.ToJson(), ClipFiles);
@@ -91,11 +94,19 @@ public sealed partial class VideoEditorViewModel
         var folder = _board.Folder;
         _board = Storyboard.Parse(state.Json);
         _board.Folder = folder;
-        foreach (var (meta, text) in state.Files)
-            try { File.WriteAllText(meta, text); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        Changed();
-        SaveNow();
+        _puttingBack = true;
+        try
+        {
+            foreach (var (meta, text) in state.Files)
+                try { File.WriteAllText(meta, text); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            Changed();
+            SaveNow();
+        }
+        finally
+        {
+            _puttingBack = false;
+        }
         Rebuild();
         _history.Left(_board.ToJson());
         Status = said;
