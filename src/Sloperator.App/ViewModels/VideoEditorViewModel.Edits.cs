@@ -359,7 +359,10 @@ public sealed partial class VideoEditorViewModel
             RenameAsked?.Invoke(item, overlay.Text);
     }
 
-    /// <summary>What right-clicking a title offers: its words, its place on the frame, how long it shows, and Delete.</summary>
+    /// <summary>
+    /// What right-clicking a title offers: its words, its place on the frame, how long it shows and how it comes in,
+    /// the words' size, colour and font, and Delete.
+    /// </summary>
     public IReadOnlyList<PanelMenuItem?> MenuFor(OverlayItem item)
     {
         var free = !Busy(_board.Folder);
@@ -368,6 +371,7 @@ public sealed partial class VideoEditorViewModel
         return
         [
             new("Change the words", free && words, () => RenameAsked?.Invoke(item, o.Text.Replace("\\n", "\n"))),
+            null,
             new("Place", free, () => { })
             {
                 Items = Places.Select(p => (PanelMenuItem?)new PanelMenuItem($"{Mark(o.Box is null && o.Position == p.Position)}{p.Name}", free,
@@ -379,6 +383,12 @@ public sealed partial class VideoEditorViewModel
                     () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Seconds = s)))).ToList(),
             },
             new("Move to the playhead", free, () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Start = Math.Max(0, Math.Round(PlayPosition * 10) / 10)))),
+            Choices("Comes in", free && words, item, Motions, o.Motion, (x, m) => x.Motion = m),
+            null,
+            Choices("Size", free && words, item, Sizes, o.Size, (x, s) => x.Size = s),
+            Choices("Colour", free && words, item, Colours, o.Color?.ToUpperInvariant(), (x, c) => x.Color = c),
+            Choices("Font", free && words, item, Fonts, o.Font, (x, f) => x.Font = f),
+            new($"{Mark(o.Bold != false)}Bold", free && words, () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Bold = x.Bold == false ? null : false))),
             new($"{Mark(o.Background is not null)}Box behind the words", free && words,
                 () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Background = x.Background is null ? "#000000A0" : null))),
             null,
@@ -387,6 +397,27 @@ public sealed partial class VideoEditorViewModel
             new("Create", free, () => CreateTitle(PlayPosition)),
         ];
     }
+
+    /// <summary>A submenu of a title's choices with the one it has marked, each an edit of it.</summary>
+    private PanelMenuItem Choices<T>(string header, bool enabled, OverlayItem item, (T Value, string Name)[] choices, T now, Action<VideoOverlay, T> set) =>
+        new(header, enabled, () => { })
+        {
+            Items = choices.Select(c => (PanelMenuItem?)new PanelMenuItem($"{Mark(EqualityComparer<T>.Default.Equals(c.Value, now))}{c.Name}", enabled,
+                () => Edit(() => _board.Overlay(item.Id)?.Let(x => set(x, c.Value))))).ToList(),
+        };
+
+    private static readonly (string? Value, string Name)[] Motions =
+        [(null, "Fading in"), ("slide up", "Sliding up"), ("slide down", "Sliding down"), ("slide left", "Sliding left"), ("slide right", "Sliding right")];
+
+    /// <summary>The words' height as a fraction of the frame's; none as its place has it (a title bigger than a corner's words).</summary>
+    private static readonly (double? Value, string Name)[] Sizes =
+        [(null, "As its place has it"), (0.045, "Small"), (0.07, "Medium"), (0.1, "Large"), (0.14, "Huge")];
+
+    private static readonly (string? Value, string Name)[] Colours =
+        [(null, "White"), ("#000000", "Black"), ("#FFD60A", "Yellow"), ("#FF453A", "Red"), ("#0A84FF", "Blue"), ("#30D158", "Green")];
+
+    private static readonly (string? Value, string Name)[] Fonts =
+        [(null, "Segoe UI"), ("Arial", "Arial"), ("Georgia", "Georgia"), ("Times New Roman", "Times New Roman"), ("Impact", "Impact"), ("Consolas", "Consolas")];
 
     private static readonly (string Position, string Name)[] Places =
     [

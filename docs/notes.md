@@ -2089,8 +2089,11 @@ played from 0:00 to 0:01.5 and paused there.) A Titles row under the clips shows
 overlays as blocks, those that show at once one above the other (the row grows past two lanes, 22 pixels each); a right-click on the row creates a title
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change
-when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, puts
-a box behind the words, or deletes it. A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
+when it starts and ends, and its menu sets its place, how long it shows, moves it to the playhead, how
+it comes in (fading, or sliding up, down, left or right), the words' size (small 0.045 of the frame's
+height to huge 0.14, or as its place has it), colour, font and bold, puts a box behind the words, or
+deletes it (checked in the app: a lower third made yellow, large and sliding left, joined in 2 s, slid
+in from the right). A sound's menu fades it in (1 s) or out (2 s). Ctrl+Z takes back
 the panel's own edits (menus, splits, a title, a clip's length or a sound dragged, files dropped), 50 at
 most, each with its clips' .json as they were, so a split taken back leaves its clip made as before;
 Ctrl+Y (or Ctrl+Shift+Z) makes them again, and the Video clips, Titles and sound rows' menus have both
