@@ -2466,6 +2466,39 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+### Cutting on the beat
+A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by
+round seconds, and in the Video editor a clip's length went by half seconds. `SoundBeats` (Core/Media) finds
+them. How much the sound starts anew at each moment (86 a second) is the rise of its spectrum from one look to
+the next, taken twice: over everything, and over the bass alone (under 200 Hz), each less the average of the
+half second around it and in units of how much it varies, then added. The bass run is what tells a kick from a
+hat: by the whole spectrum a quiet hat between beats is as much of a new start as the kick (it is broadband), and
+a loop with hats on the half beats came out at two thirds of its tempo (100 for 150). The tempo is the gap, from
+50 to 210 BPM, at which that run lines up with itself best (about its own mean, or noise lines up at every
+gap), with a leaning towards 120 and a share of the doubled gap's score; the run is spread over the looks
+beside each moment first, because a beat that falls between two looks lined up with the next beat worse than
+with the one after and gave half the tempo (75 for 150). The beats are then followed through the piece (Ellis
+2007: the best chain of strong moments about a beat apart), not counted out from the tempo: a hundredth of a
+beat's error at 120 BPM is a third of a second after three minutes. A file whose spectrum never rises (a held
+note, a hum), noise, speech-like sound with no gap that lines up, and anything under four seconds has no beat.
+
+- **For the agent**: `video action=check` with a sound's id says where the file is, what it holds and its beat
+  in the video's own time (`VideoEditorTool.BeatLine`: BPM, the beat's length, the first eight beats, how long 4
+  and 8 beats are), and a song's result says it as soon as the song is made. The guide has two lines on it.
+- **In the Video editor**: each music file's beat is found when its samples are read for the waveform
+  (`AudioOf`; songs and sound files, not voice-overs or foley), shown as ticks along the bottom of the sound's
+  block (`VideoWave.Beats`, left out when closer than 4 px), and added to what a dragged title or sound lands on
+  (`Land`) and to a clip's right edge (`BeatLength`: the clip's end on the beat within 6 px, else half seconds
+  as before).
+
+Checked: drum loops at 90, 120, 128 and 150 BPM found within 1% with every beat within 0.03 s of a kick; noise,
+a held note, silence and a 2 s loop give none; through the tool, a loop trimmed by 1 s and started at 2 s has
+its beats told at 2.25, 2.75, 3.25 (within 0.01 s). In the app (rig home4: the demo video with a 100 BPM loop)
+the ticks stand under the kicks and clip 1's end dragged from 4 s to near 4.25 s landed on 4.3 s (the beat at
+4.29), where it used to land on 4.5. Not checked on real songs: the laptop has none, and ACE-Step is on the
+workstation. Half or double the real tempo is the likely miss there, and cuts on every other beat still fall on
+beats.
+
 ### How videos did
 On this PC (RTX 5070 Ti 16 GB, ComfyUI 0.41.3), at 1280x720 and 24 fps: a frame from words took
 about 20 s (Z-Image Turbo), one made from other frames 25 to 45 s (Qwen-Image-Edit 2509), a 5 s shot

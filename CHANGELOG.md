@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
   used when it is there; only a WebM, a MOV or an MP3 needs it.
 - **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Cut on the beat.** The Video editor finds the beat of a song or a music file of yours and marks each beat
+  with a tick under its waveform. Drag a clip's end, a title or a sound near a beat and it snaps to it. Ask the
+  agent to cut a video on the beat and it reads the song's tempo and where its beats fall, and makes the clips
+  that long.
 - **Quick edits of a video file.** Ask to trim a video, turn it upright, speed it up, crop it, make it a GIF or
   half the size, and the agent does it in one step, without making a video in the Video editor for it. Your file
   stays as it was; the result is a new file beside it.

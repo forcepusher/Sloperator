@@ -39,7 +39,7 @@ public sealed partial class VideoEditorTool : Tool
     public override JsonObject Parameters => Schema(
         ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "edit", "check", "models"), true),
         ("path", Str("The video's folder (or the name of a video in the videos folder); a new video's folder for action=storyboard"), false),
-        ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound)"), false),
+        ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound, check)"), false),
         ("storyboard", new JsonObject { ["type"] = "object", ["description"] = "action=storyboard: the storyboard, or the parts of it to change (frames and shots by id)" }, false),
         ("prompt", Str("action=frame or shot: a new prompt for it"), false),
         ("camera", Str("action=shot: what the camera does"), false),
@@ -633,6 +633,8 @@ public sealed partial class VideoEditorTool : Tool
         var sb = new StringBuilder();
         sb.AppendLine($"The song is made in {Chats.ChatTimes.Stopwatch(made.Took)} with {made.Template}: {made.File} (a minute long at least: shorter songs come out badly; the video uses its start).");
         sb.AppendLine(string.Join("\n", preview.Lines));
+        if (BeatLine(board, sound, ctx.Media) is { } beat)
+            sb.AppendLine(beat);
         if (made.Score is { } score)
             sb.AppendLine($"How it sounds to SongEval, a judge trained on musicians' ratings, for the part the video uses: {score.Describe()}." +
                           (score.Musicality < SongScore.Good ? " Make it again (more tries, another style or simpler lyrics) before the shots that use it." : "") +
@@ -783,6 +785,8 @@ public sealed partial class VideoEditorTool : Tool
 
     private async Task<ToolResult> CheckAsync(Storyboard board, string? id, ToolContext ctx, CancellationToken ct)
     {
+        if (id is { Length: > 0 } && board.Shot(id) is null && board.Frame(id) is null && board.Sound(id) is { } music)
+            return CheckSound(board, music, ctx);
         if (id is { Length: > 0 } && board.Shot(id) is null && board.Frame(id) is { } frame)
             return await CheckFrameAsync(board, frame, ctx, ct).ConfigureAwait(false);
         if (ctx.Media is not { } decoder)

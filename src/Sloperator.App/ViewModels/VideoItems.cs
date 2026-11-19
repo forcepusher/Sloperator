@@ -184,7 +184,8 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     /// <summary>Its length changed by dragging its edge: the storyboard follows, and the timeline is laid out again.</summary>
     public void Stretch(double seconds)
     {
-        seconds = Math.Clamp(Math.Round(seconds * 2) / 2, 0.5, 60);
+        // On the music's beat when its end is near one, else by half seconds.
+        seconds = Math.Clamp(video.BeatLength(this, seconds) ?? Math.Round(seconds * 2) / 2, 0.5, 60);
         if (seconds == Shot.Seconds)
             return;
         Shot.Seconds = seconds;
@@ -296,6 +297,10 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     /// <summary>Its loudness over the part that plays, 0 to 1, ten a second.</summary>
     [ObservableProperty]
     private float[]? _peaks;
+
+    /// <summary>Where its beats fall along the part that plays, 0 to 1; null for a sound with no steady beat (or not music).</summary>
+    [ObservableProperty]
+    private double[]? _beats;
 
     [ObservableProperty]
     private string _state = "";

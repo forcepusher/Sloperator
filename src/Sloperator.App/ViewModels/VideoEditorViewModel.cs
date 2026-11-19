@@ -257,6 +257,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             sound.BlockWidth = Math.Max(8, seconds * Pps - 2);
             end = Math.Max(end, sound.Sound.Start + seconds);
             sound.Peaks = PeaksOf(sound);
+            sound.Beats = BeatsOf(sound);
         }
         // Each sound line's +: after its last sound.
         foreach (var line in SoundLines)
@@ -330,6 +331,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             return (known.Samples, known.Rate);
         if (_previews.Decoder is not { } decoder || !_reading.Add(file))
             return null;
+        var music = _board.Sounds.Any(s => s.Source is VideoSound.Song or VideoSound.FromFile && string.Equals(_board.SoundFile(s), file, StringComparison.OrdinalIgnoreCase));
         _ = Task.Run(() =>
         {
             (float[], int)? read = null;
@@ -340,11 +342,19 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
                     read = MediaPreview.ReadMono(reader, TimeSpan.FromMinutes(20));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException) { }
+            // Its beat too, for music: the ticks under its waveform, and what a clip's end or a title snaps to.
+            BeatGrid? beat = null;
+            if (music && read is var (heard, at) && heard.Length >= at * 8)
+            {
+                try { beat = SoundBeats.Find(new SoundSamples(heard, at, 1)); }
+                catch (Exception ex) when (ex is ArgumentException or IndexOutOfRangeException or InvalidOperationException) { }
+            }
             Dispatcher.UIThread.Post(() =>
             {
                 _reading.Remove(file);
                 if (_disposing)
                     return;
+                _beats[file] = beat;
                 _audio[file] = read is var (samples, rate) ? (stamp, samples, rate) : (stamp, [], 1);
                 foreach (var sound in Sounds.Where(s => string.Equals(_board.SoundFile(s.Sound), file, StringComparison.OrdinalIgnoreCase)))
                     sound.FileSeconds = read is var (all, r) ? all.Length / (double)Math.Max(1, r) : 0;
@@ -352,6 +362,49 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             });
         });
         return null;
+    }
+
+    /// <summary>The beat of each music file read, by its path; null for one with no steady beat.</summary>
+    private readonly Dictionary<string, BeatGrid?> _beats = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>When the music's beats fall in the video: each song's and sound file's, where it plays.</summary>
+    internal IEnumerable<double> BeatMarks()
+    {
+        foreach (var sound in Sounds)
+            if (_beats.GetValueOrDefault(_board.SoundFile(sound.Sound)) is { } grid)
+            {
+                var plays = sound.PlaySeconds(Length);
+                foreach (var time in grid.Times)
+                    if (time >= sound.Sound.Trim && time <= sound.Sound.Trim + plays)
+                        yield return sound.Sound.Start + time - sound.Sound.Trim;
+            }
+    }
+
+    /// <summary>Where a sound's beats fall along its block, 0 at its left edge to 1 at its right; null for one with no beat found.</summary>
+    private double[]? BeatsOf(SoundItem sound)
+    {
+        if (_beats.GetValueOrDefault(_board.SoundFile(sound.Sound)) is not { } grid)
+            return null;
+        var plays = sound.PlaySeconds(Length);
+        return plays <= 0 ? null : [.. grid.Times.Where(t => t >= sound.Sound.Trim && t <= sound.Sound.Trim + plays).Select(t => (t - sound.Sound.Trim) / plays)];
+    }
+
+    /// <summary>
+    /// A clip's length while its right edge is dragged: to the beat its end is near (within <see cref="SnapPixels"/>),
+    /// so a cut falls on the music; null when no beat is near, and the length goes by half seconds as before.
+    /// </summary>
+    internal double? BeatLength(ShotItem item, double seconds)
+    {
+        var index = _board.Shots.IndexOf(item.Shot);
+        var (starts, _) = _board.Timing();
+        if (index < 0 || index >= starts.Count)
+            return null;
+        var (end, reach) = (starts[index] + seconds, SnapPixels / Math.Max(1, Pps));
+        double? nearest = null;
+        foreach (var beat in BeatMarks())
+            if (Math.Abs(beat - end) <= reach && (nearest is null || Math.Abs(beat - end) < Math.Abs(nearest.Value - end)))
+                nearest = beat;
+        return nearest is { } on && on - starts[index] >= 0.5 ? Math.Round(on - starts[index], 2) : null;
     }
 
     /// <summary>The waveform of the part of a sound that plays, a peak each tenth of a second, 0 to 1.</summary>

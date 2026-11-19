@@ -602,7 +602,8 @@ public sealed partial class VideoEditorViewModel
         var (starts, length) = _board.Timing();
         var reach = SnapPixels / Math.Max(1, Pps);
         double? nearest = null;
-        foreach (var mark in starts.Append(length).Append(PlayPosition))
+        // The music's beats too, after the rest: a clip's start, the video's end and the playhead win when as near.
+        foreach (var mark in starts.Append(length).Append(PlayPosition).Concat(BeatMarks()))
             if (Math.Abs(mark - seconds) <= reach && (nearest is null || Math.Abs(mark - seconds) < Math.Abs(nearest.Value - seconds)))
                 nearest = mark;
         return nearest is { } at ? (Math.Round(at * 100) / 100, true) : (Math.Round(seconds * 10) / 10, false);

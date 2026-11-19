@@ -86,3 +86,39 @@ public sealed partial class VideoEditorTool
         }
     }
 }
+
+// A sound's beat, told to the agent so it can cut on it.
+public sealed partial class VideoEditorTool
+{
+    /// <summary>
+    /// What the agent is told of the beat of a song or a sound file of the user's, in the video's own time: its
+    /// tempo, when its first beats fall, and how long so many beats are, so clips can be made whole beats long.
+    /// Null for a sound with no steady beat, or one not read.
+    /// </summary>
+    internal static string? BeatLine(Storyboard board, VideoSound sound, IMediaDecoder? decoder)
+    {
+        if (decoder is null || sound.Source is VideoSound.Speech or VideoSound.Foley || SoundBeats.Of(board.SoundFile(sound), decoder) is not { } grid)
+            return null;
+        var offset = sound.Start - sound.Trim;
+        var beats = grid.Times.Select(t => t + offset).Where(t => t >= sound.Start - 1e-6).ToList();
+        if (beats.Count < 4)
+            return null;
+        static string S(double seconds) => seconds.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        return $"Its beat: {grid.Bpm:0.#} BPM, a beat every {grid.Interval.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} s. " +
+               $"In the video its beats fall at {string.Join(", ", beats.Take(8).Select(S))} s and so on to {S(beats[^1])} s. " +
+               $"To cut on the beat, start the first clip's cut on a beat and make each clip a whole number of beats long: 4 beats are {S(grid.Interval * 4)} s, 8 are {S(grid.Interval * 8)} s " +
+               "(with a transition into a clip, add its length to the clip before, as the two overlap).";
+    }
+
+    /// <summary>action=check with a sound's id: where it is, what it holds, and its beat when it is music.</summary>
+    private static ToolResult CheckSound(Storyboard board, VideoSound sound, ToolContext ctx)
+    {
+        var file = board.SoundFile(sound);
+        if (!File.Exists(file))
+            return new ToolResult(sound.Source == VideoSound.FromFile ? $"Sound {sound.Id} is the file {file}, which isn't there." : $"Sound {sound.Id} isn't made yet: action=sound with its id makes it.");
+        var look = MediaPreview.ForFiles([file], ctx.Media, ctx.SeesImages);
+        var beat = BeatLine(board, sound, ctx.Media) ?? (sound.Source is VideoSound.Song or VideoSound.FromFile ? "No steady beat was found in it." : null);
+        return new ToolResult($"Sound {sound.Id} \"{sound.Label}\": {file}\n{string.Join("\n", look.Lines)}" + (beat is null ? "" : "\n" + beat), look.Image,
+            ImageCaption: look.Image is null ? null : look.Caption, Files: [file]);
+    }
+}

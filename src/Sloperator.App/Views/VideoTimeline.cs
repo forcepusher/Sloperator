@@ -12,6 +12,8 @@ internal static class VideoColors
     public static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#A2A2A2"));
     public static readonly IBrush Text = new SolidColorBrush(Color.Parse("#F0F0F0"));
     public static readonly IPen WavePen = new Pen(new SolidColorBrush(Color.Parse("#6B8299")), 1);
+    /// <summary>A beat's tick under a sound's waveform.</summary>
+    public static readonly IPen BeatPen = new Pen(new SolidColorBrush(Color.Parse("#C8A545")), 1);
     public static readonly IPen Tick = new Pen(new SolidColorBrush(Color.Parse("#4D4D4D")), 1);
     public static readonly IPen Border = new Pen(new SolidColorBrush(Color.Parse("#2A2A2A")), 1);
     public static readonly IPen Picked = new Pen(new SolidColorBrush(Color.Parse("#FCC21B")), 2);
@@ -158,13 +160,25 @@ public sealed class VideoWave : Control
     /// <summary>Its loudness from where the clip starts to where it ends, 0 to 1; null while it isn't read.</summary>
     public float[]? Peaks { get => GetValue(PeaksProperty); set => SetValue(PeaksProperty, value); }
 
-    static VideoWave() => AffectsRender<VideoWave>(PeaksProperty);
+    public static readonly StyledProperty<double[]?> BeatsProperty = AvaloniaProperty.Register<VideoWave, double[]?>(nameof(Beats));
+
+    /// <summary>Where the music's beats fall, 0 at the left edge to 1 at the right: a tick each along the bottom, so a cut can be put on one.</summary>
+    public double[]? Beats { get => GetValue(BeatsProperty); set => SetValue(BeatsProperty, value); }
+
+    static VideoWave() => AffectsRender<VideoWave>(PeaksProperty, BeatsProperty);
 
     public VideoWave() => IsHitTestVisible = false;
 
     public override void Render(DrawingContext context)
     {
         var (w, h) = (Bounds.Width, Bounds.Height);
+        // The beats first, under the waveform: ticks along the bottom, left out when they would stand closer than 4 px.
+        if (Beats is { Length: > 1 } beats && w > 0 && w / beats.Length >= 4)
+            foreach (var beat in beats)
+            {
+                var x = Math.Round(beat * w) + 0.5;
+                context.DrawLine(VideoColors.BeatPen, new Point(x, h - 4), new Point(x, h));
+            }
         if (Peaks is not { Length: > 0 } peaks || w <= 0)
             return;
         var middle = h / 2;
