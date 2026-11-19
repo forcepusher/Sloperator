@@ -292,6 +292,8 @@ public static class SoundEdit
     /// <summary><paramref name="sound"/> at <paramref name="rate"/> samples a second (between two samples, the line between them) and with <paramref name="channels"/> channels.</summary>
     public static SoundSamples Convert(SoundSamples sound, int rate, int channels)
     {
+        if (sound.Channels > 2 && channels <= 2)
+            sound = Fold(sound, channels);
         var (s, from, frames) = (sound.Samples, sound.Channels, sound.Frames);
         var outFrames = rate == sound.Rate ? frames : (int)Math.Round(frames * (double)rate / sound.Rate);
         var o = new float[outFrames * channels];
@@ -320,6 +322,45 @@ public static class SoundEdit
             }
         }
         return new SoundSamples(o, rate, channels);
+    }
+
+    /// <summary>
+    /// A surround sound folded to two channels or one, the way ffmpeg folds it in a join: the front ones as they are,
+    /// the centre (where a film's speech is) and the back ones to their sides at 0.707, the deep-bass channel left out.
+    /// Nothing is brought down for it, so speech is as loud as in a clip of one channel; what adds up past full scale
+    /// is for whoever mixes it on to hold. Taking the first two channels alone, as was done, lost the speech of a film in 5.1.
+    /// </summary>
+    internal static SoundSamples Fold(SoundSamples sound, int channels)
+    {
+        const float half = 0.70710678f;
+        // Each channel's share to the left and to the right, in the order Windows gives them.
+        (float L, float R)[] shares = sound.Channels switch
+        {
+            3 => [(1, 0), (0, 1), (half, half)],
+            4 => [(1, 0), (0, 1), (half, 0), (0, half)],
+            5 => [(1, 0), (0, 1), (half, half), (half, 0), (0, half)],
+            6 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half)],
+            7 => [(1, 0), (0, 1), (half, half), (0, 0), (0.5f, 0.5f), (half, 0), (0, half)],
+            8 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half), (half, 0), (0, half)],
+            // A layout not known here: the odd channels to the left, the even to the right.
+            _ => [.. Enumerable.Range(0, sound.Channels).Select(c => c % 2 == 0 ? (1f, 0f) : (0f, 1f))],
+        };
+        var (s, from, frames) = (sound.Samples, sound.Channels, sound.Frames);
+        var o = new float[frames * channels];
+        for (var f = 0; f < frames; f++)
+        {
+            var (left, right) = (0f, 0f);
+            for (var c = 0; c < from; c++)
+            {
+                left += s[f * from + c] * shares[c].L;
+                right += s[f * from + c] * shares[c].R;
+            }
+            if (channels == 1)
+                o[f] = (left + right) / 2;
+            else
+                (o[f * 2], o[f * 2 + 1]) = (left, right);
+        }
+        return new SoundSamples(o, sound.Rate, channels);
     }
 
     /// <summary>"Cut 3.18-5.00 s", "Fade out 7.00-8.00 s", "+3 dB" (the whole sound), "-3 dB 3.18-5.00 s": the new version's name.</summary>

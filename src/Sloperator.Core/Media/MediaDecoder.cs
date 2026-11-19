@@ -101,7 +101,23 @@ public interface IAudioOutput : IDisposable
 /// <summary>One decoder tried after another: the OS's first, ffmpeg for what it can't read.</summary>
 public sealed class FallbackDecoder(params IMediaDecoder[] decoders) : IMediaDecoder
 {
-    public MediaInfo? Probe(string path) => decoders.Select(d => Try(() => d.Probe(path))).FirstOrDefault(i => i is not null);
+    private static readonly string[] SoundFiles = [".mp3", ".wav", ".flac", ".m4a", ".aac", ".wma", ".ogg", ".oga", ".opus", ".aiff", ".aif"];
+
+    public MediaInfo? Probe(string path)
+    {
+        // A file the first reader finds only sound in may hold a picture the next can read (a video coded in a way
+        // Windows has no decoder for): only a sound file's own kind is taken as sound without asking on.
+        MediaInfo? first = null;
+        foreach (var decoder in decoders)
+        {
+            if (Try(() => decoder.Probe(path)) is not { } info)
+                continue;
+            if (info.HasVideo || SoundFiles.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+                return info;
+            first ??= info;
+        }
+        return first;
+    }
 
     public IVideoReader? OpenVideo(string path, int maxSide) => decoders.Select(d => Try(() => d.OpenVideo(path, maxSide))).FirstOrDefault(r => r is not null);
 

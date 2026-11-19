@@ -238,6 +238,9 @@ public static class VideoMontage
             chain.Add($"trim=duration={N(Math.Max(1.0 / fps, freeze))},setpts=PTS-STARTPTS");
         // A clip shorter than its shot holds its last frame; a longer one is cut.
         chain.Add($"tpad=stop_mode=clone:stop_duration={N(s)},trim=duration={N(s)},setpts=PTS-STARTPTS");
+        // At the width its pixels are meant to be shown at (a DVD's or a tape camcorder's aren't square): fitting goes by
+        // the pixels alone, and squeezed such a clip. Nothing is done to a clip of square pixels.
+        chain.Add("scale=trunc(iw*sar/2)*2:ih,setsar=1");
         // Labels of its own inside the graph, for a picture laid over a blurred copy of itself.
         var tag = new string(shot.Id.Where(char.IsAsciiLetterOrDigit).ToArray());
         chain.Add(shot.Fit switch

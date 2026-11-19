@@ -73,7 +73,7 @@ public sealed unsafe partial class MediaFoundationDecoder
             _options = options;
             _path = path;
             // HD pictures in BT.709, smaller ones in BT.601: what players take them for when a file doesn't say.
-            _hd = options.Height > 576 || options.Width > 1024;
+            _hd = !VideoColours.OldBySize(options.Width, options.Height);
             Check(MFCreateAttributes(out var attrs, 2));
             try
             {

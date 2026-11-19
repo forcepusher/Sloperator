@@ -88,13 +88,23 @@ public sealed partial class FfmpegDecoder(Func<IEnumerable<string>> searchFolder
         if (!video.Success && !audio.Success)
             return null;
         double fps = 0;
+        var (width, height) = (0, 0);
         if (video.Success)
         {
+            (width, height) = (int.Parse(video.Groups[1].Value), int.Parse(video.Groups[2].Value));
             // The frame rate comes later on the stream's line than its size.
             var end = text.IndexOf('\n', video.Index);
             var line = text[video.Index..(end < 0 ? text.Length : end)];
             if (Fps().Match(line) is { Success: true } f)
                 fps = double.Parse(f.Groups[1].Value, CultureInfo.InvariantCulture);
+            // The picture as it is shown: at the width its pixels are meant for (a DVD's or a tape camcorder's aren't
+            // square), and upright where a phone wrote it lying down and said how far to turn it. ffmpeg gives it turned.
+            if (PixelShape().Match(line) is { Success: true } shape && int.Parse(shape.Groups[1].Value) is var across and > 0 && int.Parse(shape.Groups[2].Value) is var down and > 0 && across != down)
+                width = Math.Max(2, (int)Math.Round(width * (double)across / down / 2) * 2);
+            var next = text.IndexOf("Stream #", video.Index + 8, StringComparison.Ordinal);
+            if (Turned().Match(text[video.Index..(next < 0 ? text.Length : next)]) is { Success: true } turn
+                && Math.Abs(Math.Round(double.Parse(turn.Groups[1].Value, CultureInfo.InvariantCulture))) % 180 == 90)
+                (width, height) = (height, width);
         }
         var channels = 0;
         if (audio.Success)
@@ -103,8 +113,8 @@ public sealed partial class FfmpegDecoder(Func<IEnumerable<string>> searchFolder
         {
             Duration = duration,
             HasVideo = video.Success,
-            Width = video.Success ? int.Parse(video.Groups[1].Value) : 0,
-            Height = video.Success ? int.Parse(video.Groups[2].Value) : 0,
+            Width = width,
+            Height = height,
             FrameRate = fps,
             HasAudio = audio.Success,
             SampleRate = audio.Success ? int.Parse(audio.Groups[1].Value) : 0,
@@ -233,6 +243,12 @@ public sealed partial class FfmpegDecoder(Func<IEnumerable<string>> searchFolder
 
     [GeneratedRegex(@"([\d.]+) (?:fps|tbr)")]
     private static partial Regex Fps();
+
+    [GeneratedRegex(@"\[SAR (\d+):(\d+)")]
+    private static partial Regex PixelShape();
+
+    [GeneratedRegex(@"rotation of (-?[\d.]+) degrees")]
+    private static partial Regex Turned();
 
     [GeneratedRegex(@"Stream #\S+.*?: Audio: .*?(\d+) Hz, ([^,]+)")]
     private static partial Regex AudioStream();

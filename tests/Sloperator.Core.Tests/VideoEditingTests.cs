@@ -97,7 +97,7 @@ public sealed class VideoEditingTests : IDisposable
         Assert.Contains("split[fas3][fbs3]", graph);
         Assert.Contains("unsharp=5:5:1.2:5:5:0,negate,format=yuv420p[v2]", graph);
         // Nothing asked for: as before.
-        Assert.Contains("[3:v]setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=2,trim=duration=2,setpts=PTS-STARTPTS,scale=640:360:force_original_aspect_ratio=increase,crop=640:360,setsar=1,fps=24,format=yuv420p[v3]", graph);
+        Assert.Contains("[3:v]setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=2,trim=duration=2,setpts=PTS-STARTPTS,scale=trunc(iw*sar/2)*2:ih,setsar=1,scale=640:360:force_original_aspect_ratio=increase,crop=640:360,setsar=1,fps=24,format=yuv420p[v3]", graph);
         Assert.Equal("cropped to 0,0.25 1x0.5, turned 90°, mirrored, whole over a blur, vignette grain", VideoEditorTool.Edits(board.Shots[0]));
         Assert.Null(VideoEditorTool.UnknownFields(System.Text.Json.Nodes.JsonNode.Parse("""{"shots": [{"id": "s1", "rotate": 90, "flip": "horizontal", "fit": "fit", "effects": ["blur"]}]}""")!.AsObject()));
     }

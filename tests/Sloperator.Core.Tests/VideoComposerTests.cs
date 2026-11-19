@@ -935,5 +935,56 @@ public sealed class VideoComposerTests : IDisposable
         }
         Assert.True(apart.Count == 0, string.Join("; ", apart));
     }
+
+    [Fact]
+    public async Task A_clip_whose_picture_cant_be_read_stops_the_join_with_the_reason()
+    {
+        // Such a clip was a stretch of black in the joined video, with a note after it.
+        var media = new MediaFoundationDecoder();
+        var board = Storyboard.Parse("""{"title": "Unread", "width": 320, "height": 180, "fps": 15, "shots": [{"id": "s1", "seconds": 1, "place": "Generated/s1.mp4"}, {"id": "s2", "seconds": 1, "place": "Generated/s2.mp4"}]}""");
+        board.Folder = _dir;
+        Clip(board.ShotVideo(board.Shots[0]), (200, 60, 60), 1, hz: 220);
+        File.WriteAllText(board.ShotVideo(board.Shots[1]), "not a video, whatever its name says");
+        var failed = await Assert.ThrowsAsync<VideoException>(() => VideoMontage.JoinAsync(board, null, media, null, TestContext.Current.CancellationToken));
+        Assert.StartsWith("Shot s2's clip can't be joined: s2.mp4 holds no picture this Windows can read. ffmpeg in", failed.Message);
+        Assert.False(File.Exists(board.VideoFile));
+    }
+
+    [Fact]
+    public async Task A_clip_of_one_channel_made_an_mp4_here_is_as_loud_in_the_join_as_one_taken_as_it_is()
+    {
+        if (new FfmpegDecoder(() => []).Program is not { } ffmpeg)
+        {
+            Assert.Skip("No ffmpeg on this PC.");
+            return;
+        }
+        // The same sound in one channel as an MP4 (taken as it is) and as an MKV (read and written again, in two channels).
+        var media = new MediaFoundationDecoder();
+        var ct = TestContext.Current.CancellationToken;
+        var board = Storyboard.Parse("""{"title": "Loud", "width": 320, "height": 180, "fps": 15, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "file": "one.mp4"}, {"id": "s2", "seconds": 2, "file": "one.mkv"}]}""");
+        board.Folder = _dir;
+        Directory.CreateDirectory(board.ReferencesFolder);
+        foreach (var name in (string[])["one.mp4", "one.mkv"])
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(ffmpeg) { UseShellExecute = false, RedirectStandardError = true, CreateNoWindow = true };
+            foreach (var a in (string[])["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+                         "-t", "2", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "1", Path.Combine(board.ReferencesFolder, name)])
+                start.ArgumentList.Add(a);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            await process.WaitForExitAsync(ct);
+        }
+        Assert.True(VideoMaker.TakeClip(board, board.Shots[0]));
+        Directory.CreateDirectory(Path.GetDirectoryName(board.ShotVideo(board.Shots[1]))!);
+        VideoComposer.Transcode(Path.Combine(board.ReferencesFolder, "one.mkv"), board.ShotVideo(board.Shots[1]), media, null, ct);
+        var joined = (await VideoMontage.JoinAsync(board, null, media, null, ct)).File;
+        using var audio = media.OpenAudio(joined)!;
+        var sound = SoundEdit.Read(audio);
+        double Loud(double from, double to)
+        {
+            var (a, b) = ((int)(from * sound.Rate) * sound.Channels, (int)(to * sound.Rate) * sound.Channels);
+            return Math.Sqrt(sound.Samples[a..b].Sum(s => (double)s * s) / (b - a));
+        }
+        Assert.InRange(Loud(2.3, 3.7) / Loud(0.3, 1.7), 0.93, 1.07);
+    }
 #endif
 }

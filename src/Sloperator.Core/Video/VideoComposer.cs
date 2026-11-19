@@ -79,6 +79,14 @@ public static class VideoComposer
         var missing = board.Shots.Where(s => !File.Exists(board.ShotVideo(s))).Select(s => s.Id).ToList();
         if (missing.Count > 0)
             throw new VideoException($"These shots have no clip yet: {string.Join(", ", missing)}. Make them first.");
+        // A clip whose picture can't be read at all (a phone's HEVC where Windows has no decoder for it) would be a
+        // stretch of black in the video: said now, with what would read it, instead.
+        foreach (var shot in board.Shots)
+        {
+            using var readable = decoder.OpenVideo(board.ShotVideo(shot), 64);
+            if (readable is null)
+                throw new VideoException($"Shot {shot.Id}'s clip can't be joined: " + MediaDecoders.WhyNoPicture(board.ShotVideo(shot), decoder));
+        }
         var clock = Stopwatch.StartNew();
         var (_, length) = board.Timing();
         var (width, height, fps) = (board.Width, board.Height, Math.Max(1, board.Fps));
@@ -243,7 +251,7 @@ public static class VideoComposer
     /// </summary>
     public static void Transcode(string source, string output, IMediaDecoder decoder, Action<string>? progress, CancellationToken ct, int? width = null, int? height = null, string doing = "Reading the video")
     {
-        using var reader = decoder.OpenVideo(source, 0) ?? throw new VideoException($"{Path.GetFileName(source)} can't be read on this PC without ffmpeg.");
+        using var reader = decoder.OpenVideo(source, 0) ?? throw new VideoException(MediaDecoders.WhyNoPicture(source, decoder));
         var fps = Math.Clamp((int)Math.Round(reader.FrameRate > 0 ? reader.FrameRate : 30), 1, 120);
         var (w, h) = SizeFor((reader.Width, reader.Height), width, height);
         float[]? sound = null;
@@ -251,7 +259,15 @@ public static class VideoComposer
         {
             using var audio = decoder.OpenAudio(source);
             if (audio is not null)
-                sound = SoundEdit.Convert(SoundEdit.Read(audio), VideoSoundMix.Rate, VideoSoundMix.Channels).Samples;
+            {
+                var heardAs = SoundEdit.Read(audio);
+                sound = SoundEdit.Convert(heardAs, VideoSoundMix.Rate, VideoSoundMix.Channels).Samples;
+                // One channel put on both sides is as loud as it was only at 0.707 of itself on each: what a join makes
+                // of a clip of one channel, and this clip is of two from here on.
+                if (heardAs.Channels == 1)
+                    for (var i = 0; i < sound.Length; i++)
+                        sound[i] *= 0.70710678f;
+            }
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException) { }
         using var writer = decoder.Write(output, new MediaWriterOptions(w, h, fps, Sound: sound is not null)) ?? throw new VideoException("The video can't be written on this PC: Windows gave no H.264 encoder.");

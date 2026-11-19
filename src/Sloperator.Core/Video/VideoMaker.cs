@@ -317,7 +317,17 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         {
             var picture = !Storyboard.IsVideoFile(source);
             if (!picture && Path.GetExtension(source).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+            {
+                // An MP4 is taken as it is, so one whose picture nothing here reads (a phone's HEVC where Windows has
+                // no decoder for it and there is no ffmpeg) is said now, not found black in the joined video.
+                if (media is not null)
+                {
+                    using var readable = media.OpenVideo(source, 64);
+                    if (readable is null)
+                        throw new VideoException(MediaDecoders.WhyNoPicture(source, media));
+                }
                 File.Copy(source, temp, overwrite: true);
+            }
             else if (ffmpeg is null)
             {
                 // No ffmpeg: a picture held, or another kind of video read and written again, with what the PC has.

@@ -2406,8 +2406,8 @@ only when it is null.
 
 - **The writer** (`IMediaWriter`, `MediaFoundationDecoder.Write` in `MediaFoundationWriter.cs`): Media
   Foundation's Sink Writer through its vtable, like the reader. H.264 High in an MP4, AAC at 192 kbit/s (the most
-  the encoder makes), stereo 48 kHz. Frames go in as NV12, converted from BGRA here (BT.709 above 576 lines,
-  BT.601 below, 16 to 235; two rows at a time on all cores), because the writer's own RGB input came out with
+  the encoder makes), stereo 48 kHz. Frames go in as NV12, converted from BGRA here (BT.709 from 1280 wide or
+  above 576 lines, BT.601 below, 16 to 235; two rows at a time on all cores), because the writer's own RGB input came out with
   whatever matrix the converter picked. Two encoder settings matter, passed with the input type:
   `CODECAPI_AVEncMPVDefaultBPictureCount` 0, since with B-frames the file's first frame read back at 0.033 s (one
   frame late, behind its sound, and a clip cut from it a frame off); and rate control by quality
@@ -2574,9 +2574,9 @@ always been skipped on the laptop ran and passed, and the built-in join could be
 frame (`enc pairs`, `enc curve` in the rig): the same storyboard joined both ways, each transition looked at a
 third and two thirds through.
 
-- **Reading ffmpeg's file**: through Windows' reader its first frame is at 0.133 s, not 0 (x264's frames lean on
-  later ones and the reader doesn't take the file's edit list), so the comparison reads ffmpeg's file that much
-  later. Ours has no such frames and starts at 0.
+- **Reading ffmpeg's file**: through Windows' reader its first frame was at 0.133 s, not 0 (x264's frames lean on
+  later ones and the reader gets the file's edit list wrong), so the comparison read ffmpeg's file that much
+  later. Ours has no such frames and starts at 0. (Put right in the reader the day after: see "Awkward files".)
 - **What was wrong here and is put right** (all in `VideoPreviewer.Transitions.cs`, each rule now xfade's own,
   worked out on a 96x54 grid and smoothed over the frame: `Field`): the diagonal wipes went the other way
   ("diagtl" ends in the top left, so the new picture starts bottom right); the blinds came from the wrong side
@@ -2618,6 +2618,112 @@ third and two thirds through.
   sharpening, a clip at double speed and one reversed in the frame. `The_video_joined_here_is_the_one_ffmpeg_joins`
   holds 13 of them to 6 of 255 wherever there is an ffmpeg. ffmpeg joined the 19 s demo in 3 s where the
   built-in path takes 11, at two thirds of the size.
+
+### Awkward files: a video read as a player shows it
+Every file the reader had met until 2026-11-20 was one Sloperator or a model had made. So 87 awkward ones were
+made with ffmpeg (`.dev\three-techs-test\inputs.ps1`: a picture said to be turned, twelve frame rates and an
+uneven one, eleven sizes, pixels that aren't square, colour written each way, fifteen kinds of coding and
+container, twelve sound layouts, clips of one and three frames, a clock that starts at ten seconds), with files
+whose picture turns white and whose sound beeps at exactly one second (`sync.ps1`) and patches of eight known
+colours (`colours.ps1`). Each was read with Windows alone and put beside ffmpeg's reading (`enc inputs`,
+`enc sync`, `enc patches`, `enc jumps`), then joined both ways as the second clip of a video (`enc awkward`).
+What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless said:
+
+- **The picture behind the sound.** The white frame against the beep, before and after:
+
+  | file | before | after |
+  | --- | --- | --- |
+  | MP4 or MOV with frames that lean on later ones (x264's usual; 30 fps) | +109 ms | -3 ms |
+  | the same at 24 fps | +143 ms | -3 ms |
+  | the same at 60 fps | +43 ms | -3 ms |
+  | MP4 without such frames, MKV | -24 ms | -3 ms, -24 ms |
+  | MP4 whose clock starts at 10 s | first frame at 10.0 s | -3 ms, first frame at 0.02 |
+  | broadcast stream (.ts) | +1255 ms | -3 ms |
+  | WMV | +50 ms | -3 ms |
+
+  Media Foundation adds an MP4's edit (the two frames a clip with such frames starts into its own track) where
+  it should take it off, so the first frame came at 0.133 s; it leaves in the 21 ms of nothing an AAC encoder
+  starts with; and a stream's two tracks each start where they start. Every video the app plays or joins without
+  ffmpeg had this, ffmpeg's own output included. Now a file's first frame and first sample are read once
+  (`Measure`, kept by path, size and write time in `Origins`), an MP4's own edit list is read from its index
+  (`Mp4Tracks`: each track's empty edit, where in the track the film begins, the first frame's offset), and
+  every time is set on the film's clock from that (`Origin`): the picture starts where the edit list says, the
+  sound loses the encoder's start or gets silence where it starts after the picture, the length is the film's.
+  A file with no edit list keeps the times its tracks have to each other, the earlier one at nought.
+- **Turned**: the track's header says how far a phone's picture is to be turned (`MF_MT_VIDEO_ROTATION`), and the
+  video processor does turn it, but into the frame asked for, which was the lying one: an upright video came out
+  small with black beside it. The size is asked for turned, and turned and upright are asked for outright (the
+  processor is otherwise left out when the size is the decoder's own, and a picture said to be upside down
+  stayed so).
+- **Squeezed**: `MF_MT_PIXEL_ASPECT_RATIO` (16:15 on a DVD's 720x576, 4:3 on a tape camcorder's 1440x1080) is now
+  the width asked for, with square pixels.
+- **Every second frame of an MKV**: its source said 15 frames a second for a video of 30, and the processor made
+  it so by dropping frames. It is told to pass frames on as they come (`MF_XVP_DISABLE_FRC`, through
+  `IMFSourceReaderEx`), and a rate that is half or twice what the first frames show is taken from the frames.
+- **Sound at twice the speed**: an AAC at 22 kHz is first said to be at 44, and says what it is with its first
+  decoded sample (`MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED`). The first sample is read when the file is opened,
+  and again when it is opened anew.
+- **A hang**: H.264 in ten bits or with colour at full detail (profiles 110, 122, 244) is taken by Windows'
+  decoder, which then never gives a frame; the reader, and whatever called it, waited for good. The profile is
+  on the file's type (`MF_MT_MPEG2_PROFILE`), and such a file is refused before anything is read.
+- **Jumps**: a clip's last frames lie past the length the file states (by the same edit), and a jump there
+  failed with `MF_E_INVALID_POSITION`; it goes to just before the end and reads on. Past the end there is no
+  frame, and no throw. A broadcast stream is jumped in by guessing, and the frames found were named by times
+  they don't have (a white frame as the one at 0.25 s): such a file (`IsBroadcast`: 0x47 every 188 bytes) is
+  only read onwards, from its start again to go back. A sound in an MP4 starts at the packet after the place
+  asked for, up to 21 ms late: the jump is made 100 ms early and what is before the place left out by its
+  times; one that lands past the place (an MP4 whose clock starts late landed 1.6 s on) or back at the very
+  start (a file in fragments, an MKV) is counted from the start instead. After this every jump in the nine
+  containers tried gives the sound to the sample (`enc jumps`). A jump in the picture still gives the frame
+  nearest the time, not the one showing then: half a frame at most, and ffmpeg's own frame rate filter rounds
+  the same way.
+- **A file in fragments** (a browser's recording, a stream saved) states no length: its tracks' last fragments
+  are read for it (`Mp4Tracks`, `moof`/`tfdt`/`trun`).
+- **Colours.** How far the eight patches came out from the colours they were made of (largest of 255):
+
+  | written as | before | after | ffmpeg |
+  | --- | --- | --- | --- |
+  | older standard (BT.601), HD | 25 | 1 to 3 | 2 to 3 |
+  | older standard, 640x480, said so | 25 | 1 to 3 | 2 to 3 |
+  | newer standard (BT.709), 640x480 | 29 | 4 to 5 | 4 to 6 |
+  | newer standard, HD | 4 to 5 | 4 to 5 | 4 to 6 |
+
+  The processor's own red, green and blue took a video that says it is in the older standard in the newer one
+  at any size, and a small one that says the newer in the older. So frames are asked for as the decoder has
+  them (NV12), which the processor hands on with their colours untouched, and made red, green and blue here
+  (`ToBgra`: fixed point, the colour values spread between their neighbours, a large frame on every core) by
+  what the file says: an H.264 video's own header (`VideoColours.OfH264`, read out of the MP4's `avcC`), else
+  the MP4's note (`colr`), else by size as players do (under 1280 wide and at most 576 high: the older), a
+  Motion JPEG over the whole range in the older, a WMV in the older as Windows itself has it. The range is
+  the one thing the processor does change: a video its decoder knows to run over the whole range arrives
+  brought down to TV's when the processor is in the way, and as coded when it isn't (`_processed`). Straight
+  from the decoder a picture comes in whole blocks of 16 (1920x1088), cut here to the size asked for. Reading
+  got faster by it: 90 frames of 720p in 0.6 s where it was 1.1, of 1080p in 1.2 for 2.4. The writer goes by
+  the same size rule for what it writes.
+- **ffmpeg's side** had two of these too: its reader (`FfmpegDecoder.ParseProbe`) took a file's stored size,
+  so a turned or squeezed video it read (a phone's HEVC, which Windows doesn't) came out squashed; and the
+  join's fitting goes by pixels alone, so a squeezed clip stayed squeezed (`ShotPicture` now makes the pixels
+  square first: `scale=trunc(iw*sar/2)*2:ih,setsar=1`, nothing for a clip that has them so). And a file Windows
+  finds only sound in (`FallbackDecoder.Probe`) is now asked of ffmpeg too, unless it is a sound file by its
+  name: an HEVC video was "sound, 3 s" with ffmpeg sitting there.
+- **Sound in a join without ffmpeg**: a clip in 5.1 kept its first two channels, so a film lost its speech,
+  which is in the third. `SoundEdit.Fold` folds as ffmpeg does in a join: the centre and the back channels at
+  0.707 to their sides, the deep bass left out, nothing brought down. A clip of one channel that is read and
+  written again as an MP4 (an MKV, a WMV) was 3 dB louder than one taken as it is; `Transcode` writes it at
+  0.707 a side.
+- **What can't be read is said**: a clip whose picture nothing here reads was 45 black frames in the joined
+  video and a note. The join stops instead, and so does taking such an MP4 as a clip, with
+  `MediaDecoders.WhyNoPicture`: what the file is coded as, by its own index or its name, and what would read
+  it (ffmpeg in `SloperatorData\tools`, and Microsoft's own extension where there is one). On the laptop
+  (Windows 10 LTSC, nothing added) Windows reads no HEVC, VP8, VP9, AV1, MPEG-2 or ProRes picture, no FLV, and
+  no Ogg, Opus or AIFF sound; AC-3 and Opus sound in an MP4 come out as no sound.
+- **Left as it is**: H.264 in an MKV or a stream has its colours by size alone (its header isn't read there);
+  a file in fragments keeps the encoder's 21 ms at the start of its sound.
+
+Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
+`MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's
+matrix; and, where there is an ffmpeg to make the files, picture against sound in six containers, MKV, squeezed,
+22 kHz, ten bits, colours five ways).
 
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by

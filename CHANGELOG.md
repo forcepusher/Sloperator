@@ -110,6 +110,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
   chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
   has them upright.
+- **Most videos played with the picture a little behind the sound** (about a tenth of a second, in the chat's
+  player, the Video editor and a video joined without ffmpeg): any MP4 or MOV that didn't come straight from a
+  phone. The two are together now, in MKV, WMV and broadcast (.ts) files too.
+- **A phone video filmed upright is upright at its own size.** It was shown small, in the middle of a wide black frame.
+- A DVD's or an old camcorder's video is shown at its real width, not squeezed.
+- An MKV video lost every second frame and played jerkily.
+- **Colours of some videos were a little off**: reds too orange, greens too dark in videos written in the older
+  colour standard (many Android phones' videos, DVDs, most small videos). They are read as the file says now.
+- A video with low-quality sound (22 kHz AAC) played its sound twice as fast and high.
+- A video in 10-bit H.264 froze whatever tried to show it. It now says it can't be read, and why.
+- A clip in 5.1 surround lost its speech in a video joined without ffmpeg; all its channels are mixed in now.
+- **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
+  clip is (a phone's HEVC, a web video's VP9) and what would read it.
+- Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.
 
 ## [1.5.1] - 2026-11-17
 ### Changed
