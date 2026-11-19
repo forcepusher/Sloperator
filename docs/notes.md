@@ -2323,10 +2323,11 @@ of a look, a turn, a title or a transition was seen until the video was joined a
   through black or white, a wipe, slide, cover, reveal or smooth one comes in as a wipe from the left, a circle or
   clock as a growing circle, any other as a dissolve. Over that the titles and pictures (the same `VideoOverlays.Words`
   and `Picture` the joined video's are drawn with, at this size, kept by what they say), fading and sliding in as
-  joined, the captions when they are on, and the video's own fades. Not shown: a scene or a video over the video, a
-  keyed picture. All with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
-- **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a clip, three at most (the clip
-  under the playhead, the one before it in a transition, one more), kept by the file and when it was written. Playing
+  joined, a video laid over the video (picture in picture) at its own frame in its box, the captions when they are
+  on, and the video's own fades. Not shown: a scene over the video, a
+  keyed picture or video (a green screen). All with Skia, at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop.
+- **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a file, five at most (the clip
+  under the playhead, the one before it in a transition, a video or two over them; five), kept by the file and when it was written. Playing
   on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
   three seconds after the last frame asked for while nothing plays (`RestPreview`), and at once when a clip is about
   to be copied, moved or made again (`DropViewer`, and `LetGo` for the chat's `MediaRelease`), so the files aren't

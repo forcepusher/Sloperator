@@ -190,4 +190,23 @@ public sealed class VideoPreviewerTests : IDisposable
         Assert.Equal(200, At(wipe, 0.3, 0.6).G);
         Assert.Equal(100, At(wipe, 0.8, 0.6).G);
     }
+
+    [Fact]
+    public void A_video_laid_over_the_video_plays_in_its_box()
+    {
+        var board = Video("""
+            {"width": 640, "height": 320, "fps": 10, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 4, "file": "a.mp4"}],
+             "overlays": [{"id": "o1", "file": "inset2.mp4", "position": "bottom right", "start": 1, "seconds": 2}]}
+            """);
+        Directory.CreateDirectory(board.ReferencesFolder);
+        File.WriteAllText(Path.Combine(board.ReferencesFolder, "inset2.mp4"), "");
+        using var preview = new VideoPreviewer(new Clips(), 80);
+        // Before it starts: the clip alone. While it shows: the other video's own colour in the bottom right corner, at its own frame.
+        Assert.Equal(100, At(preview.FrameAt(board, 0.5)!, 0.85, 0.85).G);
+        var with = preview.FrameAt(board, 1.5)!;
+        Assert.Equal(200, At(with, 0.85, 0.85).G);
+        Assert.Equal(5, (int)Math.Round(At(with, 0.85, 0.85).B / 5.0));
+        Assert.Equal(100, At(with, 0.3, 0.3).G);
+        Assert.Equal(100, At(preview.FrameAt(board, 3.5)!, 0.85, 0.85).G);
+    }
 }

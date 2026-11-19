@@ -12,7 +12,7 @@ namespace Sloperator.Core.Video;
 /// Skia at a small size and at once, so the playhead shows a frame as it is moved and Play shows the clips, where
 /// the panel showed each clip's first picture and nothing of an edit until the video was joined again. A look at
 /// it, not the video itself: a wipe, a slide or a clock comes in as a wipe from the left, grain and sharpening
-/// aren't drawn, a picture's colour is keyed out by ffmpeg alone, and a scene or a video over the video isn't shown.
+/// aren't drawn, and a scene over the video and a keyed picture or video (a green screen) aren't shown.
 /// </summary>
 public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : IDisposable
 {
@@ -41,8 +41,8 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
 
     private long _clock;
 
-    /// <summary>The most readers kept open: the clip under the playhead, the one before it in a transition, and one more.</summary>
-    private const int MostSources = 3;
+    /// <summary>The most readers kept open: the clip under the playhead, the one before it in a transition, a video or two over them, and one more.</summary>
+    private const int MostSources = 5;
 
     /// <summary>The size the video is drawn at: its shape, <paramref name="maxSide"/> along its longer side at most.</summary>
     public static (int Width, int Height) SizeFor(Storyboard board, int maxSide)
@@ -309,6 +309,26 @@ public sealed class VideoPreviewer(IMediaDecoder decoder, int maxSide = 640) : I
             if (shows <= 0.01 || seconds < start || seconds >= start + shows)
                 continue;
             var words = o.Text.Trim().Length > 0 && o.File is null && o.Scene is null;
+            // A video over the video (picture in picture): its own frame then, playing round when it is shorter, in its box.
+            if (!words && o.Scene is null && o.Key is null && o.File is { } name && board.FindFile(name) is { } clip && Storyboard.IsVideoFile(clip))
+            {
+                if (SourceOf(clip) is { } source && source.Reader.Duration.TotalSeconds is > 0 and var runs && Read(source, (seconds - start) % runs) is { } frame)
+                {
+                    var (place, ax, ay, _) = VideoOverlays.Place(o.Position, false);
+                    var box = o.Box ?? place;
+                    var (bw, bh) = (Math.Max(2, box.Width * width), Math.Max(2, box.Height * height));
+                    var scale = Math.Min(bw / frame.Width, bh / frame.Height);
+                    var (w, h) = (frame.Width * scale, frame.Height * scale);
+                    var within = seconds - start;
+                    var (fi, fo) = (Math.Min(o.FadeIn ?? 0, shows / 2), Math.Min(o.FadeOut ?? 0, shows / 2));
+                    var a = (o.Opacity ?? 1) * (fi > 0 && within < fi ? within / fi : 1) * (fo > 0 && within > shows - fo ? (shows - within) / fo : 1);
+                    using var over = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(a, 0, 1))) };
+                    using var still = SKImage.FromBitmap(frame);
+                    canvas.DrawImage(still, SKRect.Create((float)(box.X * width + (bw - w) * ax), (float)(box.Y * height + (bh - h) * ay), (float)w, (float)h),
+                        new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None), over);
+                }
+                continue;
+            }
             if (Drawn(board, o, words, width, height) is not { } picture)
                 continue;
             var fadeIn = Math.Min(o.FadeIn ?? (words ? 0.3 : 0), shows / 2);
