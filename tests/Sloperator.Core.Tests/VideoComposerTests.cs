@@ -342,6 +342,9 @@ public sealed class VideoComposerTests : IDisposable
         Assert.True(media.Writes);
         var file = Path.Combine(_dir, "written ü.mp4");
         Clip(file, (200, 60, 30), 2, hz: 440);
+        // Its index is at the file's start, so it plays while it still loads; moving it again finds nothing to do.
+        Assert.True(Mp4Index.IsFirst(file));
+        Assert.False(Mp4Index.MoveFirst(file));
         var info = media.Probe(file);
         Assert.NotNull(info);
         Assert.Equal((320, 180), (info.Width, info.Height));
@@ -550,6 +553,53 @@ public sealed class VideoComposerTests : IDisposable
         Assert.InRange(clip.Duration.TotalSeconds, 2.9, 3.1);
         using var video = media.OpenVideo(held, 0)!;
         Assert.InRange(Middle(video.Next()!.Value.Frame).G, 170, 190);
+    }
+
+    [Fact]
+    public async Task One_video_file_is_cut_turned_and_made_a_gif_in_one_call_each_and_stays_as_it_was()
+    {
+        var media = new MediaFoundationDecoder();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir, "mine.mp4");
+        Clip(source, (200, 0, 0), 4, hz: 330);
+        var before = File.ReadAllBytes(source);
+        var ctx = new Tools.ToolContext
+        {
+            Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, ScratchDirectory = Path.Combine(_dir, "scratch"),
+            Media = media, Comfy = Comfy.ComfyHub.For(Path.Combine(_dir, ".comfy")),
+        };
+        async Task<string> Edit(string json, string? output = null)
+        {
+            var args = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(json)!;
+            args["action"] = "edit";
+            args["path"] = source;
+            if (output is not null)
+                args["output"] = output;
+            var result = await new Tools.VideoEditorTool().ExecuteAsync(args, ctx, ct);
+            Assert.False(result.IsError, result.Text);
+            return result.Text;
+        }
+        // From 1 s, for 2 s: half as long, its own size and rate, its sound with it.
+        var cut = Path.Combine(_dir, "cut.mp4");
+        Assert.Contains(cut, await Edit("""{"storyboard": {"in": 1, "seconds": 2}}""", cut));
+        var info = media.Probe(cut)!;
+        Assert.Equal((320, 180, true), (info.Width, info.Height, info.HasAudio));
+        Assert.InRange(info.Duration.TotalSeconds, 1.9, 2.15);
+        // Turned a quarter: upright, at twice the speed, so half as long. No output given: beside the file, under a name of its own.
+        await Edit("""{"storyboard": {"rotate": 90, "speed": 2}}""");
+        var turned = media.Probe(Path.Combine(_dir, "mine edited.mp4"))!;
+        Assert.Equal((180, 320), (turned.Width, turned.Height));
+        Assert.InRange(turned.Duration.TotalSeconds, 1.9, 2.15);
+        // A GIF half the size.
+        var gif = Path.Combine(_dir, "small.gif");
+        await Edit("""{"width": 160, "storyboard": {"seconds": 1}}""", gif);
+        using (var codec = SKCodec.Create(gif))
+            Assert.Equal((160, 90, 15), (codec.Info.Width, codec.Info.Height, codec.FrameCount));
+        // The file itself is never written over, and nothing is left in the scratch folder.
+        Assert.Equal(before, File.ReadAllBytes(source));
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_dir, "scratch", "video-edit")));
+        await Assert.ThrowsAsync<Tools.ToolArgumentException>(() =>
+            new Tools.VideoEditorTool().ExecuteAsync(new System.Text.Json.Nodes.JsonObject { ["action"] = "edit", ["path"] = source, ["output"] = source }, ctx, ct));
     }
 #endif
 }

@@ -16,7 +16,7 @@ namespace Sloperator.Core.Tools;
 /// a sheet of its frames: the model that made a clip judged its own too kindly (four bunnies it
 /// called mature and true to the sheet, which the user saw as a chubby teenager).
 /// </summary>
-public sealed class VideoEditorTool : Tool
+public sealed partial class VideoEditorTool : Tool
 {
     public override string Name => "video";
 
@@ -29,13 +29,15 @@ public sealed class VideoEditorTool : Tool
         "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
         "action=join puts the video together; action=export saves the joined video as another file (output: .mp4, .webm, .mov, .gif, or .mp3 for its sound; width/height); " +
         "action=check looks at a piece or the whole video; action=models lists the installed models. " +
+        "action=edit changes one video file in one call, with no storyboard: path is the file, storyboard a shot's fields for what to do to it " +
+        "({\"in\": 3, \"seconds\": 5} cuts it, speed, reverse, rotate, flip, crop, color, effects, volume), output the new file (.mp4, .gif, or .wav for its sound), width/height its size. " +
         "It edits as a video editor does, all in the storyboard: a shot can be the user's own video or picture (file) or an SVG or Three.js scene (scene), trimmed (in), " +
         "sped up or slowed (speed), reversed, frozen, cropped, zoomed or panned, coloured, with any of 40 transitions; titles, captions, logos and picture in picture go in overlays; sounds fade in and out.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "check", "models"), true),
+        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "edit", "check", "models"), true),
         ("path", Str("The video's folder (or the name of a video in the videos folder); a new video's folder for action=storyboard"), false),
         ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound)"), false),
         ("storyboard", new JsonObject { ["type"] = "object", ["description"] = "action=storyboard: the storyboard, or the parts of it to change (frames and shots by id)" }, false),
@@ -62,6 +64,7 @@ public sealed class VideoEditorTool : Tool
             "sound" => $"Make sound {id}",
             "join" => "Join the video",
             "export" => $"Export the video" + (GetString(args, "output") is { Length: > 0 } o ? $" to {Path.GetFileName(o)}" : ""),
+            "edit" => $"Edit {Path.GetFileName(GetString(args, "path") ?? "a video")}" + (GetString(args, "output") is { Length: > 0 } to ? $" into {Path.GetFileName(to)}" : ""),
             "check" => id is null ? "Check the video" : $"Check {id}",
             "models" => "List the installed models for videos",
             "guide" => "Read the storyboard guide",
@@ -89,6 +92,8 @@ public sealed class VideoEditorTool : Tool
                 _guideShown = ctx.ContextResets;
                 return new ToolResult(Guide());
             }
+            if (action is "edit" or "convert" or "cut" or "trim")
+                return await EditFileAsync(args, ctx, ct).ConfigureAwait(false);
             _note = args["storyboard"] is JsonObject given ? UnknownFields(given) : null;
             var board = LoadOrCreate(args, ctx, create: action == "storyboard");
             _lastFolder = board.Folder;
@@ -106,7 +111,7 @@ public sealed class VideoEditorTool : Tool
                 "join" or "montage" => await JoinAsync(board, ctx, ct).ConfigureAwait(false),
                 "export" => await ExportAsync(board, args, ctx, ct).ConfigureAwait(false),
                 "check" => await CheckAsync(board, GetString(args, "id"), ctx, ct).ConfigureAwait(false),
-                _ => throw new ToolArgumentException("action must be guide, storyboard, frame, shot, sound, join, export, check or models."),
+                _ => throw new ToolArgumentException("action must be guide, storyboard, frame, shot, sound, join, export, edit, check or models."),
             };
             return _note is { } note ? result with { Text = note + result.Text } : result;
         }

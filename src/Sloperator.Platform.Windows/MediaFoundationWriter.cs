@@ -57,6 +57,7 @@ public sealed unsafe partial class MediaFoundationDecoder
     {
         private nint _writer;
         private readonly MediaWriterOptions _options;
+        private readonly string _path;
         private readonly uint _video;
         private readonly uint _audio;
         private readonly bool _hd;
@@ -70,6 +71,7 @@ public sealed unsafe partial class MediaFoundationDecoder
             if (!Started.Value)
                 throw new COMException("Media Foundation is not available (an N edition of Windows without its Media Feature Pack?).");
             _options = options;
+            _path = path;
             // HD pictures in BT.709, smaller ones in BT.601: what players take them for when a file doesn't say.
             _hd = options.Height > 576 || options.Width > 1024;
             Check(MFCreateAttributes(out var attrs, 2));
@@ -300,11 +302,15 @@ public sealed unsafe partial class MediaFoundationDecoder
 
         public void Finish()
         {
-            ObjectDisposedException.ThrowIf(_writer == 0, this);
             if (_finished)
                 return;
+            ObjectDisposedException.ThrowIf(_writer == 0, this);
             _finished = true;
             Check(((delegate* unmanaged[Stdcall]<nint, int>)Slot(_writer, 11))(_writer));
+            // The file is closed, then its index moved to its start, so it plays while it still loads (ffmpeg's +faststart).
+            Release(_writer);
+            _writer = 0;
+            Mp4Index.MoveFirst(_path);
         }
 
         public void Dispose()

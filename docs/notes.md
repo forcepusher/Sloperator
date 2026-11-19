@@ -2440,13 +2440,26 @@ Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo
 transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
 picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
 
-Not done: the index at the file's start (for playing while it downloads; moving the `moov` box after the fact
-would do it), a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
+The index is moved to the file's start once the file is closed (`Mp4Index.MoveFirst`: the `moov` box before
+`mdat`, every `stco`/`co64` offset moved on by its size), which is ffmpeg's `+faststart`: a video sent to a chat or
+put on a page plays while it still loads.
+
+**One file edited in one call** (`video` action=edit, `VideoEditorTool.File.cs`): "trim this clip", "make a GIF of
+it", "turn it upright" took a storyboard, a shot, a join and an export (four calls, and a video folder the user
+never asked for), or ffmpeg in a shell. Now the file is one shot of a video made in the scratch folder
+(`scratch\video-edit\<id>`, deleted after), with the shot's own fields for what to do to it, joined and saved
+where asked: so a file is cut, turned, sped up or coloured exactly as a clip in a video is, with no code of its
+own. Its size and rate are the file's (turned when it is turned, the shape of its crop) unless a size is given;
+its length what is left of it from its trim at its speed. The file itself is never written over. Costs 70
+tokens of the tool's description.
+
+Not done: a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
 never came), and making the built-in path the only one so the viewer and the file can't differ.
 
 Checked: VideoComposerTests (the mix by level, tempo keeping pitch, the key, a file written and read back, a
 real join with a dissolve, a wipe, a turned negative clip and a keyed picture, an SVG to MP4 and GIF and laid
-over a video as frames, exports and a held picture), all against Windows' own encoder.
+over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
+GIF through the tool), all against Windows' own encoder.
 
 ### How videos did
 On this PC (RTX 5070 Ti 16 GB, ComfyUI 0.41.3), at 1280x720 and 24 fps: a frame from words took

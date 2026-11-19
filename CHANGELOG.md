@@ -74,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
   used when it is there; only a WebM, a MOV or an MP3 needs it.
 - **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Quick edits of a video file.** Ask to trim a video, turn it upright, speed it up, crop it, make it a GIF or
+  half the size, and the agent does it in one step, without making a video in the Video editor for it. Your file
+  stays as it was; the result is a new file beside it.
 - The Video editor's viewer shows every transition as it will look (a wipe from its own side, slides, circles, a
   clock's hand, blinds and the rest), film grain, sharpening, a green screen taken out, and, once the video has
   been made, a scene laid over it.
