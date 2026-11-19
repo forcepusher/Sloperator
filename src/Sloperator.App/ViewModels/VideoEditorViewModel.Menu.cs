@@ -785,12 +785,30 @@ public sealed partial class VideoEditorViewModel
 
     // ---- a sound dragged on its sound line ----------------------------------------------------------------------
 
-    /// <summary>A sound moved along its sound line or to another, or trimmed at an edge, as a video editor's clip is; saved once let go.</summary>
-    public void MoveSound(SoundItem item, double start, int soundLine, double trim, double seconds)
+    /// <summary>
+    /// A sound moved along its sound line or to another ("move"), or trimmed at an edge ("left", "right"), as a video
+    /// editor's clip is; saved once let go. The edge dragged lands on a clip's start, the video's end or the playhead
+    /// when it is near one (<see cref="Land"/>), else on a tenth of a second.
+    /// </summary>
+    public void MoveSound(SoundItem item, double start, int soundLine, double trim, double seconds, string mode = "move")
     {
         var sound = item.Sound;
-        (sound.Start, sound.SoundLine, sound.Trim, sound.Seconds) =
-            (Math.Max(0, Math.Round(start * 10) / 10), Math.Clamp(soundLine, 0, _board.SoundLines - 1), Math.Max(0, Math.Round(trim * 10) / 10), Math.Max(0, Math.Round(seconds * 10) / 10));
+        switch (mode)
+        {
+            case "left":
+                // Its start cut: what it loses at the start it loses of its length, and its trim grows by as much.
+                var landed = Math.Max(0, Land(start).Seconds);
+                (trim, seconds, start) = (Math.Max(0, trim + (landed - start)), seconds > 0 ? Math.Max(0.2, seconds - (landed - start)) : seconds, landed);
+                break;
+            case "right":
+                seconds = Math.Max(0.2, Land(start + seconds).Seconds - start);
+                break;
+            default:
+                start = LandWhole(start, seconds);
+                break;
+        }
+        static double R(double v) => Math.Round(v * 100) / 100;
+        (sound.Start, sound.SoundLine, sound.Trim, sound.Seconds) = (Math.Max(0, R(start)), Math.Clamp(soundLine, 0, _board.SoundLines - 1), Math.Max(0, R(trim)), Math.Max(0, R(seconds)));
         Relayout();
         Changed();
     }

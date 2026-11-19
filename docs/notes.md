@@ -2236,6 +2236,11 @@ the joined video is out of date when a piece's .json or the video's is newer tha
 - A clip's card says how it is edited, after its state under the strip ("Made · sound 50%, vignette grain, turned,
   mirrored, blur behind"; `ShotItem.Marks`, `Footer`): the strip shows the clip as it was made, and an edit showed
   nowhere but in the joined video and the tooltip. Its speed and "reversed" stay beside its length.
+- **A title or a sound dragged lands on what it is near** (`Land`): its start, or the edge dragged, within 6 pixels
+  of a clip's start, the video's end or the playhead takes that moment, to the hundredth; else a tenth of a second
+  as before. Dragged whole, its start is tried first, then its end. A clip that comes in over a 1.5 s dissolve
+  starts at 6.5 s, and a title put at "about there" started at 6.4. Checked in the app: the "Episode one" title
+  let go 0.04 s short of clip 3's start was at 6.5, and dragged on by half a second at 7.
 - **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
   the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
   no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the

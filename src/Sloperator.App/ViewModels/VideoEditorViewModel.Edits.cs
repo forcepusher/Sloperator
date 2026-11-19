@@ -589,11 +589,57 @@ public sealed partial class VideoEditorViewModel
     private void SetWords(OverlayItem item, string words) =>
         Edit(() => _board.Overlay(item.Id)?.Let(x => x.Text = words.ReplaceLineEndings("\n")));
 
-    /// <summary>A title dragged along the row, or at an edge: where it starts and how long it shows, in tenths of a second.</summary>
-    public void MoveOverlay(OverlayItem item, double start, double seconds)
+    /// <summary>How near, in pixels, a title's or a sound's edge dragged to a clip's start, the video's end or the playhead takes its place.</summary>
+    private const double SnapPixels = 6;
+
+    /// <summary>
+    /// Where a time dragged to lands: on a clip's start, the video's end or the playhead when it is within
+    /// <see cref="SnapPixels"/> of one (so a title starts with its clip, a sound ends with the video, without zooming in
+    /// to hit it), else on a tenth of a second.
+    /// </summary>
+    internal (double Seconds, bool Snapped) Land(double seconds)
+    {
+        var (starts, length) = _board.Timing();
+        var reach = SnapPixels / Math.Max(1, Pps);
+        double? nearest = null;
+        foreach (var mark in starts.Append(length).Append(PlayPosition))
+            if (Math.Abs(mark - seconds) <= reach && (nearest is null || Math.Abs(mark - seconds) < Math.Abs(nearest.Value - seconds)))
+                nearest = mark;
+        return nearest is { } at ? (Math.Round(at * 100) / 100, true) : (Math.Round(seconds * 10) / 10, false);
+    }
+
+    /// <summary>A stretch dragged as a whole: its start where it lands, else its end, when either is near a mark.</summary>
+    private double LandWhole(double start, double seconds)
+    {
+        var (from, hit) = Land(start);
+        if (hit || seconds <= 0)
+            return from;
+        var (to, hitEnd) = Land(start + seconds);
+        return hitEnd ? Math.Round((to - seconds) * 100) / 100 : from;
+    }
+
+    /// <summary>
+    /// A title dragged along the row ("move"), or at an edge ("left", "right"): where it starts and how long it shows, in
+    /// tenths of a second, or on a clip's start, the video's end or the playhead when the edge dragged is near one.
+    /// </summary>
+    public void MoveOverlay(OverlayItem item, double start, double seconds, string mode = "move")
     {
         var overlay = item.Overlay;
-        (overlay.Start, overlay.Seconds) = (Math.Max(0, Math.Round(start * 10) / 10), Math.Max(0.2, Math.Round(seconds * 10) / 10));
+        var end = start + seconds;
+        switch (mode)
+        {
+            case "left":
+                start = Math.Min(Land(start).Seconds, end - 0.2);
+                seconds = end - start;
+                break;
+            case "right":
+                seconds = Land(end).Seconds - start;
+                break;
+            default:
+                start = LandWhole(start, seconds);
+                break;
+        }
+        (overlay.Start, overlay.Seconds) = (Math.Max(0, Math.Round(start * 100) / 100), Math.Max(0.2, Math.Round(seconds * 100) / 100));
         Relayout();
         Changed();
     }

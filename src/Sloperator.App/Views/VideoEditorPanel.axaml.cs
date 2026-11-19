@@ -477,11 +477,11 @@ public partial class VideoEditorPanel : UserControl
             case "left":
                 // Its start cut: no further back than the file's start, and a tenth of a second kept.
                 dx = Math.Clamp(dx, -Math.Min(s.Trim, s.Start), s.Seconds - 0.2);
-                Vm.MoveSound(s.Sound, s.Start + dx, s.SoundLine, s.Trim + dx, s.Seconds - dx);
+                Vm.MoveSound(s.Sound, s.Start + dx, s.SoundLine, s.Trim + dx, s.Seconds - dx, "left");
                 break;
             case "right":
                 var most = file > 0 ? file - s.Trim : double.MaxValue;
-                Vm.MoveSound(s.Sound, s.Start, s.SoundLine, s.Trim, Math.Clamp(s.Seconds + dx, 0.2, most));
+                Vm.MoveSound(s.Sound, s.Start, s.SoundLine, s.Trim, Math.Clamp(s.Seconds + dx, 0.2, most), "right");
                 break;
             default:
                 var soundLine = s.SoundLine + (int)Math.Round((at.Y - s.From.Y) / VideoEditorViewModel.SoundLineHeight);
@@ -539,10 +539,10 @@ public partial class VideoEditorPanel : UserControl
         {
             case "left":
                 dx = Math.Clamp(dx, -o.Start, o.Seconds - 0.2);
-                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds - dx);
+                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds - dx, "left");
                 break;
             case "right":
-                Vm.MoveOverlay(o.Item, o.Start, Math.Max(0.2, o.Seconds + dx));
+                Vm.MoveOverlay(o.Item, o.Start, Math.Max(0.2, o.Seconds + dx), "right");
                 break;
             default:
                 Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds);
