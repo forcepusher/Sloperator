@@ -49,6 +49,7 @@ public sealed partial class VideoEditorViewModel
         var items = new List<PanelMenuItem?> { new("Generate", free, () => Generate(shot)), null };
         items.AddRange(ClipEdits(shot, free));
         items.Add(null);
+        items.Add(new("Duplicate", free, () => Duplicate(shot)));
         items.Add(new("Delete", free, () => DeleteShot(shot)));
         AddVersions(items, shot);
         items.Add(null);

@@ -324,6 +324,46 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>
+    /// A copy of a clip right after it, with its edits: its clip and the files that go with it copied under the copy's
+    /// own name, so a clip made is made in the copy too and neither is made again.
+    /// </summary>
+    private void Duplicate(ShotItem item)
+    {
+        if (Busy(_board.Folder) || FindShot(item) is not { } shot || Storyboard.Parse(_board.ToJson()).Shot(shot.Id) is not { } copy)
+            return;
+        SaveNow();
+        StopPlaying();
+        DropViewer();
+        Remember();
+        copy.Id = _board.NewId("s");
+        copy.Place = null;
+        try
+        {
+            var clip = _board.ShotVideo(shot);
+            if (File.Exists(clip))
+            {
+                var to = _board.ShotVideo(copy);
+                var (from, into) = (Path.GetDirectoryName(clip)!, Path.GetDirectoryName(to)!);
+                var (stem, name) = (Path.GetFileNameWithoutExtension(clip) + ".", Path.GetFileNameWithoutExtension(to) + ".");
+                Directory.CreateDirectory(into);
+                foreach (var file in Directory.GetFiles(from).Where(f => Path.GetFileName(f).StartsWith(stem, StringComparison.OrdinalIgnoreCase)))
+                    File.Copy(file, Path.Combine(into, name + Path.GetFileName(file)[stem.Length..]), overwrite: true);
+            }
+            _board.Shots.Insert(_board.Shots.IndexOf(shot) + 1, copy);
+            _board.Normalize();
+            Changed();
+            SaveNow();
+            Status = $"Put a copy of {item.Title} after it.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ShowError($"The clip couldn't be copied: {ex.Message}", ex);
+            Reload();
+        }
+        Rebuild();
+    }
+
+    /// <summary>
     /// What a clip is cut from, so it can be cut without being made again: the MP4 of the user's it is made of, else its
     /// clip (a model's, or a scene drawn) copied into References as "&lt;clip&gt; footage.mp4". It is made of that from then on.
     /// </summary>
@@ -392,10 +432,22 @@ public sealed partial class VideoEditorViewModel
             new($"{Mark(o.Background is not null)}Box behind the words", free && words,
                 () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Background = x.Background is null ? "#000000A0" : null))),
             null,
+            new("Duplicate", free, () => DuplicateTitle(item)),
             new("Delete", free, () => Edit(() => _board.Overlays.RemoveAll(x => x.Id == item.Id))),
             null,
             new("Create", free, () => CreateTitle(PlayPosition)),
         ];
+    }
+
+    /// <summary>A copy of a title, showing from where it stops (one shown to the end: from the playhead).</summary>
+    private void DuplicateTitle(OverlayItem item)
+    {
+        if (Busy(_board.Folder) || _board.Overlay(item.Id) is not { } overlay || Storyboard.Parse(_board.ToJson()).Overlay(item.Id) is not { } copy)
+            return;
+        copy.Id = _board.NewId("o");
+        copy.Name = null;
+        copy.Start = Math.Round((overlay.Seconds > 0 ? overlay.Start + overlay.Seconds : PlayPosition) * 10) / 10;
+        Edit(() => _board.Overlays.Add(copy));
     }
 
     /// <summary>A submenu of a title's choices with the one it has marked, each an edit of it.</summary>

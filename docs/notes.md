@@ -2080,7 +2080,10 @@ clip a model made copied into References as "<clip> footage.mp4" so neither half
 (`VideoMaker.TakeClip` stamps them made). Not on a reversed clip. Trim start and Trim end to the playhead
 cut a clip's start (`in` moves on, the playhead goes to its new first frame) or its end off, the clips
 after it moving up, made of footage the same way (`Footage`): a model's clip has its length in its stamp,
-and cut by its length alone it would be made again. Space plays the video from the
+and cut by its length alone it would be made again. Duplicate puts a copy of a clip after it, its clip
+and every file of its name ("s3.mp4", "s3.json" with its stamp, its look) copied under the copy's id, so
+a made clip is made in the copy too; a title's copy shows from where it stops (a title to the end: from
+the playhead). Space plays the video from the
 playhead or pauses it with the timeline or the panel focused, seen on its way down (tunnel) as a clip's
 button took it for a click; not in a box being typed in, nor on the panel's buttons. (Checked in the app:
 the bars clip moved before the city one and back with Ctrl+Z, Ctrl+B at 0:06.8 split it 1.5 s in, its
