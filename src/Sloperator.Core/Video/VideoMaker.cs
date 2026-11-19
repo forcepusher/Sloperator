@@ -338,7 +338,8 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
                 List<string> args = picture
                     ? ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-loop", "1", "-framerate", board.Fps.ToString(CultureInfo.InvariantCulture), "-t", N(SourceSeconds(shot)), "-i", source,
                        "-vf", $"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "16", temp]
-                    : ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-i", source, "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
+                    // In whole pairs of pixels, which H.264 needs: a GIF is as often an odd size as not.
+                    : ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-i", source, "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
                        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", temp];
                 await VideoMontage.RunAsync(ffmpeg, args, temp, SourceSeconds(shot), picture ? "Holding the picture" : "Reading the video", "make the clip", progress, ct).ConfigureAwait(false);
             }

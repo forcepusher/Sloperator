@@ -2494,6 +2494,22 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+**Animated GIFs as video** (`GifDecoder`, 2026-11-19): Windows' decoders play no GIF, so without ffmpeg a GIF
+could be nothing in a video, and with ffmpeg it was no kind the storyboard knew (neither a picture nor a
+video). Now `.gif` is among `Storyboard.VideoExtensions` and `GifDecoder` (Skia's codec) stands between the OS's
+decoder and ffmpeg in `MediaDecoders.Create`: each frame is the whole picture as a viewer shows it then (a
+GIF's frames are often only what changed: `Compose` follows each frame's `RequiredFrame` back to one that stands
+alone or is held), a frame that claims no time shows a tenth of a second, and the clear parts stay clear
+(`IVideoReader.HasAlpha`, which `VideoPreviewer.Read` keeps as premultiplied alpha), so a GIF over a video is a
+sticker with the clip showing through and plays round as any video over a video does. As a clip it is read
+and written again as an MP4 on black. With ffmpeg the same GIF goes through ffmpeg's own reader in the join
+(`-stream_loop`, rgba), and a clip from any file that isn't an MP4 is now scaled to whole pairs of pixels
+(`scale=trunc(iw/2)*2:trunc(ih/2)*2`), which a GIF's odd sizes need; that one filter is not tried here (no
+ffmpeg). An animated WebP is read too where asked for directly, but stays a picture to the storyboard.
+Checked: a GIF written by `GifWriter` reads back frame for frame (times, clear parts, a ground kept through
+frames that hold only what changed, a seek backwards), lies over a clip in the previewer and plays round, and
+goes through `video action=edit` to an MP4.
+
 **Export from the panel** (`VideoEditorViewModel.Export`, the Video clips row's menu): an export was something
 only the agent did. The menu offers a half-size MP4, an upright one (nine to sixteen at the video's longer side,
 its middle kept), a square one, a GIF and the sound as a WAV, each written to the video's `Exports` folder under

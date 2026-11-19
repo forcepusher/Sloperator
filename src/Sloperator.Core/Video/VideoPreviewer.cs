@@ -494,7 +494,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
             {
                 if (reader.Next() is not { } next)
                     break;
-                var frame = MediaPreview.ToBitmap(next.Frame);
+                var frame = MediaPreview.ToBitmap(next.Frame, reader.HasAlpha);
                 source.Held.Add((next.Time.TotalSeconds, frame));
                 while (source.Held.Count > keep)
                 {

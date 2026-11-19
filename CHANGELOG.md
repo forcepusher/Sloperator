@@ -74,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
   used when it is there; only a WebM, a MOV or an MP3 needs it.
 - **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Animated GIFs in videos.** A GIF can be a clip of a video or lie over it as a sticker that keeps its clear
+  background and plays round, and the agent can turn a GIF into an MP4. Drop one on the Video editor's rows as
+  you would a video.
 - **Captions, arrows and frames on your photos.** Asked to write on a picture or point at something in it, the
   agent draws over the picture itself as vector art and saves the result; the photo can be anywhere on your PC.
 - **Export** on the Video clips row's right-click menu in the Video editor saves the made video as a smaller,

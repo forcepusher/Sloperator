@@ -156,7 +156,7 @@ public sealed partial class Storyboard
     public static readonly string[] PictureExtensions = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 
     /// <summary>The kinds of video a reference can be: a clip of the user's whose movement, look or end a shot takes.</summary>
-    public static readonly string[] VideoExtensions = [".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v"];
+    public static readonly string[] VideoExtensions = [".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".gif"];
 
     public static bool IsVideoFile(string path) => VideoExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 

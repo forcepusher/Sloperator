@@ -11,7 +11,8 @@ public static class MediaDecoders
     public static IMediaDecoder Create(IPlatformServices platform, Settings.AppPaths paths, Comfy.ComfyHub? comfy)
     {
         var ffmpeg = new FfmpegDecoder(() => FfmpegFolders(paths, comfy));
-        return platform.Media is { } os ? new FallbackDecoder(os, ffmpeg) : ffmpeg;
+        // Animated GIFs through Skia, between the two: Windows plays none, and ffmpeg may not be there.
+        return platform.Media is { } os ? new FallbackDecoder(os, new GifDecoder(), ffmpeg) : new FallbackDecoder(new GifDecoder(), ffmpeg);
     }
 
     private static IEnumerable<string> FfmpegFolders(Settings.AppPaths paths, Comfy.ComfyHub? comfy)

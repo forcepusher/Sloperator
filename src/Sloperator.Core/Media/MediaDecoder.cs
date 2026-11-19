@@ -40,6 +40,9 @@ public interface IVideoReader : IDisposable
     /// <summary>The next frame and when it shows; null at the end.</summary>
     (TimeSpan Time, RawImage Frame)? Next();
 
+    /// <summary>Whether the frames have clear parts (an animated GIF's): their fourth byte is how solid each pixel is, the colours already scaled by it.</summary>
+    bool HasAlpha => false;
+
     /// <summary>Goes to <paramref name="time"/>; the next frame is the one showing then (or the first after it).</summary>
     void Seek(TimeSpan time);
 }

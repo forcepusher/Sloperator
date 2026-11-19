@@ -142,7 +142,7 @@ they want), so write them well.
 ## Editing
 The storyboard edits the video as a video editor does; all of this is done as the video is joined,
 so no clip is made again for it (action=join after a change).
-- A shot needs no model when it is made of something: "file" is a video or picture of the person's
+- A shot needs no model when it is made of something: "file" is a video, animated GIF or picture of the person's
   in References (or by its full path), used as it is (a picture is held for the shot's seconds);
   "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,
   as the render tool draws it (a title card, a logo sting, an animated diagram, a 3D product turn).

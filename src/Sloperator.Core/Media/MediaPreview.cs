@@ -197,9 +197,10 @@ public static class MediaPreview
         }
     }
 
-    public static SKBitmap ToBitmap(Platform.RawImage frame)
+    /// <param name="alpha">The frame has clear parts to keep (<see cref="IVideoReader.HasAlpha"/>); else its fourth byte is not looked at.</param>
+    public static SKBitmap ToBitmap(Platform.RawImage frame, bool alpha = false)
     {
-        var bitmap = new SKBitmap(new SKImageInfo(frame.Width, frame.Height, SKColorType.Bgra8888, SKAlphaType.Opaque));
+        var bitmap = new SKBitmap(new SKImageInfo(frame.Width, frame.Height, SKColorType.Bgra8888, alpha ? SKAlphaType.Premul : SKAlphaType.Opaque));
         System.Runtime.InteropServices.Marshal.Copy(frame.Bgra, 0, bitmap.GetPixels(), Math.Min(frame.Bgra.Length, bitmap.ByteCount));
         return bitmap;
     }

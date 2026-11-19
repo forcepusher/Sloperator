@@ -305,6 +305,127 @@ public sealed class VideoComposerTests : IDisposable
         Assert.InRange(off / (w * h), 0, 12);
     }
 
+
+    [Fact]
+    public void An_animated_gif_is_read_as_video_frame_by_frame_with_its_clear_parts_clear()
+    {
+        const int w = 64, h = 32;
+        RawImage Frame(int square)
+        {
+            // An orange square that moves over nothing: clear around it.
+            var pixels = new byte[w * h * 4];
+            for (var y = 12; y < 20; y++)
+                for (var x = square; x < square + 8; x++)
+                {
+                    var i = (y * w + x) * 4;
+                    (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = (17, 163, 252, 255);
+                }
+            return new RawImage(w, h, pixels);
+        }
+        var sticker = Path.Combine(_dir, "sticker.gif");
+        using (var gif = new GifWriter(sticker, w, h, 5, clear: true))
+            foreach (var at in new[] { 0, 8, 16, 24 })
+                gif.Frame(Frame(at));
+        // Over a ground, each frame only what changed: read back, every frame is the whole picture as it stands then.
+        var loop = Path.Combine(_dir, "loop.gif");
+        using (var gif = new GifWriter(loop, w, h, 5))
+            foreach (var at in new[] { 0, 8, 16, 24 })
+            {
+                var frame = Frame(at);
+                for (var i = 0; i < frame.Bgra.Length; i += 4)
+                    if (frame.Bgra[i + 3] == 0)
+                        (frame.Bgra[i], frame.Bgra[i + 1], frame.Bgra[i + 2], frame.Bgra[i + 3]) = (61, 33, 20, 255);
+                gif.Frame(frame);
+            }
+        var decoder = new GifDecoder();
+        Assert.True(GifDecoder.Handles(sticker));
+        var info = decoder.Probe(sticker)!;
+        Assert.Equal((w, h, true, false), (info.Width, info.Height, info.HasVideo, info.HasAudio));
+        Assert.Equal(0.8, info.Duration.TotalSeconds, 2);
+        Assert.Equal(5, info.FrameRate, 1);
+        static (int B, int G, int R, int A) At(RawImage f, int x, int y) => (f.Bgra[(y * f.Width + x) * 4], f.Bgra[(y * f.Width + x) * 4 + 1], f.Bgra[(y * f.Width + x) * 4 + 2], f.Bgra[(y * f.Width + x) * 4 + 3]);
+        using (var video = decoder.OpenVideo(sticker, 0)!)
+        {
+            Assert.True(video.HasAlpha);
+            var times = new List<double>();
+            for (var k = 0; video.Next() is { } next; k++)
+            {
+                times.Add(next.Time.TotalSeconds);
+                // The square where this frame has it, nothing where the frame before had it.
+                Assert.Equal((17, 163, 252, 255), At(next.Frame, k * 8 + 4, 16));
+                if (k > 0)
+                    Assert.Equal(0, At(next.Frame, k * 8 - 4, 16).A);
+            }
+            Assert.Equal([0, 0.2, 0.4, 0.6], times.Select(t => Math.Round(t, 2)));
+            // To a moment: the frame showing then; and smaller when asked.
+            video.Seek(TimeSpan.FromSeconds(0.5));
+            Assert.Equal(0.4, video.Next()!.Value.Time.TotalSeconds, 2);
+        }
+        using (var small = decoder.OpenVideo(sticker, 32)!)
+            Assert.Equal((32, 16), (small.Width, small.Height));
+        using (var video = decoder.OpenVideo(loop, 0)!)
+        {
+            // Backwards to the third frame after the last: the ground is whole though the file holds only what changed.
+            while (video.Next() is not null) { }
+            video.Seek(TimeSpan.FromSeconds(0.4));
+            var third = video.Next()!.Value.Frame;
+            Assert.Equal((17, 163, 252, 255), At(third, 20, 16));
+            Assert.Equal((61, 33, 20, 255), At(third, 4, 16));
+            Assert.Equal((61, 33, 20, 255), At(third, 12, 16));
+        }
+        // A picture of one frame, or another kind of file, isn't video.
+        var still = Path.Combine(_dir, "still.gif");
+        using (var gif = new GifWriter(still, w, h, 5))
+            gif.Frame(Frame(0));
+        Assert.False(GifDecoder.Handles(still));
+        Assert.Null(decoder.OpenVideo(still, 0));
+        Assert.Null(decoder.Probe(Path.Combine(_dir, "none.gif")));
+
+        // Laid over a video as a sticker: the clip shows through its clear parts, and it plays round.
+        var board = Video("""
+            {"width": 640, "height": 320, "fps": 10, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 4, "place": "level 0 4s.mp4"}],
+             "overlays": [{"id": "o1", "file": "sticker.gif", "start": 0, "seconds": 4, "box": {"x": 0, "y": 0, "width": 1, "height": 1}}]}
+            """);
+        using var preview = new VideoPreviewer(new FallbackDecoder(decoder, new Flat()), 64);
+        var first = preview.FrameAt(board, 0.1)!;
+        Assert.Equal((17, 163, 252, 255), At(first, 4, 16));
+        Assert.Equal(200, At(first, 40, 16).G);
+        // 1.0 s is 0.2 s into its second time round: the square at 8.
+        var again = preview.FrameAt(board, 1.0)!;
+        Assert.Equal((17, 163, 252, 255), At(again, 12, 16));
+        Assert.Equal(200, At(again, 4, 16).G);
+    }
+
+    /// <summary>Any video file as one flat green picture, ten frames a second.</summary>
+    private sealed class Flat : IMediaDecoder
+    {
+        public MediaInfo? Probe(string path) => null;
+        public IAudioReader? OpenAudio(string path) => null;
+        public IVideoReader? OpenVideo(string path, int maxSide) => path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ? new Reader() : null;
+
+        private sealed class Reader : IVideoReader
+        {
+            private int _next;
+            public int Width => 64;
+            public int Height => 32;
+            public TimeSpan Duration => TimeSpan.FromSeconds(4);
+            public double FrameRate => 10;
+
+            public (TimeSpan Time, RawImage Frame)? Next()
+            {
+                if (_next >= 40)
+                    return null;
+                var pixels = new byte[64 * 32 * 4];
+                for (var i = 0; i < pixels.Length; i += 4)
+                    (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = (40, 200, 40, 255);
+                return (TimeSpan.FromSeconds(_next++ / 10.0), new RawImage(64, 32, pixels));
+            }
+
+            public void Seek(TimeSpan time) => _next = Math.Clamp((int)Math.Floor(time.TotalSeconds * 10 + 1e-6), 0, 40);
+            public void Dispose() { }
+        }
+    }
+
 #if WINDOWS
     /// <summary>A clip written here: a flat colour, with a tone when it has a pitch.</summary>
     private static void Clip(string path, (byte R, byte G, byte B) colour, double seconds, double hz = 0, int width = 320, int height = 180, int fps = 15)
@@ -566,7 +687,7 @@ public sealed class VideoComposerTests : IDisposable
         var ctx = new Tools.ToolContext
         {
             Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = _dir, ScratchDirectory = Path.Combine(_dir, "scratch"),
-            Media = media, Comfy = Comfy.ComfyHub.For(Path.Combine(_dir, ".comfy")),
+            Media = new FallbackDecoder(media, new GifDecoder()), Comfy = Comfy.ComfyHub.For(Path.Combine(_dir, ".comfy")),
         };
         async Task<string> Edit(string json, string? output = null)
         {
@@ -595,6 +716,14 @@ public sealed class VideoComposerTests : IDisposable
         await Edit("""{"width": 160, "storyboard": {"seconds": 1}}""", gif);
         using (var codec = SKCodec.Create(gif))
             Assert.Equal((160, 90, 15), (codec.Info.Width, codec.Info.Height, codec.FrameCount));
+        // And back: an animated GIF made an MP4 (Windows reads no GIF as video; Skia does here).
+        var back = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse("""{"action": "edit"}""")!;
+        (back["path"], back["output"]) = (gif, Path.Combine(_dir, "from gif.mp4"));
+        var fromGif = await new Tools.VideoEditorTool().ExecuteAsync(back, ctx, ct);
+        Assert.False(fromGif.IsError, fromGif.Text);
+        var again = media.Probe(Path.Combine(_dir, "from gif.mp4"))!;
+        Assert.Equal((160, 90), (again.Width, again.Height));
+        Assert.InRange(again.Duration.TotalSeconds, 0.9, 1.15);
         // A picture becomes a clip: five seconds unless it says, the picture's own shape, with a slow zoom over it.
         var photo = Path.Combine(_dir, "photo.png");
         using (var wide = new SKBitmap(400, 200))
