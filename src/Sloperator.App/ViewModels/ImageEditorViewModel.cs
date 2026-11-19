@@ -99,6 +99,10 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
 
     protected override void ShownChanged() => OnPropertyChanged(nameof(HasPicture));
 
+    /// <summary>The version shown is see-through somewhere: shown over a checkerboard.</summary>
+    [ObservableProperty]
+    private bool _isClear;
+
     /// <summary>The version's size in pixels.</summary>
     private (int Width, int Height) _size;
 
@@ -218,6 +222,14 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
                 bitmap = UprightPicture.Load(stream);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { }
+            // See-through anywhere (an icon's clear corners): the big view puts a checkerboard behind it.
+            var clear = false;
+            try
+            {
+                using var pixels = PictureFile.Decode(path);
+                clear = pixels is not null && PictureFile.HasClear(pixels);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { }
             var recipe = MediaRecipe.Read(path);
             Dispatcher.UIThread.Post(() =>
             {
@@ -229,6 +241,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
                 Picture = bitmap;
                 _size = bitmap is null ? default : (bitmap.PixelSize.Width, bitmap.PixelSize.Height);
                 Recipe = recipe;
+                IsClear = clear;
             });
         });
     }

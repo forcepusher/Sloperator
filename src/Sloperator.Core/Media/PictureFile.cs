@@ -58,6 +58,18 @@ public static class PictureFile
         return codec is null ? null : SKBitmap.Decode(codec);
     }
 
+    /// <summary>Whether any of the picture is see-through (a pixel not fully there): shown, it wants something behind it to be told from.</summary>
+    public static bool HasClear(SKBitmap bitmap)
+    {
+        if (bitmap.AlphaType == SKAlphaType.Opaque || bitmap.ColorType is not (SKColorType.Rgba8888 or SKColorType.Bgra8888))
+            return false;
+        var pixels = bitmap.GetPixelSpan();
+        for (var i = 3; i < pixels.Length; i += 4)
+            if (pixels[i] < 255)
+                return true;
+        return false;
+    }
+
     /// <summary>Whether a file's pixels are stored as the picture is seen (as nearly all but a camera's are).</summary>
     public static bool IsUpright(SKEncodedOrigin origin) => origin is SKEncodedOrigin.TopLeft or SKEncodedOrigin.Default;
 

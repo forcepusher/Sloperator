@@ -1243,6 +1243,13 @@ picture of it is an SVG or page drawn with the same `save_to`).
   part"), not painted over by `sloperator/redraw_area`. A version's menu has **Show its SVG in folder** (or its
   Three.js page): an icon is wanted as its SVG as often as its PNG, and the scene is wherever the agent wrote it.
 - Auto shows the Image editor as a render into a picture's folder starts (`AutoRule.AtStart`), as for a ComfyUI run.
+- **A see-through picture stands on a checkerboard** in the big view (`ZoomBox.Checkered`, white and light grey
+  squares of 8 from the picture's own corner; `ImageEditorViewModel.IsClear`, any pixel not fully there,
+  `PictureFile.HasClear`): an icon's clear corners were the panel's dark grey, and dark lines on nothing weren't to
+  be seen. Only under a picture that is see-through somewhere, so no light edge shows round the others. render's
+  `transparent` now reads "as an icon or a logo wants it". Checked in the app: Haiku, with version 3 of the icon
+  picked and "Make the corners outside the rounded square see-through, so it works as an app icon", rendered the
+  same scene with transparent=true (version 4), its corners checkered.
 - Checked (2026-11-19, the laptop, Haiku 5.5): the CLI, given a new picture's words as the panel sends them and "A
   flat icon of a paper plane for my app", wrote an SVG and rendered it into the picture's folder in 13 s; "Make the
   plane yellow" with version 1 picked read the scene, changed three fills and rendered with `save_to` (version 2,
@@ -2225,7 +2232,7 @@ the joined video is out of date when a piece's .json or the video's is newer tha
 - A right-click on a row's name (References, Video clips, Titles) opens the row's menu at the playhead, as a sound
   line's name does (`OnRowNameMenu`): with clips end to end, the Video clips row had nowhere to click that wasn't a
   clip, and its menu has what is the whole video's (Paste, Save this frame, the fades). Checked in the app: the
-  demo's first frame saved from that menu as "Night drive at 0-00.0Frame.png", the clip's own 704x648 frame.
+  demo's first frame saved from that menu as "Night drive at 0-00.0" (Frame.png), the clip's own 704x648 frame.
 - **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
   the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
   no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the

@@ -176,7 +176,7 @@
           <TextBlock Classes="muted" IsVisible="{Binding !HasPicture}" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center"
                      TextWrapping="Wrap" TextAlignment="Center" MaxWidth="320" />
           <views:ZoomBox x:Name="Big" Source="{Binding Picture}" IsVisible="{Binding HasPicture}" Margin="16" Zoom="{Binding Zoom}"
-                         Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" Painting="{Binding IsBrush}"
+                         Mark="{Binding Mark, Mode=TwoWay}" CanMark="True" Painting="{Binding IsBrush}" Checkered="{Binding IsClear}"
                          BrushSize="{Binding BrushSize, Mode=TwoWay}" Strokes="{Binding Strokes, Mode=TwoWay}" views:FileMenu.Image="{Binding Picture}"
                          views:FileMenu.File="{Binding Shown.Path, FallbackValue={x:Null}}" AutomationProperties.Name="Picture" />
         </Panel>

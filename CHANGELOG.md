@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   beside the earlier ones. A version drawn this way keeps its scene: **Prompt metadata** shows it, picking the
   version or marking a part of it and saying what to change changes the scene itself (so the rest stays exactly as
   it was), and **Show its SVG in folder** on the version's right-click menu finds the vector file.
+- A picture with see-through parts, such as an icon with clear corners, is shown over a checkerboard in the Image
+  editor, so you can see what is clear.
 - **Edit pictures yourself in the Image editor.** An **Edit** line over the versions: **Crop** to the box you drag
   over the picture, **Turn left**, **Turn right**, **Mirror** and **Flip**. Each is a new version at once; the
   earlier ones stay.

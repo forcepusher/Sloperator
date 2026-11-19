@@ -42,6 +42,11 @@ public sealed class ZoomBox : Control
     public static readonly StyledProperty<IReadOnlyList<BrushStroke>?> StrokesProperty =
         AvaloniaProperty.Register<ZoomBox, IReadOnlyList<BrushStroke>?>(nameof(Strokes), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
+    public static readonly StyledProperty<bool> CheckeredProperty = AvaloniaProperty.Register<ZoomBox, bool>(nameof(Checkered));
+
+    /// <summary>A checkerboard behind the picture, as editors show what is see-through: an icon's clear corners were the panel's dark grey, and dark lines on nothing weren't to be seen.</summary>
+    public bool Checkered { get => GetValue(CheckeredProperty); set => SetValue(CheckeredProperty, value); }
+
     /// <summary>How far it zooms in: a pixel of a small picture as a square of tens of the screen's.</summary>
     public const double MaxZoom = 32;
 
@@ -91,7 +96,7 @@ public sealed class ZoomBox : Control
 
     static ZoomBox()
     {
-        AffectsRender<ZoomBox>(SourceProperty, DrawingProperty, ZoomProperty, MarkProperty, PaintingProperty, BrushSizeProperty, StrokesProperty);
+        AffectsRender<ZoomBox>(SourceProperty, DrawingProperty, ZoomProperty, MarkProperty, PaintingProperty, BrushSizeProperty, StrokesProperty, CheckeredProperty);
         ClipToBoundsProperty.OverrideDefaultValue<ZoomBox>(true);
         FocusableProperty.OverrideDefaultValue<ZoomBox>(true);
     }
@@ -153,6 +158,9 @@ public sealed class ZoomBox : Control
         var scale = Scale;
         var origin = Origin;
         var rect = new Rect(origin, new Size(_size.Width * scale, _size.Height * scale));
+        if (Checkered)
+            using (context.PushTransform(Matrix.CreateTranslation(rect.X, rect.Y)))
+                context.FillRectangle(Checker, new Rect(rect.Size));
         if (Drawing is { } drawing)
             context.Custom(new DrawingOperation(drawing.Picture, rect, new Rect(Bounds.Size)));
         else if (Source is { } source)
@@ -174,6 +182,22 @@ public sealed class ZoomBox : Control
             context.DrawEllipse(null, BrushRing, hover, radius, radius);
         }
     }
+
+    /// <summary>White and light grey squares, 8 pixels each, from the picture's own corner.</summary>
+    private static readonly IBrush Checker = new DrawingBrush
+    {
+        TileMode = TileMode.Tile,
+        SourceRect = new RelativeRect(0, 0, 16, 16, RelativeUnit.Absolute),
+        DestinationRect = new RelativeRect(0, 0, 16, 16, RelativeUnit.Absolute),
+        Drawing = new DrawingGroup
+        {
+            Children =
+            {
+                new GeometryDrawing { Brush = Brushes.White, Geometry = new RectangleGeometry(new Rect(0, 0, 16, 16)) },
+                new GeometryDrawing { Brush = new SolidColorBrush(Color.FromRgb(0xD8, 0xD8, 0xD8)), Geometry = new GeometryGroup { Children = { new RectangleGeometry(new Rect(0, 0, 8, 8)), new RectangleGeometry(new Rect(8, 8, 8, 8)) } } },
+            },
+        },
+    };
 
     private static readonly IBrush Accent = new SolidColorBrush(Color.FromRgb(0xFC, 0xC2, 0x1B));
     private static readonly IPen BrushRing = new Pen(Accent, 1);

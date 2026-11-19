@@ -35,7 +35,7 @@ public sealed class RenderTool : Tool
         ("width", Int("Width in pixels (default: the SVG's own, at least 1024 along its longer side; 1280 for a page)"), false),
         ("height", Int("Height in pixels (default: the SVG's own; 720 for a page)"), false),
         ("at", Num("For a picture of a scene that moves: the moment to draw, in seconds"), false),
-        ("transparent", Bool("Keep the background clear (PNG, WebM, MOV or GIF; an MP4 can't)"), false));
+        ("transparent", Bool("Keep the background clear, as an icon or a logo wants it (PNG, WebM, MOV or GIF; an MP4 can't)"), false));
 
     public override string Describe(JsonObject args) =>
         GetString(args, "file") is { Length: > 0 } file
