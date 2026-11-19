@@ -2483,6 +2483,13 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+**Export from the panel** (`VideoEditorViewModel.Export`, the Video clips row's menu): an export was something
+only the agent did. The menu offers a half-size MP4, an upright one (nine to sixteen at the video's longer side,
+its middle kept), a square one, a GIF and the sound as a WAV, each written to the video's `Exports` folder under
+the video's name and shown in Explorer; through ffmpeg where there is one, else `VideoComposer.ExportAsync`.
+No Save dialog: the panel has none anywhere, and the file's place is said in the status line. A video changed
+since it was made says so instead of exporting the old one. Checked in the app: GIF of the demo, 4.3 MB.
+
 **"It hardly moves" and what no model made** (2026-11-19): the check that a clip moves (`DescribeMotion`: the
 frames' average change added up under 4) is for clips a video model makes, where a frozen clip is a failed one.
 On a clip from a picture of the user's it was always wrong, and on a drawn scene mostly so: a sun rising over

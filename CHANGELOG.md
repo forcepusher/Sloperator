@@ -74,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
   used when it is there; only a WebM, a MOV or an MP3 needs it.
 - **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Export** on the Video clips row's right-click menu in the Video editor saves the made video as a smaller,
+  upright (for a phone) or square MP4, a GIF, or its sound alone, into the video's Exports folder, and shows it
+  there.
 - **Cut on the beat.** The Video editor finds the beat of a song or a music file of yours and marks each beat
   with a tick under its waveform. Drag a clip's end, a title or a sound near a beat and it snaps to it. Ask the
   agent to cut a video on the beat and it reads the song's tempo and where its beats fall, and makes the clips

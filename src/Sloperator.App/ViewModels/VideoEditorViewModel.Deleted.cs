@@ -316,3 +316,74 @@ public sealed partial class VideoEditorViewModel
         return true;
     }
 }
+
+// The made video saved as another file from the panel itself. Before, an export was something only the agent did,
+// asked for in the chat: someone who had made a video and wanted a GIF of it, or a copy for a phone, had no way to
+// get one here.
+public sealed partial class VideoEditorViewModel
+{
+    private bool _exporting;
+
+    /// <summary>Whether the made video can be saved as another file now: it is made, nothing is exporting, and something here writes video.</summary>
+    private bool CanExport => HasJoinedVideo && !_exporting && _previews.Decoder is { } decoder && (decoder.Ffmpeg is not null || VideoComposer.Joins(decoder));
+
+    /// <summary>What Export offers: each a file in the video's Exports folder, named after the video.</summary>
+    private List<PanelMenuItem?> ExportItems()
+    {
+        static int Even(double n) => Math.Max(2, (int)Math.Round(n / 2) * 2);
+        var (w, h) = (_board.Width, _board.Height);
+        var (longer, shorter) = (Math.Max(w, h), Math.Min(w, h));
+        // Upright for a phone: as tall as the video's longer side, nine wide to sixteen tall, the video's middle kept.
+        var (uprightWidth, uprightHeight) = (Even(longer * 9.0 / 16), Even(longer));
+        return
+        [
+            new($"Smaller MP4 ({Even(w / 2.0)}×{Even(h / 2.0)})", true, () => Export(" small", ".mp4", Even(w / 2.0), Even(h / 2.0))),
+            new($"Upright MP4 for a phone ({uprightWidth}×{uprightHeight})", h <= w, () => Export(" upright", ".mp4", uprightWidth, uprightHeight)),
+            new($"Square MP4 ({Even(shorter)}×{Even(shorter)})", w != h, () => Export(" square", ".mp4", Even(shorter), Even(shorter))),
+            null,
+            new("GIF", true, () => Export("", ".gif", null, null)),
+            new("Sound only (WAV)", true, () => Export("", ".wav", null, null)),
+        ];
+    }
+
+    /// <summary>Saves the made video as another file in its Exports folder and shows it there.</summary>
+    private void Export(string suffix, string extension, int? width, int? height)
+    {
+        if (_exporting || _previews.Decoder is not { } decoder)
+            return;
+        if (_board.JoinedIsStale)
+        {
+            Status = "The video has changed since it was made: make it again, then export it.";
+            return;
+        }
+        SaveNow(force: true);
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        var output = Path.Combine(_board.Folder, "Exports", Path.GetFileNameWithoutExtension(board.JoinedFile) + suffix + extension);
+        _exporting = true;
+        Status = "Exporting…";
+        void Tell(string progress) => Avalonia.Threading.Dispatcher.UIThread.Post(() => Status = progress);
+        _ = Task.Run(async () =>
+        {
+            string said;
+            try
+            {
+                var file = decoder.Ffmpeg is { } ffmpeg
+                    ? await VideoMontage.ExportAsync(board, ffmpeg, output, width, height, Tell, CancellationToken.None).ConfigureAwait(false)
+                    : await VideoComposer.ExportAsync(board, decoder, output, width, height, Tell, CancellationToken.None).ConfigureAwait(false);
+                said = $"Exported {Path.GetFileName(file)} ({new FileInfo(file).Length / 1024.0 / 1024:0.#} MB), in the video's Exports folder.";
+                ShowInExplorer(file);
+            }
+            catch (Exception ex) when (ex is VideoException or IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                said = "It couldn't be exported: " + ex.Message;
+            }
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _exporting = false;
+                if (!_disposing)
+                    Status = said;
+            });
+        });
+    }
+}
