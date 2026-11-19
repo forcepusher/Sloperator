@@ -35,7 +35,7 @@ public partial class VideoEditorPanel : UserControl
         // from a clip's menu went to the side panels' list it was opened from, or the chat's box.
         Focusable = true;
         AddHandler(PointerPressedEvent, OnPressedIn, RoutingStrategies.Tunnel, handledEventsToo: true);
-        AddHandler(KeyDownEvent, OnSpace, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnPlayheadKeys, RoutingStrategies.Tunnel);
     }
 
     /// <summary>A press in the panel, a right-click too, which Avalonia doesn't focus on: the panel takes the keys.</summary>
@@ -191,16 +191,32 @@ public partial class VideoEditorPanel : UserControl
     }
 
     /// <summary>
-    /// Space plays the video from the playhead, or pauses it, as in any editor, with the timeline or the panel focused:
-    /// seen before a clip's button, which takes Space as a click. Not in a box being typed in, nor on the panel's buttons.
+    /// The playhead's keys, as in any editor, with the timeline or the panel focused: Space plays the video from the
+    /// playhead or pauses it, the arrows step it a frame (with Shift a second), Home and End take it to the start or
+    /// the end. Seen before a clip's button, which takes Space as a click, and the timeline, which scrolls with the
+    /// arrows. Not in a box being typed in, nor on the panel's buttons.
     /// </summary>
-    private void OnSpace(object? sender, KeyEventArgs e)
+    private void OnPlayheadKeys(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Space || e.KeyModifiers != KeyModifiers.None || DataContext is not VideoEditorViewModel vm
+        if (DataContext is not VideoEditorViewModel vm || (e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None
             || TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused
             || focused is TextBox || focused != this && !Timeline.IsVisualAncestorOf(focused))
             return;
-        vm.PlayStripCommand.Execute(null);
+        var shift = e.KeyModifiers == KeyModifiers.Shift;
+        switch (e.Key)
+        {
+            case Key.Space when !shift:
+                vm.PlayStripCommand.Execute(null);
+                break;
+            case Key.Left or Key.Right:
+                vm.StepPlayhead(e.Key == Key.Left ? -1 : 1, seconds: shift);
+                break;
+            case Key.Home or Key.End when !shift:
+                vm.PlayheadTo(end: e.Key == Key.End);
+                break;
+            default:
+                return;
+        }
         e.Handled = true;
     }
 

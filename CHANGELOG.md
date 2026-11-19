@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
   clock, pixels, fades through black or white). **Split at the playhead** (Ctrl+B) cuts a clip in two, **Trim
   start** and **Trim end to the playhead** cut a clip's start or end off, **Move earlier** and **Move later** change
-  the clips' order, **Duplicate** copies a clip or a title, and Space plays the video from the playhead or pauses it.
+  the clips' order, and **Duplicate** copies a clip or a title. Space plays the video from the playhead or pauses
+  it, the arrow keys move the playhead a frame (with Shift a second), and Home and End take it to the start or end.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture

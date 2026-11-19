@@ -420,6 +420,16 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         StartPlaying(PlayPosition >= 0 && PlayPosition < end - 0.05 ? PlayPosition : 0);
     }
 
+    /// <summary>
+    /// The arrow keys: the playhead a frame back or on (by <paramref name="frames"/>), or with Shift a second, kept
+    /// between the video's start and end, for a split or a trim just there.
+    /// </summary>
+    public void StepPlayhead(int frames, bool seconds = false) =>
+        SeekStrip(Math.Clamp(PlayPosition + (seconds ? frames : frames / (double)Math.Max(1, _board.Fps)), 0, Math.Max(0, Length)));
+
+    /// <summary>Home and End: the playhead to the video's start or its end.</summary>
+    public void PlayheadTo(bool end) => SeekStrip(end ? Math.Max(0, Length) : 0);
+
     /// <summary>The timeline was clicked: the playhead goes there (and plays on from there if it was playing).</summary>
     public void SeekStrip(double seconds)
     {

@@ -2085,10 +2085,13 @@ and every file of its name ("s3.mp4", "s3.json" with its stamp, its look) copied
 a made clip is made in the copy too; a title's copy shows from where it stops (a title to the end: from
 the playhead). Space plays the video from the
 playhead or pauses it with the timeline or the panel focused, seen on its way down (tunnel) as a clip's
-button took it for a click; not in a box being typed in, nor on the panel's buttons. (Checked in the app:
+button took it for a click; the arrows step the playhead a frame (1/fps; with Shift a second) and Home
+and End take it to the start and the end, for a split or a trim on the frame (the timeline's scroll
+viewer took the arrows); none of them in a box being typed in, nor on the panel's buttons. (Checked in the app:
 the bars clip moved before the city one and back with Ctrl+Z, Ctrl+B at 0:06.8 split it 1.5 s in, its
-start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken back), and Space
-played from 0:00 to 0:01.5 and paused there.) A Titles row under the clips shows the
+start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken back), Space
+played from 0:00 to 0:01.5 and paused there, and Home, three Rights, Shift+Right and End took the
+playhead to 0:00, 0:00.1, 0:01.1 and 0:08.4.) A Titles row under the clips shows the
 overlays as blocks, those that show at once one above the other (the row grows past two lanes, 22 pixels each); a right-click on the row creates a title
 there and asks for its words at once (the rename box), a double click changes them (\n for a new line;
 handled on the press, as the press before it starts a drag), dragging moves it and its edges change
