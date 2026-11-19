@@ -95,7 +95,7 @@ public static class VideoComposer
         {
             using var previewer = new VideoPreviewer(decoder, Math.Max(width, height));
             using (var writer = decoder.Write(temp, new MediaWriterOptions(width, height, fps, Sound: true, board.Quality))
-                                ?? throw new VideoException("The video can't be written on this PC: Windows gave no H.264 encoder."))
+                                ?? throw new VideoException($"The video can't be written on this PC: Windows gave no H.264 encoder for {width}x{height} at {fps} frames a second."))
             {
                 var black = new RawImage(width, height, Opaque(width, height));
                 var unread = 0;
@@ -205,15 +205,20 @@ public static class VideoComposer
     /// </summary>
     private static int Frames(IVideoReader reader, int fps, int width, int height, Action<string>? progress, string doing, CancellationToken ct, Action<RawImage> take)
     {
-        var frames = Math.Max(1, (int)Math.Round(reader.Duration.TotalSeconds * fps));
+        // A file that doesn't say how long it is (Windows gives none for some) is read to its end.
+        var known = reader.Duration.TotalSeconds > 0;
+        var frames = known ? Math.Max(1, (int)Math.Round(reader.Duration.TotalSeconds * fps)) : int.MaxValue;
         var (showing, next) = (reader.Next(), reader.Next());
         RawImage? fitted = null;
+        var written = 0;
         for (var k = 0; k < frames && showing is not null; k++)
         {
             ct.ThrowIfCancellationRequested();
             var moved = fitted is null;
             while (next is { } n && n.Time.TotalSeconds <= k / (double)fps + 1e-4)
                 (showing, next, moved) = (next, reader.Next(), true);
+            if (!known && next is null && k / (double)fps > showing.Value.Time.TotalSeconds + 1.0 / fps)
+                break;
             if (moved)
             {
                 var raw = showing.Value.Frame;
@@ -226,10 +231,11 @@ public static class VideoComposer
                 }
             }
             take(fitted!);
+            written++;
             if (k % 15 == 0 || k == frames - 1)
-                progress?.Invoke($"{doing}: frame {k + 1} of {frames}");
+                progress?.Invoke(known ? $"{doing}: frame {k + 1} of {frames}" : $"{doing}: frame {k + 1}");
         }
-        return frames;
+        return written;
     }
 
     /// <summary>
