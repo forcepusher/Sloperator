@@ -35,7 +35,15 @@ public static class VideoSoundMix
             {
                 if (File.Exists(file) && decoder.OpenAudio(file) is { } reader)
                     using (reader)
-                        samples = SoundEdit.Convert(SoundEdit.Read(reader), Rate, Channels).Samples;
+                    {
+                        var heard = SoundEdit.Read(reader);
+                        samples = SoundEdit.Convert(heard, Rate, Channels).Samples;
+                        // A sound of one channel goes to both at 0.707 of itself, as ffmpeg spreads it (as loud in all, not
+                        // twice over): at full strength a voice-over or a mono song was 3 dB louder here than in ffmpeg's join.
+                        if (heard.Channels == 1)
+                            for (var i = 0; i < samples.Length; i++)
+                                samples[i] *= 0.70710678f;
+                    }
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException) { }
             return read[file] = samples;

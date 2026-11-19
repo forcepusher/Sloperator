@@ -198,11 +198,21 @@ public sealed class VideoPreviewerTests : IDisposable
         Assert.Equal(100, At(preview.FrameAt(board, 1.5)!, 0.6, 0.8).G);
         // A circle opening shows the new clip in the middle first; one closing keeps the old clip there last.
         board.Shots[1].Transition = "circleopen";
-        Assert.Equal(200, At(preview.FrameAt(board, 1.3)!, 0.5, 0.6).G);
-        Assert.Equal(100, At(preview.FrameAt(board, 1.3)!, 0.95, 0.9).G);
+        // (half way through, with ffmpeg's soft rim: the middle is all the new clip, a corner still all the old one)
+        Assert.InRange(At(preview.FrameAt(board, 1.5)!, 0.5, 0.5).G, 190, 200);
+        Assert.InRange(At(preview.FrameAt(board, 1.5)!, 0.98, 0.95).G, 100, 110);
         board.Shots[1].Transition = "circleclose";
-        Assert.Equal(100, At(preview.FrameAt(board, 1.7)!, 0.5, 0.6).G);
-        Assert.Equal(200, At(preview.FrameAt(board, 1.7)!, 0.95, 0.9).G);
+        Assert.InRange(At(preview.FrameAt(board, 1.5)!, 0.5, 0.5).G, 100, 110);
+        Assert.InRange(At(preview.FrameAt(board, 1.5)!, 0.98, 0.95).G, 190, 200);
+        // Towards the top left: the new clip starts in the bottom right. A clock's hand: from the top, to the right first.
+        board.Shots[1].Transition = "diagtl";
+        Assert.True(At(preview.FrameAt(board, 1.5)!, 0.95, 0.9).G > At(preview.FrameAt(board, 1.5)!, 0.4, 0.4).G + 50);
+        board.Shots[1].Transition = "radial";
+        Assert.True(At(preview.FrameAt(board, 1.35)!, 0.9, 0.3).G > At(preview.FrameAt(board, 1.35)!, 0.1, 0.3).G + 50);
+        // Blinds to the left: whole at the right edge first.
+        board.Shots[1].Transition = "hlslice";
+        Assert.Equal(200, At(preview.FrameAt(board, 1.5)!, 0.97, 0.6).G);
+        Assert.Equal(100, At(preview.FrameAt(board, 1.5)!, 0.08, 0.6).G);
         // Every transition there is draws something of its own all the way through, and ends on the new clip.
         foreach (var name in Storyboard.Transitions.Where(t => t != VideoShot.Cut))
         {

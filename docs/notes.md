@@ -2514,7 +2514,7 @@ taken too (held five seconds unless it says, 1920 along its longer side at most)
 or a GIF of it. Costs 80
 tokens of the tool's description.
 
-Not done: a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
+Not done then (done since, see "The built-in path against ffmpeg"): a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
 never came), and making the built-in path the only one so the viewer and the file can't differ.
 
 Checked: VideoComposerTests (the mix by level, tempo keeping pitch, the key, a file written and read back, a
@@ -2565,6 +2565,38 @@ hills changes a few pixels in a hundred. Haiku, told "it hardly moves" of a spri
 the web for SMIL easing and edited the scene three times (40 s of a 2.8 minute video). Now a held picture is
 said to be one, a scene with little change is said to have small things moving over a still picture (no fault),
 and only a scene in which nothing changes at all (under 0.15) is a fault, since its animation may not be running.
+
+### The built-in path against ffmpeg
+The user's OK to download came late on 2026-11-19, and the laptop got ffmpeg 9.0.2 (gyan.dev's essentials build,
+its 7z from the GitHub mirror, checked against gyan.dev's SHA-256, unpacked with 7zr since Windows' tar here has
+no LZMA; kept in `.dev\ffmpeg-dl`, on the PATH only for these runs). With it the three clip tests that had
+always been skipped on the laptop ran and passed, and the built-in join could be put beside ffmpeg's frame by
+frame (`enc pairs`, `enc curve` in the rig): the same storyboard joined both ways, each transition looked at a
+third and two thirds through.
+
+- **Reading ffmpeg's file**: through Windows' reader its first frame is at 0.133 s, not 0 (x264's frames lean on
+  later ones and the reader doesn't take the file's edit list), so the comparison reads ffmpeg's file that much
+  later. Ours has no such frames and starts at 0.
+- **What was wrong here and is put right** (all in `VideoPreviewer.Transitions.cs`, each rule now xfade's own,
+  worked out on a 96x54 grid and smoothed over the frame: `Field`): the diagonal wipes went the other way
+  ("diagtl" ends in the top left, so the new picture starts bottom right); the blinds came from the wrong side
+  and without their band; the smooth wipes, the circles and the clock had edges far harder than xfade's, which
+  are as wide as the frame; "circlecrop" shrank evenly where xfade's goes by the cube; "zoomin" zooms the old
+  picture until its middle fills the frame and only then lets the new one through; "hblur" smears half the
+  frame wide and to the left; "pixelize" takes one pixel a block, not their average; "distance" was a dissolve.
+- **The fade through black**: xfade mixes towards a black of 0 where video's black is 16 (and a white of 255
+  where white is 235), so the picture is darker by that share again and the screen stays black three tenths
+  into the transition, where the rule alone says a tenth of the new clip shows. Measured frame by frame on flat
+  clips, then done the same way here (a colour offset of -16/219 or +20/219 of what the mix leaves to the
+  background).
+- **The sound**: a one-channel file was 3 dB louder here than in ffmpeg's join, which spreads it at 0.707 to
+  each side. `VideoSoundMix` does the same now; with it the demo's loudness by half second is within 5% of
+  ffmpeg's all through (music fading in, clips crossfading, the end fading out).
+- **What it comes to**: over 21 transitions the two joins differ by 0.1 to 2.5 of 255 a pixel on average
+  (pixelize 3.4, whose blocks start a pixel apart), with a scene, a keyed picture, a picture in picture, grain,
+  sharpening, a clip at double speed and one reversed in the frame. `The_video_joined_here_is_the_one_ffmpeg_joins`
+  holds 13 of them to 6 of 255 wherever there is an ffmpeg. ffmpeg joined the 19 s demo in 3 s where the
+  built-in path takes 11, at two thirds of the size.
 
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by

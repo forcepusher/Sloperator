@@ -24,7 +24,7 @@ public sealed class VideoComposerTests : IDisposable
 
     private const int Rate = VideoSoundMix.Rate;
 
-    /// <summary>Sounds by file name: "level 0.5 4s.wav" is four seconds of the value 0.5, so what the mix did to it can be read off a sample.</summary>
+    /// <summary>Sounds by file name: "level 0.5 4s.wav" is four seconds of the value 0.5 (in stereo; "mono level …" in one channel), so what the mix did to it can be read off a sample.</summary>
     private sealed class Levels : IMediaDecoder
     {
         public MediaInfo? Probe(string path) => null;
@@ -32,31 +32,33 @@ public sealed class VideoComposerTests : IDisposable
 
         public IAudioReader? OpenAudio(string path)
         {
-            var parts = Path.GetFileNameWithoutExtension(path).Split(' ');
+            var name = Path.GetFileNameWithoutExtension(path);
+            var mono = name.StartsWith("mono ", StringComparison.Ordinal);
+            var parts = (mono ? name[5..] : name).Split(' ');
             if (parts.Length < 3 || parts[0] != "level")
                 return null;
             var level = float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
             var seconds = double.Parse(parts[2].TrimEnd('s'), System.Globalization.CultureInfo.InvariantCulture);
-            return new Constant(level, (int)(seconds * 8000));
+            return new Constant(level, (int)(seconds * 8000), mono ? 1 : 2);
         }
 
-        /// <summary>Mono at 8 kHz, to be made stereo at 48 kHz by the mix.</summary>
-        private sealed class Constant(float level, int frames) : IAudioReader
+        /// <summary>At 8 kHz, to be brought to 48 kHz (and to two channels) by the mix.</summary>
+        private sealed class Constant(float level, int frames, int channels) : IAudioReader
         {
             private int _at;
             public int SampleRate => 8000;
-            public int Channels => 1;
+            public int Channels => channels;
             public TimeSpan Duration => TimeSpan.FromSeconds(frames / 8000.0);
 
             public int Read(float[] buffer, int offset, int count)
             {
-                var n = Math.Min(count, frames - _at);
+                var n = Math.Min(count, frames * channels - _at);
                 Array.Fill(buffer, level, offset, n);
                 _at += n;
                 return n;
             }
 
-            public void Seek(TimeSpan time) => _at = (int)(time.TotalSeconds * 8000);
+            public void Seek(TimeSpan time) => _at = (int)(time.TotalSeconds * 8000) * channels;
             public void Dispose() { }
         }
     }
@@ -105,8 +107,12 @@ public sealed class VideoComposerTests : IDisposable
         Assert.Equal(0, At(mix, 8), 3);
         Assert.Equal(0.6f, At(mix, 9.5), 3);
         Assert.Equal(0, At(mix, 10.5), 3);
-        // Both channels alike, from a sound of one.
+        // Both channels alike.
         Assert.Equal(mix[Rate * 2], mix[Rate * 2 + 1]);
+        // A sound of one channel goes to both at 0.707 of itself, as ffmpeg spreads it.
+        var one = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "place": "mono level 0.4 4s.mp4"}]}"""), new Levels(), []);
+        Assert.Equal(0.4f * 0.7071f, At(one, 1), 3);
+        Assert.Equal(one[Rate * 2], one[Rate * 2 + 1]);
     }
 
     [Fact]
@@ -809,6 +815,56 @@ public sealed class VideoComposerTests : IDisposable
         Assert.Contains("It is the picture held still.", held.Text);
         var drawn = VideoCheck.Shot(board, board.Shots[2], board.ShotVideo(board.Shots[2]), media);
         Assert.Contains("nothing in it moves", drawn.Faults);
+    }
+
+    [Fact]
+    public async Task The_video_joined_here_is_the_one_ffmpeg_joins()
+    {
+        var media = new MediaFoundationDecoder();
+        var both = new FallbackDecoder(media, new FfmpegDecoder(() => []));
+        var ffmpeg = both.Ffmpeg ?? "";
+        if (ffmpeg.Length == 0)
+            Assert.Skip("No ffmpeg on this PC.");
+        var ct = TestContext.Current.CancellationToken;
+        // Flat clips of five colours, each coming in over the one before in another way.
+        string[] ways = ["wipeleft", "diagtl", "circleopen", "hlslice", "smoothup", "radial", "slideleft", "squeezev", "fade", "fadewhite", "distance", "zoomin", "dissolve"];
+        (byte, byte, byte)[] colours = [(200, 60, 60), (60, 90, 200), (60, 160, 90), (200, 150, 40), (140, 70, 180)];
+        var shots = string.Join(",", Enumerable.Range(0, ways.Length + 1).Select(i =>
+            $$"""{"id": "s{{i + 1}}", "seconds": 2, "place": "Generated/s{{i + 1}}.mp4"{{(i == 0 ? "" : $$""", "transition": "{{ways[i - 1]}}", "transitionSeconds": 1""")}}}"""));
+        var board = Storyboard.Parse($$"""{"title": "Same", "width": 320, "height": 180, "fps": 15, "fadeIn": 0, "fadeOut": 0, "shots": [{{shots}}]}""");
+        board.Folder = _dir;
+        for (var i = 0; i < board.Shots.Count; i++)
+            Clip(board.ShotVideo(board.Shots[i]), colours[i % colours.Length], 2, hz: 220 + i * 55);
+        var theirs = Path.Combine(_dir, "ffmpeg.mp4");
+        File.Move((await VideoMontage.JoinAsync(board, ffmpeg, both, null, ct)).File, theirs);
+        var ours = (await VideoMontage.JoinAsync(board, null, media, null, ct)).File;
+        Assert.InRange(media.Probe(theirs)!.Duration.TotalSeconds, media.Probe(ours)!.Duration.TotalSeconds - 0.2, media.Probe(ours)!.Duration.TotalSeconds + 0.2);
+
+        using var a = media.OpenVideo(theirs, 0)!;
+        using var b = media.OpenVideo(ours, 0)!;
+        // ffmpeg's file reads a few frames late through Windows' reader (its frames lean on later ones); ours starts at 0.
+        var (lateA, lateB) = (a.Next()!.Value.Time.TotalSeconds, b.Next()!.Value.Time.TotalSeconds);
+        Assert.Equal(0, lateB, 3);
+        var (starts, _) = board.Timing();
+        var worst = new List<string>();
+        for (var i = 1; i < board.Shots.Count; i++)
+            foreach (var part in new[] { 1 / 3.0, 2 / 3.0 })
+            {
+                var at = starts[i] + part;
+                a.Seek(TimeSpan.FromSeconds(at + lateA));
+                b.Seek(TimeSpan.FromSeconds(at + lateB));
+                var (fa, fb) = (a.Next()!.Value.Frame, b.Next()!.Value.Frame);
+                // How far apart the two frames are over a grid of points, each colour of 255.
+                double sum = 0;
+                var n = 0;
+                for (var y = 6; y < 180; y += 12)
+                    for (var x = 6; x < 320; x += 12)
+                        for (var c = 0; c < 3; c++, n++)
+                            sum += Math.Abs(fa.Bgra[(y * 320 + x) * 4 + c] - fb.Bgra[(y * 320 + x) * 4 + c]);
+                if (sum / n > 6)
+                    worst.Add($"{board.Shots[i].Transition} {part:0.00} through: {sum / n:0.0} apart");
+            }
+        Assert.True(worst.Count == 0, string.Join("; ", worst));
     }
 #endif
 }

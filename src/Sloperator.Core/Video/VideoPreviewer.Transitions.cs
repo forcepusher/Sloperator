@@ -9,8 +9,6 @@ public sealed partial class VideoPreviewer
     private static readonly SKSamplingOptions Plain = new(SKFilterMode.Nearest);
     private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-    /// <summary>How wide the soft edge of a smooth wipe is, of the frame.</summary>
-    private const float Band = 0.2f;
 
     /// <summary>The clip coming in over the one before it, <paramref name="t"/> of the way through (0 to 1), as its transition has it.</summary>
     private static void Transition(SKCanvas canvas, SKImage? before, SKImage? now, string transition, double t, int width, int height)
@@ -52,23 +50,68 @@ public sealed partial class VideoPreviewer
             canvas.Restore();
             mask.Dispose();
         }
-        // A soft edge across the frame: the picture shows from the point `from` on, fully by `to`.
-        SKShader Edge(SKPoint from, SKPoint to) =>
-            SKShader.CreateLinearGradient(from, to, [SKColors.Transparent, SKColors.White], [0, 1], SKShaderTileMode.Clamp);
+        // How much of a picture shows at each point of the frame (x and y from 0 to 1), by a rule: worked out on a
+        // coarse grid and smoothed over the frame, which is all a soft edge needs. The rules are ffmpeg xfade's own.
+        SKShader Field(Func<float, float, float> shows)
+        {
+            const int across = 96, down = 54;
+            var grid = new byte[across * down * 4];
+            for (var y = 0; y < down; y++)
+                for (var x = 0; x < across; x++)
+                {
+                    var v = (byte)Math.Round(255 * Math.Clamp(shows((x + 0.5f) / across, (y + 0.5f) / down), 0, 1));
+                    var i = (y * across + x) * 4;
+                    (grid[i], grid[i + 1], grid[i + 2], grid[i + 3]) = (v, v, v, v);
+                }
+            using var bitmap = new SKBitmap(new SKImageInfo(across, down, SKColorType.Bgra8888, SKAlphaType.Premul));
+            System.Runtime.InteropServices.Marshal.Copy(grid, 0, bitmap.GetPixels(), grid.Length);
+            using var image = SKImage.FromBitmap(bitmap);
+            return image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Smooth, SKMatrix.CreateScale(w / across, h / down));
+        }
+        // 0 below `low`, 1 above `high`, eased between.
+        static float Step(float low, float high, float x)
+        {
+            var k = Math.Clamp((x - low) / (high - low), 0, 1);
+            return k * k * (3 - 2 * k);
+        }
         // A circle of the picture, its rim a little soft.
         SKShader Circle(float radius, bool inside) =>
             SKShader.CreateRadialGradient(new SKPoint(w / 2, h / 2), Math.Max(1, radius + 2),
                 inside ? [SKColors.White, SKColors.White, SKColors.Transparent] : [SKColors.Transparent, SKColors.Transparent, SKColors.White],
                 [0, Math.Max(0, radius - 2) / Math.Max(1, radius + 2), 1], SKShaderTileMode.Clamp);
         var corner = (float)(Math.Sqrt(w * (double)w + h * (double)h) / 2);
+        // How far a point of the frame is from its middle: 0 there, 1 in a corner.
+        float Far(float x, float y) => MathF.Sqrt((x - 0.5f) * w * (x - 0.5f) * w + (y - 0.5f) * h * (y - 0.5f) * h) / corner;
 
         switch (transition)
         {
             case VideoShot.Fade or "fadewhite":
-                // Through black, or white: out over the first half, in over the second.
-                canvas.Clear(transition == VideoShot.Fade ? SKColors.Black : SKColors.White);
-                if (p < 0.5f) Draw(before, 1 - p * 2);
-                else Draw(now, p * 2 - 1);
+            {
+                // Through black, or white: the old picture gone within the first fifth, the new one coming up from then on.
+                var white = transition != VideoShot.Fade;
+                var (old, fresh) = (Step(0.8f, 1, 1 - p) * (1 - p), (1 - Step(0.2f, 1, 1 - p)) * p);
+                // ffmpeg mixes towards a black below video's black (0 where black is 16) and a white above its white, so what
+                // shows of a picture is darker (or lighter) by that much of the mix again, and nothing shows at all for a tenth
+                // of the transition longer: measured frame by frame, the new clip is still black three tenths in. The same here.
+                var beyond = (1 - old - fresh) * (white ? 20 : -16) / 219f;
+                using var pushed = SKColorFilter.CreateColorMatrix([1, 0, 0, 0, beyond, 0, 1, 0, 0, beyond, 0, 0, 1, 0, beyond, 0, 0, 0, 1, 0]);
+                using var layer = new SKPaint { ColorFilter = pushed };
+                canvas.SaveLayer(layer);
+                canvas.Clear(white ? SKColors.White : SKColors.Black);
+                Draw(before, old);
+                Draw(now, fresh);
+                canvas.Restore();
+                break;
+            }
+
+            // Where the two pictures are alike the old one stays and fades; where they differ the new one is there at
+            // once, more of it as it goes on.
+            case "distance":
+                if (before is null || now is null || !Distant(canvas, before, now, 1 - p, width, height))
+                {
+                    Draw(before);
+                    Draw(now, p);
+                }
                 break;
 
             // A wipe: the new picture where the edge has passed, both standing still.
@@ -107,49 +150,41 @@ public sealed partial class VideoPreviewer
                 Draw(now, 1, 0, -h * (1 - p));
                 break;
 
-            // A wipe with a soft edge.
+            // A wipe with an edge as soft as the frame is wide: the new picture comes the way the wipe of that name does.
             case "smoothleft":
-            {
-                var at = w * ((1 + Band) * (1 - p) - Band);
                 Draw(before);
-                Masked(now, Edge(new SKPoint(at, 0), new SKPoint(at + w * Band, 0)));
+                Masked(now, Field((x, _) => Step(0, 1, x + 2 * p - 1)));
                 break;
-            }
             case "smoothright":
-            {
-                var at = w * ((1 + Band) * p - Band);
                 Draw(before);
-                Masked(now, Edge(new SKPoint(at + w * Band, 0), new SKPoint(at, 0)));
+                Masked(now, Field((x, _) => Step(0, 1, 2 * p - x)));
                 break;
-            }
             case "smoothup":
-            {
-                var at = h * ((1 + Band) * (1 - p) - Band);
                 Draw(before);
-                Masked(now, Edge(new SKPoint(0, at), new SKPoint(0, at + h * Band)));
+                Masked(now, Field((_, y) => Step(0, 1, y + 2 * p - 1)));
                 break;
-            }
             case "smoothdown":
-            {
-                var at = h * ((1 + Band) * p - Band);
                 Draw(before);
-                Masked(now, Edge(new SKPoint(0, at + h * Band), new SKPoint(0, at)));
+                Masked(now, Field((_, y) => Step(0, 1, 2 * p - y)));
                 break;
-            }
 
-            // From a corner, with a soft edge: the edge runs along the frame's other diagonal.
-            case "diagtl" or "diagtr" or "diagbl" or "diagbr":
-            {
-                var (fromLeft, fromTop) = (transition is "diagtl" or "diagbl", transition is "diagtl" or "diagtr");
-                var start = new SKPoint(fromLeft ? 0 : w, fromTop ? 0 : h);
-                var end = new SKPoint(fromLeft ? w : 0, fromTop ? h : 0);
-                // Along the diagonal: the edge at `at` of it, the picture shown behind the edge (towards its corner).
-                var at = (1 + Band) * p - Band;
-                SKPoint On(float k) => new(start.X + (end.X - start.X) * k, start.Y + (end.Y - start.Y) * k);
+            // Towards a corner, softly: "diagtl" ends in the top left, so the new picture starts from the bottom right.
+            case "diagtl":
                 Draw(before);
-                Masked(now, Edge(On(at + Band), On(at)));
+                Masked(now, Field((x, y) => Step(0, 1, x * y + 2 * p - 1)));
                 break;
-            }
+            case "diagtr":
+                Draw(before);
+                Masked(now, Field((x, y) => Step(0, 1, (1 - x) * y + 2 * p - 1)));
+                break;
+            case "diagbl":
+                Draw(before);
+                Masked(now, Field((x, y) => Step(0, 1, x * (1 - y) + 2 * p - 1)));
+                break;
+            case "diagbr":
+                Draw(before);
+                Masked(now, Field((x, y) => Step(0, 1, (1 - x) * (1 - y) + 2 * p - 1)));
+                break;
 
             // Laid over, or pulled away.
             case "coverleft":
@@ -169,21 +204,24 @@ public sealed partial class VideoPreviewer
                 Draw(before, 1, w * p);
                 break;
 
-            // A circle opening on the new picture, or closing on the old one.
+            // A circle opening on the new picture from the middle, or closing on the old one from the corners, its rim
+            // as soft as the frame's half diagonal is long.
             case "circleopen":
                 Draw(before);
-                Masked(now, Circle(corner * p, inside: true));
+                Masked(now, Field((x, y) => 1 - Step(0, 1, Far(x, y) + (0.5f - p) * 3)));
                 break;
             case "circleclose":
-                Draw(now);
-                Masked(before, Circle(corner * (1 - p), inside: true));
+                Draw(before);
+                Masked(now, Field((x, y) => Step(0, 1, Far(x, y) + (p - 0.5f) * 3)));
                 break;
-            // The old picture shrinks into a circle on black, the new one grows out of one.
+            // The old picture shrinks into a circle on black, fast at first, and the new one grows out of one.
             case "circlecrop":
+            {
                 canvas.Clear(SKColors.Black);
-                if (p < 0.5f) Masked(before, Circle(corner * (1 - p * 2), inside: true));
-                else Masked(now, Circle(corner * (p * 2 - 1), inside: true));
+                var k = Math.Abs(1 - p * 2);
+                Masked(p < 0.5f ? before : now, Circle(corner * k * k * k, inside: true));
                 break;
+            }
             case "rectcrop":
             {
                 canvas.Clear(SKColors.Black);
@@ -191,21 +229,10 @@ public sealed partial class VideoPreviewer
                 Clipped(p < 0.5f ? before : now, () => canvas.ClipRect(SKRect.Create(w / 2 * (1 - k), h / 2 * (1 - k), w * k, h * k)));
                 break;
             }
-            // A clock's hand going round from the top.
+            // A clock's hand going round from the top, the new picture behind it, its edge a soft one.
             case "radial":
                 Draw(before);
-                if (p >= 0.999f)
-                    Draw(now);
-                else if (p > 0.001f)
-                    Clipped(now, () =>
-                    {
-                        using var builder = new SKPathBuilder();
-                        builder.MoveTo(w / 2, h / 2);
-                        builder.ArcTo(SKRect.Create(w / 2 - corner * 1.5f, h / 2 - corner * 1.5f, corner * 3, corner * 3), -90, 360 * p, false);
-                        builder.Close();
-                        using var pie = builder.Detach();
-                        canvas.ClipPath(pie, antialias: true);
-                    });
+                Masked(now, Field((x, y) => Step(0, 1, MathF.Atan2((x - 0.5f) * w, (y - 0.5f) * h) - (0.5f - p) * MathF.PI * 2.5f)));
                 break;
 
             // Squeezed flat along one way, the new picture behind it.
@@ -218,15 +245,16 @@ public sealed partial class VideoPreviewer
                 Into(before, SKRect.Create(w / 2 * p, 0, w * (1 - p), h));
                 break;
 
-            // The old picture comes at the viewer and thins out.
+            // The old picture comes at the viewer over the first half, until its middle fills the frame, and the new
+            // one comes up through it over the second.
             case "zoomin":
             {
                 Draw(now);
-                var scale = 1 + p * 1.5f;
-                if (before is not null && p < 0.999f)
+                var (part, solid) = (Math.Max(Step(0.5f, 1, 1 - p), 1f / Math.Max(width, height)), Step(0, 0.5f, 1 - p));
+                if (before is not null && solid > 0.002f)
                 {
-                    paint.Color = SKColors.White.WithAlpha((byte)Math.Round(255 * (1 - p)));
-                    canvas.DrawImage(before, SKRect.Create(w / 2 - w * scale / 2, h / 2 - h * scale / 2, w * scale, h * scale), Smooth, paint);
+                    paint.Color = SKColors.White.WithAlpha((byte)Math.Round(255 * solid));
+                    canvas.DrawImage(before, SKRect.Create(w / 2 - w * part / 2, h / 2 - h * part / 2, w * part, h * part), frame, Smooth, paint);
                 }
                 break;
             }
@@ -234,7 +262,7 @@ public sealed partial class VideoPreviewer
             // Both in blocks that grow to the middle of it and shrink again, one fading into the other.
             case "pixelize":
             {
-                var block = 1 + (int)Math.Round(Math.Min(width, height) / 18.0 * (1 - Math.Abs(p * 2 - 1)));
+                var block = 1 + (int)Math.Round(Math.Min(width, height) / 20.0 * (1 - Math.Abs(p * 2 - 1)));
                 if (block <= 1)
                 {
                     Draw(before);
@@ -245,11 +273,11 @@ public sealed partial class VideoPreviewer
                 var into = SKRect.Create(small.Canvas.DeviceClipBounds.Width, small.Canvas.DeviceClipBounds.Height);
                 small.Canvas.Clear(SKColors.Black);
                 if (before is not null)
-                    small.Canvas.DrawImage(before, into, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+                    small.Canvas.DrawImage(before, into, Plain); // one pixel of each block, as ffmpeg takes it, not their average
                 if (now is not null)
                 {
                     using var over = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Round(255 * p)) };
-                    small.Canvas.DrawImage(now, into, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear), over);
+                    small.Canvas.DrawImage(now, into, Plain, over);
                 }
                 using var blocks = small.Snapshot();
                 canvas.DrawImage(blocks, frame, Plain);
@@ -259,7 +287,10 @@ public sealed partial class VideoPreviewer
             // One fading into the other, both smeared sideways most in the middle of it.
             case "hblur":
             {
-                var sigma = w * 0.06f * (1 - Math.Abs(p * 2 - 1));
+                // As a smear half the frame wide at its most, and to the left by half as much: ffmpeg's adds up what is to
+                // the right of each pixel, so what is seen moves left as it spreads.
+                var spread = 1 + w / 2 * (1 - Math.Abs(p * 2 - 1));
+                var sigma = spread / 3.46f;
                 if (sigma < 0.5f)
                 {
                     Draw(before);
@@ -269,28 +300,40 @@ public sealed partial class VideoPreviewer
                 using var blur = SKImageFilter.CreateBlur(sigma, 0.01f, SKShaderTileMode.Clamp, null, frame);
                 using var smeared = new SKPaint { ImageFilter = blur };
                 canvas.SaveLayer(smeared);
-                Draw(before);
-                Draw(now, p);
+                void Smeared(SKImage? image, float alpha)
+                {
+                    if (image is null || alpha <= 0.002f)
+                        return;
+                    using var moved = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Plain, SKMatrix.CreateTranslation(-spread / 2, 0));
+                    using var fill = new SKPaint { Shader = moved, Color = SKColors.White.WithAlpha((byte)Math.Round(255 * Math.Clamp(alpha, 0, 1))) };
+                    canvas.DrawRect(frame, fill);
+                }
+                Smeared(before, 1);
+                Smeared(now, p);
                 canvas.Restore();
                 break;
             }
 
-            // Ten strips, each wiped in turn across it.
+            // The new picture comes across in ten strips, as blinds turn: "hlslice" to the left (from the right edge),
+            // "hrslice" to the right, "vuslice" up, "vdslice" down. Half the frame ahead of where it is whole, each strip
+            // has only its near part, more of it the nearer the strip is.
             case "hlslice" or "hrslice" or "vuslice" or "vdslice":
             {
                 const int strips = 10;
-                var (across, forward) = (transition[0] == 'h', transition is "hlslice" or "vuslice");
+                var (across, mirrored) = (transition[0] == 'h', transition is "hrslice" or "vdslice");
                 Draw(before);
+                var size = (across ? w : h) / strips;
                 for (var i = 0; i < strips; i++)
                 {
-                    // Each starts a little after the one before it, in the way it goes.
-                    var order = (forward ? i : strips - 1 - i) / (float)strips;
-                    var local = Math.Clamp(p * 1.5f - order * 0.5f, 0, 1);
-                    if (local <= 0)
+                    // Counted the way ffmpeg counts them: from the left or the top, or mirrored from the other side.
+                    // How much of the strip: where its own share (0 at its near edge, 1 at its far one) meets the rule there.
+                    var part = 0.5f;
+                    for (var turn = 0; turn < 8; turn++)
+                        part = Step(-0.5f, 0, (i + part) / strips - (1 - p) * 1.5f);
+                    var shown = size * part;
+                    if (shown <= 0.01f)
                         continue;
-                    var size = (across ? w : h) / strips;
-                    var shown = size * local;
-                    var from = i * size + (forward ? 0 : size - shown);
+                    var from = mirrored ? (across ? w : h) - i * size - shown : i * size;
                     var strip = across ? SKRect.Create(from, 0, shown, h) : SKRect.Create(0, from, w, shown);
                     Clipped(now, () => canvas.ClipRect(strip));
                 }
@@ -302,6 +345,47 @@ public sealed partial class VideoPreviewer
                 Draw(before);
                 Draw(now, p);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// ffmpeg's "distance": each pixel is the old picture's where the two are no further apart than what is left of
+    /// the transition (<paramref name="left"/>, 1 to 0; apart as their brightness and colour differ), else the new
+    /// one's, and all of it fades to the new picture as it goes. False when a picture's pixels can't be read.
+    /// </summary>
+    private static bool Distant(SKCanvas canvas, SKImage before, SKImage now, float left, int width, int height)
+    {
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var (a, b) = (new byte[width * height * 4], new byte[width * height * 4]);
+        var (pa, pb) = (System.Runtime.InteropServices.GCHandle.Alloc(a, System.Runtime.InteropServices.GCHandleType.Pinned),
+                        System.Runtime.InteropServices.GCHandle.Alloc(b, System.Runtime.InteropServices.GCHandleType.Pinned));
+        try
+        {
+            if (!before.ReadPixels(info, pa.AddrOfPinnedObject(), width * 4, 0, 0) || !now.ReadPixels(info, pb.AddrOfPinnedObject(), width * 4, 0, 0))
+                return false;
+            var limit = left * left * 255f * 255f;
+            Parallel.For(0, height, y =>
+            {
+                for (var i = y * width * 4; i < (y + 1) * width * 4; i += 4)
+                {
+                    float db = a[i] - b[i], dg = a[i + 1] - b[i + 1], dr = a[i + 2] - b[i + 2];
+                    // Apart in brightness and in the two colour differences, as video holds a picture.
+                    var (dy, du, dv) = (0.1826f * dr + 0.6142f * dg + 0.0620f * db, -0.1006f * dr - 0.3386f * dg + 0.4392f * db, 0.4392f * dr - 0.3989f * dg - 0.0403f * db);
+                    if (dy * dy + du * du + dv * dv > limit)
+                        continue; // the new picture, as b has it
+                    b[i] = (byte)(a[i] * left + b[i] * (1 - left));
+                    b[i + 1] = (byte)(a[i + 1] * left + b[i + 1] * (1 - left));
+                    b[i + 2] = (byte)(a[i + 2] * left + b[i + 2] * (1 - left));
+                }
+            });
+            using var mixed = SKImage.FromPixelCopy(info, b, width * 4);
+            canvas.DrawImage(mixed, 0, 0, Plain);
+            return true;
+        }
+        finally
+        {
+            pa.Free();
+            pb.Free();
         }
     }
 
