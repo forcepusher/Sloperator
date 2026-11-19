@@ -2293,6 +2293,13 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   them back, Ctrl+Y set them aside again and Ctrl+Z brought them back once more; Ctrl+C on clip 1 and Ctrl+V put its
   copy after it as clip 2, and Ctrl+D on clip 4 a copy after it, each made. A key hint that isn't a key's name
   ("Del") threw as the menu opened (`KeyGesture.Parse`): it is "Delete".
+- The same edits asked of the models (the CLI, the demo's storyboard, "turn clip 3 a quarter turn to the right and
+  show it whole over a blurred copy of itself, give it a vignette and film grain, mirror clip 1, make clip 2 fit
+  whole with black bars, and make the transition into clip 3 one second long. Only change the storyboard"): Haiku
+  5.5 in 24 s and qwen3.8 in 3.2 minutes, each in one storyboard change ("rotate": 90, "fit": "blur", "effects":
+  ["vignette", "grain"], "transitionSeconds": 1 on s2; "flip": "horizontal" on s1; "fit": "fit" on s4), each
+  telling clips from shot ids by their order and saying what was there before. Joined with ffmpeg: not yet, there
+  is none on the laptop.
 - Checked in the app (2026-11-19, the "Night drive" demo): two speed changes from the menu taken back and
   made again with two presses each; the bars clip moved before the city one and back; Ctrl+B at 0:06.8
   split it 1.5 s in; its start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken
