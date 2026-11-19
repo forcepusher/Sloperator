@@ -131,3 +131,32 @@ public sealed partial class VideoEditorTool
             ImageCaption: look.Image is null ? null : look.Caption, Files: [file]);
     }
 }
+
+// A sound file's beat before there is any video for it: a model asked to cut a video on a song's beat looks for the
+// beat first, and Qwen 3.8, finding no way to ask, searched the PC for ffprobe and then wrote a beat finder in PowerShell.
+public sealed partial class VideoEditorTool
+{
+    private static readonly string[] SoundKinds = [".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac", ".wma", ".opus"];
+
+    /// <summary>The path when it is a sound file that is there; null for a video's folder, a name, or any other file.</summary>
+    private static string? SoundFileAt(string? path, ToolContext ctx)
+    {
+        if (path is not { Length: > 0 })
+            return null;
+        var full = ctx.ResolvePath(path);
+        return SoundKinds.Contains(Path.GetExtension(full), StringComparer.OrdinalIgnoreCase) && File.Exists(full) ? full : null;
+    }
+
+    /// <summary>action=check with a sound file as its path: what the file holds and its beat, in its own time.</summary>
+    private static ToolResult CheckSoundFile(string file, ToolContext ctx)
+    {
+        var look = MediaPreview.ForFiles([file], ctx.Media, ctx.SeesImages);
+        static string S(double seconds) => seconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        var beat = ctx.Media is { } decoder && SoundBeats.Of(file, decoder) is { } grid
+            ? $"Its beat: {grid.Bpm:0.#} BPM, a beat every {S(grid.Interval)} s, the first {S(grid.First)} s into it (then {string.Join(", ", grid.Times.Skip(1).Take(7).Select(S))} s and so on to {S(grid.Times[^1])} s). " +
+              $"To cut a video on it, start each clip on a beat and make it a whole number of beats long: 4 beats are {S(grid.Interval * 4)} s, 8 are {S(grid.Interval * 8)} s. " +
+              "These are times in the file: in a video add where the sound starts there, less what is trimmed off its start."
+            : "No steady beat was found in it.";
+        return new ToolResult($"{file}\n{string.Join("\n", look.Lines)}\n{beat}", look.Image, ImageCaption: look.Image is null ? null : look.Caption);
+    }
+}

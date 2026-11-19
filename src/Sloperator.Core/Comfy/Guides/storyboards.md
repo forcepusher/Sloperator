@@ -132,8 +132,9 @@ they want), so write them well.
   a door, rain), made from the clips themselves, so make them first. "tags" says what is heard
   ("gravel footsteps, wind"); it can be left empty. For music use a song: foley keeps music out.
 - A sound file of the person's ("source": "file") is copied into the video's Sounds folder as it is.
-- To cut on the beat of a song or a sound file, action=check with its id once it is there: it tells its
-  tempo and when its beats fall in the video. Make each clip a whole number of beats long.
+- To cut on the beat of a song or a sound file, action=check tells its tempo and when its beats
+  fall: with path the sound file itself (before there is a storyboard), or with id the sound's in
+  the video. Make each clip a whole number of beats long. Don't look for ffmpeg or write a script for it.
 - A voice-over Sloperator makes ("source": "speech"): "text" is what it says, "tags" the voice (age,
   voice, manner; else the video's "voice"); it is said from where it "start"s, not lip-synced, and the
   music on the other sound lines goes quieter under it.

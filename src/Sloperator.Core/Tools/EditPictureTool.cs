@@ -20,7 +20,9 @@ public sealed class EditPictureTool : Tool
         "Edit a picture file exactly, with no model. The picture stays as it was: the result is a new file (output, else beside it, named after the edit; " +
         "in Sloperator's Image editor, the picture's next version). " +
         "edit: crop (keep the box x, y, width, height), resize (to width and height; one alone keeps its shape), rotate, flip, colour, " +
-        "convert (to format). Several edits in one call, saved as one file: the first here, the rest in then.";
+        "convert (to format). Several edits in one call, saved as one file: the first here, the rest in then. " +
+        "To write or draw on a picture (a caption, an arrow, a frame, a watermark, pictures side by side) use render instead: " +
+        "an SVG that holds the picture as an <image> by its full path, with the rest drawn over it.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 

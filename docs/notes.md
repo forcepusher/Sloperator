@@ -728,6 +728,12 @@ from the disk, for what a picture is made of only (pictures, fonts, clips, sound
 so a page can't read a document or a key file through it. The guide says a picture is named by its full path
 unless it is beside the file. Checked: SceneRendererTests draw over a photo in another folder named both ways,
 and a text file asked for the same way is refused with an error the scene's author sees.
+The first run of that on Qwen 3.8 went another way: it took "put a caption on this photo" for picture editing,
+wrote a Python script with Pillow (which the prompt's line on the three ways rules out for making pictures, but
+this was changing one), found no Python, and then put the photo into an SVG as base64 through a PowerShell
+script (11 calls, 2 failed, 6 minutes). `edit_picture` is where a model looks to change a picture, so its
+description now ends by sending writing and drawing on a picture to `render` (an SVG with the picture as an
+`<image>` by its full path); 57 tokens.
 
 ### How the three ways did with the agent
 2026-11-19, the CLI with --yes, four plain requests each, the "Night drive" demo video in the data folder
@@ -2556,7 +2562,11 @@ note, a hum), noise, speech-like sound with no gap that lines up, and anything u
 
 - **For the agent**: `video action=check` with a sound's id says where the file is, what it holds and its beat
   in the video's own time (`VideoEditorTool.BeatLine`: BPM, the beat's length, the first eight beats, how long 4
-  and 8 beats are), and a song's result says it as soon as the song is made. The guide has two lines on it.
+  and 8 beats are), and a song's result says it as soon as the song is made. With `path` a sound file it tells
+  the file's beat in its own time, before there is any video (`CheckSoundFile`), and the tool's description names
+  both: Qwen 3.8, asked for cuts on a song's beat, read the guide (which then said "with its id once it is there"),
+  wanted the beat before writing a storyboard, searched the PC for ffprobe, and wrote a beat finder in PowerShell.
+  Haiku, asked only "what is the tempo of song.wav and when do its first beats fall", now answers from one call in 7 s.
 - **In the Video editor**: each music file's beat is found when its samples are read for the waveform
   (`AudioOf`; songs and sound files, not voice-overs or foley), shown as ticks along the bottom of the sound's
   block (`VideoWave.Beats`, left out when closer than 4 px), and added to what a dragged title or sound lands on

@@ -153,5 +153,10 @@ public sealed class SoundBeatToolTests : IDisposable
         Assert.Contains("4 beats are 2 s, 8 are 4 s", loud.Text);
         var quiet = await new Tools.VideoEditorTool().ExecuteAsync(new System.Text.Json.Nodes.JsonObject { ["action"] = "check", ["path"] = _dir, ["id"] = "a2" }, ctx, ct);
         Assert.Contains("No steady beat was found in it.", quiet.Text);
+        // The file alone, before there is any video for it: its beat in its own time.
+        var alone = await new Tools.VideoEditorTool().ExecuteAsync(new System.Text.Json.Nodes.JsonObject { ["action"] = "check", ["path"] = board.SoundFile(board.Sounds[0]) }, ctx, ct);
+        Assert.False(alone.IsError, alone.Text);
+        Assert.Matches(@"120 BPM, a beat every 0\.5 s, the first 0\.2[4-6]\d? s into it", alone.Text);
+        Assert.Contains("4 beats are 2 s, 8 are 4 s", alone.Text);
     }
 }

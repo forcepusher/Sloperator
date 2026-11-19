@@ -28,7 +28,7 @@ public sealed partial class VideoEditorTool : Tool
         "Before you write or change a storyboard the first time in a chat, read action=guide: the storyboard's fields, how to write its frames, shots and sounds, how each action makes them, and what the folder holds. " +
         "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
         "action=join puts the video together; action=export saves the joined video as another file (output: .mp4, .webm, .mov, .gif, or .mp3 for its sound; width/height); " +
-        "action=check looks at a piece or the whole video; action=models lists the installed models. " +
+        "action=check looks at a piece or the whole video, or tells a song's beat to cut on (id: a sound's, or path: a sound file); action=models lists the installed models. " +
         "action=edit changes one video file (or makes a clip of a picture) in one call, with no storyboard: path is the file, storyboard a shot's fields for what to do to it " +
         "({\"in\": 3, \"seconds\": 5} cuts it, speed, reverse, rotate, flip, crop, color, effects, volume), output the new file (.mp4, .gif, or .wav for its sound), width/height its size. " +
         "It edits as a video editor does, all in the storyboard: a shot can be the user's own video or picture (file) or an SVG or Three.js scene (scene), trimmed (in), " +
@@ -92,6 +92,8 @@ public sealed partial class VideoEditorTool : Tool
                 _guideShown = ctx.ContextResets;
                 return new ToolResult(Guide());
             }
+            if (action == "check" && SoundFileAt(GetString(args, "path"), ctx) is { } song)
+                return CheckSoundFile(song, ctx);
             if (action is "edit" or "convert" or "cut" or "trim")
                 return await EditFileAsync(args, ctx, ct).ConfigureAwait(false);
             _note = args["storyboard"] is JsonObject given ? UnknownFields(given) : null;
