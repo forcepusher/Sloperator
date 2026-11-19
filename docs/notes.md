@@ -2105,7 +2105,10 @@ Ctrl+Z left it: an edit since, here or by the agent, drops it. Another video ope
 (before, Ctrl+Z there wrote the video before's storyboard into its folder). A press anywhere in the panel, a right-click
 too, gives it the keys: after an edit from a clip's menu, Ctrl+Z went to the side panels' list or the
 chat's box, and a second Ctrl+Z did nothing once the clip it was on was laid out anew (checked in the
-app: two speed changes from the menu taken back and made again with two presses each). Videos and
+app: two speed changes from the menu taken back and made again with two presses each). The panel is
+focusable, so Avalonia focuses it on a left press away from its buttons; on a right press it doesn't
+(the chat's box kept the keys), so `OnPressedIn` does. A click on the panel takes the keys from the
+chat's box, as a click on a piece always did; a key pressed with nothing focused goes to the panel too. Videos and
 pictures dropped on the Video clips row become clips made of them (an MP4 taken in at once), on the
 Titles row overlays from there.
 **Make the video** with nothing to make (every clip and sound there and up to date: only edits since)

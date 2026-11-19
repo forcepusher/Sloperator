@@ -31,13 +31,14 @@ public partial class VideoEditorPanel : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, (_, _) => Dispatcher.UIThread.Post(() => (DataContext as VideoEditorViewModel)?.DragOver(null)), handledEventsToo: true);
-        // Pressed anywhere in it, a right-click too, the panel takes the keys from the chat: Ctrl+Z after an edit
-        // made from a clip's menu went to the chat's box, or the side panels' list it was opened from.
+        // Pressed anywhere in it, the panel takes the keys, as an editor's timeline does: Ctrl+Z after an edit made
+        // from a clip's menu went to the side panels' list it was opened from, or the chat's box.
         Focusable = true;
         AddHandler(PointerPressedEvent, OnPressedIn, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnSpace, RoutingStrategies.Tunnel);
     }
 
+    /// <summary>A press in the panel, a right-click too, which Avalonia doesn't focus on: the panel takes the keys.</summary>
     private void OnPressedIn(object? sender, PointerPressedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused || focused != this && !this.IsVisualAncestorOf(focused))
