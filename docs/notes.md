@@ -2752,6 +2752,13 @@ shot of 720p joins without ffmpeg in 124 s with 990 MB at most: the mix is still
 minutes, and the clip's part of the sound twice more while it is made), so an hour would want some 4 GB; a mix
 made a stretch at a time is the thing to do if videos that long are joined here.
 
+With that in, Haiku joined the two at their full lengths (10 s, 53 s of work). qwen3.8, asked only for the
+join, took 6.1 minutes where it had taken 9.4 for all three, but its first step was still ffprobe, before any
+storyboard: not found, searched for over three folders, run from where a copy lay. ffprobe gave the phone's
+video as 1280x720 (its stored size, not turned), so qwen took both clips to fill the frame and set no `fit`.
+So the storyboard now says a file's size as it is shown beside its length ("phone.mp4 (720x1280, 6 s long)"),
+and the guide's line on file shots says to go by that and by read_file, not by ffprobe, and why.
+
 Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
 `MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's
 matrix; and, where there is an ffmpeg to make the files, picture against sound in six containers, MKV, squeezed,

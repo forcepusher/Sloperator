@@ -330,7 +330,7 @@ public sealed partial class VideoEditorTool : Tool
                    (added.Count == 0 ? "" : $"Shots without a first frame got one each from their prompts ({string.Join(", ", added.Select(f => f.Id))}): " +
                                             "rewrite each as the still picture the shot starts on, with who is in it as the references show them.\n");
         }
-        return new ToolResult(line + Overview(board) + (guide is null ? "" : "\n\n" + guide));
+        return new ToolResult(line + Overview(board, media) + (guide is null ? "" : "\n\n" + guide));
     }
 
     /// <summary>How the storyboard guide starts as the tool shows it, by which a chat that has it is told.</summary>
