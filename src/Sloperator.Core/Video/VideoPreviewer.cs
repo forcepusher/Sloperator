@@ -401,7 +401,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
     /// <summary>An overlay's words or picture on a clear picture the size of the frame, drawn once for each look and size; null for what isn't shown here.</summary>
     private SKBitmap? Drawn(Storyboard board, VideoOverlay o, bool words, int width, int height)
     {
-        var key = $"{width}x{height}|{o.Text}|{o.File}|{o.Position}|{o.Box?.X},{o.Box?.Y},{o.Box?.Width},{o.Box?.Height}|{o.Font}|{o.Size}|{o.Color}|{o.Background}|{o.Bold}|{o.Key}";
+        var key = $"{width}x{height}|{o.Text}|{o.File}|{o.Position}|{o.Box?.X},{o.Box?.Y},{o.Box?.Width},{o.Box?.Height}|{o.Font}|{o.Size}|{o.Color}|{o.Background}|{o.Outline}|{o.Bold}|{o.Key}";
         if (_overlays.TryGetValue(key, out var known))
             return known;
         if (_overlays.Count > 64)

@@ -537,6 +537,9 @@ public sealed partial class VideoEditorViewModel
             Choices("Colour", free && words, item, Colours, o.Color?.ToUpperInvariant(), (x, c) => x.Color = c),
             Choices("Font", free && words, item, Fonts, o.Font, (x, f) => x.Font = f),
             new($"{Mark(o.Bold != false)}Bold", free && words, () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Bold = x.Bold == false ? null : false))),
+            // Black round light letters, white round dark ones: read over any picture, as a meme's caption is.
+            new($"{Mark(o.Outline is not null)}Line round the letters", free && words,
+                () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Outline = x.Outline is not null ? null : Core.Video.VideoOverlays.IsDark(x.Color) ? "#FFFFFF" : "#000000"))),
             new($"{Mark(o.Background is not null)}Box behind the words", free && words,
                 () => Edit(() => _board.Overlay(item.Id)?.Let(x => x.Background = x.Background is null ? "#000000A0" : null))),
             null,

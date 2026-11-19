@@ -927,6 +927,7 @@ public sealed partial class Storyboard
             o.Font = Clean(o.Font);
             o.Color = Clean(o.Color);
             o.Background = Clean(o.Background);
+            o.Outline = Clean(o.Outline);
             o.Key = Clean(o.Key);
             o.Motion = (o.Motion ?? "").Trim().ToLowerInvariant().Replace('-', ' ').Replace('_', ' ') switch
             {
@@ -1354,6 +1355,9 @@ public sealed class VideoOverlay
 
     /// <summary>A box behind the words (#RRGGBB or #RRGGBBAA); null none, with a shadow under the words instead.</summary>
     public string? Background { get; set; }
+
+    /// <summary>A line round the letters in this colour (#RRGGBB), as a meme's caption or a subtitle has, so the words read over anything; null none.</summary>
+    public string? Outline { get; set; }
 
     /// <summary>Bold words; null bold.</summary>
     public bool? Bold { get; set; }

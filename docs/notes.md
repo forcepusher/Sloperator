@@ -2501,6 +2501,12 @@ real join with a dissolve, a wipe, a turned negative clip and a keyed picture, a
 over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
 GIF through the tool), all against Windows' own encoder.
 
+**A line round a title's letters** (`VideoOverlay.Outline`, 2026-11-19): white words over a light picture had
+only their shadow to be read by. `outline` (#RRGGBB) strokes each line of the words under its fill, a tenth of
+the letters' height with round joins (`VideoOverlays.Words`); the title's menu has **Line round the letters**,
+black round light words and white round dark ones (`IsDark`). The words are drawn once into a picture that
+both ways of joining lay over the video, so it needs nothing of ffmpeg's.
+
 **Animated GIFs as video** (`GifDecoder`, 2026-11-19): Windows' decoders play no GIF, so without ffmpeg a GIF
 could be nothing in a video, and with ffmpeg it was no kind the storyboard knew (neither a picture nor a
 video). Now `.gif` is among `Storyboard.VideoExtensions` and `GifDecoder` (Skia's codec) stands between the OS's

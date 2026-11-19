@@ -446,7 +446,7 @@ public sealed partial class VideoEditorTool : Tool
                      "in", "speed", "reverse", "freeze", "volume", "crop", "zoom", "color", "rotate", "flip", "fit", "effects", "transitionSeconds", "delete"],
         ["frames"] = ["id", "name", "reference", "prompt", "model", "seed", "from", "file", "of", "set", "place", "delete"],
         ["sounds"] = ["id", "name", "source", "file", "soundLine", "start", "trim", "seconds", "volume", "fadeIn", "fadeOut", "tags", "lyrics", "text", "model", "seed", "set", "place", "delete"],
-        ["overlays"] = ["id", "name", "text", "file", "scene", "start", "seconds", "position", "box", "opacity", "fadeIn", "fadeOut", "font", "size", "color", "background", "bold",
+        ["overlays"] = ["id", "name", "text", "file", "scene", "start", "seconds", "position", "box", "opacity", "fadeIn", "fadeOut", "font", "size", "color", "background", "outline", "bold",
                         "key", "motion", "delete"],
     };
 

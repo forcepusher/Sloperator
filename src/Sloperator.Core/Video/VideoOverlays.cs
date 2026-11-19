@@ -184,11 +184,17 @@ public static class VideoOverlays
         using var paint = new SKPaint { Color = colour, IsAntialias = true };
         if (o.Background is null)
             paint.ImageFilter = SKImageFilter.CreateDropShadow(0, size * 0.04f, size * 0.08f, size * 0.08f, new SKColor(0, 0, 0, 170));
+        // A line round the letters, under them: a tenth of their height, with round corners so no spike sticks out of a W or an M.
+        using var outline = ParseColour(o.Outline) is { } edge
+            ? new SKPaint { Color = edge, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = Math.Max(2, size * 0.1f), StrokeJoin = SKStrokeJoin.Round }
+            : null;
         for (var i = 0; i < lines.Count; i++)
         {
             var lineWidth = font.MeasureText(lines[i]);
             var x = rect.Left + (float)((rect.Width - lineWidth) * ax);
             var baseline = top + i * lineHeight + size * 0.95f;
+            if (outline is not null)
+                canvas.DrawText(lines[i], x, baseline, SKTextAlign.Left, font, outline);
             canvas.DrawText(lines[i], x, baseline, SKTextAlign.Left, font, paint);
         }
         return bitmap;
@@ -251,6 +257,9 @@ public static class VideoOverlays
     }
 
     /// <summary>#RGB, #RRGGBB or #RRGGBBAA (or a colour's name Skia knows); null for none or one it can't read.</summary>
+    /// <summary>Whether a words' colour is a dark one (so a line round the letters should be light); white, the usual colour, is not.</summary>
+    public static bool IsDark(string? colour) => ParseColour(colour) is { } c && 0.2126 * c.Red + 0.7152 * c.Green + 0.0722 * c.Blue < 110;
+
     internal static SKColor? ParseColour(string? text)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Trim().Equals("none", StringComparison.OrdinalIgnoreCase))

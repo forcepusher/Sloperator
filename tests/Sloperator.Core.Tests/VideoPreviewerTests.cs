@@ -231,4 +231,23 @@ public sealed class VideoPreviewerTests : IDisposable
         Assert.Equal(100, At(with, 0.3, 0.3).G);
         Assert.Equal(100, At(preview.FrameAt(board, 3.5)!, 0.85, 0.85).G);
     }
+
+    [Fact]
+    public void A_title_can_have_a_line_round_its_letters()
+    {
+        // White words over a white clip can't be read; with a black line round them they can.
+        Storyboard Board(string more) => Video($$"""
+            {"width": 640, "height": 320, "fps": 10, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "file": "a.mp4", "effects": ["invert"], "color": "bw"}],
+             "overlays": [{"id": "o1", "text": "WOW", "position": "full", "start": 0, "seconds": 2, "fadeIn": 0, "fadeOut": 0, "size": 0.8, "color": "#FFFFFF", "background": "none"{{more}}}]}
+            """);
+        using var preview = new VideoPreviewer(new Clips(), 320);
+        static int Dark(RawImage f) => Enumerable.Range(0, f.Width * f.Height).Count(i => f.Bgra[i * 4] < 40 && f.Bgra[i * 4 + 1] < 40 && f.Bgra[i * 4 + 2] < 40);
+        var plain = Dark(preview.FrameAt(Board(""), 1)!);
+        var lined = Dark(preview.FrameAt(Board(""", "outline": "#000000" """), 1)!);
+        Assert.True(lined > plain + 500, $"{plain} dark pixels without the line, {lined} with it");
+        Assert.Equal("#000000", Board(""", "outline": " #000000 " """).Overlays[0].Outline);
+        Assert.True(VideoOverlays.IsDark("#202020"));
+        Assert.False(VideoOverlays.IsDark(null));
+        Assert.False(VideoOverlays.IsDark("#FFD60A"));
+    }
 }
