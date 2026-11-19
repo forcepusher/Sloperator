@@ -102,6 +102,24 @@ public sealed partial class Storyboard
         };
     }
 
+    /// <summary>The effects a shot's picture may have, by the name a shot gives.</summary>
+    public static readonly IReadOnlyList<string> Effects = ["blur", "sharpen", "vignette", "grain", "invert", "pixelate"];
+
+    /// <summary>An effect as a person or a model may name it ("film grain", "negative", "mosaic"), as <see cref="Effects"/> has it; null for none it knows.</summary>
+    public static string? EffectNamed(string? name) => Named(name) switch
+    {
+        "blur" or "blurred" or "blurry" or "soft" or "soften" or "gaussian blur" => "blur",
+        "sharpen" or "sharp" or "sharper" or "sharpness" or "unsharp" => "sharpen",
+        "vignette" or "dark corners" or "dark edges" => "vignette",
+        "grain" or "film grain" or "noise" or "grainy" => "grain",
+        "invert" or "inverted" or "negative" or "negate" => "invert",
+        "pixelate" or "pixelated" or "pixelize" or "pixels" or "mosaic" or "censor" => "pixelate",
+        _ => null,
+    };
+
+    /// <summary>A name as given, in small letters with spaces for its dashes and underscores; empty for none.</summary>
+    private static string Named(string? name) => (name ?? "").Trim().ToLowerInvariant().Replace('-', ' ').Replace('_', ' ');
+
     /// <summary>The looks a shot's colours may take.</summary>
     public static readonly IReadOnlyList<string> Looks = ["", "bw", "sepia", "warm", "cool", "vintage"];
 
@@ -687,6 +705,16 @@ public sealed partial class Storyboard
             // "color": "bw" for a look alone.
             if (shot["color"] is JsonValue c && c.TryGetValue<string>(out var look))
                 shot["color"] = new JsonObject { ["look"] = look };
+            // "flip": true mirrors it; "effects": "vignette, grain" for a list of them; "effect" for "effects".
+            if (shot["flip"] is JsonValue flip && flip.GetValueKind() is JsonValueKind.True or JsonValueKind.False)
+                shot["flip"] = flip.GetValueKind() == JsonValueKind.True ? "horizontal" : null;
+            if (shot["effects"] is null && shot["effect"] is { } one)
+            {
+                shot.Remove("effect");
+                shot["effects"] = one;
+            }
+            if (shot["effects"] is JsonValue e && e.TryGetValue<string>(out var effects))
+                shot["effects"] = new JsonArray([.. effects.Split([',', ';', '+'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(x => (JsonNode?)x)]);
             if (shot["zoom"] is JsonValue z && z.TryGetValue<string>(out var zoom))
                 shot["zoom"] = zoom.Trim().ToLowerInvariant() switch
                 {
@@ -825,6 +853,22 @@ public sealed partial class Storyboard
                 if (color is { Brightness: 0, Contrast: 1, Saturation: 1, Look: "" })
                     s.Color = null;
             }
+            // A quarter turn at a time, clockwise: -90 is 270.
+            s.Rotate = (((int)Math.Round(s.Rotate / 90.0) * 90) % 360 + 360) % 360;
+            s.Flip = Named(s.Flip) switch
+            {
+                "horizontal" or "h" or "x" or "mirror" or "mirrored" or "hflip" or "left right" or "true" => "horizontal",
+                "vertical" or "v" or "y" or "vflip" or "upside down" => "vertical",
+                "both" or "hv" or "vh" or "xy" => "both",
+                _ => null,
+            };
+            s.Fit = Named(s.Fit) switch
+            {
+                "fit" or "contain" or "whole" or "letterbox" or "pillarbox" or "bars" or "black bars" or "pad" => "fit",
+                "blur" or "blurred" or "blur background" or "blurred background" or "blur bars" => "blur",
+                _ => null,
+            };
+            s.Effects = s.Effects?.Select(EffectNamed).OfType<string>().Distinct().ToList() is { Count: > 0 } effects ? effects : null;
             if (Frame(s.First) is null) s.First = null;
             if (Frame(s.Last) is null) s.Last = null;
         }
@@ -1194,6 +1238,21 @@ public sealed class VideoShot
 
     /// <summary>Its colours: brightness, contrast, saturation and a look; null as they are.</summary>
     public VideoColor? Color { get; set; }
+
+    /// <summary>Its picture turned clockwise by 90, 180 or 270 degrees (footage filmed with the phone on its side); 0 as it is.</summary>
+    public int Rotate { get; set; }
+
+    /// <summary>Its picture mirrored: "horizontal" (left and right swapped), "vertical" (upside down) or "both"; null as it is.</summary>
+    public string? Flip { get; set; }
+
+    /// <summary>
+    /// How a picture of another shape than the video's goes in its frame: null fills it (what doesn't fit is cut
+    /// off), "fit" shows it whole with black bars beside it, "blur" whole over a blurred copy of itself.
+    /// </summary>
+    public string? Fit { get; set; }
+
+    /// <summary>Effects over its picture (<see cref="Storyboard.Effects"/>): blur, sharpen, vignette, grain, invert, pixelate; null none.</summary>
+    public List<string>? Effects { get; set; }
 
     /// <summary>How long the transition into it lasts, in seconds; 0 its usual (a dissolve 0.5, a fade 1, the others 0.8).</summary>
     public double TransitionSeconds { get; set; }

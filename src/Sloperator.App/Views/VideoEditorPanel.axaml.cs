@@ -178,6 +178,15 @@ public partial class VideoEditorPanel : UserControl
             e.Handled = true;
         else if (e.Key == Key.B && e.KeyModifiers == KeyModifiers.Control && Vm.SplitAtPlayhead())
             e.Handled = true;
+        // On the clip or sound picked, as its menu's Delete, Duplicate and Copy; Ctrl+V after the clip under the playhead.
+        else if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None && Vm.DeletePicked())
+            e.Handled = true;
+        else if (e.Key == Key.D && e.KeyModifiers == KeyModifiers.Control && Vm.DuplicatePicked())
+            e.Handled = true;
+        else if (e.Key == Key.C && e.KeyModifiers == KeyModifiers.Control && Vm.CopyPicked())
+            e.Handled = true;
+        else if (e.Key == Key.V && e.KeyModifiers == KeyModifiers.Control && Vm.Paste())
+            e.Handled = true;
     }
 
     /// <summary>

@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   end off, **Move earlier** and **Move later** change the clips' order, and **Duplicate** copies a clip or a title.
   Space plays the video from the playhead or pauses it, the arrow keys move the playhead a frame (with Shift a
   second), and Home and End take it to the start or end.
+- **More ways to edit a clip:** turn it a quarter turn or mirror it (footage filmed on its side), show a clip of
+  another shape whole, with black bars or over a blurred copy of itself, instead of cutting its edges off, and
+  add effects: blur, sharpen, vignette, film grain, negative, pixelate. A clip's menu also sets how loud its own
+  sound is and how long the transition into it takes, and the rows' menus turn the video's fade in and out and
+  captions on or off. Ask for any of it in the chat too.
+- **Delete, copy and paste in the Video editor:** Delete removes the clip or sound you picked, Ctrl+D duplicates a
+  clip, Ctrl+C and Ctrl+V copy it to after the clip under the playhead. **Ctrl+Z brings a deleted clip or sound
+  back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture

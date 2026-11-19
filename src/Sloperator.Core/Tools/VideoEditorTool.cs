@@ -438,7 +438,7 @@ public sealed class VideoEditorTool : Tool
     private static readonly Dictionary<string, string[]> ItemFields = new()
     {
         ["shots"] = ["id", "name", "place", "first", "last", "seconds", "prompt", "camera", "model", "seed", "lipSync", "motion", "line", "transition", "set", "file", "scene",
-                     "in", "speed", "reverse", "freeze", "volume", "crop", "zoom", "color", "transitionSeconds", "delete"],
+                     "in", "speed", "reverse", "freeze", "volume", "crop", "zoom", "color", "rotate", "flip", "fit", "effects", "transitionSeconds", "delete"],
         ["frames"] = ["id", "name", "reference", "prompt", "model", "seed", "from", "file", "of", "set", "place", "delete"],
         ["sounds"] = ["id", "name", "source", "file", "soundLine", "start", "trim", "seconds", "volume", "fadeIn", "fadeOut", "tags", "lyrics", "text", "model", "seed", "set", "place", "delete"],
         ["overlays"] = ["id", "name", "text", "file", "scene", "start", "seconds", "position", "box", "opacity", "fadeIn", "fadeOut", "font", "size", "color", "background", "bold",
@@ -481,6 +481,10 @@ public sealed class VideoEditorTool : Tool
         if (s.Crop is { } crop) parts.Add($"cropped to {N(crop.X)},{N(crop.Y)} {N(crop.Width)}x{N(crop.Height)}");
         if (s.Zoom is { } zoom) parts.Add($"zoom {N(zoom.From.Scale)}→{N(zoom.To.Scale)}");
         if (s.Color is { } color) parts.Add("colour " + string.Join(" ", new[] { color.Brightness != 0 ? $"brightness {N(color.Brightness)}" : null, color.Contrast != 1 ? $"contrast {N(color.Contrast)}" : null, color.Saturation != 1 ? $"saturation {N(color.Saturation)}" : null, color.Look.Length > 0 ? color.Look : null }.OfType<string>()));
+        if (s.Rotate != 0) parts.Add($"turned {s.Rotate}°");
+        if (s.Flip is { } flip) parts.Add(flip == "horizontal" ? "mirrored" : flip == "vertical" ? "upside down" : "mirrored both ways");
+        if (s.Fit is { } fit) parts.Add(fit == "blur" ? "whole over a blur" : "whole with bars");
+        if (s.Effects is { Count: > 0 } effects) parts.Add(string.Join(" ", effects));
         if (s.TransitionSeconds > 0) parts.Add($"transition {N(s.TransitionSeconds)} s");
         return string.Join(", ", parts);
     }

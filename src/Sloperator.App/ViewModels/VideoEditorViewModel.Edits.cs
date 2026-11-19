@@ -97,6 +97,8 @@ public sealed partial class VideoEditorViewModel
         _puttingBack = true;
         try
         {
+            // A clip or sound Delete took out comes back with its files (and goes again with Ctrl+Y).
+            BringBack();
             foreach (var (meta, text) in state.Files)
                 try { File.WriteAllText(meta, text); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
@@ -155,7 +157,18 @@ public sealed partial class VideoEditorViewModel
                     () => Edit(() => FindShot(item)?.Let(x => x.Speed = s)))).ToList(),
             },
             new($"{Mark(shot.Reverse)}Reverse", free, () => Edit(() => FindShot(item)?.Let(x => x.Reverse = !x.Reverse))),
+            // The frame under the playhead held to the clip's end; picked again, the clip moves on as it was.
+            new($"{Mark(shot.Freeze is not null)}Freeze from the playhead", free && (shot.Freeze is not null || into > 0.05 && into < shot.Seconds - 0.05),
+                () => Edit(() => FindShot(item)?.Let(x => x.Freeze = x.Freeze is null ? Math.Round(into * 100) / 100 : null))),
+            null,
             new($"{Mark(shot.Volume == 0)}Mute its sound", free, () => Edit(() => FindShot(item)?.Let(x => x.Volume = x.Volume == 0 ? null : 0))),
+            // How loud its own sound is, as a sound's menu sets a sound's.
+            new("Volume", free, () => { })
+            {
+                Items = new[] { 0.25, 0.5, 0.75, 1, 1.5, 2 }.Select(v => (PanelMenuItem?)new PanelMenuItem($"{Mark(Math.Abs((shot.Volume ?? 1) - v) < 0.001)}{v * 100:0}%", free,
+                    () => Edit(() => FindShot(item)?.Let(x => x.Volume = v)))).ToList(),
+            },
+            null,
             new("Look", free, () => { })
             {
                 // The looks, then its light and colour a step at a time, as an editor's colour sliders do.
@@ -168,21 +181,66 @@ public sealed partial class VideoEditorViewModel
                         () => Edit(() => FindShot(item)?.Let(x => { x.Color ??= new VideoColor(); a.Change(x.Color); })))),
                 ],
             },
+            // Each on or off, any of them together.
+            new("Effects", free, () => { })
+            {
+                Items =
+                [
+                    new PanelMenuItem($"{Mark(shot.Effects is null)}None", free, () => Edit(() => FindShot(item)?.Let(x => x.Effects = null))),
+                    null,
+                    .. EffectChoices.Select(e => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Effects?.Contains(e.Effect) == true)}{e.Name}", free,
+                        () => Edit(() => FindShot(item)?.Let(x =>
+                        {
+                            x.Effects ??= [];
+                            if (!x.Effects.Remove(e.Effect))
+                                x.Effects.Add(e.Effect);
+                        })))),
+                ],
+            },
             new("Zoom", free, () => { })
             {
                 Items = Zooms.Select(z => (PanelMenuItem?)new PanelMenuItem($"{Mark(ZoomName(shot.Zoom) == z.Name)}{z.Name}", free,
                     () => Edit(() => FindShot(item)?.Let(x => x.Zoom = z.Make())))).ToList(),
             },
-            // The frame under the playhead held to the clip's end; picked again, the clip moves on as it was.
-            new($"{Mark(shot.Freeze is not null)}Freeze from the playhead", free && (shot.Freeze is not null || into > 0.05 && into < shot.Seconds - 0.05),
-                () => Edit(() => FindShot(item)?.Let(x => x.Freeze = x.Freeze is null ? Math.Round(into * 100) / 100 : null))),
+            // Footage filmed on its side, or the wrong way round.
+            new("Turn", free, () => { })
+            {
+                Items =
+                [
+                    new PanelMenuItem("Turn right", free, () => Edit(() => FindShot(item)?.Let(x => x.Rotate = (x.Rotate + 90) % 360))),
+                    new PanelMenuItem("Turn left", free, () => Edit(() => FindShot(item)?.Let(x => x.Rotate = (x.Rotate + 270) % 360))),
+                    null,
+                    new PanelMenuItem($"{Mark(shot.Flip is "horizontal" or "both")}Mirror", free, () => Edit(() => FindShot(item)?.Let(x => x.Flip = Flipped(x.Flip, "horizontal")))),
+                    new PanelMenuItem($"{Mark(shot.Flip is "vertical" or "both")}Upside down", free, () => Edit(() => FindShot(item)?.Let(x => x.Flip = Flipped(x.Flip, "vertical")))),
+                    null,
+                    new PanelMenuItem($"{Mark(shot.Rotate == 0 && shot.Flip is null)}As shot", free, () => Edit(() => FindShot(item)?.Let(x => (x.Rotate, x.Flip) = (0, null)))),
+                ],
+            },
+            // A picture of another shape than the video's: its edges cut off, or all of it with something beside it.
+            new("Fit", free, () => { })
+            {
+                Items = Fits.Select(f => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Fit == f.Fit)}{f.Name}", free,
+                    () => Edit(() => FindShot(item)?.Let(x => x.Fit = f.Fit)))).ToList(),
+            },
         };
         if (item.Index > 0)
+        {
+            items.Add(null);
             items.Add(new("Transition in", free, () => { })
             {
-                Items = TransitionChoices.Select(t => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Transition == t.Name)}{t.Label}", free,
-                    () => Edit(() => FindShot(item)?.Let(x => x.Transition = t.Name)))).ToList(),
+                // The kinds, then how long it takes.
+                Items =
+                [
+                    .. TransitionChoices.Select(t => (PanelMenuItem?)new PanelMenuItem($"{Mark(shot.Transition == t.Name)}{t.Label}", free,
+                        () => Edit(() => FindShot(item)?.Let(x => x.Transition = t.Name)))),
+                    null,
+                    .. new[] { 0, 0.3, 0.5, 1, 1.5, 2 }.Select(s => (PanelMenuItem?)new PanelMenuItem(
+                        $"{Mark(Math.Abs(shot.TransitionSeconds - s) < 0.001)}{(s == 0 ? "Its usual length" : $"{s:0.#} s")}", free && shot.Transition != VideoShot.Cut,
+                        () => Edit(() => FindShot(item)?.Let(x => x.TransitionSeconds = s)))),
+                ],
             });
+        }
+        items.Add(null);
         var at = FindShot(item) is { } now ? _board.Shots.IndexOf(now) : -1;
         items.Add(new("Move earlier", free && at > 0, () => MoveShot(item, -1)));
         items.Add(new("Move later", free && at >= 0 && at < _board.Shots.Count - 1, () => MoveShot(item, 1)));
@@ -237,6 +295,20 @@ public sealed partial class VideoEditorViewModel
         ("Light and colour as shot", c => (c.Brightness, c.Contrast, c.Saturation) = (0, 1, 1)),
     ];
 
+    private static readonly (string Effect, string Name)[] EffectChoices =
+        [("blur", "Blur"), ("sharpen", "Sharpen"), ("vignette", "Vignette"), ("grain", "Film grain"), ("invert", "Negative"), ("pixelate", "Pixelate")];
+
+    private static readonly (string? Fit, string Name)[] Fits =
+        [(null, "Fill the frame"), ("fit", "Whole, with black bars"), ("blur", "Whole, over a blur of itself")];
+
+    /// <summary>A clip's mirroring with one way turned on or off: mirrored both ways is "both", neither none.</summary>
+    private static string? Flipped(string? now, string way)
+    {
+        var (h, v) = (now is "horizontal" or "both", now is "vertical" or "both");
+        (h, v) = way == "horizontal" ? (!h, v) : (h, !v);
+        return h && v ? "both" : h ? "horizontal" : v ? "vertical" : null;
+    }
+
     private static readonly (string Name, Func<VideoZoom?> Make)[] Zooms =
     [
         ("None", () => null),
@@ -288,6 +360,7 @@ public sealed partial class VideoEditorViewModel
                 Crop = shot.Crop is { } c ? new VideoBox { X = c.X, Y = c.Y, Width = c.Width, Height = c.Height } : null,
                 Color = shot.Color is { } k ? new VideoColor { Brightness = k.Brightness, Contrast = k.Contrast, Saturation = k.Saturation, Look = k.Look } : null,
                 Freeze = shot.Freeze is { } f && f > into ? f - into : null,
+                Rotate = shot.Rotate, Flip = shot.Flip, Fit = shot.Fit, Effects = shot.Effects?.ToList(),
             };
             shot.Seconds = into;
             if (shot.Freeze >= into)
@@ -360,7 +433,8 @@ public sealed partial class VideoEditorViewModel
     /// A copy of a clip right after it, with its edits: its clip and the files that go with it copied under the copy's
     /// own name, so a clip made is made in the copy too and neither is made again.
     /// </summary>
-    private void Duplicate(ShotItem item)
+    /// <param name="after">The clip the copy goes after (Ctrl+V: the one under the playhead); null: the clip copied.</param>
+    private void Duplicate(ShotItem item, ShotItem? after = null)
     {
         if (Busy(_board.Folder) || FindShot(item) is not { } shot || Storyboard.Parse(_board.ToJson()).Shot(shot.Id) is not { } copy)
             return;
@@ -382,11 +456,12 @@ public sealed partial class VideoEditorViewModel
                 foreach (var file in Directory.GetFiles(from).Where(f => Path.GetFileName(f).StartsWith(stem, StringComparison.OrdinalIgnoreCase)))
                     File.Copy(file, Path.Combine(into, name + Path.GetFileName(file)[stem.Length..]), overwrite: true);
             }
-            _board.Shots.Insert(_board.Shots.IndexOf(shot) + 1, copy);
+            var place = after is not null && FindShot(after) is { } afterShot ? afterShot : shot;
+            _board.Shots.Insert(_board.Shots.IndexOf(place) + 1, copy);
             _board.Normalize();
             Changed();
             SaveNow();
-            Status = $"Put a copy of {item.Title} after it.";
+            Status = after is null || ReferenceEquals(after, item) ? $"Put a copy of {item.Title} after it." : $"Put a copy of {item.Title} after {after.Title}.";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

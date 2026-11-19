@@ -73,7 +73,7 @@ public sealed partial class VideoEditorViewModel
                     merged = true;
                     // The chat's change is in it now: a storyboard from before would take it out again.
                     if (!_puttingBack)
-                        _history.Clear();
+                        ForgetEdits();
                 }
             }
             _board.Save();
@@ -360,7 +360,7 @@ public sealed partial class VideoEditorViewModel
                     _savedJson = json;
                     _board = fresh;
                     // Changed by the chat: Ctrl+Z put back a storyboard from before it, and the agent's work went.
-                    _history.Clear();
+                    ForgetEdits();
                     Rebuild();
                     return;
                 }
@@ -406,6 +406,8 @@ public sealed partial class VideoEditorViewModel
         StopPlaying();
         SaveNow();
         _watcher?.Dispose();
+        // What Delete set aside for Ctrl+Z goes to the Recycle Bin: the panel's edits end with it.
+        EmptyAside();
         foreach (var shot in Shots)
             shot.Strip?.Dispose();
         foreach (var frame in _frames.Values)

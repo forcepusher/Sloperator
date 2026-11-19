@@ -154,7 +154,12 @@ so no clip is made again for it (action=join after a change).
 - Its picture: "crop" {x, y, width, height} in fractions of the picture; "zoom" a slow zoom or pan,
   "in", "out", "left", "right", or {"from": {"scale": 1, "x": 0.5, "y": 0.5}, "to": {"scale": 1.3,
   "x": 0.6, "y": 0.4}} (scale 2 shows half the picture; x and y are the point it centres on);
-  "color" {brightness -1..1, contrast 0..2, saturation 0..3, look: bw, sepia, warm, cool or vintage}.
+  "color" {brightness -1..1, contrast 0..2, saturation 0..3, look: bw, sepia, warm, cool or vintage};
+  "rotate" 90, 180 or 270 (clockwise: footage filmed on its side) and "flip" horizontal or vertical
+  (mirrored); "fit" for a picture of another shape than the video's, which fills the frame with its
+  edges cut off unless set: fit (whole, black bars beside it) or blur (whole over a blurred copy of
+  itself, as phone footage in a wide video); "effects" [blur, sharpen, vignette, grain, invert,
+  pixelate].
 - "transition" into a shot: cut, dissolve, fade (through black), fadewhite, wipeleft, wiperight,
   wipeup, wipedown, slideleft, slideright, slideup, slidedown, smoothleft, circleopen, circleclose,
   radial, pixelize, zoomin, hblur, diagtl, coverleft, revealleft and more of ffmpeg's xfade;

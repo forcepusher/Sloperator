@@ -120,7 +120,9 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private void Opened()
     {
         // The edits of the video before aren't taken back here: Ctrl+Z wrote its storyboard into this video's folder.
-        _history.Clear();
+        ForgetEdits();
+        // What a Sloperator that ended suddenly left set aside in this video's folder.
+        ClearAsideFolder(Path.Combine(_board.Folder, AsideName));
         Status = "";
         Rebuild();
         OnPropertyChanged(nameof(Folder));

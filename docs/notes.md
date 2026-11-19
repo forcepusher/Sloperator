@@ -2078,6 +2078,15 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   size (it stepped a pixel at a time at its own size), one frame out per frame in. Its own sound's
   `volume` (0 is silence). A model can write "zoom": "in", "out", "left" or "right" and "color": "bw".
   Foley's stretch is cut the same way.
+- **More of a clip's picture** (2026-11-19, the laptop): `rotate` turns it 90, 180 or 270 clockwise (transpose; half
+  a turn is hflip and vflip) and `flip` mirrors it (horizontal, vertical, both), both before the crop, so what is cut
+  out is cut out of the picture as it is seen; `fit` says how a picture of another shape goes in the frame: it fills
+  it with its edges cut off unless set, "fit" shows it whole with black bars (scale to fit, pad), "blur" whole over a
+  copy of itself that fills the frame, blurred (sigma a 36th of the height, 8 at least) and a little darker, as phone
+  footage is shown in a wide video (a split inside the shot's chain, its labels named by the shot's id); `effects`
+  are blur, sharpen, vignette, grain, invert and pixelate, any together, laid over the picture at the frame's size so
+  they are as strong in a small video as a large one (`VideoMontage.Effect`). Names a person or a model may give are
+  read ("mosaic", "film grain", "letterbox", "flip": true, "effects": "vignette, grain"; `Storyboard.EffectNamed`).
 - **Transitions**: ffmpeg's xfade names (a dissolve its fade, a fade fadeblack), 40 in all, with
   everyday names read ("wipe", "iris", "dip to white", "push"); `transitionSeconds`, else 0.5 for a
   dissolve, 1 for a fade, 0.8 for the rest, at most half the shot.
@@ -2156,6 +2165,35 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   nothing focused goes to the panel too.
 - Videos and pictures dropped on the Video clips row become clips made of them (an MP4 taken in at once),
   on the Titles row overlays from there.
+- More on a clip's menu (2026-11-19, the laptop), in groups: Speed, Reverse, Freeze; Mute its sound and Volume (25%
+  to 200% of its own sound); Look, Effects (each on or off, None), Zoom, Turn (Turn right, Turn left, Mirror, Upside
+  down, As shot) and Fit (Fill the frame; Whole, with black bars; Whole, over a blur of itself); Transition in, with
+  its kinds and under them its length (Its usual length, 0.3 to 2 s; greyed for a cut); then the moves, split and
+  trims; Duplicate (Ctrl+D), Copy (Ctrl+C), Paste (Ctrl+V) and Delete (Delete). The Video clips row's own menu has
+  Paste, and Fade in at the start and Fade out at the end (the video's `fadeIn` and `fadeOut`, on unless turned
+  off); the Titles row's has Captions of what is said (`captions`; greyed when no clip says a line).
+- **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
+  the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
+  no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the
+  piece's files aside in ".deleted" in the video's folder, under their own paths (`SetAside`, each by the piece's own
+  file: a clip's .mp4 for its .json, its line and its versions, a frame only that clip used by its picture). After
+  Ctrl+Z or Ctrl+Y puts a storyboard back, the files of the pieces it has come back and those of the pieces it
+  hasn't go aside again (`BringBack`). They reach the Recycle Bin, from where they were (so Restore there puts them
+  back in place), once the edits can't be taken back: another video opened, the chat's change to this one, the panel
+  closed (`ForgetEdits`, `EmptyAside`); what a Sloperator that ended suddenly left there goes to the bin when the
+  video is next opened. A sound line deleted with its sounds comes back with one Ctrl+Z. A card of References
+  deleted still goes to the bin at once: a file of the person's there is in no storyboard to tell it is back.
+- **Keys on what is picked**, as their menu items: Delete deletes the clip or sound picked, Ctrl+D puts a copy of
+  the clip picked after it, Ctrl+C takes it and Ctrl+V puts a copy after the clip under the playhead (the last one
+  with the playhead at the end), with its edits and made as the original is (`Duplicate` with a place).
+- Checked in the app on the laptop (2026-11-19; no ffmpeg there yet, so with a demo of three MP4s taken in as clips
+  by `VideoMaker.TakeClip`, `.dev/three-techs-test/demo`, and the panel driven off screen, `ve.ps1`): Turn left,
+  Mirror, Vignette and Film grain, Whole over a blur, Volume 50% and a 1.5 s transition from clip 2's menu were each
+  in its .json ("rotate": 270, "flip": "horizontal", "fit": "blur", "effects": ["vignette", "grain"], "volume": 0.5,
+  "transitionSeconds": 1.5); with clip 3 picked, Delete moved s3.mp4 and s3.json to .deleted\Generated, Ctrl+Z brought
+  them back, Ctrl+Y set them aside again and Ctrl+Z brought them back once more; Ctrl+C on clip 1 and Ctrl+V put its
+  copy after it as clip 2, and Ctrl+D on clip 4 a copy after it, each made. A key hint that isn't a key's name
+  ("Del") threw as the menu opened (`KeyGesture.Parse`): it is "Delete".
 - Checked in the app (2026-11-19, the "Night drive" demo): two speed changes from the menu taken back and
   made again with two presses each; the bars clip moved before the city one and back; Ctrl+B at 0:06.8
   split it 1.5 s in; its start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken

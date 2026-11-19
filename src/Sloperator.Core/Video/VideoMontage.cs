@@ -220,6 +220,16 @@ public static class VideoMontage
             chain.Add("reverse");
         if (shot.Speed is { } speed)
             chain.Add($"setpts=PTS/{N(speed)}");
+        // Turned and mirrored first: what is cut out of it is cut out of the picture as it is seen.
+        if (shot.Rotate == 90)
+            chain.Add("transpose=clock");
+        else if (shot.Rotate == 270)
+            chain.Add("transpose=cclock");
+        // Half a turn is both mirrors at once; with a mirror asked for too, the two of that way cancel.
+        if (shot.Rotate == 180 ^ shot.Flip is "horizontal" or "both")
+            chain.Add("hflip");
+        if (shot.Rotate == 180 ^ shot.Flip is "vertical" or "both")
+            chain.Add("vflip");
         if (shot.Crop is { } crop)
             chain.Add($"crop=iw*{N(crop.Width)}:ih*{N(crop.Height)}:iw*{N(crop.X)}:ih*{N(crop.Y)}");
         if (shot.Color is { } color)
@@ -228,7 +238,22 @@ public static class VideoMontage
             chain.Add($"trim=duration={N(Math.Max(1.0 / fps, freeze))},setpts=PTS-STARTPTS");
         // A clip shorter than its shot holds its last frame; a longer one is cut.
         chain.Add($"tpad=stop_mode=clone:stop_duration={N(s)},trim=duration={N(s)},setpts=PTS-STARTPTS");
-        chain.Add($"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps={fps}");
+        // Labels of its own inside the graph, for a picture laid over a blurred copy of itself.
+        var tag = new string(shot.Id.Where(char.IsAsciiLetterOrDigit).ToArray());
+        chain.Add(shot.Fit switch
+        {
+            // Whole, with black bars beside it.
+            "fit" => $"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={fps}",
+            // Whole, over a copy of itself that fills the frame, blurred and a little darker, as phone footage is shown on a wide screen.
+            "blur" => $"split[fa{tag}][fb{tag}];[fa{tag}]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}," +
+                      $"gblur=sigma={N(Math.Max(8, height / 36.0))},eq=brightness=-0.06[bg{tag}];" +
+                      $"[fb{tag}]scale={width}:{height}:force_original_aspect_ratio=decrease[fg{tag}];[bg{tag}][fg{tag}]overlay=(W-w)/2:(H-h)/2,setsar=1,fps={fps}",
+            _ => $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps={fps}",
+        });
+        // Over the picture at the frame's size, so an effect is as strong in a small video as in a large one.
+        foreach (var effect in shot.Effects ?? [])
+            if (Effect(effect, width, height) is { } filter)
+                chain.Add(filter);
         if (shot.Zoom is { } zoom)
         {
             // Over twice the frame first, so the slow zoom moves smoothly and doesn't step pixel by pixel.
@@ -241,6 +266,23 @@ public static class VideoMontage
         }
         chain.Add($"format={pixelFormat}");
         return string.Join(",", chain);
+    }
+
+    /// <summary>The filter for an effect over a shot's picture (<see cref="Storyboard.Effects"/>), at the frame's size; null for none there is.</summary>
+    internal static string? Effect(string effect, int width, int height)
+    {
+        // Blocks a thirtieth of the frame's height: made small, then large again without smoothing.
+        var block = Math.Max(2, height / 30);
+        return effect switch
+        {
+            "blur" => $"gblur=sigma={N(Math.Max(2, height / 90.0))}",
+            "sharpen" => "unsharp=5:5:1.2:5:5:0",
+            "vignette" => "vignette=PI/4.5",
+            "grain" => "noise=alls=14:allf=t+u",
+            "invert" => "negate",
+            "pixelate" => $"scale={Math.Max(1, width / block)}:{Math.Max(1, height / block)}:flags=area,scale={width}:{height}:flags=neighbor",
+            _ => null,
+        };
     }
 
     /// <summary>The filters for a shot's colours: brightness, contrast and saturation, then its look.</summary>

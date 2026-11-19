@@ -65,6 +65,44 @@ public sealed class VideoEditingTests : IDisposable
     }
 
     [Fact]
+    public void A_clip_is_turned_mirrored_fitted_whole_and_given_effects()
+    {
+        var board = Video("""
+            {"width": 640, "height": 360, "fps": 24, "shots": [
+              {"id": "s1", "seconds": 2, "rotate": 90, "flip": true, "crop": {"x": 0, "y": 0.25, "width": 1, "height": 0.5}, "fit": "blurred background", "effects": "vignette, film grain"},
+              {"id": "s2", "seconds": 2, "rotate": -90, "fit": "letterbox", "effect": "mosaic"},
+              {"id": "s-3", "seconds": 2, "rotate": 180, "flip": "vertical", "fit": "blur", "effects": ["Sharpen", "negative", "sparkles", "sharp"]},
+              {"id": "s4", "seconds": 2, "rotate": 400, "flip": "sideways", "fit": "stretch", "effects": []}]}
+            """);
+        // As they are kept: a quarter turn at a time, names as the storyboard has them, what it doesn't know left out.
+        Assert.Equal([90, 270, 180, 0], board.Shots.Select(s => s.Rotate)); // 400 is 360 + 40: the nearest quarter turn is none
+        Assert.Equal(["horizontal", null, "vertical", null], board.Shots.Select(s => s.Flip));
+        Assert.Equal(["blur", "fit", "blur", null], board.Shots.Select(s => s.Fit));
+        Assert.Equal(["vignette", "grain"], board.Shots[0].Effects);
+        Assert.Equal(["pixelate"], board.Shots[1].Effects);
+        Assert.Equal(["sharpen", "invert"], board.Shots[2].Effects);
+        Assert.Null(board.Shots[3].Effects);
+        Assert.DoesNotContain("effects", Storyboard.Parse(board.ToJson()).ToJsonObject()["shots"]![3]!.AsObject().Select(p => p.Key));
+
+        var graph = Graph(VideoMontage.Plan(board, _ => true, "out.mp4").Arguments);
+        // Turned and mirrored before it is cropped; whole over a blurred copy of itself, with labels of its own; then its effects.
+        Assert.Contains("[0:v]setpts=PTS-STARTPTS,transpose=clock,hflip,crop=iw*1:ih*0.5:iw*0:ih*0.25,tpad=", graph);
+        Assert.Contains("split[fas1][fbs1];[fas1]scale=640:360:force_original_aspect_ratio=increase,crop=640:360,gblur=sigma=10,eq=brightness=-0.06[bgs1];" +
+                        "[fbs1]scale=640:360:force_original_aspect_ratio=decrease[fgs1];[bgs1][fgs1]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=24,vignette=PI/4.5,noise=alls=14:allf=t+u,format=yuv420p[v0]", graph);
+        // Turned left, whole with black bars, in blocks a thirtieth of the frame's height that come back to its size.
+        Assert.Contains("[1:v]setpts=PTS-STARTPTS,transpose=cclock,tpad=", graph);
+        Assert.Contains("scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24,scale=53:30:flags=area,scale=640:360:flags=neighbor,format=yuv420p[v1]", graph);
+        // Half a turn is both mirrors; with upside down asked for as well, that one cancels.
+        Assert.Contains("[2:v]setpts=PTS-STARTPTS,hflip,tpad=", graph);
+        Assert.Contains("split[fas3][fbs3]", graph);
+        Assert.Contains("unsharp=5:5:1.2:5:5:0,negate,format=yuv420p[v2]", graph);
+        // Nothing asked for: as before.
+        Assert.Contains("[3:v]setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=2,trim=duration=2,setpts=PTS-STARTPTS,scale=640:360:force_original_aspect_ratio=increase,crop=640:360,setsar=1,fps=24,format=yuv420p[v3]", graph);
+        Assert.Equal("cropped to 0,0.25 1x0.5, turned 90°, mirrored, whole over a blur, vignette grain", VideoEditorTool.Edits(board.Shots[0]));
+        Assert.Null(VideoEditorTool.UnknownFields(System.Text.Json.Nodes.JsonNode.Parse("""{"shots": [{"id": "s1", "rotate": 90, "flip": "horizontal", "fit": "fit", "effects": ["blur"]}]}""")!.AsObject()));
+    }
+
+    [Fact]
     public void Overlays_are_laid_over_from_their_start_framed_ones_as_they_are_and_keyed_ones_without_their_colour()
     {
         var board = Video("""{"width": 640, "height": 360, "shots": [{"id": "s1", "seconds": 6}]}""");
