@@ -2732,6 +2732,26 @@ What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless 
   whole file as its clip (three clips of the 581 MB recording are 2.3 GB in the video's folder), and one that
   isn't an MP4 is read and written again whole, however little of it the shot shows.
 
+**With the agent** (no ffmpeg on the PC): given a phone's upright video (stored lying, turned by its header) and
+an MKV, and asked to cut two seconds out of the first, make a GIF of them and join the two with each shown whole,
+Claude Haiku did it in 51 s and 17 calls: `action=edit` twice (the cut is 720x1280, upright, 60 frames; the
+GIF 640x1138), then a storyboard of two file shots with `fit`, their clips, the join and an export. Before this
+round the cut would have been a 1280x720 frame with the picture small in its middle, and the MKV's clip half
+its frames. qwen3.8 did the same in 9.4 minutes and 20 calls, all three files right.
+
+Both runs showed one more thing: a shot made of a file got the five seconds any shot starts with. The phone
+clip is six seconds: Haiku joined it a second short and said so at the end; qwen saw "5 s" in the storyboard
+beside a file it had read as 6 s, looked for ffprobe over the whole disk to settle it (two calls), and set the
+lengths by hand. Now such a shot, given no length, runs as long as its video does from its trim at its speed
+(`VideoEditorTool.LengthsFromFiles`; a later change that names the same file leaves the length alone), and the
+storyboard says the file's length beside the shot ("the user's file phone.mp4 (6 s long)"). And a shot was a
+minute at most (`Normalize`), which is right for a clip a model makes and wrong for a recording: `action=edit`
+on a 20-minute video, to cut three minutes out or make it smaller, gave its first minute without a word. A
+shot made of a file now runs up to ten hours and one that is a drawn scene up to ten minutes. One five-minute
+shot of 720p joins without ffmpeg in 124 s with 990 MB at most: the mix is still held whole (115 MB for five
+minutes, and the clip's part of the sound twice more while it is made), so an hour would want some 4 GB; a mix
+made a stretch at a time is the thing to do if videos that long are joined here.
+
 Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
 `MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's
 matrix; and, where there is an ffmpeg to make the files, picture against sound in six containers, MKV, squeezed,

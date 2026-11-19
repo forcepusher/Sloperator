@@ -377,4 +377,58 @@ public sealed class VideoEditingTests : IDisposable
         var tall = decoder.Probe(vertical);
         Assert.Equal((360, 640), (tall!.Width, tall.Height));
     }
+
+    /// <summary>A reader that knows a video's length by its name: "6s clip.mp4" runs six seconds.</summary>
+    private sealed class ByName : IMediaDecoder
+    {
+        public MediaInfo? Probe(string path) =>
+            double.TryParse(Path.GetFileName(path).Split('s')[0], System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+                ? new MediaInfo { HasVideo = true, Width = 1280, Height = 720, FrameRate = 30, Duration = TimeSpan.FromSeconds(seconds) } : null;
+        public IVideoReader? OpenVideo(string path, int maxSide) => null;
+        public IAudioReader? OpenAudio(string path) => null;
+    }
+
+    [Fact]
+    public void A_shot_made_of_a_video_of_the_users_runs_as_long_as_the_video_unless_it_says_how_long()
+    {
+        var board = Storyboard.New(_dir, "Mine");
+        Directory.CreateDirectory(board.ReferencesFolder);
+        foreach (var name in (string[])["6s clip.mp4", "185.5s talk.mp4", "9s more.mov", "photo.png"])
+            File.WriteAllText(Path.Combine(board.ReferencesFolder, name), "");
+        var change = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse("""
+            {"shots": [
+              {"id": "s1", "file": "6s clip.mp4"},
+              {"id": "s2", "file": "185.5s talk.mp4", "in": 60},
+              {"id": "s3", "file": "9s more.mov", "speed": 2},
+              {"id": "s4", "file": "6s clip.mp4", "seconds": 2},
+              {"id": "s5", "file": "photo.png"},
+              {"id": "s6", "prompt": "A dog runs.", "seconds": 200}]}
+            """)!;
+        board = Storyboard.Merge(board, change);
+        VideoEditorTool.LengthsFromFiles(board, change, new ByName());
+        double Of(string id) => board.Shots.First(s => s.Id == id).Seconds;
+        // Its own six seconds, where it got the five any shot starts with and lost its last second.
+        Assert.Equal(6, Of("s1"));
+        // What is left of it from its trim, however long: a shot was cut off at a minute.
+        Assert.Equal(125.5, Of("s2"));
+        Assert.Equal(4.5, Of("s3"));
+        // A length given is kept, a picture is held the usual five seconds, and a clip a model makes is a minute at most.
+        Assert.Equal(2, Of("s4"));
+        Assert.Equal(5, Of("s5"));
+        Assert.Equal(60, Of("s6"));
+        // Each file's length is said beside its shot, so it needn't be found out some other way.
+        var overview = VideoEditorTool.Overview(board, new ByName());
+        Assert.Contains("the user's file 6s clip.mp4 (6 s long).", overview);
+        Assert.Contains("125.5 s, a cut from s1): the user's file 185.5s talk.mp4 (185.5 s long).", overview);
+        Assert.Contains("the user's file photo.png.", overview);
+        Assert.DoesNotContain("long)", VideoEditorTool.Overview(board));
+
+        // A later change that names the same file and no length leaves the length the shot has; another file gives its own.
+        var files = board.Shots.Where(s => s.File is not null).ToDictionary(s => s.Id, s => s.File!);
+        var again = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse("""{"shots": [{"id": "s4", "file": "6s clip.mp4", "fit": "fit"}, {"id": "s1", "file": "9s more.mov"}]}""")!;
+        board = Storyboard.Merge(board, again);
+        VideoEditorTool.LengthsFromFiles(board, again, new ByName(), files);
+        Assert.Equal(2, Of("s4"));
+        Assert.Equal(9, Of("s1"));
+    }
 }

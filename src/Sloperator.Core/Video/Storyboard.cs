@@ -17,6 +17,9 @@ public sealed partial class Storyboard
     /// <summary>How long a dissolve or a fade between two shots takes: the two overlap that long.</summary>
     public const double DissolveSeconds = 0.5, FadeSeconds = 1.0;
 
+    /// <summary>The longest a shot made of a video of the user's runs (ten hours), and one that is a drawn scene (ten minutes: every frame of it is drawn).</summary>
+    public const double MaxFileSeconds = 36000, MaxSceneSeconds = 600;
+
     public string Title { get; set; } = "";
 
     public int Width { get; set; } = 1280;
@@ -798,7 +801,9 @@ public sealed partial class Storyboard
             s.Id = s.Id.Trim();
             if (s.Seed <= 0)
                 s.Seed = NewSeed();
-            s.Seconds = s.Seconds <= 0 ? 5 : Math.Clamp(s.Seconds, 0.5, 60);
+            // A minute at most for a clip a model makes; a file of the user's or a drawn scene runs as long as it runs
+            // (a shot cut from a recording, or a whole recording made smaller, was cut off at a minute).
+            s.Seconds = s.Seconds <= 0 ? 5 : Math.Clamp(s.Seconds, 0.5, Clean(s.File) is not null ? MaxFileSeconds : Clean(s.Scene) is not null ? MaxSceneSeconds : 60);
             s.Prompt ??= "";
             s.Camera ??= "";
             s.Line ??= "";

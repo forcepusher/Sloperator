@@ -124,6 +124,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
   clip is (a phone's HEVC, a web video's VP9) and what would read it.
 - Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.
+- **A clip made of a video of yours can be longer than a minute.** Cutting three minutes out of a recording, or
+  making a long video smaller, gave only its first minute.
+- A video file the agent adds as a clip runs its own length unless told how long. It got five seconds, so a longer
+  one lost its end and the agent went looking for the file's length.
 - **Clips cut out of a long recording join quickly without ffmpeg.** Three short clips from a 20-minute recording
   took 40 seconds and 3 GB of memory to join; now 7 seconds and a fifth of the memory. **Stop** stops such a
   join at once, where it could take half a minute.

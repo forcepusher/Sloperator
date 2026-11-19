@@ -106,7 +106,7 @@ public sealed partial class VideoEditorTool : Tool
             }
             var result = action switch
             {
-                "storyboard" => Show(board, args["storyboard"] is JsonObject, GuideFor(ctx)),
+                "storyboard" => Show(board, args["storyboard"] is JsonObject, GuideFor(ctx), ctx.Media),
                 "frame" => await FrameAsync(board, RequireId(args), ctx, ct).ConfigureAwait(false),
                 "shot" => await ShotAsync(board, RequireId(args), (int)Math.Clamp(GetNumber(args, "tries") ?? 1, 1, 8), ctx, ct).ConfigureAwait(false),
                 "sound" or "song" => await SoundAsync(board, GetString(args, "id"), (int)Math.Clamp(GetNumber(args, "tries") ?? 3, 1, 8), ctx, ct).ConfigureAwait(false),
@@ -158,7 +158,9 @@ public sealed partial class VideoEditorTool : Tool
             var board = Storyboard.Load(given);
             if (change is not null)
             {
+                var files = board.Shots.Where(s => s.File is not null).GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().File!);
                 board = Storyboard.Merge(board, change);
+                LengthsFromFiles(board, change, ctx.Media, files);
                 // The video's folder is named after it: a new title renames it.
                 if (change["title"] is JsonValue named && named.TryGetValue<string>(out var newName) && newName.Trim().Length > 0 &&
                     Storyboard.Safe(newName) != Path.GetFileName(board.Folder))
@@ -191,11 +193,53 @@ public sealed partial class VideoEditorTool : Tool
             folder = Path.GetDirectoryName(given)!;
         Directory.CreateDirectory(folder);
         var created = Storyboard.Merge(new Storyboard { Title = title, Folder = folder }, change);
+        LengthsFromFiles(created, change, ctx.Media);
         Save(created);
         return created;
 
         static bool Exists([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? at) =>
             at is not null && (Storyboard.IsVideo(at) || File.Exists(at) && Storyboard.IsVideo(Path.GetDirectoryName(at)!));
+    }
+
+    /// <summary>
+    /// A shot the change makes of a video of the user's, with no length given, runs as long as the video does from
+    /// its trim, at its speed. It got the five seconds any shot starts with: a six-second clip lost its last second,
+    /// and to learn its length one model went looking for ffprobe and the other found out after joining.
+    /// </summary>
+    /// <param name="had">The file each shot was made of before the change: a shot that keeps its file keeps its length.</param>
+    internal static void LengthsFromFiles(Storyboard board, JsonObject? change, IMediaDecoder? media, IReadOnlyDictionary<string, string>? had = null)
+    {
+        if (media is null || change?["shots"] is not JsonArray shots)
+            return;
+        foreach (var given in shots.OfType<JsonObject>())
+        {
+            if (given["file"] is null || given["seconds"] is not null || given["delete"] is not null || given["id"] is not JsonValue id)
+                continue;
+            if (board.Shots.FirstOrDefault(s => s.Id == id.ToString().Trim()) is not { File: { } name } shot || board.FindFile(name) is not { } file || !Storyboard.IsVideoFile(file))
+                continue;
+            if (had is not null && had.TryGetValue(shot.Id, out var before) && string.Equals(before, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (LengthOf(file, media) is { } length && length - shot.In > 0.05)
+                shot.Seconds = Math.Clamp(Math.Round((length - shot.In) / (shot.Speed ?? 1), 3), 0.5, Storyboard.MaxFileSeconds);
+        }
+    }
+
+    /// <summary>" (6 s long)" after a shot's own video file, so its length needn't be found out some other way; nothing for a picture, a file that isn't there, or with no decoder.</summary>
+    private static string FileLength(Storyboard board, VideoShot shot, IMediaDecoder? media) =>
+        media is not null && shot.File is { } name && board.FindFile(name) is { } file && Storyboard.IsVideoFile(file) && LengthOf(file, media) is { } length
+            ? $" ({N(Math.Round(length, 2))} s long)" : "";
+
+    /// <summary>How long a video file runs, in seconds; null for one that can't be read or doesn't say.</summary>
+    private static double? LengthOf(string file, IMediaDecoder media)
+    {
+        try
+        {
+            return media.Probe(file) is { HasVideo: true, Duration.TotalSeconds: > 0 } info ? info.Duration.TotalSeconds : null;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -265,7 +309,7 @@ public sealed partial class VideoEditorTool : Tool
 
     // ---- the storyboard -------------------------------------------------------------------------------
 
-    private static ToolResult Show(Storyboard board, bool changed, string? guide)
+    private static ToolResult Show(Storyboard board, bool changed, string? guide, IMediaDecoder? media = null)
     {
         var line = "";
         if (changed)
@@ -310,7 +354,8 @@ public sealed partial class VideoEditorTool : Tool
         ComfyGuides.Without(ComfyGuides.Video, "Pictures first", "Sound and music", "Exact motion: tracks and controls", "Settings");
 
     /// <summary>The storyboard as the model reads it: each frame and shot, what is made and what is out of date, and what to do next.</summary>
-    internal static string Overview(Storyboard board)
+    /// <param name="media">Reads how long a shot's own video file runs, to say it beside the shot; without it the length isn't said.</param>
+    internal static string Overview(Storyboard board, IMediaDecoder? media = null)
     {
         var sb = new StringBuilder();
         var (starts, length) = board.Timing();
@@ -350,7 +395,7 @@ public sealed partial class VideoEditorTool : Tool
             var s = board.Shots[i];
             var join = i == 0 ? "" : s.First is not null && s.First == board.Shots[i - 1].Last ? $", goes on from {board.Shots[i - 1].Id}" : $", a {s.Transition} from {board.Shots[i - 1].Id}";
             if (i > 0 && s.Transition != VideoShot.Cut && !join.Contains(s.Transition, StringComparison.Ordinal)) join += $" ({s.Transition})";
-            var frames = s.Scene is { } scene ? $"the scene {scene}" : s.File is { } clipFile ? $"the user's file {clipFile}" : $"{s.First ?? "no first frame"} → {(s.LipSync ? "(lip-synced, first frame only)" : s.Last ?? "no last frame")}";
+            var frames = s.Scene is { } scene ? $"the scene {scene}" : s.File is { } clipFile ? $"the user's file {clipFile}{FileLength(board, s, media)}" : $"{s.First ?? "no first frame"} → {(s.LipSync ? "(lip-synced, first frame only)" : s.Last ?? "no last frame")}";
             var made = File.Exists(board.ShotVideo(s));
             var staleFrames = new[] { s.First, s.LipSync ? null : s.Last }.OfType<string>().Where(stale.Contains).Distinct().ToList();
             var current = VideoMaker.IsCurrent(board, s) && staleFrames.Count == 0;
