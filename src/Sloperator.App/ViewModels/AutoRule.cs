@@ -47,6 +47,8 @@ public static class AutoRule
         "run_shell" when TerminalWork.Is(args["command"]?.ToString()) => new(SidePanelNames.Terminal),
         "video" => new(SidePanelNames.VideoEditor, VideoFolder(args, places.VideosDir)),
         "comfyui" when Arg(args, "action") == "run" && Arg(args, "save_to") is { } saveTo => EditorOf(saveTo, places),
+        // A scene drawn into a picture's folder, as its next version.
+        "render" when Arg(args, "save_to") is { } drawnInto => EditorOf(drawnInto, places),
         _ => null,
     };
 

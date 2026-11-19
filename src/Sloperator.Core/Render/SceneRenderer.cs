@@ -28,6 +28,12 @@ public sealed record SceneOptions
 
     /// <summary>True for a picture, false for a clip; null: by the output's extension, else by whether the scene moves.</summary>
     public bool? Still { get; init; }
+
+    /// <summary>
+    /// A folder the result goes into when no output is given, under a name no file there has ("plane.png", then
+    /// "plane 2.png"): a picture's folder in the Image editor, where each result is the picture's next version.
+    /// </summary>
+    public string? Into { get; init; }
 }
 
 /// <summary>What the renderer made.</summary>
@@ -214,7 +220,10 @@ public sealed partial class SceneRenderer(string profileRoot)
             if (svg)
                 await browser.EvaluateAsync($"window.__scene.fit({width}, {height})", call, ct).ConfigureAwait(false);
         }
-        output ??= Path.Combine(folder, Path.GetFileNameWithoutExtension(scene) + (!clip ? ".png" : options.Transparent ? ".webm" : ".mp4"));
+        var extension = !clip ? ".png" : options.Transparent ? ".webm" : ".mp4";
+        output ??= options.Into is { Length: > 0 } into
+            ? FreeName(into, Path.GetFileNameWithoutExtension(scene), extension)
+            : Path.Combine(folder, Path.GetFileNameWithoutExtension(scene) + extension);
         output = Path.GetFullPath(output);
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         var fps = Math.Clamp(options.Fps, 1, 120);
@@ -225,7 +234,7 @@ public sealed partial class SceneRenderer(string profileRoot)
             var at = options.At ?? (natural.End > 0 ? natural.End : 0);
             await browser.EvaluateAsync($"window.__scene.seek({N(at)})", call, ct).ConfigureAwait(false);
             var png = await ShotAsync(browser, ct).ConfigureAwait(false);
-            SavePicture(png, output);
+            SavePicture(png, output, new SceneSource(scene, svg, ReadScene(scene), at));
             if (Blank(png) is { } colour)
                 notes.Add($"The picture is all one colour ({colour}): the scene drew nothing there.");
             made = new SceneMade(output, false, width, height, 0, fps, 1, [], notes, TimeSpan.Zero);
@@ -455,8 +464,31 @@ public sealed partial class SceneRenderer(string profileRoot)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
+    /// <summary>A file in <paramref name="folder"/> that isn't there yet: "name.png", else "name 2.png", "name 3.png".</summary>
+    internal static string FreeName(string folder, string name, string extension)
+    {
+        folder = Path.GetFullPath(folder);
+        var file = Path.Combine(folder, name + extension);
+        for (var n = 2; File.Exists(file) || Directory.Exists(file); n++)
+            file = Path.Combine(folder, $"{name} {n}{extension}");
+        return file;
+    }
+
+    /// <summary>The scene's own text, to keep in the picture drawn from it; empty when it can't be read.</summary>
+    private static string ReadScene(string scene)
+    {
+        try
+        {
+            return new FileInfo(scene).Length <= SceneStamp.MaxText * 2 ? File.ReadAllText(scene) : "";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return "";
+        }
+    }
+
     /// <summary>Writes the screenshot as the output's kind of picture.</summary>
-    private static void SavePicture(byte[] png, string output)
+    private static void SavePicture(byte[] png, string output, SceneSource scene)
     {
         var format = Path.GetExtension(output).ToLowerInvariant() switch
         {
@@ -467,7 +499,8 @@ public sealed partial class SceneRenderer(string profileRoot)
         Media.MediaRelease.Release(output);
         if (format == SKEncodedImageFormat.Png)
         {
-            File.WriteAllBytes(output, png);
+            // What it was drawn from goes in the file, as ComfyUI's pictures keep their workflow.
+            File.WriteAllBytes(output, SceneStamp.Stamp(png, scene));
             return;
         }
         using var bitmap = SKBitmap.Decode(png) ?? throw new RenderException("The browser's picture of the page couldn't be read.");

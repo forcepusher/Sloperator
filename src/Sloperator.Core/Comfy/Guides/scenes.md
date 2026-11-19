@@ -4,13 +4,14 @@ Pictures and clips come from three things, each for what it does best:
 - **SVG** for 2D vector art: icons, logos, diagrams, charts, flat illustrations, titles and motion graphics, moving with SMIL.
 - **Three.js** in an HTML page for 3D: objects, product shots, characters and places built from shapes, scenes, and 3D model files (.glb) saved from them. A realistic model of a real thing, a person or an animal comes from ComfyUI's TRELLIS.2 instead (a picture of it alone on plain white first), and loads into a scene with GLTFLoader.
 
-Write the scene with write_file, then call render with it. A scene that doesn't move becomes a PNG; one that moves becomes an MP4 clip. The result goes beside the scene unless output says where: give output where the user wants it (or the folder for what you make for them), not beside a scene in the scratch folder. Every frame is drawn at its exact moment on a stopped clock, so a heavy scene still makes a smooth clip.
+Write the scene with write_file, then call render with it. A scene that doesn't move becomes a PNG; one that moves becomes an MP4 clip. The result goes beside the scene unless output says where: give output where the user wants it (or the folder for what you make for them), not beside a scene in the scratch folder. save_to instead puts it in a folder under a new name each time: for a picture of the Image editor, its folder, where every render is the picture's next version. A PNG keeps the scene it was drawn from, so it can be changed from its scene later. Every frame is drawn at its exact moment on a stopped clock, so a heavy scene still makes a smooth clip.
 
 ## SVG and SMIL
 - Start with `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">`: its size is the picture's (a small one, such as a 24-pixel icon, is drawn at 1024 along its longer side). For a clip, use the video's frame (1920x1080, 1080x1920, 1080x1080).
 - Motion: `<animate>` (any attribute: x, r, opacity, fill, d), `<animateTransform type="translate|rotate|scale">`, `<animateMotion path="...">` (with `rotate="auto"` to turn along it), `<set>`. Time them with `begin`, `dur` and `repeatCount`; chain them with `begin="intro.end+0.3s"`; hold the end with `fill="freeze"`. Ease with `calcMode="spline" keyTimes="0;1" keySplines="0.4 0 0.2 1"`.
 - The clip is as long as the last animation that ends; with only repeating ones (`repeatCount="indefinite"`), one loop of them all. `seconds` sets another length.
 - CSS `@keyframes` in a `<style>` work too. No script is needed.
+- Where the SVG draws nothing the picture is white: give it a background of its own, or render with transparent=true for an icon or a logo that goes over other things.
 - Text uses the fonts on this PC (Segoe UI, Arial, Georgia, Consolas, Impact); keep it as text, not paths, so it stays sharp. A picture beside the file: `<image href="photo.png" .../>`.
 - Morph a shape by animating `d` between paths with the same commands; draw a line on with `stroke-dasharray` and an animated `stroke-dashoffset`.
 

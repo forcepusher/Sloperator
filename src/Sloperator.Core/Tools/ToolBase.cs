@@ -216,6 +216,9 @@ public sealed class ToolContext
     /// <summary>Where videos go, a folder each (Sloperator's SloperatorData/videos, where the Video editor panel finds them); null when there is none.</summary>
     public string? VideosDirectory { get; init; }
 
+    /// <summary>Where the Image editor panel keeps its pictures, a folder each (Sloperator's SloperatorData/pictures): a scene drawn into one is the picture's next version; null when there is none.</summary>
+    public string? PicturesDirectory { get; init; }
+
     /// <summary>Where the Audio editor panel keeps its sounds, a folder each (Sloperator's SloperatorData/sounds): an edit of one is named as its next version; null when there is none.</summary>
     public string? SoundsDirectory { get; init; }
 

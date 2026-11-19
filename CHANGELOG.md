@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for 3D scenes. The agent writes an SVG or a Three.js page and turns it into a PNG, or into an MP4 clip when it
   moves, frame by frame in Edge on your PC, however heavy the scene. Three.js loads from its CDN and, offline,
   from a copy built into Sloperator.
+- **Vector and 3D pictures in the Image editor.** A picture there can now be an SVG or a Three.js scene as well as a
+  ComfyUI one: say what you want, and an icon, a logo or a diagram is drawn as vector art, each change a new version
+  beside the earlier ones. A version drawn this way keeps its scene: **Prompt metadata** shows it, picking the
+  version or marking a part of it and saying what to change changes the scene itself (so the rest stays exactly as
+  it was), and **Show its SVG in folder** on the version's right-click menu finds the vector file.
 - **3D model files.** Asked for a 3D model, the agent builds it in Three.js and saves a .glb you can load anywhere
   (under a minute with Claude Haiku). For a realistic one, of a real thing or to match a picture, it uses ComfyUI's
   TRELLIS.2 instead, never Hunyuan3D.

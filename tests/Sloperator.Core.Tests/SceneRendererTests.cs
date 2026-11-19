@@ -124,6 +124,108 @@ public class SceneRendererTests
     }
 
     [Fact]
+    public async Task A_scene_saved_to_a_folder_is_a_new_file_each_time_and_its_picture_keeps_the_scene()
+    {
+        var (folder, renderer) = Setup();
+        var ct = TestContext.Current.CancellationToken;
+        try
+        {
+            var file = Path.Combine(folder, "paper-plane.svg");
+            File.WriteAllText(file, Still);
+            var into = Path.Combine(folder, "pictures", "Untitled picture");
+            var first = await renderer.RenderAsync(file, null, new SceneOptions { Into = into }, Ffmpeg(), null, ct);
+            Assert.Equal(Path.Combine(into, "paper-plane.png"), first.Output);
+            // Changed and drawn again, it is another file there: the Image editor's next version.
+            File.WriteAllText(file, Still.Replace("#2266cc", "#cc2266"));
+            var second = await renderer.RenderAsync(file, null, new SceneOptions { Into = into }, Ffmpeg(), null, ct);
+            Assert.Equal(Path.Combine(into, "paper-plane 2.png"), second.Output);
+            Assert.True(File.Exists(first.Output));
+
+            // Each says what it was drawn from, as it was then, and is still a picture any program reads.
+            var scene = SceneStamp.Of(first.Output)!;
+            Assert.Equal(file, scene.File);
+            Assert.True(scene.Svg);
+            Assert.Equal(Still, scene.Text);
+            Assert.Contains("#cc2266", SceneStamp.Of(second.Output)!.Text);
+            using var bitmap = SKBitmap.Decode(second.Output);
+            var corner = bitmap.GetPixel(1000, 20);
+            Assert.Equal((0xcc, 0x22, 0x66), (corner.Red, corner.Green, corner.Blue));
+            var recipe = MediaRecipe.Read(first.Output)!;
+            Assert.Equal("Sloperator's render", recipe.MadeWith);
+            Assert.Equal(Still, Assert.Single(recipe.Texts).Text);
+            Assert.Equal("Paper plane", recipe.Title);
+        }
+        finally { Delete(folder); }
+    }
+
+    [Fact]
+    public async Task The_render_tool_keeps_a_picture_s_versions_in_the_image_editor_and_their_size()
+    {
+        var (folder, _) = Setup();
+        var ct = TestContext.Current.CancellationToken;
+        try
+        {
+            var pictures = Path.Combine(folder, "data", "pictures");
+            var picture = Path.Combine(pictures, "Untitled picture");
+            var file = Path.Combine(folder, "badge.svg");
+            File.WriteAllText(file, Still);
+            var ctx = new Tools.ToolContext
+            {
+                Platform = new FakePlatform(), Settings = new Settings.AgentSettings(), WorkingDirectory = folder,
+                PicturesDirectory = pictures, ScratchDirectory = Path.Combine(folder, "scratch"),
+            };
+            var tool = new Tools.RenderTool();
+            JsonObject Args(string json) => JsonNode.Parse(json.Replace("{file}", file.Replace(@"\", @"\\")).Replace("{picture}", picture.Replace(@"\", @"\\")))!.AsObject();
+            JsonObject Out(string output) { var o = Args("""{"file": "{file}"}"""); o["output"] = output; return o; }
+
+            // A model that names the file itself, at a size: the picture's first version.
+            var first = await tool.ExecuteAsync(Args("""{"file": "{file}", "output": "{picture}\\badge.png", "width": 256}"""), ctx, ct);
+            Assert.False(first.IsError, first.Text);
+            Assert.Equal((256, 128), PictureFolder.SizeOf(Path.Combine(picture, "badge.png")));
+            // Drawn again to the same name, the first one stays and this is the next, as big as it.
+            var second = await tool.ExecuteAsync(Args("""{"file": "{file}", "output": "{picture}\\badge.png"}"""), ctx, ct);
+            Assert.Contains("badge.png is an earlier version of this picture", second.Text);
+            Assert.Equal((256, 128), PictureFolder.SizeOf(Path.Combine(picture, "badge 2.png")));
+            // save_to, and the folder given as the output, are each the next version too.
+            await tool.ExecuteAsync(Args("""{"file": "{file}", "save_to": "{picture}"}"""), ctx, ct);
+            var fourth = await tool.ExecuteAsync(Args("""{"file": "{file}", "output": "{picture}"}"""), ctx, ct);
+            Assert.False(fourth.IsError, fourth.Text);
+            Assert.Equal(["badge 2.png", "badge 3.png", "badge 4.png", "badge.png"], Directory.GetFiles(picture).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+            Assert.Equal((256, 128), PictureFolder.SizeOf(Path.Combine(picture, "badge 4.png")));
+
+            // Anywhere else a render over a file replaces it, as a scene worked on is drawn again and again.
+            var elsewhere = Path.Combine(folder, "out", "badge.png");
+            await tool.ExecuteAsync(Out(elsewhere), ctx, ct);
+            await tool.ExecuteAsync(Out(elsewhere), ctx, ct);
+            Assert.Single(Directory.GetFiles(Path.Combine(folder, "out")));
+            Assert.Equal((1024, 512), PictureFolder.SizeOf(elsewhere));
+        }
+        finally { Delete(folder); }
+    }
+
+    [Fact]
+    public void A_picture_says_its_scene_in_a_text_chunk_a_png_reader_passes_over()
+    {
+        using var bitmap = new SKBitmap(8, 8);
+        bitmap.Erase(SKColors.Red);
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        var page = "<!doctype html><title>Gift box — spinning</title><script type=\"module\">import * as THREE from 'three';</script>";
+        var stamped = SceneStamp.Stamp(data.ToArray(), new SceneSource(@"C:\scenes\index.html", false, page, 2.5));
+        using var read = SKBitmap.Decode(stamped);
+        Assert.Equal(SKColors.Red, read.GetPixel(4, 4));
+        var scene = SceneStamp.Read(MediaRecipe.PngTexts(stamped))!;
+        Assert.Equal((@"C:\scenes\index.html", false, page, 2.5), (scene.File, scene.Svg, scene.Text, scene.At));
+        Assert.Equal("Three.js page", scene.Kind);
+        // Named by its own title, as "index" says nothing; a picture no scene drew says none.
+        Assert.Equal("Gift box — spinning", MediaRecipe.SceneTitle(scene));
+        Assert.Null(MediaRecipe.SceneTitle(scene with { Text = "" }));
+        Assert.Equal("Red sports car", MediaRecipe.SceneTitle(new SceneSource(@"C:\scenes\red_sports-car.html", false, "")));
+        Assert.Null(SceneStamp.Read(MediaRecipe.PngTexts(data.ToArray())));
+        // What isn't a PNG is left as it is.
+        Assert.Equal([1, 2, 3], SceneStamp.Stamp([1, 2, 3], scene));
+    }
+
+    [Fact]
     public async Task A_spinning_three_js_scene_becomes_a_clip_with_an_import_map_put_in()
     {
         var (folder, renderer) = Setup();

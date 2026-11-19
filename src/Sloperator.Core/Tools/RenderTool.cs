@@ -29,6 +29,7 @@ public sealed class RenderTool : Tool
     public override JsonObject Parameters => Schema(
         ("file", Str("The .svg or .html scene to draw"), false),
         ("output", Str("Where the result goes: .png (or .jpg, .webp) for a picture, .mp4 (or .webm, .mov, .gif) for a clip, .glb for a Three.js scene as a 3D model. Default: beside the scene, .png when it doesn't move, else .mp4"), false),
+        ("save_to", Str("Instead of output: a folder the result goes into under a new name each time (a picture's folder in the Image editor, where it becomes the picture's next version)"), false),
         ("seconds", Num("A clip's length; default: the SMIL or CSS animation's own, else 5"), false),
         ("fps", Int("A clip's frames a second (default 30)"), false),
         ("width", Int("Width in pixels (default: the SVG's own, at least 1024 along its longer side; 1280 for a page)"), false),
@@ -63,6 +64,17 @@ public sealed class RenderTool : Tool
         }
         var file = ctx.ResolvePath(given);
         var output = GetString(args, "output") is { Length: > 0 } o ? ctx.ResolvePath(o) : null;
+        var into = GetString(args, "save_to") is { Length: > 0 } folder ? ctx.ResolvePath(folder) : null;
+        // A folder given as the output is where it goes, as save_to says it.
+        if (output is not null && (Directory.Exists(output) || Path.EndsInDirectorySeparator(output) || into is null && Path.GetExtension(output).Length == 0))
+            (into, output) = (into ?? output, null);
+        // Both given: the output's name in the folder.
+        else if (output is not null && into is { } inFolder)
+            (into, output) = (null, Path.Combine(inFolder, Path.GetFileName(output)));
+        // A picture of the Image editor keeps its versions: drawn again over a file that is there, it is the next one.
+        string? earlier = null;
+        if (output is not null && File.Exists(output) && SceneRenderer.IsPicture(output) == true && InPictureFolder(output, ctx))
+            (earlier, output) = (output, SceneRenderer.FreeName(Path.GetDirectoryName(output)!, Path.GetFileNameWithoutExtension(output), Path.GetExtension(output)));
         var options = new SceneOptions
         {
             Seconds = GetNumber(args, "seconds") is > 0 and var s ? s : null,
@@ -71,7 +83,16 @@ public sealed class RenderTool : Tool
             Height = GetNumber(args, "height") is >= 16 and var h ? (int)Math.Round(h) : null,
             At = GetNumber(args, "at") is >= 0 and var at ? at : null,
             Transparent = GetBool(args, "transparent"),
+            Into = into,
         };
+        // A picture's next version is as big as its newest, when that one was drawn from the same kind of scene and
+        // no size is given: an icon asked for at 512 came back at 1024 once its colour was changed.
+        var svg = Path.GetExtension(file).Equals(".svg", StringComparison.OrdinalIgnoreCase);
+        if (options is { Width: null, Height: null } && (into ?? Path.GetDirectoryName(output)) is { } pictureFolder && InPictureFolder(Path.Combine(pictureFolder, "next"), ctx)
+            && PictureFolder.Versions(pictureFolder).LastOrDefault() is { } newest && SceneStamp.Of(newest) is { } before && before.Svg == svg
+            && PictureFolder.SizeOf(newest) is var (nw, nh))
+            // An SVG keeps its own shape (it may have changed): its longer side as before. A page fills the window it is given.
+            options = svg ? nw >= nh ? options with { Width = nw } : options with { Height = nh } : options with { Width = nw, Height = nh };
         SceneMade made;
         try
         {
@@ -88,8 +109,10 @@ public sealed class RenderTool : Tool
         if (made.Errors.Count > 0)
             text.Append("\nThe page's errors (fix them and render again):\n").AppendJoin("\n", made.Errors.Select(e => "- " + e));
         // Beside a scene written in the scratch folder, the result is out of the user's sight: said, so what they asked for goes to them.
-        if (output is null && ctx.ScratchDirectory is { } scratch && Projects.FolderPath.IsIn(made.Output, Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratch))))
+        if (output is null && into is null && ctx.ScratchDirectory is { } scratch && Projects.FolderPath.IsIn(made.Output, Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratch))))
             text.Append("\nIt is in Sloperator's scratch folder, beside the scene: when it is what the user asked for, render it again with output where it should go.");
+        if (earlier is not null)
+            text.Append($"\n{Path.GetFileName(earlier)} is an earlier version of this picture in the Image editor and is kept: this one is its next version.");
         if (options.Transparent && Path.GetExtension(made.Output).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
             text.Append("\nAn MP4 can't keep a clear background: render to .webm or .mov for that.");
         var look = MediaPreview.ForFiles([made.Output], ctx.Media, ctx.SeesImages);
@@ -110,6 +133,15 @@ public sealed class RenderTool : Tool
         return made.Clip
             ? $"Made {made.Output}: a clip {made.Width}x{made.Height}, {made.Seconds.ToString("0.##", CultureInfo.InvariantCulture)} s at {made.Fps} fps ({made.Frames} frames), in {took} s."
             : $"Made {made.Output}: a picture {made.Width}x{made.Height}, in {took} s.";
+    }
+
+    /// <summary>Whether a file is right in a picture's folder of the Image editor (a folder right in Sloperator's pictures).</summary>
+    private static bool InPictureFolder(string file, ToolContext ctx)
+    {
+        if (ctx.PicturesDirectory is not { Length: > 0 } pictures)
+            return false;
+        var folder = Path.GetDirectoryName(Path.GetFullPath(file));
+        return folder is not null && string.Equals(Path.GetDirectoryName(folder), Path.TrimEndingDirectorySeparator(Path.GetFullPath(pictures)), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The renderer whose browser profiles are in Sloperator's scratch folder.</summary>

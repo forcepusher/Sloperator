@@ -7,8 +7,8 @@ using System.Text.RegularExpressions;
 
 namespace Sloperator.Core.Media;
 
-/// <summary>A prompt a file was made with: "Prompt", "Negative prompt", "Lyrics".</summary>
-public sealed record RecipeText(string Label, string Text);
+/// <summary>A prompt a file was made with: "Prompt", "Negative prompt", "Lyrics"; or the scene it was drawn from, which is code.</summary>
+public sealed record RecipeText(string Label, string Text, bool Code = false);
 
 /// <summary>A setting a file was made with: ("Sampler", "euler"), ("Steps", "20").</summary>
 public sealed record RecipeSetting(string Name, string Value);
@@ -32,7 +32,28 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
     /// What it shows in a few words, for a name where it has none of its own (the Image and Audio editors' "Untitled
     /// picture"): the prompt up to its first comma, full stop or line break, a capital first; null with no prompt.
     /// </summary>
-    public string? Title => TitleOf(Prompt);
+    public string? Title => TitleOf(Prompt) ?? SceneTitle(Scene);
+
+    /// <summary>The scene the picture was drawn from, when Sloperator's render drew it (<see cref="Render.SceneStamp"/>); null for any other file.</summary>
+    public Render.SceneSource? Scene { get; init; }
+
+    /// <summary>
+    /// What a picture drawn from a scene is called: the scene's own &lt;title&gt;, else its file's name with spaces
+    /// for its dashes ("paper-plane.svg" is "Paper plane"); null for a name that says nothing ("scene", "index").
+    /// </summary>
+    internal static string? SceneTitle(Render.SceneSource? scene)
+    {
+        if (scene is null)
+            return null;
+        if (SceneTitleTag().Match(scene.Text) is { Success: true } m && TitleOf(System.Net.WebUtility.HtmlDecode(m.Groups[1].Value)) is { } own)
+            return own;
+        var name = TitleSpaces().Replace(Path.GetFileNameWithoutExtension(scene.File).Replace('-', ' ').Replace('_', ' '), " ").Trim();
+        return name.ToLowerInvariant() is "scene" or "index" or "page" or "untitled" or "main" or "new" or "test" ? null : TitleOf(name);
+    }
+
+    // An SVG's or a page's own title, the first in it.
+    [GeneratedRegex(@"<title[^>]*>\s*([^<]{3,200}?)\s*</title>", RegexOptions.IgnoreCase)]
+    private static partial Regex SceneTitleTag();
 
     /// <summary>The most characters a <see cref="Title"/> has: a longer start of a prompt is cut at a word, with "…".</summary>
     internal const int TitleLength = 48;
@@ -96,6 +117,8 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
                     return FromComfy(graph);
                 if (texts.TryGetValue("parameters", out var parameters))
                     return FromParameters(parameters);
+                if (Render.SceneStamp.Read(texts) is { } scene)
+                    return FromScene(scene);
             }
             return (FindApiPrompt(bytes) ?? AtEnd(file, bytes.Length)) is { } found ? FromComfy(found) : null;
         }
@@ -104,6 +127,15 @@ public sealed partial record MediaRecipe(IReadOnlyList<RecipeText> Texts, IReadO
         {
             return null;
         }
+    }
+
+    /// <summary>A picture Sloperator's render drew: its scene's text, where the scene was, and what kind it is.</summary>
+    internal static MediaRecipe FromScene(Render.SceneSource scene)
+    {
+        var settings = new List<RecipeSetting> { new("Drawn from", scene.File), new("Kind", scene.Kind) };
+        if (scene.At > 0)
+            settings.Add(new("At", scene.At.ToString("0.##", CultureInfo.InvariantCulture) + " s"));
+        return new MediaRecipe(scene.Text.Length > 0 ? [new RecipeText("Scene", scene.Text, Code: true)] : [], settings, "Sloperator's render") { Scene = scene };
     }
 
     /// <summary>

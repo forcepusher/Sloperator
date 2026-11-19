@@ -712,6 +712,8 @@ MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRe
   it makes; the one with the most in it is exported with GLTFExporter (imported through the page's
   own import map, so it is the page's three.js; else the CDN's at the copy's version), binary, with its
   animations.
+- **Into a folder, and what a PNG keeps**: `save_to` and the scene kept in every PNG are under "Pictures drawn from a
+  scene" in the Image editor panel's part.
 
 Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
 `render` made, and Auto opens it as it does a ComfyUI result.
@@ -1197,6 +1199,42 @@ it to one, evenly from both sides, so there the redrawn part can sit up to 3 px 
 multiples of 8). The check: `.dev/night-test/brush-e2e` (a mask made by `PictureFolder.SaveMask` from strokes in a
 scratch console project, `sloperator-cli` with a stand-in agent whose one call is redraw_area, 150 s on the CPU,
 then a count of changed pixels inside and outside the mask).
+
+**Pictures drawn from a scene** (2026-11-19, with the three ways: until then the panel told the agent of ComfyUI
+alone, and an SVG or Three.js picture had no place in it). A picture is made the way that suits it, into its folder:
+a raster one by the comfyui tool with `save_to`, a vector one as an SVG and a 3D one as a Three.js page, drawn by
+`render` with `save_to` (`About` says all three for a new picture, and for a ComfyUI version that a vector or 3D
+picture of it is an SVG or page drawn with the same `save_to`).
+- **render's `save_to`** is a folder the result goes into under a name no file there has ("plane.png", "plane 2.png":
+  `SceneOptions.Into`, `SceneRenderer.FreeName`), so each render is the picture's next version. A folder given as
+  `output` is read the same way, and an `output` that names a picture already in a picture's folder is saved under
+  the next free name with a line saying the earlier one is kept (`RenderTool.InPictureFolder`, by
+  `ToolContext.PicturesDirectory`): Haiku's first render named the file itself, and its second would have written
+  over version 1. Anywhere else a render over a file replaces it, as a scene worked on is drawn again and again. With
+  no size given, the next version is as big as the newest when that was drawn from the same kind of scene (an SVG its
+  longer side, a page both): an icon asked for at 512 came back at 1024 once its colour was changed.
+- **A PNG keeps its scene** (`SceneStamp`): every PNG `render` draws carries an iTXt chunk "sloperator_scene" right
+  after its header, JSON of the scene's path, kind (svg or page), the moment drawn and the scene's own text (up to
+  512 KB), as ComfyUI's pictures keep their workflow. `MediaRecipe.Read` gives it back as a recipe made with
+  "Sloperator's render": the text under "Scene" in the code font (`RecipeText.Code`), "Drawn from" and "Kind", so
+  **Prompt metadata** in the Image editor and the File inspector shows what drew the picture (its tip reads "The scene
+  it was drawn from"). An "Untitled picture" is called by the scene's own `<title>`, else by its file's name with
+  spaces for dashes ("paper-plane-icon.svg" is "Paper plane icon"; "scene", "index" and the like say nothing).
+- **A scene version is changed in its scene** (`ImageEditorViewModel.SceneOf`): `About` names the scene's file
+  while it is still as the version has it, else writes the version's own copy beside the version ("plane 2.svg" for
+  "plane 2.png": the scene was changed since for a later version, or cleared with the scratch folder; an .svg or
+  .html is no version) and names that, with "change that scene (edit_file) and draw it again with render and
+  save_to". A part marked or painted on such a version is changed in the scene too ("change only what is in that
+  part"), not painted over by `sloperator/redraw_area`. A version's menu has **Show its SVG in folder** (or its
+  Three.js page): an icon is wanted as its SVG as often as its PNG, and the scene is wherever the agent wrote it.
+- Auto shows the Image editor as a render into a picture's folder starts (`AutoRule.AtStart`), as for a ComfyUI run.
+- Checked (2026-11-19, the laptop, Haiku 5.5): the CLI, given a new picture's words as the panel sends them and "A
+  flat icon of a paper plane for my app", wrote an SVG and rendered it into the picture's folder in 13 s; "Make the
+  plane yellow" with version 1 picked read the scene, changed three fills and rendered with `save_to` (version 2,
+  13 s). In the app, with version 2 picked, "Make the background dark green, and put a thin white ring around the
+  plane" made version 3 in about 30 s, the panel showing it as it was drawn and its scene under Prompt metadata.
+  The scenes guide now says an SVG is drawn on white where it draws nothing (the icon's rounded corners), and to
+  render with transparent=true for one that goes over other things.
 
 ### The Audio editor panel
 **Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the

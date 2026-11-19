@@ -49,6 +49,7 @@ public static class AgentSetup
             ScratchDirectory = paths.ScratchDir,
             ChatDirectory = chatDirectory,
             VideosDirectory = paths.VideosDir,
+            PicturesDirectory = paths.PicturesDir,
             SoundsDirectory = paths.SoundsDir,
             ToolsDirectory = paths.ToolsDir,
             IndexDirectory = paths.IndexDir,

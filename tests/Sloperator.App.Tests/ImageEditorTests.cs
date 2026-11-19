@@ -66,7 +66,10 @@ public sealed class ImageEditorTests : IDisposable
             Assert.Equal("Untitled picture · not made yet", vm.Title);
             var (via, context) = vm.About([picture.Folder])!.Value;
             Assert.Equal("Image editor · Untitled picture · new", via);
-            Assert.Contains($"save_to set to the picture's folder, \"{picture.Folder}\"", context);
+            // One of the three ways, each into the picture's folder: ComfyUI for a raster one, render for an SVG or a Three.js page.
+            Assert.Contains($"into the picture's folder, \"{picture.Folder}\"", context);
+            Assert.Contains("with the comfyui tool and save_to set to that folder", context);
+            Assert.Contains("drawn with render and save_to set to that folder", context);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
 
             // Pressed again before it is made, it is the same new picture, picked again: not a second empty one.
@@ -290,6 +293,59 @@ public sealed class ImageEditorTests : IDisposable
             // Unpicked before sending, its files go.
             Assert.True(vm.Unpick());
             Assert.Empty(Directory.GetFiles(Picks));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_version_drawn_from_a_scene_is_changed_in_its_scene_which_the_version_keeps()
+    {
+        var folder = Path.Combine(Root, "Untitled picture");
+        Directory.CreateDirectory(folder);
+        var scene = Path.Combine(_dir, "scratch", "paper-plane.svg");
+        Directory.CreateDirectory(Path.GetDirectoryName(scene)!);
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 48\"><title>Paper plane</title><path d=\"M4 24 60 4 40 44z\"/></svg>";
+        File.WriteAllText(scene, svg);
+        var version = Path.Combine(folder, "paper-plane.png");
+        Png(version, 1);
+        File.WriteAllBytes(version, Core.Render.SceneStamp.Stamp(File.ReadAllBytes(version), new Core.Render.SceneSource(scene, true, svg)));
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var picture = Assert.Single(vm.Items);
+            vm.Pick(picture);
+            Wait(() => vm.HasPicture && vm.HasRecipe);
+            // Named by what its scene is called, and its scene is its Prompt metadata.
+            Wait(() => picture.Name == "Paper plane");
+            Assert.Equal(svg, Assert.Single(vm.Recipe!.Texts).Text);
+
+            // The scene is still as the version has it: that file is the one to change, and render saves the next version.
+            var (via, context) = vm.About([version])!.Value;
+            Assert.Equal("Image editor · Paper plane · version 1", via);
+            Assert.Contains($"This version was drawn from an SVG, \"{scene}\"", context);
+            Assert.Contains($"draw it again with render and save_to set to the picture's folder, \"{folder}\"", context);
+            Assert.DoesNotContain("comfyui", context);
+
+            // Changed since (or cleared with the scratch folder), the version's own copy is written beside it.
+            File.WriteAllText(scene, svg.Replace("M4 24", "M8 24"));
+            var copy = Path.Combine(folder, "paper-plane.svg");
+            Assert.Contains($"This version was drawn from an SVG, \"{copy}\"", vm.About([version])!.Value.Context);
+            Assert.Equal(svg, File.ReadAllText(copy));
+            File.Delete(scene);
+            Assert.Contains($"\"{copy}\"", vm.About([version])!.Value.Context);
+            // The copy is no version of the picture.
+            vm.Refresh();
+            Assert.Single(vm.Versions);
+
+            // A part marked on it is changed in the scene too, not painted over by ComfyUI.
+            vm.PickArea(new DocumentArea(0.5, 0, 1, 0.5));
+            Wait(() => Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1 && vm.About(Directory.GetFiles(Picks)) is not null);
+            var part = vm.About(Directory.GetFiles(Picks))!.Value;
+            Assert.Equal("Image editor · Paper plane · area of version 1", part.Via);
+            Assert.Contains("x 32-64, y 0-24 of the 64x48 pixels", part.Context);
+            Assert.Contains("change only what is in that part as they say, in the scene (edit_file)", part.Context);
+            Assert.DoesNotContain("redraw_area", part.Context);
+            Assert.True(vm.Unpick());
             return 0;
         });
     }

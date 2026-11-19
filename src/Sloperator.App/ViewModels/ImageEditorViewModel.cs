@@ -64,8 +64,10 @@ public sealed partial class VersionItem(int number, string path) : ObservableObj
 /// The Image editor panel, beside the chat, a sibling of the Video editor for single pictures:
 /// the pictures in SloperatorData\pictures (a folder each, its versions the picture files in it), the picked one big
 /// with its versions under it, and how the version shown was made under it when Prompt metadata is on (as the
-/// File inspector shows it). The agent makes them with the comfyui tool, saving each result into the
-/// picture's folder, so a redo is a new version and the earlier ones stay. A click on a picture or a
+/// File inspector shows it). The agent makes them one of the three ways (a raster picture with the comfyui tool, a
+/// vector one as an SVG and a 3D one as a Three.js page, drawn by render), saving each result into the picture's
+/// folder, so a redo is a new version and the earlier ones stay; one drawn from a scene keeps its scene, and is
+/// changed there. A click on a picture or a
 /// version picks it into the chat's box; a box dragged over the big picture picks that part, with a mask
 /// of it, for the agent to redraw only that part (sloperator/redraw_area). What it shares with the Audio
 /// editor is <see cref="MediaEditorViewModel{TItem}"/>'s.
@@ -399,39 +401,104 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
 
     /// <summary>
     /// What a message sent with a pick carries: over its bubble the picture and what of it; for the model, the
-    /// picture's folder and versions, and how to make the next one there (the comfyui tool's save_to), or for a
-    /// part, the picture, the box in its pixels and the mask, with how to redraw only that part.
+    /// picture's folder and versions, and how to make the next one there (the comfyui tool's or render's save_to:
+    /// a picture is made one of the three ways, a raster one by ComfyUI, a vector one as an SVG, a 3D one as a
+    /// Three.js page), or for a part, the picture, the box in its pixels and the mask, with how to redraw only that
+    /// part. A version drawn from a scene is changed in its scene, which the version itself keeps.
     /// </summary>
     public override (string Via, string Context)? About(IReadOnlyList<string> files)
     {
         if (_pick is not { } pick || !files.Contains(pick.File, StringComparer.OrdinalIgnoreCase))
             return null;
         var picture = pick.Picture;
-        var save = $"Make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", so the result is its next version there " +
-                   "(the panel shows the newest; earlier versions stay)";
+        var next = "so the result is its next version there (the panel shows the newest; earlier versions stay)";
         var opening = $"[The Image editor panel is open beside the chat. ";
         if (pick.Version is null)
             return ($"Image editor · {picture.Name} · new",
-                opening + $"They picked a new picture, \"{picture.Name}\", not made yet: what they say is what it shows. {save}; " +
-                "sloperator/text_to_image suits a PC without a graphics card.]");
+                opening + $"They picked a new picture, \"{picture.Name}\", not made yet: what they say is what it shows. Make it the way that suits it, " +
+                $"into the picture's folder, \"{picture.Folder}\", {next}: a raster picture (a photo, a painting, an illustration) with the comfyui tool and save_to " +
+                "set to that folder (sloperator/text_to_image suits a PC without a graphics card); a vector one (an icon, a logo, a diagram) as an SVG, or a 3D one " +
+                "as a Three.js page, drawn with render and save_to set to that folder.]");
         var version = pick.Version;
         var versions = string.Join(", ", picture.Versions.Select((v, i) => $"{i + 1}: {v}"));
+        // Drawn from a scene, it is changed there: the scene as this version has it, in a file to edit.
+        var scene = SceneOf(version.Path);
+        var drawn = scene is null ? null
+            : $"This version was drawn from {(scene.Value.Source.Svg ? "an SVG" : "a Three.js page")}, \"{scene.Value.File}\": ";
         if (pick.Mask is { } mask)
-            return ($"Image editor · {picture.Name} · {(pick.Painted ? "painted part" : "area")} of version {version.Number}",
-                opening + (pick.Painted
-                    // The box says where; the mask is the shape, and only what it covers is theirs to change.
-                    ? $"They painted with a brush over a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw. " +
-                      $"The mask has the shape they painted; the box around it is {pick.Place}, and the picture {pick.File} attached below is that box. " +
-                      "Redraw only what they painted as they say, the rest kept: run the comfyui tool with "
-                    : $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
-                      $"The picture {pick.File} attached below is that part. Redraw only that part as they say, the rest kept: run the comfyui tool with ") +
+        {
+            var part = pick.Painted
+                // The box says where; the mask is the shape, and only what it covers is theirs to change.
+                ? $"They painted with a brush over a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw. " +
+                  $"The mask has the shape they painted; the box around it is {pick.Place}, and the picture {pick.File} attached below is that box. "
+                : $"They marked a part of version {version.Number} of the picture \"{picture.Name}\" ({version.Path}) to redraw: {pick.Place}. " +
+                  $"The picture {pick.File} attached below is that part. ";
+            var title = $"Image editor · {picture.Name} · {(pick.Painted ? "painted part" : "area")} of version {version.Number}";
+            if (drawn is not null)
+                return (title, opening + part + drawn + $"change only what is in that part as they say, in the scene (edit_file), the rest kept, " +
+                    $"and draw it again with render and save_to set to the picture's folder, \"{picture.Folder}\", so it becomes the picture's next version. " +
+                    $"Its versions: {versions}.]");
+            return (title, opening + part +
+                $"Redraw only {(pick.Painted ? "what they painted" : "that part")} as they say, the rest kept: run the comfyui tool with " +
                 $"name=sloperator/redraw_area, set 4.image to \"{version.Path}\", 5.image to the mask \"{mask}\" (white where to redraw), 2.text to what goes there " +
                 $"in the picture's style (and 1.ckpt_name to the checkpoint it was made with, if its metadata says), and save_to \"{picture.Folder}\", " +
                 $"so it becomes the picture's next version. Its versions: {versions}.]");
+        }
+        var picked = opening + $"They picked version {version.Number} of {picture.Versions.Count} of the picture \"{picture.Name}\" ({version.Path}, attached below). ";
+        if (drawn is not null)
+            return ($"Image editor · {picture.Name} · version {version.Number}",
+                picked + drawn + $"to change it, change that scene (edit_file) and draw it again with render and save_to set to the picture's folder, " +
+                $"\"{picture.Folder}\", {next}. Its versions: {versions}.]");
         return ($"Image editor · {picture.Name} · version {version.Number}",
-            opening + $"They picked version {version.Number} of {picture.Versions.Count} of the picture \"{picture.Name}\" ({version.Path}, attached below). " +
-            $"To change it or make it again, {char.ToLowerInvariant(save[0])}{save[1..]}; image_to_image keeps its layout, text_to_image starts afresh from " +
-            $"the prompt in its metadata. Its versions: {versions}.]");
+            picked + $"To change it or make it again, make it with the comfyui tool and save_to set to the picture's folder, \"{picture.Folder}\", {next}; " +
+            "image_to_image keeps its layout, text_to_image starts afresh from the prompt in its metadata. A vector or 3D picture of it instead is an SVG or a " +
+            $"Three.js page drawn with render and the same save_to. Its versions: {versions}.]");
+    }
+
+    /// <summary>
+    /// A version drawn from a scene offers the scene itself: an icon or a logo is wanted as its SVG as often as its
+    /// PNG, and the scene was written wherever the agent wrote it (the scratch folder, as a rule).
+    /// </summary>
+    protected override IEnumerable<PanelMenuItem?> MoreFor(VersionItem version)
+    {
+        if (Core.Render.SceneStamp.Of(version.Path) is not { } source)
+            yield break;
+        yield return new(source.Svg ? "Show its SVG in folder" : "Show its Three.js page in folder", true, () =>
+        {
+            if (SceneOf(version.Path) is { } scene)
+                FilePreview.ShowInFolder(scene.File);
+            else
+                Chat?.AddNotice("This version's scene was too long to keep in the picture, and its file is gone.", isError: true);
+        });
+    }
+
+    /// <summary>
+    /// The scene a version was drawn from, in a file to change: the scene's own file while it is still as the version
+    /// has it, else the version's copy of it written beside the version ("plane 2.svg" for "plane 2.png": the scene's
+    /// file was changed since, or cleared with the scratch folder). Null for a version no scene drew, or whose scene
+    /// was too long to keep and is gone.
+    /// </summary>
+    internal static (string File, Core.Render.SceneSource Source)? SceneOf(string version)
+    {
+        if (Core.Render.SceneStamp.Of(version) is not { } source)
+            return null;
+        try
+        {
+            if (File.Exists(source.File) && (source.Text.Length == 0 || Same(File.ReadAllText(source.File), source.Text)))
+                return (source.File, source);
+            if (source.Text.Length == 0)
+                return null;
+            var copy = Path.ChangeExtension(version, source.Extension);
+            if (!File.Exists(copy) || !Same(File.ReadAllText(copy), source.Text))
+                File.WriteAllText(copy, source.Text);
+            return (copy, source);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
+        }
+
+        static bool Same(string a, string b) => string.Equals(a.ReplaceLineEndings("\n"), b.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
 
     /// <summary>The message went with the pick: it is no longer picked (its files went with it, and stay).</summary>
