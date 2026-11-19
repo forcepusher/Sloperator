@@ -19,35 +19,85 @@ public static class VideoSoundMix
 
     /// <summary>The mix: interleaved, as long as the video.</summary>
     /// <param name="notes">Takes what the video is without: a sound whose file isn't there or can't be read.</param>
-    public static float[] Mix(Storyboard board, IMediaDecoder decoder, List<string> notes)
+    public static float[] Mix(Storyboard board, IMediaDecoder decoder, List<string> notes, CancellationToken ct = default)
     {
         var (starts, length) = board.Timing();
         var frames = Math.Max(0, (int)Math.Round(length * Rate));
         var mix = new float[frames * Channels];
+        var open = new Dictionary<string, IAudioReader?>(StringComparer.OrdinalIgnoreCase);
         var read = new Dictionary<string, float[]?>(StringComparer.OrdinalIgnoreCase);
-        // A file's sound, read once however many shots are cut from it; null for none it has.
-        float[]? Sound(string file)
+        try
         {
-            if (read.TryGetValue(file, out var known))
+            return Mix(board, starts, length, mix, notes, Part, ct);
+        }
+        finally
+        {
+            foreach (var reader in open.Values)
+                reader?.Dispose();
+        }
+
+        // A file's sound from a time on, for so long (to its end when no length is given): what a shot or a sound
+        // line plays of it, not all of it. A clip cut from a twenty-minute recording had the whole recording's
+        // sound read for it, a gigabyte for each clip. Null for a file with no sound.
+        float[]? Part(string file, double from, double seconds)
+        {
+            var key = FormattableString.Invariant($"{file}|{from:0.####}|{seconds:0.####}");
+            if (read.TryGetValue(key, out var known))
                 return known;
             float[]? samples = null;
             try
             {
-                if (File.Exists(file) && decoder.OpenAudio(file) is { } reader)
-                    using (reader)
-                    {
-                        var heard = SoundEdit.Read(reader);
-                        samples = SoundEdit.Convert(heard, Rate, Channels).Samples;
-                        // A sound of one channel goes to both at 0.707 of itself, as ffmpeg spreads it (as loud in all, not
-                        // twice over): at full strength a voice-over or a mono song was 3 dB louder here than in ffmpeg's join.
-                        if (heard.Channels == 1)
-                            for (var i = 0; i < samples.Length; i++)
-                                samples[i] *= 0.70710678f;
-                    }
+                if (!open.TryGetValue(file, out var reader))
+                    open[file] = reader = File.Exists(file) ? decoder.OpenAudio(file) : null;
+                if (reader is not null)
+                {
+                    var heard = Read(reader, Math.Max(0, from), seconds, ct);
+                    samples = SoundEdit.Convert(heard, Rate, Channels).Samples;
+                    // A sound of one channel goes to both at 0.707 of itself, as ffmpeg spreads it (as loud in all, not
+                    // twice over): at full strength a voice-over or a mono song was 3 dB louder here than in ffmpeg's join.
+                    if (heard.Channels == 1)
+                        for (var i = 0; i < samples.Length; i++)
+                            samples[i] *= 0.70710678f;
+                }
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or UnauthorizedAccessException) { }
-            return read[file] = samples;
+            return read[key] = samples;
         }
+    }
+
+    /// <summary>A sound from a time on, for so long (to its end when <paramref name="seconds"/> is 0), a second at a time.</summary>
+    private static SoundSamples Read(IAudioReader reader, double from, double seconds, CancellationToken ct)
+    {
+        var (rate, channels) = (Math.Max(1, reader.SampleRate), Math.Max(1, reader.Channels));
+        reader.Seek(TimeSpan.FromSeconds(from));
+        var want = seconds > 0 ? (long)Math.Ceiling(seconds * rate) * channels : long.MaxValue;
+        var parts = new List<float[]>();
+        long total = 0;
+        var buffer = new float[rate * channels];
+        while (total < want)
+        {
+            ct.ThrowIfCancellationRequested();
+            var n = reader.Read(buffer, 0, (int)Math.Min(buffer.Length, want - total));
+            if (n <= 0)
+                break;
+            parts.Add(buffer[..n]);
+            total += n;
+        }
+        var all = new float[total - total % channels];
+        long at = 0;
+        foreach (var part in parts)
+        {
+            var take = (int)Math.Min(part.Length, all.Length - at);
+            Array.Copy(part, 0, all, at, take);
+            at += take;
+        }
+        return new SoundSamples(all, rate, channels);
+    }
+
+    private static float[] Mix(Storyboard board, IReadOnlyList<double> starts, double length, float[] mix, List<string> notes, Func<string, double, double, float[]?> part, CancellationToken ct)
+    {
+        var frames = mix.Length / Channels;
+        float[]? Sound(string file) => part(file, 0, 0);
 
         var sounds = new List<VideoSound>();
         foreach (var sound in board.Sounds)
@@ -69,10 +119,13 @@ public static class VideoSoundMix
                 (own, volume) = (line, shot.Volume ?? 1);
                 speaking.Add((starts[i], starts[i] + shot.Seconds));
             }
-            else if ((shot.Volume ?? 1) > 0 && Sound(board.ShotVideo(shot)) is { } clip)
-                (own, volume) = (ShotSound(shot, clip), shotVolume * (shot.Volume ?? 1));
+            // Of the clip's sound only what the shot plays: from its trim, as much as its length takes at its speed.
+            // Backwards it plays from the clip's end, so all of it from the trim on is needed.
+            else if ((shot.Volume ?? 1) > 0 && part(board.ShotVideo(shot), shot.In, shot.Reverse ? 0 : (shot.Freeze ?? shot.Seconds) * (shot.Speed ?? 1) + 0.5) is { } clip)
+                (own, volume) = (ShotSound(shot, clip, trimmed: true), shotVolume * (shot.Volume ?? 1));
             else
                 continue;
+            ct.ThrowIfCancellationRequested();
             // Through a transition one clip's sound gives way to the next's.
             var (fadeIn, fadeOut) = (i > 0 ? Storyboard.Overlap(shot) : 0, i + 1 < board.Shots.Count ? Storyboard.Overlap(board.Shots[i + 1]) : 0);
             Add(mix, own, 0, starts[i], shot.Seconds, volume, fadeIn, fadeOut, null);
@@ -81,21 +134,24 @@ public static class VideoSoundMix
         // Quieter while someone speaks: a shot's line, and a voice-over for as long as it plays.
         foreach (var voice in sounds.Where(s => s.Source == VideoSound.Speech))
         {
-            var plays = voice.Seconds > 0 ? voice.Seconds : Sound(board.SoundFile(voice)) is { } v ? Math.Max(0.1, v.Length / Channels / (double)Rate - voice.Trim) : 0;
+            var plays = voice.Seconds > 0 ? voice.Seconds : part(board.SoundFile(voice), voice.Trim, 0) is { } v ? Math.Max(0.1, v.Length / Channels / (double)Rate) : 0;
             if (plays > 0)
                 speaking.Add((voice.Start, voice.Start + plays));
         }
         var duck = speaking.Count == 0 || sounds.All(s => s.Source == VideoSound.Speech) ? null : Ducking(speaking, frames);
         foreach (var sound in sounds)
         {
-            if (Sound(board.SoundFile(sound)) is not { } samples)
+            ct.ThrowIfCancellationRequested();
+            // From its trim, for as long as it plays in the video: an hour's music under half a minute is half a minute read.
+            var plays = sound.Seconds > 0 ? sound.Seconds : Math.Max(0.1, length - sound.Start);
+            var whole = sound.Source == VideoSound.Speech && sound.Seconds <= 0;
+            if (part(board.SoundFile(sound), sound.Trim, whole ? 0 : plays + 0.05) is not { } samples)
             {
                 notes.Add($"The sound {sound.Label} can't be read on this PC, so the video is without it.");
                 continue;
             }
-            var plays = sound.Seconds > 0 ? sound.Seconds : Math.Max(0.1, length - sound.Start);
             var (fadeIn, fadeOut) = (Math.Min(sound.FadeIn, plays / 2), Math.Min(sound.FadeOut, plays / 2));
-            Add(mix, samples, sound.Trim, sound.Start, plays, sound.Volume * board.LineVolume(sound.SoundLine), fadeIn, fadeOut, sound.Source == VideoSound.Speech ? null : duck);
+            Add(mix, samples, 0, sound.Start, plays, sound.Volume * board.LineVolume(sound.SoundLine), fadeIn, fadeOut, sound.Source == VideoSound.Speech ? null : duck);
         }
 
         // A sound cut where the video ends fades out over longer than the picture does.
@@ -116,10 +172,11 @@ public static class VideoSoundMix
     }
 
     /// <summary>A clip's sound as its shot cuts its picture: from its trim, backwards, at its speed, and none from where it freezes.</summary>
-    internal static float[] ShotSound(VideoShot shot, float[] clip)
+    /// <param name="trimmed">The sound given already starts at the shot's trim.</param>
+    internal static float[] ShotSound(VideoShot shot, float[] clip, bool trimmed = false)
     {
         var sound = clip;
-        if (shot.In > 0)
+        if (shot.In > 0 && !trimmed)
         {
             var skip = Math.Min(sound.Length, (int)Math.Round(shot.In * Rate) * Channels);
             sound = sound[skip..];

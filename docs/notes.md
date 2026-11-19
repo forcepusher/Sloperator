@@ -2717,8 +2717,20 @@ What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless 
   it (ffmpeg in `SloperatorData\tools`, and Microsoft's own extension where there is one). On the laptop
   (Windows 10 LTSC, nothing added) Windows reads no HEVC, VP8, VP9, AV1, MPEG-2 or ProRes picture, no FLV, and
   no Ogg, Opus or AIFF sound; AC-3 and Opus sound in an MP4 come out as no sound.
+- **Clips cut from a long recording** (`enc long`: three 5 s clips out of a 20-minute 720p recording, joined
+  without ffmpeg): the mix read each clip's whole sound, the recording's, and held it twice (as read, and at 48
+  kHz): 14 s of video took 39.6 s to join and 3.2 GB, and Stop was not heard for 28 s, since nothing looked for
+  it while the sound was read. `VideoSoundMix` now reads of each file only what a shot or a sound line plays
+  (from its trim, as long as it lasts at its speed; all of it from the trim only for a clip played backwards,
+  which starts from its end), a second at a time with Stop looked for between: 6.7 s, 582 MB at most, and
+  stopped 0.04 s after it is asked. Jumping in the sound is to the sample now (above), which this leans on.
+  `Transcode` (a MOV or an MKV made an MP4 clip) holds a sound of over five minutes a second at a time too. Probing
+  the recording takes 0.16 s the first time (its first frames are read for its clock) and 0.02 s after; a frame
+  15 minutes in comes in 0.04 s.
 - **Left as it is**: H.264 in an MKV or a stream has its colours by size alone (its header isn't read there);
-  a file in fragments keeps the encoder's 21 ms at the start of its sound.
+  a file in fragments keeps the encoder's 21 ms at the start of its sound; a shot made of a file still gets the
+  whole file as its clip (three clips of the 581 MB recording are 2.3 GB in the video's folder), and one that
+  isn't an MP4 is read and written again whole, however little of it the shot shows.
 
 Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
 `MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's

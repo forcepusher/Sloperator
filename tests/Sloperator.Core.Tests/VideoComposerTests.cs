@@ -35,11 +35,38 @@ public sealed class VideoComposerTests : IDisposable
             var name = Path.GetFileNameWithoutExtension(path);
             var mono = name.StartsWith("mono ", StringComparison.Ordinal);
             var parts = (mono ? name[5..] : name).Split(' ');
+            // "ramp 1200s.mp4": twenty minutes whose every sample is its own time (seconds / 10000), so where a part was read from can be read off it.
+            if (parts.Length == 2 && parts[0] == "ramp")
+                return new Ramp((int)(double.Parse(parts[1].TrimEnd('s'), System.Globalization.CultureInfo.InvariantCulture) * 8000), this);
             if (parts.Length < 3 || parts[0] != "level")
                 return null;
             var level = float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
             var seconds = double.Parse(parts[2].TrimEnd('s'), System.Globalization.CultureInfo.InvariantCulture);
             return new Constant(level, (int)(seconds * 8000), mono ? 1 : 2);
+        }
+
+        /// <summary>How many values were read of all the ramps opened.</summary>
+        public long Heard;
+
+        private sealed class Ramp(int frames, Levels owner) : IAudioReader
+        {
+            private int _at;
+            public int SampleRate => 8000;
+            public int Channels => 2;
+            public TimeSpan Duration => TimeSpan.FromSeconds(frames / 8000.0);
+
+            public int Read(float[] buffer, int offset, int count)
+            {
+                var n = Math.Min(count, frames * 2 - _at);
+                for (var i = 0; i < n; i++)
+                    buffer[offset + i] = (_at + i) / 2 / 8000f / 10000f;
+                _at += n;
+                owner.Heard += n;
+                return n;
+            }
+
+            public void Seek(TimeSpan time) => _at = (int)Math.Round(time.TotalSeconds * 8000) * 2;
+            public void Dispose() { }
         }
 
         /// <summary>At 8 kHz, to be brought to 48 kHz (and to two channels) by the mix.</summary>
@@ -92,7 +119,7 @@ public sealed class VideoComposerTests : IDisposable
               {"id": "s6", "seconds": 2, "place": "level 0.6 4s.mp4", "freeze": 1}]}
             """);
         var notes = new List<string>();
-        var mix = VideoSoundMix.Mix(board, new Levels(), notes);
+        var mix = VideoSoundMix.Mix(board, new Levels(), notes, TestContext.Current.CancellationToken);
         Assert.Empty(notes);
         Assert.Equal((int)Math.Round(11.0 * Rate) * 2, mix.Length);
         Assert.Equal(0.4f, At(mix, 1), 3);
@@ -110,9 +137,44 @@ public sealed class VideoComposerTests : IDisposable
         // Both channels alike.
         Assert.Equal(mix[Rate * 2], mix[Rate * 2 + 1]);
         // A sound of one channel goes to both at 0.707 of itself, as ffmpeg spreads it.
-        var one = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "place": "mono level 0.4 4s.mp4"}]}"""), new Levels(), []);
+        var one = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "place": "mono level 0.4 4s.mp4"}]}"""), new Levels(), [], TestContext.Current.CancellationToken);
         Assert.Equal(0.4f * 0.7071f, At(one, 1), 3);
         Assert.Equal(one[Rate * 2], one[Rate * 2 + 1]);
+    }
+
+    [Fact]
+    public void Of_a_long_recording_only_what_a_shot_or_a_sound_line_plays_is_read()
+    {
+        // Two clips cut out of twenty minutes, and half an hour into an hour of music: all of each was read and held,
+        // a gigabyte a clip, and a join of 14 s took 40 s and 3 GB.
+        var media = new Levels();
+        var board = Video("""
+            {"fadeOut": 0, "shots": [
+              {"id": "s1", "seconds": 2, "in": 300, "place": "ramp 1200s.mp4"},
+              {"id": "s2", "seconds": 2, "in": 900, "speed": 2, "place": "ramp 1200s.mp4"},
+              {"id": "s3", "seconds": 2, "place": "level 0 4s.mp4"}],
+             "sounds": [{"id": "a1", "source": "file", "place": "ramp 3600s.mp3", "start": 4, "trim": 1800, "seconds": 2}]}
+            """);
+        var mix = VideoSoundMix.Mix(board, media, [], TestContext.Current.CancellationToken);
+        // Each from its own place: 300.5 s of the recording half a second in, 901 s (twice as fast) half a second into the second.
+        Assert.InRange(At(mix, 0.5), 0.03004f, 0.03006f);
+        Assert.InRange(At(mix, 2.5), 0.09005f, 0.09015f);
+        Assert.InRange(At(mix, 5), 0.18009f, 0.18011f);
+        // Some eleven seconds of sound read in all (in two channels at 8 kHz), of an hour and forty minutes.
+        Assert.InRange(media.Heard, 8000 * 2 * 8, 8000 * 2 * 12);
+
+        // Backwards a clip plays from its end, so all of it from its trim is read: its last second first.
+        var back = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "in": 1190, "reverse": true, "place": "ramp 1200s.mp4"}]}"""), new Levels(), [], TestContext.Current.CancellationToken);
+        Assert.InRange(At(back, 0.5), 0.11994f, 0.11996f);
+    }
+
+    [Fact]
+    public void A_mix_is_stopped_while_it_reads()
+    {
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
+        var board = Video("""{"shots": [{"id": "s1", "seconds": 2, "place": "ramp 1200s.mp4"}]}""");
+        Assert.Throws<OperationCanceledException>(() => VideoSoundMix.Mix(board, new Levels(), [], stop.Token));
     }
 
     [Fact]
@@ -127,7 +189,7 @@ public sealed class VideoComposerTests : IDisposable
             """);
         File.Delete(board.SoundFile(board.Sounds[2]));
         var notes = new List<string>();
-        var mix = VideoSoundMix.Mix(board, new Levels(), notes);
+        var mix = VideoSoundMix.Mix(board, new Levels(), notes, TestContext.Current.CancellationToken);
         Assert.Contains(notes, n => n.Contains("gone.wav"));
         // Under a song a clip's own sound is at half: 0.1 alone before the song starts.
         Assert.Equal(0.1f, At(mix, 1), 3);
@@ -149,7 +211,7 @@ public sealed class VideoComposerTests : IDisposable
             {"shots": [{"id": "s1", "seconds": 6, "place": "level 0.9 8s.mp4"}],
              "sounds": [{"id": "a1", "source": "file", "place": "level 0.9 8s.wav", "start": 2}]}
             """);
-        var mix = VideoSoundMix.Mix(board, new Levels(), []);
+        var mix = VideoSoundMix.Mix(board, new Levels(), [], TestContext.Current.CancellationToken);
         Assert.Equal(0.9f, At(mix, 1), 3);
         // Two sounds of 0.9 together would be 1.8: held at the ceiling, and already down when the second comes in.
         Assert.All(mix, v => Assert.InRange(v, -0.951f, 0.951f));
@@ -948,6 +1010,49 @@ public sealed class VideoComposerTests : IDisposable
         var failed = await Assert.ThrowsAsync<VideoException>(() => VideoMontage.JoinAsync(board, null, media, null, TestContext.Current.CancellationToken));
         Assert.StartsWith("Shot s2's clip can't be joined: s2.mp4 holds no picture this Windows can read. ffmpeg in", failed.Message);
         Assert.False(File.Exists(board.VideoFile));
+    }
+
+    [Fact]
+    public void A_long_videos_sound_is_handed_on_a_second_at_a_time_and_comes_out_whole()
+    {
+        // Five and a half minutes (past the five a sound is held whole up to), tiny, with a tone all through.
+        var media = new MediaFoundationDecoder();
+        const int seconds = 330, fps = 5;
+        var source = Path.Combine(_dir, "long.mp4");
+        using (var writer = media.Write(source, new MediaWriterOptions(64, 64, fps, Sound: true))!)
+        {
+            var grey = new byte[64 * 64 * 4];
+            Array.Fill(grey, (byte)128);
+            var second = new float[Rate * 2];
+            for (var i = 0; i < Rate; i++)
+                second[i * 2] = second[i * 2 + 1] = (float)(0.3 * Math.Sin(2 * Math.PI * 440 * i / Rate));
+            for (var s = 0; s < seconds; s++)
+            {
+                for (var f = 0; f < fps; f++)
+                    writer.Frame(new RawImage(64, 64, grey));
+                writer.Sound(second);
+            }
+            writer.Finish();
+        }
+        var again = Path.Combine(_dir, "again.mp4");
+        VideoComposer.Transcode(source, again, media, null, TestContext.Current.CancellationToken);
+        Assert.InRange(media.Probe(again)!.Duration.TotalSeconds, seconds - 0.5, seconds + 0.5);
+        using var audio = media.OpenAudio(again)!;
+        var sound = SoundEdit.Read(audio);
+        Assert.InRange(sound.Frames / (double)sound.Rate, seconds - 0.2, seconds + 0.2);
+        // As loud at the end as at the start, and no gap where one second's sound meets the next: every 20 ms of it sounds.
+        double Loud(int from, int count)
+        {
+            double sum = 0;
+            for (var i = from; i < from + count; i++)
+                sum += sound.Samples[i * sound.Channels] * (double)sound.Samples[i * sound.Channels];
+            return Math.Sqrt(sum / count);
+        }
+        var window = sound.Rate / 50;
+        Assert.InRange(Loud(sound.Rate * 10, sound.Rate), 0.19, 0.23);
+        Assert.InRange(Loud(sound.Rate * 320, sound.Rate), 0.19, 0.23);
+        var quietest = Enumerable.Range(sound.Rate / window, (seconds - 2) * sound.Rate / window).Min(k => Loud(k * window, window));
+        Assert.True(quietest > 0.15, $"a stretch of the sound is as quiet as {quietest:0.000}");
     }
 
     [Fact]

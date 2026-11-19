@@ -308,8 +308,8 @@ public sealed unsafe partial class MediaFoundationDecoder : IMediaDecoder
         /// <summary>The file's length as Media Foundation counts it: no place past it can be jumped to.</summary>
         private readonly TimeSpan _length;
         /// <summary>
-        /// A file this reader can't jump in (a broadcast stream, .ts: every jump came back with nothing): it is opened
-        /// again and read up to the place instead. Set once a jump has come back with nothing.
+        /// A file this reader doesn't jump in: a broadcast stream from the first (<see cref="IsBroadcast"/>), any other
+        /// once a jump has come back with nothing. It is read onwards to a place, and opened again to go back.
         /// </summary>
         private bool _noJumps;
         /// <summary>A jump was made and nothing has been read since.</summary>

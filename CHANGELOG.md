@@ -124,6 +124,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
   clip is (a phone's HEVC, a web video's VP9) and what would read it.
 - Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.
+- **Clips cut out of a long recording join quickly without ffmpeg.** Three short clips from a 20-minute recording
+  took 40 seconds and 3 GB of memory to join; now 7 seconds and a fifth of the memory. **Stop** stops such a
+  join at once, where it could take half a minute.
 
 ## [1.5.1] - 2026-11-17
 ### Changed

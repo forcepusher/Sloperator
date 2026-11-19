@@ -95,7 +95,7 @@ public static class VideoComposer
         var temp = Path.Combine(board.Folder, "." + Path.GetFileNameWithoutExtension(output) + ".joining.mp4");
 
         progress?.Invoke("Mixing the sound…");
-        var sound = VideoSoundMix.Mix(board, decoder, notes);
+        var sound = VideoSoundMix.Mix(board, decoder, notes, ct);
         ct.ThrowIfCancellationRequested();
 
         try
@@ -254,38 +254,71 @@ public static class VideoComposer
         using var reader = decoder.OpenVideo(source, 0) ?? throw new VideoException(MediaDecoders.WhyNoPicture(source, decoder));
         var fps = Math.Clamp((int)Math.Round(reader.FrameRate > 0 ? reader.FrameRate : 30), 1, 120);
         var (w, h) = SizeFor((reader.Width, reader.Height), width, height);
-        float[]? sound = null;
+        IAudioReader? audio = null;
         try
         {
-            using var audio = decoder.OpenAudio(source);
-            if (audio is not null)
-            {
-                var heardAs = SoundEdit.Read(audio);
-                sound = SoundEdit.Convert(heardAs, VideoSoundMix.Rate, VideoSoundMix.Channels).Samples;
-                // One channel put on both sides is as loud as it was only at 0.707 of itself on each: what a join makes
-                // of a clip of one channel, and this clip is of two from here on.
-                if (heardAs.Channels == 1)
-                    for (var i = 0; i < sound.Length; i++)
-                        sound[i] *= 0.70710678f;
-            }
+            audio = decoder.OpenAudio(source);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException) { }
-        using var writer = decoder.Write(output, new MediaWriterOptions(w, h, fps, Sound: sound is not null)) ?? throw new VideoException("The video can't be written on this PC: Windows gave no H.264 encoder.");
+        using var heardFrom = audio;
+        // One channel put on both sides is as loud as it was only at 0.707 of itself on each: what a join makes
+        // of a clip of one channel, and this clip is of two from here on.
+        var one = audio?.Channels == 1;
+        float[] Heard(SoundSamples from)
+        {
+            var samples = SoundEdit.Convert(from, VideoSoundMix.Rate, VideoSoundMix.Channels).Samples;
+            if (one)
+                for (var i = 0; i < samples.Length; i++)
+                    samples[i] *= 0.70710678f;
+            return samples;
+        }
+        // A sound of a few minutes whole, as it always was; a longer one a second at a time beside the frames, so an
+        // hour's video is not an hour's sound held in memory twice over (1.4 GB each).
+        var whole = audio is not null && audio.Duration <= TimeSpan.FromMinutes(5) ? Heard(SoundEdit.Read(audio)) : null;
+        var block = audio is not null && whole is null ? new float[Math.Max(1, audio.SampleRate) * Math.Max(1, audio.Channels)] : null;
+        float[] Next()
+        {
+            if (block is null || audio is null)
+                return [];
+            var n = audio.Read(block, 0, block.Length);
+            return n <= 0 ? [] : Heard(new SoundSamples(block[..(n - n % Math.Max(1, audio.Channels))], Math.Max(1, audio.SampleRate), Math.Max(1, audio.Channels)));
+        }
+        using var writer = decoder.Write(output, new MediaWriterOptions(w, h, fps, Sound: audio is not null)) ?? throw new VideoException("The video can't be written on this PC: Windows gave no H.264 encoder.");
         long heard = 0;
-        var k = 0;
+        var (k, ended) = (0, false);
         Frames(reader, fps, w, h, progress, doing, ct, frame =>
         {
             writer.Frame(frame);
             k++;
-            if (sound is null)
+            var upTo = (long)Math.Round(k * (double)VideoSoundMix.Rate / fps);
+            if (whole is not null)
+            {
+                upTo = Math.Min(whole.Length / VideoSoundMix.Channels, upTo);
+                if (upTo > heard)
+                    writer.Sound(whole.AsSpan((int)heard * VideoSoundMix.Channels, (int)(upTo - heard) * VideoSoundMix.Channels));
+                heard = Math.Max(heard, upTo);
                 return;
-            var upTo = Math.Min(sound.Length / VideoSoundMix.Channels, (long)Math.Round(k * (double)VideoSoundMix.Rate / fps));
-            if (upTo > heard)
-                writer.Sound(sound.AsSpan((int)heard * VideoSoundMix.Channels, (int)(upTo - heard) * VideoSoundMix.Channels));
-            heard = upTo;
+            }
+            while (!ended && heard < upTo)
+            {
+                var more = Next();
+                ended = more.Length == 0;
+                if (more.Length > 0)
+                    writer.Sound(more);
+                heard += more.Length / VideoSoundMix.Channels;
+            }
         });
-        if (sound is not null && heard < sound.Length / VideoSoundMix.Channels)
-            writer.Sound(sound.AsSpan((int)heard * VideoSoundMix.Channels));
+        // What sound is left when the picture has ended.
+        if (whole is not null && heard < whole.Length / VideoSoundMix.Channels)
+            writer.Sound(whole.AsSpan((int)heard * VideoSoundMix.Channels));
+        while (block is not null && !ended)
+        {
+            ct.ThrowIfCancellationRequested();
+            var more = Next();
+            ended = more.Length == 0;
+            if (more.Length > 0)
+                writer.Sound(more);
+        }
         writer.Finish();
     }
 
