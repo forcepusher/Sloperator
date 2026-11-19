@@ -147,8 +147,15 @@ public sealed partial class VideoEditorViewModel
             new($"{Mark(shot.Volume == 0)}Mute its sound", free, () => Edit(() => FindShot(item)?.Let(x => x.Volume = x.Volume == 0 ? null : 0))),
             new("Look", free, () => { })
             {
-                Items = Looks.Select(l => (PanelMenuItem?)new PanelMenuItem($"{Mark((shot.Color?.Look ?? "") == l.Look)}{l.Name}", free,
-                    () => Edit(() => FindShot(item)?.Let(x => { x.Color ??= new VideoColor(); x.Color.Look = l.Look; })))).ToList(),
+                // The looks, then its light and colour a step at a time, as an editor's colour sliders do.
+                Items =
+                [
+                    .. Looks.Select(l => (PanelMenuItem?)new PanelMenuItem($"{Mark((shot.Color?.Look ?? "") == l.Look)}{l.Name}", free,
+                        () => Edit(() => FindShot(item)?.Let(x => { x.Color ??= new VideoColor(); x.Color.Look = l.Look; })))),
+                    null,
+                    .. Adjustments.Select(a => (PanelMenuItem?)new PanelMenuItem(a.Name, free,
+                        () => Edit(() => FindShot(item)?.Let(x => { x.Color ??= new VideoColor(); a.Change(x.Color); })))),
+                ],
             },
             new("Zoom", free, () => { })
             {
@@ -206,6 +213,18 @@ public sealed partial class VideoEditorViewModel
 
     private static readonly (string Look, string Name)[] Looks =
         [("", "As it is"), ("bw", "Black and white"), ("sepia", "Sepia"), ("warm", "Warm"), ("cool", "Cool"), ("vintage", "Vintage")];
+
+    /// <summary>A clip's light and colour a step at a time, within what its colour takes.</summary>
+    private static readonly (string Name, Action<VideoColor> Change)[] Adjustments =
+    [
+        ("Brighter", c => c.Brightness = Math.Min(1, Math.Round(c.Brightness + 0.1, 2))),
+        ("Darker", c => c.Brightness = Math.Max(-1, Math.Round(c.Brightness - 0.1, 2))),
+        ("More contrast", c => c.Contrast = Math.Min(2, Math.Round(c.Contrast + 0.1, 2))),
+        ("Less contrast", c => c.Contrast = Math.Max(0, Math.Round(c.Contrast - 0.1, 2))),
+        ("More colour", c => c.Saturation = Math.Min(3, Math.Round(c.Saturation + 0.2, 2))),
+        ("Less colour", c => c.Saturation = Math.Max(0, Math.Round(c.Saturation - 0.2, 2))),
+        ("Light and colour as shot", c => (c.Brightness, c.Contrast, c.Saturation) = (0, 1, 1)),
+    ];
 
     private static readonly (string Name, Func<VideoZoom?> Make)[] Zooms =
     [

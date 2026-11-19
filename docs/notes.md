@@ -2073,7 +2073,9 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   fps, 640 wide unless given) or its sound alone.
 
 **In the Video editor panel.** A clip's right-click menu has Speed, Reverse, Mute its sound, Look, Zoom
-and Transition in (not on the first clip), each a submenu with the current one marked, Freeze from the
+and Transition in (not on the first clip), each a submenu with the current one marked (Look also steps
+the light and colour: brighter or darker by 0.1, contrast by 0.1, colour by 0.2, or back as shot;
+checked in the app: twice brighter showed lighter bars in the joined video, and three Ctrl+Z put it back), Freeze from the
 playhead (`freeze`, the frame there held to the clip's end, its stamp untouched so it stays made; checked
 in the app: testsrc's clock stood at 00:00:00.700 from 7.0 s to the end), Move earlier and
 Move later (the transition into it goes with it), and Split at the

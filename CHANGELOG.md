@@ -16,11 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TRELLIS.2 instead, never Hunyuan3D.
 - **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
   down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
-  white, sepia, warm, cool or vintage, mute it, and pick from 40 transitions into it (wipes, slides, a circle, a
-  clock, pixels, fades through black or white). **Split at the playhead** (Ctrl+B) cuts a clip in two, **Trim
-  start** and **Trim end to the playhead** cut a clip's start or end off, **Move earlier** and **Move later** change
-  the clips' order, and **Duplicate** copies a clip or a title. Space plays the video from the playhead or pauses
-  it, the arrow keys move the playhead a frame (with Shift a second), and Home and End take it to the start or end.
+  white, sepia, warm, cool or vintage, brighter or darker, with more or less contrast or colour, mute it, and pick
+  from 40 transitions into it (wipes, slides, a circle, a clock, pixels, fades through black or white). **Split at
+  the playhead** (Ctrl+B) cuts a clip in two, **Trim start** and **Trim end to the playhead** cut a clip's start or
+  end off, **Move earlier** and **Move later** change the clips' order, and **Duplicate** copies a clip or a title.
+  Space plays the video from the playhead or pauses it, the arrow keys move the playhead a frame (with Shift a
+  second), and Home and End take it to the start or end.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture
