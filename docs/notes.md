@@ -2414,7 +2414,10 @@ only when it is null.
 - **A scene over the video** can't be an MP4 (no clear background) and a WebM needs ffmpeg, so it is drawn as a
   folder of PNGs, one a frame (`SceneOptions.Frames`, `VideoPreviewer.SceneFrames`: `Generated\overlays\<id>.frames`),
   with a `drawn.txt` naming the scene's write time, box, rate and length so it is drawn again only when one of
-  them changes. The viewer shows them from then on.
+  them changes. The Video editor draws them too, in the background, when the playhead is first moved and after a
+  change (`WarmScenes`, `VideoComposer.DrawScenesAsync`), and shows the playhead's frame again when they are done:
+  an animated title is seen in the viewer a few seconds after it is added, where at first it showed only once
+  the video had been made.
 - **The sound** is `VideoSoundMix.Mix`, which does what the ffmpeg graph does (see `VideoMontage.Plan`): each
   clip's sound cut as its shot is, a spoken line in place of it, clips at half under a song, one fading into the
   next through a transition, the sound lines placed, trimmed, faded, at their volume, music at 35% while someone

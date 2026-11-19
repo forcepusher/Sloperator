@@ -22,21 +22,35 @@ public static class VideoComposer
     {
         var notes = new List<string>();
         var (_, length) = board.Timing();
-        foreach (var o in board.Overlays.Where(o => o.Scene is not null))
-            await DrawSceneAsync(board, o, length, scenes, notes, progress, ct).ConfigureAwait(false);
+        await DrawScenesAsync(board, scenes, notes, progress, ct).ConfigureAwait(false);
         return await Task.Run(() => Join(board, decoder, notes, progress, ct), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Every scene laid over the video drawn as frames where it isn't yet or has changed; returns how many were drawn.
+    /// Joining does it first; the Video editor does it when the playhead is moved, so its viewer shows an animated
+    /// title before the video is ever made.
+    /// </summary>
+    public static async Task<int> DrawScenesAsync(Storyboard board, Render.SceneRenderer? scenes, List<string> notes, Action<string>? progress, CancellationToken ct)
+    {
+        var (_, length) = board.Timing();
+        var drawn = 0;
+        foreach (var o in board.Overlays.Where(o => o.Scene is not null))
+            if (await DrawSceneAsync(board, o, length, scenes, notes, progress, ct).ConfigureAwait(false))
+                drawn++;
+        return drawn;
     }
 
     /// <summary>
     /// A scene laid over the video, drawn as a picture a frame at the size of its box (<see cref="VideoPreviewer.SceneFrames"/>),
     /// its background clear: once for the scene as it is, and again only when the scene, its box or its length changed.
     /// </summary>
-    private static async Task DrawSceneAsync(Storyboard board, VideoOverlay o, double length, Render.SceneRenderer? scenes, List<string> notes, Action<string>? progress, CancellationToken ct)
+    private static async Task<bool> DrawSceneAsync(Storyboard board, VideoOverlay o, double length, Render.SceneRenderer? scenes, List<string> notes, Action<string>? progress, CancellationToken ct)
     {
         var start = Math.Min(o.Start, Math.Max(0, length - 0.1));
         var seconds = o.Seconds > 0 ? Math.Min(o.Seconds, length - start) : length - start;
         if (seconds <= 0.01)
-            return;
+            return false;
         if (board.FindFile(o.Scene!) is not { } scene)
             throw new VideoException($"Overlay {o.Id} shows the scene {o.Scene}, which isn't in References or there.");
         if (scenes is null)
@@ -48,7 +62,7 @@ public static class VideoComposer
         var stampFile = Path.Combine(folder, "drawn.txt");
         var stamp = FormattableString.Invariant($"{scene}|{File.GetLastWriteTimeUtc(scene).Ticks}|{bw}x{bh}|{board.Fps}|{seconds:0.###}");
         if (File.Exists(stampFile) && File.ReadAllText(stampFile) == stamp)
-            return;
+            return false;
         if (Directory.Exists(folder))
             Directory.Delete(folder, recursive: true);
         progress?.Invoke($"Drawing the scene {Path.GetFileName(scene)}…");
@@ -56,6 +70,7 @@ public static class VideoComposer
             null, progress, ct).ConfigureAwait(false);
         notes.AddRange(made.Errors.Select(e => $"Overlay {o.Id}'s scene: {e}"));
         File.WriteAllText(stampFile, stamp);
+        return true;
     }
 
     private static VideoMade Join(Storyboard board, IMediaDecoder decoder, List<string> notes, Action<string>? progress, CancellationToken ct)

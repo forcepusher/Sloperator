@@ -55,6 +55,8 @@ public sealed partial class VideoEditorViewModel
         if (Scrubbed && !IsPlaying)
             ShowFrameAt(PlayPosition);
         // And its sound, mixed again for Play once it has been mixed before.
+        if (Scrubbed)
+            WarmScenes();
         if (_soundMix is not null)
             WarmMix();
     }

@@ -499,6 +499,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         foreach (var made in _board.Shots.Where(s => !s.Reverse && (s.Volume ?? 1) > 0))
             AudioOf(_board.ShotVideo(made));
         WarmMix();
+        WarmScenes();
         ShowFrameAt(PlayPosition);
         if (playing)
             StartPlaying(PlayPosition);
@@ -585,6 +586,35 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
 
     /// <summary>The longest video whose whole sound is mixed ahead for Play (23 MB a minute while the panel is open).</summary>
     private const double LongestMixed = 300;
+
+    private bool _drawingScenes;
+
+    /// <summary>
+    /// Draws the frames of the scenes laid over the video (an animated SVG title, a Three.js logo) in the background
+    /// where they aren't drawn yet or the scene changed, then shows the playhead's frame again: the viewer showed
+    /// nothing of such a title until the video had been made once.
+    /// </summary>
+    private void WarmScenes()
+    {
+        if (_drawingScenes || _disposing || _previews.Decoder is not { } decoder || !_board.Overlays.Any(o => o.Scene is { Length: > 0 }))
+            return;
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser")) { Writer = decoder };
+        _drawingScenes = true;
+        _ = Task.Run(async () =>
+        {
+            var drawn = 0;
+            try { drawn = await VideoComposer.DrawScenesAsync(board, scenes, [], null, CancellationToken.None).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is VideoException or Core.Render.RenderException or IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException) { }
+            Dispatcher.UIThread.Post(() =>
+            {
+                _drawingScenes = false;
+                if (!_disposing && drawn > 0 && Scrubbed && !IsPlaying)
+                    ShowFrameAt(PlayPosition);
+            });
+        });
+    }
 
     /// <summary>What a mix is of: the video as written, and when each clip and sound it is made of was written (a clip made again is another sound).</summary>
     private string MixKey()
