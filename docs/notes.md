@@ -2465,6 +2465,12 @@ Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo
 transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
 picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
 
+Where a scene clip's time goes (2026-11-19, 1920x1080 on the laptop): 1.2 ms to move the scene's clock, 49 ms for
+the browser's screenshot, 14 ms to decode it, convert it and encode the frame. The screenshot is the browser
+drawing and reading the frame back, not its packing: asked for a JPEG it took 48 ms, for a WebP 154. So a
+second of 1080p30 takes about two seconds, and only another way of taking frames from the browser (begin-frame
+control) would change that; not tried.
+
 How good the encoder is (2026-11-19, `enc psnr` in the rig): a three second zoom and pan over two of Windows'
 own wallpaper photos at 1280x720, written at each quality and read back. Brightness alone (what the encoder
 loses) came out at 34.8 to 38.6 dB for a draft (2.2 to 6.2 Mbit/s), 38.2 to 41.7 dB as usual (5.4 to 17.3
