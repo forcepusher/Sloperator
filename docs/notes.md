@@ -2448,6 +2448,18 @@ Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo
 transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
 picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
 
+With the models, on the laptop with no ffmpeg (2026-11-19): "a 4 second animation of a sun rising over hills as
+an animated SVG, as a video file" took Haiku 29 s (6 calls, 1920x1080) and Qwen 3.8 3.2 minutes. "A 9 second
+video called Seasons out of three animated SVG scenes, a different transition between each, a title over the
+start, join it" took Haiku 2.8 minutes (30 calls, one error: a join asked for before the shots were made) and
+Qwen 3.8 22 minutes to the joined file (20 calls, none failed), both through `video` with scenes as shots.
+"Cut holiday.mp4 down to 2 to 6 seconds and also give me a GIF of that part 320 wide" took Haiku 10 s: two
+`action=edit` calls, right the first time. "A video called Pulse out of four animated SVG scenes with my song
+under it and every cut exactly on the beat" (a 112 BPM loop) took Haiku 3 minutes: it asked for the beat with
+`action=check`, made each clip six beats long after the 0.29 s before the first beat, and the cuts fell at
+3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes, no IL
+warnings, 246 s to publish) joined the demo in the app in 10.3 s, the same bytes as the Debug build's.
+
 The index is moved to the file's start once the file is closed (`Mp4Index.MoveFirst`: the `moov` box before
 `mdat`, every `stco`/`co64` offset moved on by its size), which is ffmpeg's `+faststart`: a video sent to a chat or
 put on a page plays while it still loads.
