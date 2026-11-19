@@ -29,7 +29,7 @@ public sealed partial class VideoEditorTool : Tool
         "action=storyboard shows a video (path: its folder) or makes or changes it with storyboard={...}; action=frame, shot or sound with id makes that piece and checks it; " +
         "action=join puts the video together; action=export saves the joined video as another file (output: .mp4, .webm, .mov, .gif, or .mp3 for its sound; width/height); " +
         "action=check looks at a piece or the whole video; action=models lists the installed models. " +
-        "action=edit changes one video file in one call, with no storyboard: path is the file, storyboard a shot's fields for what to do to it " +
+        "action=edit changes one video file (or makes a clip of a picture) in one call, with no storyboard: path is the file, storyboard a shot's fields for what to do to it " +
         "({\"in\": 3, \"seconds\": 5} cuts it, speed, reverse, rotate, flip, crop, color, effects, volume), output the new file (.mp4, .gif, or .wav for its sound), width/height its size. " +
         "It edits as a video editor does, all in the storyboard: a shot can be the user's own video or picture (file) or an SVG or Three.js scene (scene), trimmed (in), " +
         "sped up or slowed (speed), reversed, frozen, cropped, zoomed or panned, coloured, with any of 40 transitions; titles, captions, logos and picture in picture go in overlays; sounds fade in and out.";

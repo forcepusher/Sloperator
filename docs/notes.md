@@ -2458,7 +2458,9 @@ never asked for), or ffmpeg in a shell. Now the file is one shot of a video made
 (`scratch\video-edit\<id>`, deleted after), with the shot's own fields for what to do to it, joined and saved
 where asked: so a file is cut, turned, sped up or coloured exactly as a clip in a video is, with no code of its
 own. Its size and rate are the file's (turned when it is turned, the shape of its crop) unless a size is given;
-its length what is left of it from its trim at its speed. The file itself is never written over. Costs 70
+its length what is left of it from its trim at its speed. The file itself is never written over. A picture is
+taken too (held five seconds unless it says, 1920 along its longer side at most), for a slow zoom over a photo
+or a GIF of it. Costs 80
 tokens of the tool's description.
 
 Not done: a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one

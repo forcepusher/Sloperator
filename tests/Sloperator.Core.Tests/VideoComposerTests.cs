@@ -595,6 +595,22 @@ public sealed class VideoComposerTests : IDisposable
         await Edit("""{"width": 160, "storyboard": {"seconds": 1}}""", gif);
         using (var codec = SKCodec.Create(gif))
             Assert.Equal((160, 90, 15), (codec.Info.Width, codec.Info.Height, codec.FrameCount));
+        // A picture becomes a clip: five seconds unless it says, the picture's own shape, with a slow zoom over it.
+        var photo = Path.Combine(_dir, "photo.png");
+        using (var wide = new SKBitmap(400, 200))
+        {
+            wide.Erase(new SKColor(0, 120, 200));
+            using var data = wide.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(photo, data.ToArray());
+        }
+        var moving = Path.Combine(_dir, "photo.mp4");
+        var zoom = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse("""{"action": "edit", "storyboard": {"seconds": 2, "zoom": {"from": {"scale": 1}, "to": {"scale": 1.3}}}}""")!;
+        (zoom["path"], zoom["output"]) = (photo, moving);
+        var zoomed = await new Tools.VideoEditorTool().ExecuteAsync(zoom, ctx, ct);
+        Assert.False(zoomed.IsError, zoomed.Text);
+        var clip = media.Probe(moving)!;
+        Assert.Equal((400, 200), (clip.Width, clip.Height));
+        Assert.InRange(clip.Duration.TotalSeconds, 1.9, 2.15);
         // The file itself is never written over, and nothing is left in the scratch folder.
         Assert.Equal(before, File.ReadAllBytes(source));
         Assert.Empty(Directory.GetDirectories(Path.Combine(_dir, "scratch", "video-edit")));

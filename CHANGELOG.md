@@ -80,7 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that long.
 - **Quick edits of a video file.** Ask to trim a video, turn it upright, speed it up, crop it, make it a GIF or
   half the size, and the agent does it in one step, without making a video in the Video editor for it. Your file
-  stays as it was; the result is a new file beside it.
+  stays as it was; the result is a new file beside it. A picture works too: ask for a five second clip or a GIF
+  of a photo with a slow zoom over it.
 - The Video editor's viewer shows every transition as it will look (a wipe from its own side, slides, circles, a
   clock's hand, blinds and the rest), film grain, sharpening, a green screen taken out, and an animated SVG or
   Three.js scene laid over the video. **Play** there now sounds as the made video will: the music going quieter

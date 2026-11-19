@@ -21,8 +21,17 @@ public sealed partial class VideoEditorTool
         if (!File.Exists(source))
             throw new VideoException(Directory.Exists(source) ? $"{source} is a folder: action=edit changes one video file. A video in the Video editor is changed with action=storyboard." : $"There is no file {source}.");
         var media = ctx.Media ?? throw new VideoException("Nothing on this PC reads video.");
-        if (media.Probe(source) is not { HasVideo: true } info)
-            throw new VideoException($"{Path.GetFileName(source)} isn't a video this PC can read.");
+        // A picture too: held as a clip, five seconds unless it says how long, for a slow zoom over it or a GIF of it.
+        MediaInfo info;
+        if (Storyboard.PictureExtensions.Contains(Path.GetExtension(source), StringComparer.OrdinalIgnoreCase))
+        {
+            var (pw, ph) = PictureFolder.SizeOf(source) ?? throw new VideoException($"{Path.GetFileName(source)} isn't a picture this can read.");
+            // A photo's own size is more than a video's: 1920 along its longer side at most.
+            var fit = Math.Min(1.0, 1920.0 / Math.Max(pw, ph));
+            info = new MediaInfo { HasVideo = true, Width = (int)Math.Round(pw * fit), Height = (int)Math.Round(ph * fit), FrameRate = 30, Duration = TimeSpan.FromSeconds(5) };
+        }
+        else
+            info = media.Probe(source) is { HasVideo: true } read ? read : throw new VideoException($"{Path.GetFileName(source)} isn't a video this PC can read.");
         // What to do to it: a shot's fields, given as they are or as a storyboard with one shot.
         var change = args["storyboard"] as JsonObject ?? [];
         if (change["shots"] is JsonArray { Count: > 0 } shots && shots[0] is JsonObject only)
