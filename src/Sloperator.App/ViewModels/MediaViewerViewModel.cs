@@ -177,8 +177,8 @@ public sealed partial class ViewerPicture : ObservableObject, IDisposable
     {
         using var stream = data is not null ? new MemoryStream(data) : (Stream)File.OpenRead(path!);
         using var probe = (path is not null ? PictureFile.Codec(path) : null) ?? (data is not null ? SkiaSharp.SKCodec.Create(new MemoryStream(data)) : null);
-        var size = probe is { } p ? $"{p.Info.Width}x{p.Info.Height}" : "";
-        var bitmap = probe is { } c && c.Info.Width > width ? Bitmap.DecodeToWidth(stream, width, BitmapInterpolationMode.HighQuality) : new Bitmap(stream);
+        var size = probe is { } p ? $"{PictureFile.SizeOf(p).Width}x{PictureFile.SizeOf(p).Height}" : "";
+        var bitmap = probe is { } c && PictureFile.SizeOf(c).Width > width ? UprightPicture.ToWidth(stream, width) : UprightPicture.Load(stream);
         return (bitmap, path is null ? size : string.Join(", ", new[] { size, FilePreview.Size(path) }.Where(s => s.Length > 0)));
     }
 

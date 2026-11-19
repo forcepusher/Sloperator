@@ -141,6 +141,53 @@ public sealed partial class VideoEditorViewModel
         return files;
     }
 
+    // ---- a frame of the video as a picture -------------------------------------------------------------------------
+
+    /// <summary>Whether there is a frame under the playhead to save: something here reads video, and a clip is made.</summary>
+    private bool CanSaveFrame => _previews.Decoder is not null && (HasJoinedVideo || _board.Shots.Exists(s => File.Exists(_board.ShotVideo(s))));
+
+    /// <summary>
+    /// The frame under the playhead saved as a picture of the Image editor ("Night drive at 0-03.2"): a poster, a
+    /// thumbnail, a still to redraw or to start another clip from. From the joined video when there is one (the frame
+    /// with its edits and titles), else from the clip under the playhead as it was made.
+    /// </summary>
+    private void SaveFrame()
+    {
+        if (_previews.Decoder is not { } decoder)
+            return;
+        var (starts, _) = _board.Timing();
+        string source;
+        double at;
+        if (HasJoinedVideo)
+            (source, at) = (_board.JoinedFile, PlayPosition);
+        else if (Shots.LastOrDefault(s => s.Index < starts.Count && starts[s.Index] <= PlayPosition + 0.001) is { } item && FindShot(item) is { } shot && File.Exists(_board.ShotVideo(shot)))
+            (source, at) = (_board.ShotVideo(shot), shot.In + (PlayPosition - starts[item.Index]) * (shot.Speed ?? 1));
+        else
+        {
+            Status = "There is no frame under the playhead yet: the clip there isn't made.";
+            return;
+        }
+        var pictures = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "pictures");
+        var name = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{VideoName} at {(int)(PlayPosition / 60)}-{PlayPosition % 60:00.0}");
+        Status = "Saving the frame…";
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                using var reader = decoder.OpenVideo(source, 0) ?? throw new IOException($"{Path.GetFileName(source)} can't be read");
+                reader.Seek(TimeSpan.FromSeconds(Math.Max(0, at)));
+                var frame = reader.Next() ?? throw new IOException("there is no frame there");
+                var folder = Core.Media.PictureFolder.Folders.New(pictures, name);
+                Core.Documents.DocumentArea.SavePng(frame.Frame, Path.Combine(folder, "Frame.png"));
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => Status = $"Saved the frame as the picture \"{Path.GetFileName(folder)}\": it is in the Image editor.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowError($"The frame couldn't be saved: {ex.Message}", ex));
+            }
+        });
+    }
+
     // ---- Delete, Ctrl+D, Ctrl+C and Ctrl+V on what is picked --------------------------------------------------------
 
     /// <summary>The clip picked on the timeline, as the rows have it now; null when what is picked is no clip.</summary>

@@ -274,7 +274,7 @@ public sealed partial class VideoEditorViewModel
                     try
                     {
                         using var stream = File.OpenRead(path);
-                        var bitmap = Bitmap.DecodeToWidth(stream, 1280, BitmapInterpolationMode.HighQuality);
+                        var bitmap = UprightPicture.ToWidth(stream, 1280);
                         Dispatcher.UIThread.Post(() =>
                         {
                             if (_disposing || !string.Equals(_shown?.Path, path, StringComparison.OrdinalIgnoreCase) || _shown?.Stamp != stamp)

@@ -179,11 +179,11 @@ public static class FileMenu
         try
         {
             if (data is not null)
-                return new Bitmap(new MemoryStream(data));
+                return ViewModels.UprightPicture.Load(new MemoryStream(data));
             if (path is not null && SvgFile.Handles(path))
                 return PictureFile.Decode(path) is { } drawn ? Copied(drawn) : null;
             if (path is not null && File.Exists(path))
-                return new Bitmap(path);
+                return ViewModels.UprightPicture.Load(path);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException) { }
         return null;

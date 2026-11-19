@@ -241,6 +241,19 @@ public partial class VideoEditorPanel : UserControl
         e.Handled = true;
     }
 
+    /// <summary>
+    /// Right-click on a row's name (References, Video clips, Titles): the row's own menu, at the playhead. With clips end
+    /// to end the Video clips row has nowhere to click that isn't a clip, and its menu has what is the whole video's.
+    /// </summary>
+    private void OnRowNameMenu(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is Control { Tag: string row } name)
+        {
+            PanelMenu.Open(Vm.MenuForRow(row, Vm.PlayPosition, 0), name);
+            e.Handled = true;
+        }
+    }
+
     private void OnCardMenu(object? sender, ContextRequestedEventArgs e)
     {
         if ((sender as Control)?.DataContext is ReferenceCard card)

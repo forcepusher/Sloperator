@@ -428,7 +428,7 @@ public sealed partial class ComfyTool
             try
             {
                 using var codec = PictureFile.Codec(file);
-                return codec is null ? null : (codec.Info.Width, codec.Info.Height);
+                return codec is null ? null : PictureFile.SizeOf(codec);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

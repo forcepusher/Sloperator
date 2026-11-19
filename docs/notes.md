@@ -789,6 +789,21 @@ loads its .glb into a scene. A run that asks rembg to remove a background where 
 run it is run with remove_background off and says so (`ComfyTool.KeepBackgrounds`).
 
 ### Previews
+**Photos as they are seen** (2026-11-19). A camera writes which way up a photo is in the file (EXIF's orientation)
+rather than turn its pixels: a phone held upright stores its photos on their side. Neither Skia's `SKBitmap.Decode`
+nor Avalonia's `Bitmap` applies it, so such a photo lay sideways in the chat, the File inspector, the editors, in what
+the model was shown of it, and in a video made of it. `PictureFile.Decode` now gives the picture as it is seen
+(`Upright`: one matrix for each of the seven other orientations, whole pixels moved), `PictureFile.SizeOf` its size
+that way round, and everything in Core that reads a picture goes through them (the model's look, `MediaPreview`,
+marks and masks, `capture_result`, a video's picture shots and overlays, `PictureFolder.SizeOf`, `PictureEdit`); a 3D
+model's texture is read as stored (`DecodeStored`). In the window, `UprightPicture` (Load, ToWidth, ToHeight) decodes
+a picture stored another way up with Skia and leaves every other one to Avalonia as before; the chat's cards, the File
+inspector, the full-screen viewer, the Image editor's list, strip and big view, the Video editor's cards and viewer,
+and Copy image use it. Checked: a 600x400 JPEG of "SKY" over "GRASS" stored on its side with orientation 6 showed
+upright in the Image editor (before: on its side), and a box dragged over its top cropped exactly that
+("Crop 320x279.jpg"); PictureEditTests (orientations 6 and 5 told apart, an edit's file upright with no orientation
+of its own), ImageEditorTests (the big view 48x64 for a 64x48 file, the top half marked and cropped).
+
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under
 a reply that names them by their full path (whatever made them: ComfyUI, a script, Blender, a
 download). Pictures are shown at the chat's width, animations play, a sound plays over its
@@ -2202,6 +2217,15 @@ the joined video is out of date when a piece's .json or the video's is newer tha
   trims; Duplicate (Ctrl+D), Copy (Ctrl+C), Paste (Ctrl+V) and Delete (Delete). The Video clips row's own menu has
   Paste, and Fade in at the start and Fade out at the end (the video's `fadeIn` and `fadeOut`, on unless turned
   off); the Titles row's has Captions of what is said (`captions`; greyed when no clip says a line).
+- **Save this frame as a picture**, on the Video clips row's menu (`SaveFrame`): the frame under the playhead becomes
+  a picture of the Image editor, a folder named after the video and the moment ("Night drive at 0-03.2") with
+  Frame.png in it: a poster, a thumbnail, a still to redraw there or to start another clip from. Read with the
+  PC's own decoder (no ffmpeg needed) from the joined video when there is one, so with its edits and titles, else
+  from the clip under the playhead as it was made (its `in` and speed counted).
+- A right-click on a row's name (References, Video clips, Titles) opens the row's menu at the playhead, as a sound
+  line's name does (`OnRowNameMenu`): with clips end to end, the Video clips row had nowhere to click that wasn't a
+  clip, and its menu has what is the whole video's (Paste, Save this frame, the fades). Checked in the app: the
+  demo's first frame saved from that menu as "Night drive at 0-00.0Frame.png", the clip's own 704x648 frame.
 - **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
   the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
   no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the

@@ -400,6 +400,40 @@ public sealed class ImageEditorTests : IDisposable
     }
 
     [Fact]
+    public void A_photo_stored_on_its_side_is_shown_and_cropped_as_it_is_seen()
+    {
+        var folder = Path.Combine(Root, "Phone photo");
+        Directory.CreateDirectory(folder);
+        // 64 by 48 as stored, with "turn me a quarter to the right to show me" (EXIF's orientation 6), as a phone held upright writes it.
+        var photo = Path.Combine(folder, "IMG_0001.jpg");
+        using (var bitmap = new SkiaSharp.SKBitmap(64, 48))
+        {
+            bitmap.Erase(SkiaSharp.SKColors.SteelBlue);
+            using var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+            var jpeg = data.ToArray();
+            byte[] exif = [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0, 0, (byte)'I', (byte)'I', 42, 0, 8, 0, 0, 0, 1, 0, 0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0];
+            File.WriteAllBytes(photo, [.. jpeg.AsSpan(0, 2), 0xFF, 0xE1, 0, (byte)(exif.Length + 2), .. exif, .. jpeg.AsSpan(2)]);
+        }
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            vm.Pick(vm.Items[0]);
+            Wait(() => vm.HasPicture);
+            // Upright in the big view, where Avalonia's own decoding showed it lying on its side.
+            Assert.Equal(new PixelSize(48, 64), vm.Picture!.PixelSize);
+            Assert.Equal((48, 64), PictureFolder.SizeOf(photo));
+            // Its top half marked and cropped: the top half of what is seen.
+            vm.PickArea(new DocumentArea(0, 0, 1, 0.5));
+            Wait(() => vm.CropCommand.CanExecute(null) && Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1);
+            Assert.Equal((48, 32), PictureFolder.SizeOf(Directory.GetFiles(Picks, "Area *.png").Single()));
+            vm.CropCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 2 && vm.HasPicture);
+            Assert.Equal(new PixelSize(48, 32), vm.Picture!.PixelSize);
+            return 0;
+        });
+    }
+
+    [Fact]
     public void The_panel_lays_out_with_its_bar_and_columns()
     {
         HeadlessApp.Run(() =>

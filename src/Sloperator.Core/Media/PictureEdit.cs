@@ -91,10 +91,11 @@ public static class PictureEdit
         }
     }
 
-    /// <summary>The picture as it is seen: a photo's orientation (a phone held on its side says so in the file) applied.</summary>
+    /// <summary>The picture as it is seen (<see cref="PictureFile.Upright"/>), its colours as stored, not multiplied by how clear they are.</summary>
     internal static SKBitmap? Decode(byte[] bytes)
     {
-        using var codec = SKCodec.Create(new MemoryStream(bytes));
+        using var data = SKData.CreateCopy(bytes);
+        using var codec = SKCodec.Create(data);
         if (codec is null)
             return null;
         var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
@@ -104,27 +105,10 @@ public static class PictureEdit
             bitmap.Dispose();
             return null;
         }
-        var (degrees, mirror) = codec.EncodedOrigin switch
-        {
-            SKEncodedOrigin.TopRight => (0, true),
-            SKEncodedOrigin.BottomRight => (180, false),
-            SKEncodedOrigin.BottomLeft => (180, true),
-            SKEncodedOrigin.LeftTop => (270, true),
-            SKEncodedOrigin.RightTop => (90, false),
-            SKEncodedOrigin.RightBottom => (90, true),
-            SKEncodedOrigin.LeftBottom => (270, false),
-            _ => (0, false),
-        };
-        if (degrees == 0 && !mirror)
+        if (PictureFile.IsUpright(codec.EncodedOrigin))
             return bitmap;
         using (bitmap)
-        {
-            // Mirrored first, then turned, as the file's orientation says it.
-            if (!mirror)
-                return Turned(bitmap, degrees, opaque: false);
-            using var mirrored = Flipped(bitmap, vertical: false);
-            return Turned(mirrored, degrees, opaque: false);
-        }
+            return PictureFile.Upright(bitmap, codec.EncodedOrigin);
     }
 
     /// <summary>The edit made on a picture, and what it is called ("Crop 512x512", "Turn 90°").</summary>

@@ -145,6 +145,42 @@ public sealed class PictureEditTests : IDisposable
         Assert.Contains("can't be read as a picture", Assert.Throws<PictureEditException>(() => PictureEdit.Save(Path.Combine(_dir, "words.png"), new PictureEditRequest(PictureEditKind.Flip), null)).Message);
     }
 
+    /// <summary>A JPEG with the orientation a camera writes in it (EXIF's tag 0x0112) put in after its first two bytes.</summary>
+    internal static byte[] WithOrientation(byte[] jpeg, byte orientation)
+    {
+        byte[] exif = [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0, 0, (byte)'I', (byte)'I', 42, 0, 8, 0, 0, 0, 1, 0, 0x12, 0x01, 3, 0, 1, 0, 0, 0, orientation, 0, 0, 0, 0, 0, 0, 0];
+        var length = exif.Length + 2;
+        return [.. jpeg.AsSpan(0, 2), 0xFF, 0xE1, (byte)(length >> 8), (byte)length, .. exif, .. jpeg.AsSpan(2)];
+    }
+
+    [Fact]
+    public void A_photo_taken_with_the_phone_on_its_side_is_edited_as_it_is_seen()
+    {
+        // Stored 40 by 20 with "turn me a quarter to the right to show me" (6), as a phone held upright stores a photo.
+        var stored = Quarters("photo.jpg", SKEncodedImageFormat.Jpeg);
+        File.WriteAllBytes(stored, WithOrientation(File.ReadAllBytes(stored), 6));
+        using (var seen = PictureEdit.Decode(File.ReadAllBytes(stored))!)
+        {
+            Assert.Equal((20, 40), (seen.Width, seen.Height));
+            Near(Blue, seen.GetPixel(2, 2), 12);
+            Near(Green, seen.GetPixel(17, 37), 12);
+        }
+        // Made smaller, it stands upright in any program: the edit's file needs no orientation of its own.
+        var small = PictureEdit.Save(stored, new PictureEditRequest(PictureEditKind.Resize) { Width = 10 }, null);
+        Assert.Equal((10, 20, 20, 40), (small.Width, small.Height, small.WasWidth, small.WasHeight));
+        using var read = Read(small.Path);
+        Assert.Equal((10, 20), (read.Width, read.Height));
+        Near(Blue, read.GetPixel(1, 1), 16);
+        // Mirrored and turned (5 and 7) are told apart: transposed, the red block stays in the top left corner.
+        File.WriteAllBytes(stored, WithOrientation(File.ReadAllBytes(Quarters("photo.jpg", SKEncodedImageFormat.Jpeg)), 5));
+        using (var transposed = PictureEdit.Decode(File.ReadAllBytes(stored))!)
+        {
+            Assert.Equal((20, 40), (transposed.Width, transposed.Height));
+            Near(Red, transposed.GetPixel(2, 2), 12);
+            Near(Yellow, transposed.GetPixel(17, 37), 12);
+        }
+    }
+
     [Fact]
     public void A_version_in_the_image_editor_is_named_after_the_edit_and_keeps_what_it_says_of_how_it_was_made_but_not_its_scene()
     {

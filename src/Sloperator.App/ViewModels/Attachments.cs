@@ -128,9 +128,9 @@ public sealed partial class AttachmentItem : ObservableObject, IDisposable
             else
             {
                 using var stream = File.OpenRead(Path);
-                bitmap = Bitmap.DecodeToHeight(stream, 240, BitmapInterpolationMode.HighQuality);
+                bitmap = UprightPicture.ToHeight(stream, 240);
                 using var probe = PictureFile.Codec(Path);
-                details = probe is null ? size : $"{probe.Info.Width}x{probe.Info.Height}, {size}";
+                details = probe is null ? size : $"{PictureFile.SizeOf(probe).Width}x{PictureFile.SizeOf(probe).Height}, {size}";
             }
             Dispatcher.UIThread.Post(() =>
             {

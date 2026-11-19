@@ -28,7 +28,7 @@ public sealed partial class PictureItem(string folder) : MediaFolderItem(folder)
             try
             {
                 using var stream = MediaFolders.ReadShared(path);
-                var bitmap = Bitmap.DecodeToWidth(stream, 160);
+                var bitmap = UprightPicture.ToWidth(stream, 160);
                 Dispatcher.UIThread.Post(() =>
                 {
                     var old = Thumbnail;
@@ -165,7 +165,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
                 try
                 {
                     using var stream = MediaFolders.ReadShared(version.Path);
-                    bitmap = Bitmap.DecodeToHeight(stream, ThumbHeight);
+                    bitmap = UprightPicture.ToHeight(stream, ThumbHeight);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
@@ -215,7 +215,7 @@ public sealed partial class ImageEditorViewModel : MediaEditorViewModel<PictureI
             try
             {
                 using var stream = MediaFolders.ReadShared(path);
-                bitmap = new Bitmap(stream);
+                bitmap = UprightPicture.Load(stream);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { }
             var recipe = MediaRecipe.Read(path);

@@ -202,7 +202,7 @@ public sealed partial class VideoEditorViewModel
             try
             {
                 using var stream = File.OpenRead(path);
-                var bitmap = Bitmap.DecodeToWidth(stream, 320, BitmapInterpolationMode.HighQuality);
+                var bitmap = UprightPicture.ToWidth(stream, 320);
                 Dispatcher.UIThread.Post(() =>
                 {
                     var old = frame.Thumbnail;
@@ -230,7 +230,7 @@ public sealed partial class VideoEditorViewModel
             try
             {
                 using Stream stream = decoder is null ? File.OpenRead(path) : new MemoryStream(VideoCheck.Poster(path, decoder, 256) ?? throw new InvalidOperationException("no frame"));
-                var bitmap = Bitmap.DecodeToHeight(stream, 128, BitmapInterpolationMode.MediumQuality);
+                var bitmap = UprightPicture.ToHeight(stream, 128, BitmapInterpolationMode.MediumQuality);
                 Dispatcher.UIThread.Post(() =>
                 {
                     if (_disposing || !References.Contains(card))

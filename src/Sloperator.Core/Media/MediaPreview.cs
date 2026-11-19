@@ -110,7 +110,7 @@ public static class MediaPreview
             return (said, Fit(drawn, TileWidth, TileWidth), "the drawing");
         }
         using var codec = PictureFile.Codec(path) ?? throw new InvalidDataException("not a picture this can read");
-        var (w, h) = (codec.Info.Width, codec.Info.Height);
+        var (w, h) = PictureFile.SizeOf(codec);
         var frames = codec.FrameCount;
         if (frames <= 1)
         {

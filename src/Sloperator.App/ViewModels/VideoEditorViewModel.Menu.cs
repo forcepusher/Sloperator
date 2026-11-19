@@ -21,6 +21,8 @@ public sealed partial class VideoEditorViewModel
             [
                 new("Create", free, AddShot),
                 new("Paste", free && CanPaste, () => Paste(), "Ctrl+V"),
+                // The frame under the playhead, to the Image editor: a poster, a still to work on.
+                new("Save this frame as a picture", CanSaveFrame, SaveFrame),
                 null,
                 new($"{Mark(VideoMontage.Fades(_board).In > 0)}Fade in at the start", free, () => Edit(() => _board.FadeIn = VideoMontage.Fades(_board).In > 0 ? 0 : null)),
                 new($"{Mark(VideoMontage.Fades(_board).Out > 0)}Fade out at the end", free, () => Edit(() => _board.FadeOut = VideoMontage.Fades(_board).Out > 0 ? 0 : null)),

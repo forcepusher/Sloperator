@@ -261,13 +261,14 @@
                 </Button>
                 <TextBlock Classes="muted" Text="{Binding PlayTime}" FontSize="12" FontFeatures="+tnum" VerticalAlignment="Center" AutomationProperties.Name="Playhead" />
               </StackPanel>
-              <Border Height="92">
+              <!-- A right-click on a row's name opens the row's menu, as on a sound line's: with clips end to end, the row itself is hard to hit. -->
+              <Border Height="92" Background="Transparent" Tag="references" ContextRequested="OnRowNameMenu">
                 <TextBlock Text="References" Margin="10,10,6,0" />
               </Border>
-              <Border Height="112">
+              <Border Height="112" Background="Transparent" Tag="video" ContextRequested="OnRowNameMenu">
                 <TextBlock Text="Video clips" Margin="10,10,6,0" />
               </Border>
-              <Border Height="{Binding TitlesHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+              <Border Height="{Binding TitlesHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1" Background="Transparent" Tag="titles" ContextRequested="OnRowNameMenu">
                 <TextBlock Text="Titles" Margin="10,0,6,0" VerticalAlignment="Center" />
               </Border>
               <ItemsControl ItemsSource="{Binding SoundLines}">

@@ -76,7 +76,7 @@ internal static class Picture
             using var drawn = svg.RenderAtLeast(1024);
             return Show(drawn);
         }
-        using var original = SKBitmap.Decode(codec);
+        using var original = PictureFile.Decode(codec);
         return original is null ? null : Show(original);
     }
 

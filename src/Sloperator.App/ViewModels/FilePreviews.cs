@@ -160,10 +160,10 @@ public sealed partial class ImagePreview(string path) : FilePreview(path)
             return;
         }
         using var stream = File.OpenRead(Path);
-        var bitmap = Bitmap.DecodeToWidth(stream, Width, BitmapInterpolationMode.HighQuality);
+        var bitmap = UprightPicture.ToWidth(stream, Width);
         var size = Size(Path);
         using var probe = PictureFile.Codec(Path);
-        var details = probe is null ? size : $"{probe.Info.Width}x{probe.Info.Height}, {size}";
+        var details = probe is null ? size : $"{PictureFile.SizeOf(probe).Width}x{PictureFile.SizeOf(probe).Height}, {size}";
         Show(() => (Image, Details) = (bitmap, details), bitmap.Dispose);
     });
 

@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Delete, copy and paste in the Video editor:** Delete removes the clip or sound you picked, Ctrl+D duplicates a
   clip, Ctrl+C and Ctrl+V copy it to after the clip under the playhead. **Ctrl+Z brings a deleted clip or sound
   back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more.
+- **Save this frame as a picture** on the Video clips row's right-click menu puts the frame under the playhead in
+  the Image editor, as a poster or a still to work on.
 - **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
   or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
   lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture
@@ -61,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
   a workbook stays a real Excel chart; a picture in a Word, PowerPoint or PDF file is made one of the three ways.
+
+### Fixed
+- **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
+  chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
+  has them upright.
 
 ## [1.5.1] - 2026-11-17
 ### Changed
