@@ -2802,6 +2802,13 @@ as far as it goes. What it has none for was simply not a picture: every TIFF, ev
   (217, 42, 52), a green of (60, 200, 60) is (0, 203, 11); in Adobe RGB (231, 57, 57) and (0, 201, 36).
   `PictureFile.Usual` brings a picture to sRGB as it is read (Skia does the sums), `PictureEdit` and the window's
   decoding do the same, and a picture that names sRGB or nothing is untouched (`enc profiles`).
+- **To ComfyUI** (`ComfyApi.UploadAsync`, `PictureFile.AsPlainPng`): a picture goes into ComfyUI's input folder
+  as the file it is, and its loader is Pillow: no HEIC or DDS without more installed, and a photo's numbers
+  taken as they stand, the colour space it names passed by, so what a model made from an iPhone's photo would
+  come out paler than the photo, as it did here before `Usual`. A picture Skia has no decoder for, or one that
+  names a wider space, is now uploaded as a PNG of it as it is seen here (upright, in sRGB, under its own name
+  with .png); every other file goes as it is. Not run against a ComfyUI: the laptop has none, so this stands on
+  what the loader's code does and on the test of what is sent.
 - **Several pictures read in one step** (`AgentSession`, found on this task, nothing to do with their kind): a
   tool's picture goes to the model in a message after the step's results, and there was room for one, the last.
   That is right for screenshots, where only the newest screen matters, and wrong for files: asked to look at

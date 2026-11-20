@@ -63,6 +63,31 @@ public static class PictureFile
         return other is null ? null : Png(other);
     }
 
+    /// <summary>
+    /// A picture as a PNG for a program that reads fewer kinds than are read here, or that reads a photo's numbers
+    /// and passes by the colour space it names (ComfyUI's loader does both): upright, in the usual colour space. Null
+    /// for a file such a program reads right as it is (and for one that is no picture read here).
+    /// </summary>
+    public static byte[]? AsPlainPng(string path)
+    {
+        if (!Kinds.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            return null;
+        try
+        {
+            using (var stream = TextFiles.OpenRead(path))
+            using (var data = SKData.Create(stream))
+            using (var codec = data is null ? null : SKCodec.Create(data))
+                if (codec is not null && !HasWideColours(codec))
+                    return null;
+            using var picture = Decode(path);
+            return picture is null ? null : Png(picture);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private static readonly Lock Kept = new();
     private static readonly List<(string Path, long Size, DateTime Written, byte[] Png)> Pngs = [];
 

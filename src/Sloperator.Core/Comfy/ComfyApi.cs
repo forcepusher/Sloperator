@@ -120,10 +120,14 @@ public sealed class ComfyApi(Uri baseUrl)
     public async Task<string> UploadAsync(string localPath, CancellationToken ct)
     {
         using var form = new MultipartFormDataContent();
-        await using var stream = File.OpenRead(localPath);
-        var file = new StreamContent(stream);
+        // A picture ComfyUI's loader has no reader for (a phone's HEIC, a game's DDS texture), or reads duller than
+        // it is (a photo in a wider colour space: the loader takes its numbers and passes the space's name by, so
+        // what was made from an iPhone's photo came out paler than the photo), goes as a PNG of it as it is seen here.
+        var plain = Media.PictureFile.AsPlainPng(localPath);
+        await using var stream = plain is null ? File.OpenRead(localPath) : null;
+        HttpContent file = plain is null ? new StreamContent(stream!) : new ByteArrayContent(plain);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        form.Add(file, "image", Path.GetFileName(localPath));
+        form.Add(file, "image", plain is null ? Path.GetFileName(localPath) : Path.GetFileNameWithoutExtension(localPath) + ".png");
         form.Add(new StringContent("input"), "type");
         form.Add(new StringContent("false"), "overwrite");
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
