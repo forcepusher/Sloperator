@@ -30,14 +30,16 @@ public sealed partial class VideoEditorTool : Tool
         "action=join puts the video together; action=export saves the joined video as another file (output: .mp4, .webm, .mov, .gif, or .mp3 for its sound; width/height); " +
         "action=check looks at a piece or the whole video, or tells a song's beat to cut on (id: a sound's, or path: a sound file); action=models lists the installed models. " +
         "action=edit changes one video file (or makes a clip of a picture) in one call, with no storyboard: path is the file, storyboard a shot's fields for what to do to it " +
-        "({\"in\": 3, \"seconds\": 5} cuts it, speed, reverse, rotate, flip, crop, color, effects, volume), output the new file (.mp4, .gif, or .wav for its sound), width/height its size. " +
+        "({\"in\": 3, \"seconds\": 5} cuts it, \"skip\": \"silences\" cuts its silences out, speed, reverse, rotate, flip, crop, color, effects, volume), output the new file (.mp4, .gif, or .wav for its sound), width/height its size. " +
+        "action=scan tells what a video or sound file holds without watching it (path: the file; storyboard {\"in\", \"seconds\"} for a stretch of it, more closely): " +
+        "where it is silent, loud, still or busy and where it cuts, with frames across it and their times, for choosing what to cut out of a long recording or looking at a moment of any video. " +
         "It edits as a video editor does, all in the storyboard: a shot can be the user's own video or picture (file) or an SVG or Three.js scene (scene), trimmed (in), " +
         "sped up or slowed (speed), reversed, frozen, cropped, zoomed or panned, coloured, with any of 40 transitions; titles, captions, logos and picture in picture go in overlays; sounds fade in and out.";
 
     public override ToolRisk Risk => ToolRisk.Risky;
 
     public override JsonObject Parameters => Schema(
-        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "edit", "check", "models"), true),
+        ("action", Str("What to do", "guide", "storyboard", "frame", "shot", "sound", "join", "export", "edit", "scan", "check", "models"), true),
         ("path", Str("The video's folder (or the name of a video in the videos folder); a new video's folder for action=storyboard"), false),
         ("id", Str("A frame's id (action=frame, check), a shot's (action=shot, check) or a sound's (action=sound, check)"), false),
         ("storyboard", new JsonObject { ["type"] = "object", ["description"] = "action=storyboard: the storyboard, or the parts of it to change (frames and shots by id)" }, false),
@@ -65,6 +67,7 @@ public sealed partial class VideoEditorTool : Tool
             "join" => "Join the video",
             "export" => $"Export the video" + (GetString(args, "output") is { Length: > 0 } o ? $" to {Path.GetFileName(o)}" : ""),
             "edit" => $"Edit {Path.GetFileName(GetString(args, "path") ?? "a video")}" + (GetString(args, "output") is { Length: > 0 } to ? $" into {Path.GetFileName(to)}" : ""),
+            "scan" => $"Scan {Path.GetFileName(GetString(args, "path") ?? "a video")}",
             "check" => id is null ? "Check the video" : $"Check {id}",
             "models" => "List the installed models for videos",
             "guide" => "Read the storyboard guide",
@@ -94,6 +97,8 @@ public sealed partial class VideoEditorTool : Tool
             }
             if (action == "check" && SoundFileAt(GetString(args, "path"), ctx) is { } song)
                 return CheckSoundFile(song, ctx);
+            if (action is "scan" or "analyze" or "analyse")
+                return await ScanAsync(args, ctx, ct).ConfigureAwait(false);
             if (action is "edit" or "convert" or "cut" or "trim")
                 return await EditFileAsync(args, ctx, ct).ConfigureAwait(false);
             _note = args["storyboard"] is JsonObject given ? UnknownFields(given) : null;

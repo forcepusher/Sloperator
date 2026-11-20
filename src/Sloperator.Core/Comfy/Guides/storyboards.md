@@ -157,6 +157,10 @@ so no clip is made again for it (action=join after a change).
   and 3D shots; the models make the rest. A still shot of a generated picture (a slideshow, no video
   model) is a reference made first (action=frame on a frame with "reference": true and a name), then a
   shot with "file": its picture in References ("Cafe.png") and a "zoom".
+- A long recording of theirs: action=scan (path: the file) tells where it is silent, loud, still or busy and
+  where it cuts, in seconds, with frames across it and their times, so shots are cut from the right places
+  (storyboard {"in", "seconds"} scans a stretch closely: also the way to see a moment of any video);
+  action=edit with "skip": "silences" saves a file with its silences cut out, in one call.
 - Cutting a clip: "in" (seconds cut off its start), "seconds" (how long it plays), "speed" (0.5 half
   speed, 2 twice; its sound follows), "reverse": true (that stretch backwards), "freeze" (seconds into the shot where the
   picture stops and holds), "volume" (its own sound, 0 silent).

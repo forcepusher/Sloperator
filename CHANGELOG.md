@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- **The agent can look through a long recording without watching it.** It finds where the sound is silent or
+  loud, where the picture cuts, stands still or is busy, and sees frames across it with their times, so it can
+  pick the highlights of a long video itself. It can also look closely at any moment of a video.
+- **Cut the silences out of a recording in one step.** Ask for the dead air to be removed from a talk, a
+  tutorial or a screen recording, and each silence of 0.7 seconds or more is cut out.
 - **Vector and 3D pictures and clips.** Pictures and video now come from three things: ComfyUI for photos,
   paintings and illustrations, SVG for icons, logos, diagrams and motion graphics (moving with SMIL), and Three.js
   for 3D scenes. The agent writes an SVG or a Three.js page and turns it into a PNG, or into an MP4 clip when it

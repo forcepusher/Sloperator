@@ -2933,6 +2933,51 @@ stretch as a clip of its own; the end frame, the stamp, the look and ffmpeg's in
 (`.dev/three-techs-test/home9`): picked, split, reversed, duplicated, deleted and undone, with only the
 shots' small .json files written and the recording untouched.
 
+### A recording looked through for the agent: scan, and silences cut out
+To cut a highlights video out of a long recording the agent has to know where anything happens in it, and all it
+had was read_file's frames, a handful spread over twenty minutes, and the sound's overall level. Qwen, asked only
+to check two dissolves in a video it had joined, went looking for an ffmpeg on the disk to cut single frames with.
+
+**action=scan** (`VideoCheck.Scan`, `VideoCheck.Scan.cs`; `VideoEditorTool.ScanAsync`) looks through a video or
+sound file without watching it and says, in the file's seconds:
+- **Its sound** (`ScanSound`): read through once, a twentieth of a second at a time, none of it held. How loud it
+  usually is (louder than nine tenths of it), where it is silent, and the moments that stand out as loud (a second
+  each, 6 dB over the middle one, five seconds apart at least, eight at most). Silent is 30 dB below the usual
+  level (between -60 and -35 dB), not below a fixed level: a recording made in a room has the room in its
+  silences. A silence is 0.7 s or more (`LeastSilence`: shorter is a breath between two words), and 0.15 s of it
+  is kept beside the sound at each end (`KeptAround`), so a word isn't clipped; all of it goes at the recording's
+  own start and end. The energy is added up over the channels, not the channels: two that mirror each other cancel.
+- **Its picture** (`ScanPicture`): looked at every few seconds (a look for every two seconds, 300 at most, 8 at
+  least), two frames a fifth of a second apart each time: the first against the look before (another picture?) and
+  against the second (does it move?). The reader jumps from look to look, so twenty minutes are 300 jumps, not
+  36,000 frames. Where two looks differ much more than looks do as a rule, the stretch between them is halved
+  towards the half that differs more until two frames next to each other are left (`CutBetween`): a **cut** when
+  most of the difference is between those two, and more than twice what movement makes there in a fifth of a
+  second; its time is the new picture's first frame. Without that a zoom into a fractal was four "cuts" in ten
+  seconds, and sliding stripes a cut at every look. **Still**: the same picture look after look with nothing
+  moving, ten seconds or more. **Black**: two looks or more. **The most movement**: what stands out over three
+  quarters of the looks by half again, six moments at most; in a recording that moves all through, none.
+- **Frames across it** (30 at most, six to a row, 1536 wide), each with its time as a clock shows it, to the tenth
+  of a second when they are less than two seconds apart.
+- **A stretch of it** (`storyboard: {"in", "seconds"}`) is scanned the same way, more closely (eight looks at
+  least): the way to see the frames around a moment of any video, a joined one too.
+
+**action=edit with "skip": "silences"** (`VideoEditorTool.SkipSilences`) saves a file with its silences cut out in
+one call: the one shot the file is edited as becomes a shot for each stretch with sound (of what the shot shows:
+its "in" and "seconds" still cut it), each with the shot's other changes, joined with plain cuts. More than 40
+pieces are joined here even where there is an ffmpeg, which would take each as an input of its own. The scan says
+how long the file is with its silences cut out and names this call.
+
+Measured (`enc scan`): the 110 s test recording (`scan\talk.mp4`: a tone, 3 s of black and silence, a still card
+with a tone that stops for a second in every three, a fractal zoom under noise, 32 s of a still card in silence, a
+tone) in 5.9 s: all eight silences to a tenth of a second, the five cuts at 20, 23, 43, 58 and 90 exactly, both
+standstills, the black, the noise as what stands out. The 20-minute 720p MKV in 9.9 s and 154 MB: no silence, no
+cut, "much the same all through", which it is.
+
+Tests: `VideoScanTests` (a sound's silences, kept edges, room noise and what stands out; a picture's cuts to the
+frame among sliding bars, its standstills and black, and how few frames are read; the scan's words and sheet, a
+stretch of it, a sound file; through the tool on a file Windows writes: the scan, and the silence cut out of it).
+
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by
 round seconds, and in the Video editor a clip's length went by half seconds. `SoundBeats` (Core/Media) finds

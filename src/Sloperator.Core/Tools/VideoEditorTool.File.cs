@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Sloperator.Core.Media;
 using Sloperator.Core.Video;
@@ -50,6 +51,10 @@ public sealed partial class VideoEditorTool
         try
         {
             var shotJson = (JsonObject)change.DeepClone();
+            // "skip": "silences": the file with its silences cut out, each stretch with sound in it a shot with the same changes.
+            var skips = (shotJson["skip"] ?? shotJson["cut"]) is JsonValue what && what.ToString().Contains("silen", StringComparison.OrdinalIgnoreCase);
+            shotJson.Remove("skip");
+            shotJson.Remove("cut");
             (shotJson["id"], shotJson["file"]) = ("s1", source);
             var board = Storyboard.Merge(new Storyboard { Title = "edit", Folder = work }, new JsonObject { ["fadeIn"] = 0, ["fadeOut"] = 0, ["shots"] = new JsonArray(shotJson) });
             board.Folder = work;
@@ -65,10 +70,12 @@ public sealed partial class VideoEditorTool
                 (sw, sh) = (sw * crop.Width, sh * crop.Height);
             (board.Width, board.Height) = VideoComposer.SizeFor(((int)Math.Round(sw), (int)Math.Round(sh)), width, height);
             board.Fps = Math.Clamp((int)Math.Round(info.FrameRate > 0 ? info.FrameRate : 30), 1, 60);
+            var skipped = skips ? SkipSilences(board, shot, source, media, ct) : null;
             board.Normalize();
             board.Save();
             await Maker(ctx).MakeShotAsync(board, shot, ctx.Progress, ctx.UserMessage, ct).ConfigureAwait(false);
-            var ffmpeg = media.Ffmpeg;
+            // Many pieces of one file are joined here where that can be done: each would be an input of ffmpeg's own.
+            var ffmpeg = board.Shots.Count > 40 && VideoComposer.Joins(media) ? null : media.Ffmpeg;
             var made = await VideoMontage.JoinAsync(board, ffmpeg, media, ctx.Progress, ct, RenderTool.Renderer(ctx)).ConfigureAwait(false);
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             if (ext is ".mp4" or ".m4v")
@@ -81,7 +88,7 @@ public sealed partial class VideoEditorTool
             else
                 await VideoComposer.ExportAsync(board, media, output, null, null, ctx.Progress, ct).ConfigureAwait(false);
             var look = MediaPreview.ForFiles([output], ctx.Media, ctx.SeesImages);
-            var notes = made.Notes.Count > 0 ? "\n" + string.Join("\n", made.Notes) : "";
+            var notes = (skipped is null ? "" : "\n" + skipped) + (made.Notes.Count > 0 ? "\n" + string.Join("\n", made.Notes) : "");
             return new ToolResult($"Saved {output} ({Path.GetFileName(source)} is as it was).\n{string.Join("\n", look.Lines)}{notes}", look.Image, ImageCaption: look.Image is null ? null : look.Caption, Files: [output]);
         }
         finally
@@ -93,6 +100,63 @@ public sealed partial class VideoEditorTool
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+}
+
+// A long recording looked through for the agent, and its silences cut out.
+public sealed partial class VideoEditorTool
+{
+    /// <summary>
+    /// action=scan: what a video or sound file holds, found without watching it (<see cref="VideoCheck.Scan"/>): where it
+    /// is silent and loud, where its picture cuts, stands still and moves most, and frames across it with their times.
+    /// A stretch of it (storyboard {"in", "seconds"}) is scanned more closely, which is also how to see the frames around
+    /// a moment of any video: asked to check two dissolves, one model went looking for an ffmpeg to cut frames with.
+    /// </summary>
+    private static async Task<ToolResult> ScanAsync(JsonObject args, ToolContext ctx, CancellationToken ct)
+    {
+        var source = GetString(args, "path") is { Length: > 0 } p ? ctx.ResolvePath(p) : throw new ToolArgumentException("action=scan: give path, the video or sound file to scan.");
+        if (!File.Exists(source))
+            throw new VideoException(Directory.Exists(source) ? $"{source} is a folder: action=scan looks through one video or sound file (a video's joined file is in its folder, under its name)." : $"There is no file {source}.");
+        var media = ctx.Media ?? throw new VideoException("Nothing on this PC reads video.");
+        var stretch = args["storyboard"] as JsonObject;
+        if (stretch?["shots"] is JsonArray { Count: > 0 } shots && shots[0] is JsonObject only)
+            stretch = only;
+        static double Number(JsonNode? node) => node is JsonValue value && value.TryGetValue<double>(out var number) && number > 0 ? number : 0;
+        var scanned = await Task.Run(() => VideoCheck.Scan(source, media, Number(stretch?["in"]), Number(stretch?["seconds"]), ctx.Progress, ct), ct).ConfigureAwait(false);
+        var sheet = ctx.SeesImages ? scanned.Sheet : null;
+        return new ToolResult(scanned.Text, sheet, ImageCaption: sheet is null ? null : "Frames across it, each with its time:");
+    }
+
+    /// <summary>
+    /// The one shot a file is edited as, made a shot for each stretch of it with sound in it (of what the shot shows of
+    /// the file: its "in" and "seconds" still cut it), each with the shot's other changes. What was cut out, to say with
+    /// the result; the shot is left as it is when the file has no sound or no silence.
+    /// </summary>
+    private static string SkipSilences(Storyboard board, VideoShot shot, string source, IMediaDecoder media, CancellationToken ct)
+    {
+        var (from, to) = shot.Stretch;
+        if (media.OpenAudio(source) is not { } opened)
+            return "It has no sound to find silences in: nothing was cut out of it.";
+        SoundScan heard;
+        using (var sound = new MediaStretch.Sound(opened, from, to))
+            heard = VideoCheck.ScanSound(sound, ct);
+        if (heard.Silent)
+            return "Its sound is silent all through: nothing was cut out of it.";
+        if (heard.Silences.Count == 0)
+            return $"No silence of {VideoCheck.LeastSilence.ToString(CultureInfo.InvariantCulture)} s or more was found in it: nothing was cut out of it.";
+        var speed = shot.Speed ?? 1;
+        var json = board.ToJson();
+        var index = board.Shots.IndexOf(shot);
+        board.Shots.Clear();
+        var n = 0;
+        foreach (var (a, b) in heard.Sounding)
+        {
+            var piece = Storyboard.Parse(json).Shots[index];
+            (piece.Id, piece.In, piece.Seconds, piece.Freeze, piece.Transition, piece.TransitionSeconds) = ($"s{++n}", from + a, (b - a) / speed, null, VideoShot.Cut, 0);
+            board.Shots.Add(piece);
+        }
+        var gone = heard.Silences.Sum(s => s.To - s.From);
+        return string.Create(CultureInfo.InvariantCulture, $"Cut {heard.Silences.Count} silence{(heard.Silences.Count == 1 ? "" : "s")} out of it, {gone:0.#} s in all (below {heard.QuietDb:0} dB for {VideoCheck.LeastSilence} s or more, a little kept beside the sound at each end): {board.Shots.Count} pieces, {(heard.Seconds - gone) / speed:0.#} s.");
     }
 }
 
