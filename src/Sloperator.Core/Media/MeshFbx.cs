@@ -520,7 +520,7 @@ public sealed partial class Mesh
                 foreach (var file in tries.Distinct())
                     try
                     {
-                        if (File.Exists(file) && PictureFile.Decode(file) is { } decoded)
+                        if (File.Exists(file) && PictureFile.DecodeStored(file) is { } decoded)
                         {
                             bitmap = decoded;
                             break;

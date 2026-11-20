@@ -647,7 +647,182 @@ waving), a spider; all read, the binary ones side by side with Blender's own imp
 alike (Blender reads no text FBX). Two fixes came of it: byte arrays (type "c"), and a skinned vertex
 at rest goes through its bones' worlds at the bind (TransformLink), not its mesh's node.
 
+### Three ways to make a picture or a clip
+The user's rule (2026-11-19): pictures and video come from exactly three things, each for what it does
+best. **ComfyUI** for raster (photos, paintings, illustrations, and animating them), **SVG** for 2D
+vector art (icons, logos, diagrams, titles, motion graphics), moving with **SMIL**, and **Three.js**
+for 3D. "Use the techs I defined by default. Override if user asks." The system prompt says so in one
+line: the agent no longer draws with Python, Pillow, matplotlib, Blender or a canvas script unless the
+user names one. "Elaborate excel and word part": a chart in a workbook is that file's own chart (an
+Excel chart write_file and edit_file make, see Documents); a picture put in a Word, PowerPoint or PDF
+file is made one of the three ways first. Picked from a bench of earlier sessions: SMIL 18/20, HTML
+20/20 and Lottie 12/20 vector animations right on Qwen, SMIL recommended as it is one file the chat
+shows as a picture; 3D clips as a three.js page recorded frame by frame.
+
+**3D model files.** The user (2026-11-19): "Don't use Hunyan3D because it's terrible use something
+better", then "figure out which 3D model generation tool/method is best for Qwen 3.8 and Haiku (to load
+it later into Three.js), and use whatever you come up with". A model is built in a Three.js page and saved
+as a binary glTF by `render` with output=*.glb (see below), and only a realistic one comes from
+ComfyUI's TRELLIS.2; the bench and what it found are under "How the 3D methods did".
+
+### Scenes: SVG and Three.js (render)
+The `render` tool draws an .svg or an .html page into a PNG or, when it moves, a clip (MP4; WebM or
+MOV keep a clear background, GIF too), or a Three.js scene into a .glb. `SceneRenderer` (Core/Render):
+
+- **The PC's Edge, headless, over its DevTools protocol** (`DevToolsBrowser`): Chrome when there is no
+  Edge, a hidden window when headless is turned off by policy, a profile folder per start under
+  SloperatorData/scratch/render/browser, leftovers of a Sloperator that ended closed first. Unlike
+  `ComfyFrontend`, which waits for one answer at a time, it reads all the time, as a page held at a
+  request (Fetch) waits for the answer to that event. Started per render (about a second); one render
+  at a time per profile folder. The graphics card is used when there is one (`--ignore-gpu-blocklist`;
+  headless Edge 157 reported "ANGLE (NVIDIA GeForce RTX 5070 Ti, Direct3D11)" for WebGL 2 on the
+  workstation), else WebGL in software (`--enable-unsafe-swiftshader`), sRGB colours.
+- **A stopped clock** (`SceneClock`, a script put in before the page's own): performance.now, Date and
+  requestAnimationFrame run on it; `__scene.seek(t)` sets it, seeks every SVG's SMIL
+  (pauseAnimations, setCurrentTime) and every CSS and Web Animation (currentTime), and runs the frame's
+  callbacks once. Each frame is then a screenshot (Page.captureScreenshot) piped to ffmpeg as PNG, so a
+  heavy scene at 3 frames a second still makes a smooth 30 fps clip. Measured on the RTX 5070 Ti: a
+  lit, shadowed torus knot at 1280x720, 150 frames in 9.9 s; an SVG logo reveal, 66 frames in 6.4 s.
+- **Still or moving**: an output's extension decides; without one, frames at 0, 0.5, 1.3 and 2.9 s are
+  compared, all the same is a picture (a Three.js scene that loops but changes nothing too). A clip is
+  as long as `seconds`, else the scene's own: where its last finite SMIL or CSS animation ends, else one
+  loop of its repeating ones (their least common multiple in hundredths, up to 30 s, else the longest),
+  else 5 s, said in the result. A picture of a moving scene is drawn at `at`, else where its finite
+  animations end.
+- **Size**: as given; an SVG its own, at least 1024 along its longer side (a 24-pixel icon is useless
+  as a PNG), its root given width and height and a viewBox from its own size when it had none; a page
+  1280x720; even numbers for a clip.
+- **Files**: the page is served from its own folder at https://scene.sloperator/ (Fetch interception),
+  so a .glb, texture or font beside it loads by its name; a file asked for that isn't there is an
+  error in the result, with the folder looked in. Loading waits for the load event, for no request in
+  flight for 250 ms (a minute at most), and for `window.sceneReady` when the page sets it to a promise.
+- **three.js from its CDN, offline from a copy**: the user's pick, "Use a CDN version with an offline
+  fallback". A request for three.js on jsdelivr, unpkg, jspm, skypack, cdnjs or threejs.org goes to the
+  web with its response held (Fetch's response stage); an error or a refusal (offline, a version the
+  CDN hasn't) is answered from three.zip (Render/three.zip, embedded, made by
+  scripts/update-three.ps1: r187's build and its WebGL add-ons, 301 files, 1.6 MB packed; WebGPU, TSL,
+  the inspector, WebXR and the Draco and Basis libraries left out), and the result says so. A page that
+  imports "three" without an import map gets one (the docs' jsdelivr URLs at the copy's version).
+- **What comes back**: the file, a look at it (a clip as a sheet of frames, a .glb from four sides), the
+  page's errors (exceptions, console.error, failed loads, a callback that threw), a note when the
+  picture or a clip's middle frame is all one colour, and on the first call in a chat the guide
+  (Comfy/Guides/scenes.md: SVG and SMIL, a Three.js page that works, lighting, loading, saving a .glb,
+  checking). With no file it shows only the guide.
+- **.glb**: SceneClock hands three.js a `__THREE_DEVTOOLS__` hook, which three.js tells of every Scene
+  it makes; the one with the most in it is exported with GLTFExporter (imported through the page's
+  own import map, so it is the page's three.js; else the CDN's at the copy's version), binary, with its
+  animations.
+- **Into a folder, and what a PNG keeps**: `save_to` and the scene kept in every PNG are under "Pictures drawn from a
+  scene" in the Image editor panel's part.
+
+Writing an .html shows it live in the Web preview (from the CDN); the chat shows the PNG or clip
+`render` made, and Auto opens it as it does a ComfyUI result.
+
+**Files a scene names by their full path** (2026-11-19): asked for a caption and an arrow on a photo, Haiku
+wrote an SVG with `<image href="file:///C:/…/holiday.png">`, which is the natural thing, and the render came out
+as the caption alone: the page is served from `https://scene.sloperator/`, and a browser lets an https page load
+nothing from `file:`. It copied the photo beside the scene and rendered again (9 calls, 32 s). Now the scene's
+text (and its CSS and scripts) is served with such names rewritten (`Localized`: `file:///C:/…` and
+`href|src|url` followed by a drive path) to `https://scene.sloperator/__file/C:/…`, which `AnswerAsync` reads
+from the disk, for what a picture is made of only (pictures, fonts, clips, sounds, 3D models: `MediaKinds`),
+so a page can't read a document or a key file through it. The guide says a picture is named by its full path
+unless it is beside the file. Checked: SceneRendererTests draw over a photo in another folder named both ways,
+and a text file asked for the same way is refused with an error the scene's author sees.
+The first run of that on Qwen 3.8 went another way: it took "put a caption on this photo" for picture editing,
+wrote a Python script with Pillow (which the prompt's line on the three ways rules out for making pictures, but
+this was changing one), found no Python, and then put the photo into an SVG as base64 through a PowerShell
+script (11 calls, 2 failed, 6 minutes). `edit_picture` is where a model looks to change a picture, so its
+description now ends by sending writing and drawing on a picture to `render` (an SVG with the picture as an
+`<image>` by its full path); 57 tokens.
+
+### How the three ways did with the agent
+2026-11-19, the CLI with --yes, four plain requests each, the "Night drive" demo video in the data folder
+(an SVG intro scene, a gradient clip at 1.5× warm with a circle transition, colour bars in black and white
+with a slide, an "Episode one" lower third, an end title):
+
+| Request | Haiku 5.5 | qwen3.8 27B (q6_k_xl) |
+|---|---|---|
+| "a 4 second animated logo for a coffee shop called Bean There, as a video clip" | SVG with SMIL, rendered: a bean drawn on, the name and "coffee shop" sliding in; 0.6 min | SVG with SMIL: a cup with steam rising, beans, the name and a tagline; 7 min |
+| "a red gift box with a gold ribbon slowly spinning on a white table, in 3D" | read the render guide first, Three.js, an 8 s turn; 1.4 min | read the guide first, Three.js, fixed the bow after its first look; 7 min |
+| "a flat icon of a paper plane for my app, as a PNG" | SVG rendered at 512; 0.3 min | SVG rendered at 1024; 4.4 min |
+| "play clip 2 at half speed with a dissolve into it, make clip 3 black and white with a slow zoom in, add a lower-third title 'Chapter one' from 3 s to 6 s, fade the end out over 2 seconds, then export a GIF" | all set in one storyboard change, joined and checked; then asked before exporting, as its title would print over "Episode one" | the same, with "Chapter one" put in "Episode one"'s place (and said so), noticed clip 3 was black and white already, exported the GIF; 7.3 min |
+
+No request went to Python, Pillow or a canvas script, and none to ComfyUI. The Excel and Word part: asked
+for "a one page Word document about how we roast our coffee, with a simple diagram of the five steps, and
+a sheet in an Excel workbook with this week's sales ... and a chart of them", Haiku drew the diagram as an
+SVG, rendered it to a PNG and put it in the .docx, and gave the workbook a real bar chart ("chart: bar" in
+write_file), in 74 s. All three in one video: asked
+for "a 15 second promo video for a coffee shop called Bean There: open with an animated logo, then a 3D
+coffee cup slowly turning, then two photos of a cosy cafe with slow zooms, with the shop's name as a
+title near the end. No AI video clips", Haiku looked for cafe photos on the PC, made two with ComfyUI's
+Z-Image-Turbo, wrote the logo as an SVG and the cup as a Three.js page, made a storyboard of two scene
+shots and two picture shots with zooms, and joined it in 5.5 minutes. Its title first went into a shot
+("overlays" in s4), where nothing reads it, and didn't show: a change now says which fields nothing
+reads (`VideoEditorTool.UnknownFields`). The shot judge read the cup's handle turning behind it as a
+jump: scene shots, like the person's footage, now get no fresh look made for a video model's faults.
+qwen3.8, asked the same of "a bike shop called Spoke and Pedal" with "a title that slides in near the end
+and a voice-over saying Ride further", made it all in 21.6 minutes: an SVG logo drawing itself in, a
+Three.js spoked wheel turning, a ComfyUI photo of the shop with a push-in, dissolves between them, the
+title sliding in and the voice-over said by VoxCPM2. Found on the way: the whole
+video's judge asked to redo the person's own colour bars as "a test pattern", so it is now told which
+shots are the person's footage or a scene (`VideoCheck.Shows`); and the overview now says when two
+titles print over each other. Also checked in the built app: the trimmed single-file exe (29 MB, no
+trim warnings), asked in the chat for "a 3 second animated title card that says Hello there", wrote an
+SVG, rendered it at 1920x1080, saw from the frames that its bar started full width, fixed it and
+rendered again; the clip played in the chat and Auto opened it in File inspector. In the Debug build's
+panel, with clip 2 picked: Haiku, "Play this clip backwards at half speed and make it black and white,
+then make the video", set speed 0.5, reverse and bw on s2, joined and looked (1.7 min); qwen3.8, with
+clip 3 picked, "Add a title that says Scene two, sliding up into the bottom of the picture as this clip
+starts, for 2 seconds. Then make the video", added o3 at the clip's start with motion slide up, found
+it hard to read in the joined video and gave it a box behind the words, and joined again.
+
+### How the 3D methods did
+The bench (2026-11-19, the workstation's RTX 5070 Ti, the CLI with --yes, one plain request each:
+"Make a 3D model of a wooden chair / a cute cartoon fox character standing on its hind legs / a red
+sports car as a .glb file that I'll load into Three.js later", once saying "Build it in Three.js and
+save it with the render tool", once "Use ComfyUI: make a picture of it first, then turn that picture
+into a 3D model with the TRELLIS.2 image-to-3D workflow"), judged from the four-sided looks:
+
+| | Haiku 5.5 | qwen3.8 27B (q6_k_xl) |
+|---|---|---|
+| Three.js | chair 40 s, fox 45 s, car 54 s; all right first time, stylized: a slatted chair, a toy-like fox with a face, ears, belly and tail, a low sports car with a wing | chair 5 min, fox 12 min, car 25 min; all right: a ladder-back chair (its slats stood proud of the back), a fox much like Haiku's, a wedge car with spoked wheels |
+| TRELLIS.2 | never finished: the job hung in "PreProcess Image" for 30 minutes | not run: the same hang would have held the server |
+
+**Why TRELLIS hung.** Its PreProcess Image node removes the background with rembg, and this PC's
+ComfyUI has rembg without an onnxruntime: rembg prints "No onnxruntime backend found" and calls
+sys.exit, which ends ComfyUI's worker thread and leaves the job running for ever (/interrupt can't stop
+it; only a restart of ComfyUI). Run by hand without the background removal (remove_background false,
+the chair Haiku's picture shows on a plain studio background), TRELLIS.2 4B took 10.8 minutes (the bare
+mesh after 4.5): a chair true to the picture, curved back and wood grain, far more real than either
+model's, but standing on a slab of the studio's floor (the background kept), 475,892 triangles and
+20.8 MB.
+
+**What is used.** A model built in Three.js by default: right first time on both models, in under a
+minute on Haiku, small (60 to 700 KB), in named parts that can be changed and animated, and on any PC.
+TRELLIS.2 only for a realistic model (a real thing, a person or an animal, or one to match a picture),
+when it is installed, from a picture of the thing alone on plain white with no floor or shadow; never
+Hunyuan3D. The system prompt says so, the comfyui tool's description offers it, and the scenes guide
+loads its .glb into a scene. A run that asks rembg to remove a background where ComfyUI's Python can't
+run it is run with remove_background off and says so (`ComfyTool.KeepBackgrounds`).
+
 ### Previews
+**Photos as they are seen** (2026-11-19). A camera writes which way up a photo is in the file (EXIF's orientation)
+rather than turn its pixels: a phone held upright stores its photos on their side. Neither Skia's `SKBitmap.Decode`
+nor Avalonia's `Bitmap` applies it, so such a photo lay sideways in the chat, the File inspector, the editors, in what
+the model was shown of it, and in a video made of it. `PictureFile.Decode` now gives the picture as it is seen
+(`Upright`: one matrix for each of the seven other orientations, whole pixels moved), `PictureFile.SizeOf` its size
+that way round, and everything in Core that reads a picture goes through them (the model's look, `MediaPreview`,
+marks and masks, `capture_result`, a video's picture shots and overlays, `PictureFolder.SizeOf`, `PictureEdit`); a 3D
+model's texture is read as stored (`DecodeStored`). In the window, `UprightPicture` (Load, ToWidth, ToHeight) decodes
+a picture stored another way up with Skia and leaves every other one to Avalonia as before; the chat's cards, the File
+inspector, the full-screen viewer, the Image editor's list, strip and big view, the Video editor's cards and viewer,
+and Copy image use it. Checked: a 600x400 JPEG of "SKY" over "GRASS" stored on its side with orientation 6 showed
+upright in the Image editor (before: on its side), and a box dragged over its top cropped exactly that
+("Crop 320x279.jpg"); PictureEditTests (orientations 6 and 5 told apart, an edit's file upright with no orientation
+of its own), ImageEditorTests (the big view 48x64 for a 64x48 file, the top half marked and cropped). Asked what is
+at the top and bottom of that photo and its size, Haiku answered sky over grass, 400 wide by 600 tall (and that the
+file's own header reads 600 by 400).
+
 Files the agent makes or shows appear in the chat: under the tool call that made them, and under
 a reply that names them by their full path (whatever made them: ComfyUI, a script, Blender, a
 download). Pictures are shown at the chat's width, animations play, a sound plays over its
@@ -1058,6 +1233,104 @@ it to one, evenly from both sides, so there the redrawn part can sit up to 3 px 
 multiples of 8). The check: `.dev/night-test/brush-e2e` (a mask made by `PictureFolder.SaveMask` from strokes in a
 scratch console project, `sloperator-cli` with a stand-in agent whose one call is redraw_area, 150 s on the CPU,
 then a count of changed pixels inside and outside the mask).
+
+**Pictures drawn from a scene** (2026-11-19, with the three ways: until then the panel told the agent of ComfyUI
+alone, and an SVG or Three.js picture had no place in it). A picture is made the way that suits it, into its folder:
+a raster one by the comfyui tool with `save_to`, a vector one as an SVG and a 3D one as a Three.js page, drawn by
+`render` with `save_to` (`About` says all three for a new picture, and for a ComfyUI version that a vector or 3D
+picture of it is an SVG or page drawn with the same `save_to`).
+- **render's `save_to`** is a folder the result goes into under a name no file there has ("plane.png", "plane 2.png":
+  `SceneOptions.Into`, `SceneRenderer.FreeName`), so each render is the picture's next version. A folder given as
+  `output` is read the same way, and an `output` that names a picture already in a picture's folder is saved under
+  the next free name with a line saying the earlier one is kept (`RenderTool.InPictureFolder`, by
+  `ToolContext.PicturesDirectory`): Haiku's first render named the file itself, and its second would have written
+  over version 1. Anywhere else a render over a file replaces it, as a scene worked on is drawn again and again. With
+  no size given, the next version is as big as the newest when that was drawn from the same kind of scene (an SVG its
+  longer side, a page both): an icon asked for at 512 came back at 1024 once its colour was changed.
+- **A PNG keeps its scene** (`SceneStamp`): every PNG `render` draws carries an iTXt chunk "sloperator_scene" right
+  after its header, JSON of the scene's path, kind (svg or page), the moment drawn and the scene's own text (up to
+  512 KB), as ComfyUI's pictures keep their workflow. `MediaRecipe.Read` gives it back as a recipe made with
+  "Sloperator's render": the text under "Scene" in the code font (`RecipeText.Code`), "Drawn from" and "Kind", so
+  **Prompt metadata** in the Image editor and the File inspector shows what drew the picture (its tip reads "The scene
+  it was drawn from"). An "Untitled picture" is called by the scene's own `<title>`, else by its file's name with
+  spaces for dashes ("paper-plane-icon.svg" is "Paper plane icon"; "scene", "index" and the like say nothing).
+- **A scene version is changed in its scene** (`ImageEditorViewModel.SceneOf`): `About` names the scene's file
+  while it is still as the version has it, else writes the version's own copy beside the version ("plane 2.svg" for
+  "plane 2.png": the scene was changed since for a later version, or cleared with the scratch folder; an .svg or
+  .html is no version) and names that, with "change that scene (edit_file) and draw it again with render and
+  save_to". A part marked or painted on such a version is changed in the scene too ("change only what is in that
+  part"), not painted over by `sloperator/redraw_area`. A version's menu has **Show its SVG in folder** (or its
+  Three.js page): an icon is wanted as its SVG as often as its PNG, and the scene is wherever the agent wrote it.
+- Auto shows the Image editor as a render into a picture's folder starts (`AutoRule.AtStart`), as for a ComfyUI run.
+- **A see-through picture stands on a checkerboard** in the big view (`ZoomBox.Checkered`, white and light grey
+  squares of 8 from the picture's own corner; `ImageEditorViewModel.IsClear`, any pixel not fully there,
+  `PictureFile.HasClear`): an icon's clear corners were the panel's dark grey, and dark lines on nothing weren't to
+  be seen. Only under a picture that is see-through somewhere, so no light edge shows round the others. render's
+  `transparent` now reads "as an icon or a logo wants it". Checked in the app: Haiku, with version 3 of the icon
+  picked and "Make the corners outside the rounded square see-through, so it works as an app icon", rendered the
+  same scene with transparent=true (version 4), its corners checkered.
+- Checked (2026-11-19, the laptop, Haiku 5.5): the CLI, given a new picture's words as the panel sends them and "A
+  flat icon of a paper plane for my app", wrote an SVG and rendered it into the picture's folder in 13 s; "Make the
+  plane yellow" with version 1 picked read the scene, changed three fills and rendered with `save_to` (version 2,
+  13 s). In the app, with version 2 picked, "Make the background dark green, and put a thin white ring around the
+  plane" made version 3 in about 30 s, the panel showing it as it was drawn and its scene under Prompt metadata.
+  The scenes guide now says an SVG is drawn on white where it draws nothing (the icon's rounded corners), and to
+  render with transparent=true for one that goes over other things.
+
+**Edits made by hand, and edit_picture** (2026-11-19, the laptop; until then a crop took a model drawing the picture
+again, or another program). `PictureEdit` (Core/Media, Skia) makes an exact edit of a picture file and saves it beside
+the picture as a new file, the picture left as it was: a crop (a box in pixels, or the panel's marked box in parts),
+another size (one side alone keeps the shape; smaller through mipmaps, larger with a Mitchell curve), a turn clockwise
+(a quarter turn moves whole pixels; any other angle grows the picture to hold its corners, clear where nothing is,
+white in a JPEG), a mirror or upside down, its colours (one 4x5 matrix of saturation, contrast about middle grey and
+brightness; saturation 0 is black and white), or another kind of file (PNG, JPEG at 92, WebP). A photo is read as it
+is seen (the orientation a phone writes in the file applied). In a picture's folder of the Image editor the new file is
+named after the edit alone ("Crop 573x559.png", "Turn 90°.png": its next version), elsewhere after the picture and the
+edit ("plane (Resize 256x256).jpg"), " 2" when that is taken. A PNG made from a PNG keeps its text chunks (ComfyUI's
+prompt and workflow), so Prompt metadata still says how the picture was made; not the scene stamp, as the edit is no
+longer what the scene draws.
+- **The panel's Edit line**, over the versions as the Audio editor's is (the two words in a shared column): Crop
+  (the box marked with Area; greyed with "Drag a box over the picture first" until there is one), Turn left, Turn
+  right, Mirror, Flip. Each runs off the window's thread and the folder read again shows the new version; what was
+  picked of the version before leaves the chat's box.
+- **`edit_picture`** (`EditPictureTool`) is the same for the agent: edit = crop (x, y, width, height), resize (width,
+  height), rotate (degrees), flip (way), colour (brightness, contrast, saturation) or convert, and format on any of
+  them; names a model may give are read ("mirror", "grayscale", "scale"). It answers with the file, its size before
+  and after, that it is the picture's newest version when it is one, and a look at it. A version picked in the panel
+  tells the model of it ("An exact edit of it as it is … is edit_picture with path …"); Auto shows what it made as it
+  does a render's.
+- Checked: PictureEditTests (each edit to the pixel on a picture of four blocks, the formats' first bytes, a version
+  named after its edit that keeps its prompt and loses its scene, the tool's answers); ImageEditorTests (the buttons
+  one after another, Crop waiting for a box); in the app the paper plane icon turned, mirrored and cropped to a box
+  dragged over it (versions 4 to 6, each shown as it was saved); and Haiku 5.5 in the CLI, asked for "a 256x256 JPG
+  thumbnail of it, a copy cropped to just the plane without the ring's edges, and a black and white version", made
+  all three with edit_picture (resize with format jpg; crop x 214, y 240, 604x564; colour with saturation 0) in 18 s,
+  with nothing about the tool in the system prompt.
+- **Several edits in one call, and where it goes** (the same day, from the models' own runs). Asked to "turn it a
+  quarter turn to the left, make it 20% brighter with a bit more contrast, mirror it, and give me the result as a 300
+  pixel wide WebP", Haiku made five calls, each on the file the one before had made, and left four files nobody
+  wanted beside the one that was, the last named "plane (Turn 270°) (Brighter 0.2, Contrast 1.15) (Mirror) (Resize
+  300x300) (As WE.webp" (cut off by `Storyboard.Safe`); qwen3.8 renamed its three files afterwards as "the
+  auto-generated names are clunky". So: `then` is a list of further edits made after the call's own, in order, saved
+  as one file (`PictureEdit.Save` with a list; its label is theirs joined, its name "(Edited)"); `output` says where
+  the result goes and by its extension what kind of file (over a version in the Image editor it is the next one);
+  and an edit of an edit is named after the picture alone (`BaseOf` takes this class's own labels off the end of a
+  name: "plane (Mirror).png", not "plane (Turn 270°) (Mirror).png"). With them Haiku did the same request in one call
+  and one file, plane_edited.webp, in 11 s, and qwen3.8 in one call too (plane.webp, 75 s).
+- **What the models did with it** (the CLI, each request once). Haiku 5.5: the thumbnail, crop and black and white,
+  18 s. qwen3.8 27B (q6_k_xl): the same in 8.2 minutes, all three with edit_picture, after trying Python and Pillow
+  only to measure where the plane was (neither is on the laptop; it measured with System.Drawing instead). In the
+  Image editor's words: "A flat icon of a paper plane for my app" as a new picture, Haiku 13 s and qwen3.8 2.5
+  minutes, each an SVG drawn with render into the picture's folder (qwen wrote the scene there too and used save_to
+  at once); "Make the plane yellow, and also give me a 128 pixel wide copy of the result" with version 1 picked,
+  qwen3.8 in 2.3 minutes: the scene changed, drawn with save_to (version 2), then edit_picture resize (version 3);
+  "A 3D render of a red gift box with a gold ribbon on a white table" as a new picture, Haiku in 32 s: a Three.js
+  page, drawn with save_to, its gold made brighter after the first look and drawn again (two versions, WebGL in
+  software on the laptop).
+- **What it costs every request**: edit_picture is about 430 tokens of the tools (its description 107, its twelve
+  parameters the rest), render's save_to 50. The branch as a whole stands at 14.35k for the prompt and tools where
+  develop has 12.79k (measured as before, `.dev/three-techs-test/ctx-now`): the three ways' line in the prompt +293,
+  render 566, the video tool +247, edit_picture.
 
 ### The Audio editor panel
 **Audio editor** in the Side panel dropdown (`AudioEditorViewModel`, `AudioEditorPanel`; least 760), between the
@@ -1879,6 +2152,875 @@ characters (the tool went round for ever finding a free folder) and names like "
 break anything. A template a shot was pinned to by an upgraded storyboard gives way to one that can
 do the shot's job once it has a last frame or a line. The video tool saves only the seed a long job
 settled onto the storyboard as it is then, and numbers in stamps are written in the invariant culture.
+
+### Editing
+The user (2026-11-19): "Do your best to provide a fully featured video editing experience." The
+storyboard edits as a video editor does, and all of it is done by ffmpeg as the video is joined
+(`VideoMontage.Plan`): no clip is made again for an edit, so none of these is in a shot's stamp, and
+the joined video is out of date when a piece's .json or the video's is newer than it.
+
+- **Shots no model makes** (`VideoShot.Assembled`): `file`, a video or picture of the user's (in
+  References, or a full path), and `scene`, an SVG or Three.js page. action=shot makes them in
+  seconds (`VideoMaker.AssembleShotAsync`): a video is read where it is (nothing is made: see "A video a shot
+  is made of is read where it is"; a GIF or a broadcast stream is made an MP4), a picture
+  held for the shot (cut to the frame), a scene drawn at the video's size and frame rate for as much
+  as the shot uses (`in` plus its seconds at its speed). Their stamp is the file's (and, for a
+  picture or scene, how much of it and at what size). They get no first frame (`AddFirstFrames`), and
+  the panel shows them by their file, without frame slots.
+- **A clip as its shot cuts it** (`ShotPicture`, `ShotSound`): `in` trims its start, `reverse`, `speed`
+  (setpts, its sound by atempo in steps of 0.5 to 2), `crop` in fractions, `color` (eq for
+  brightness, contrast and saturation; hue=s=0 for bw, a sepia matrix, colorbalance warm or cool,
+  curves' vintage), `freeze` (cut there and held), then as before held on its last frame, cut to its
+  seconds and made to fill the frame, and last `zoom`: zoompan over the frame scaled to twice its
+  size (it stepped a pixel at a time at its own size), one frame out per frame in. Its own sound's
+  `volume` (0 is silence). A model can write "zoom": "in", "out", "left" or "right" and "color": "bw".
+  Foley's stretch is cut the same way.
+- **More of a clip's picture** (2026-11-19, the laptop): `rotate` turns it 90, 180 or 270 clockwise (transpose; half
+  a turn is hflip and vflip) and `flip` mirrors it (horizontal, vertical, both), both before the crop, so what is cut
+  out is cut out of the picture as it is seen; `fit` says how a picture of another shape goes in the frame: it fills
+  it with its edges cut off unless set, "fit" shows it whole with black bars (scale to fit, pad), "blur" whole over a
+  copy of itself that fills the frame, blurred (sigma a 36th of the height, 8 at least) and a little darker, as phone
+  footage is shown in a wide video (a split inside the shot's chain, its labels named by the shot's id); `effects`
+  are blur, sharpen, vignette, grain, invert and pixelate, any together, laid over the picture at the frame's size so
+  they are as strong in a small video as a large one (`VideoMontage.Effect`). Names a person or a model may give are
+  read ("mosaic", "film grain", "letterbox", "flip": true, "effects": "vignette, grain"; `Storyboard.EffectNamed`).
+- **Transitions**: ffmpeg's xfade names (a dissolve its fade, a fade fadeblack), 40 in all, with
+  everyday names read ("wipe", "iris", "dip to white", "push"); `transitionSeconds`, else 0.5 for a
+  dissolve, 1 for a fade, 0.8 for the rest, at most half the shot.
+- **Overlays** (`VideoOverlays`): words, a picture or SVG, a video, or a scene, from `start` for
+  `seconds`, at a `position` (centre, top, bottom, lower third, the corners, full) or a `box` in
+  fractions, with opacity and fades. Words are drawn with Skia on a clear picture the frame's size in
+  the font asked for, wrapped to their box and made smaller until they fit, with a box behind them or
+  a shadow under them; pictures are placed in their box whole; a scene is drawn to a clear WebM at its
+  box's size (read back through libvpx-vp9, as ffmpeg's own VP9 decoder drops the alpha); a video
+  plays round when shorter. ffmpeg lays each over the joined shots from its start (setpts and enable);
+  a picture or video with a `key` colour (a green screen) goes in as it is, scaled into its box, with
+  chromakey (similarity 0.15, blend 0.08) taking that colour out. Words with a `motion` (slide up, down,
+  left or right) come in from 8% of the frame's height (10% of its width) off their place, the offset
+  easing to none over their fade in (half a second at least) in overlay's x and y.
+  `captions` shows each shot's line at the bottom while it is said. Drawn into Generated/overlays.
+- **The video's ends and encoding**: `fadeIn` and `fadeOut` (0.4 and 1 unless set, 0 none), applied
+  after the overlays so titles fade with the picture; `quality` draft (veryfast, CRF 26), good (medium,
+  18) or best (slow, 15). A sound's `fadeIn` and `fadeOut` on its sound line.
+- **Voice-overs** (a sound of source speech): its `text` said by VoxCPM2 (the same workflow as the
+  shots' lines, `SpeechWorkflow`) in the voice its `tags` describe, else the video's `voice`, from
+  where it starts, not lip-synced; made into Generated as FLAC (as ComfyUI saves speech); its stamp its
+  words, voice and seed. When the video is joined, the other sounds go quieter (0.35) for as long as it
+  plays (its seconds, else its file's length less its trim), as they do under a shot's line; it doesn't.
+  A sound's menu in the panel has Voice-over beside Foley and Music. SongEval judges the joined video's
+  sound only when it has music (a song or a sound file of the person's): set up for a video whose only
+  sound was a voice-over, it downloaded its model to judge a man talking. Checked: Haiku, asked to add
+  "Some roads only open at night" at 1 s "in a calm, deep male voice", wrote a speech sound, made it
+  (VoxCPM2, 30 s, 2.1 s long; Gemma heard "some roads only open at night"), joined and checked the video.
+- **Export** (action=export, `VideoMontage.ExportAsync`): the joined video (joined first when out of
+  date) as an MP4 of another size, a WebM (VP9 and Opus), a MOV (ProRes), a GIF (its own palette, 15
+  fps, 640 wide unless given) or its sound alone.
+
+**In the Video editor panel.**
+- A clip's right-click menu has Speed, Reverse, Mute its sound, Look, Zoom and Transition in (not on the
+  first clip), each a submenu with the current one marked; Look also steps the light and colour (brighter
+  or darker by 0.1, contrast by 0.1, colour by 0.2, or back as shot). Freeze from the playhead (`freeze`)
+  holds the frame there to the clip's end; its stamp is untouched, so it stays made. Move earlier and Move
+  later take the transition into it along. Duplicate puts a copy after it, its clip and every file of its
+  name ("s3.mp4", "s3.json" with its stamp, its look) copied under the copy's id, so a made clip is made in
+  the copy too; a title's copy shows from where it stops (one shown to the end: from the playhead).
+- Split at the playhead (Ctrl+B: the clip under the playhead; in a transition, the one coming in): both
+  halves become the same footage, the second starting where the first stops (`in`), a clip a model made
+  copied into References as "<clip> footage.mp4" so neither half is made again (`VideoMaker.TakeClip`
+  stamps them made). Not on a reversed clip. Trim start and Trim end to the playhead cut a clip's start
+  (`in` moves on, the playhead goes to its new first frame) or its end off, the clips after it moving up,
+  made of footage the same way (`Footage`): a model's clip has its length in its stamp, and cut by its
+  length alone it would be made again.
+- Keys, with the timeline or the panel focused, none in a box being typed in nor on the panel's buttons:
+  Space plays the video from the playhead or pauses it, seen on its way down (tunnel) as a clip's button
+  took it for a click; the arrows step the playhead a frame (1/fps; with Shift a second), Home and End take
+  it to the start and the end (the timeline's scroll viewer took the arrows), for a split or a trim on the frame.
+- A Titles row under the clips shows the overlays as blocks, those that show at once one above the other
+  (the row grows past two lanes, 22 pixels each). A right-click on the row creates a title there and asks
+  for its words at once (the rename box); a double click changes them (\n for a new line; handled on the
+  press, as the press before it starts a drag); dragging moves it and its edges change when it starts and
+  ends. Its menu sets its place, how long it shows, moves it to the playhead, how it comes in (fading, or
+  sliding up, down, left or right), the words' size (small 0.045 of the frame's height to huge 0.14, or as
+  its place has it), colour, font and bold, puts a box behind the words, duplicates it or deletes it.
+- A sound's menu fades it in (1 s) or out (2 s), and sets its volume (25% to 200%, on top of its line's slider).
+- Ctrl+Z takes back the panel's own edits (menus, splits, trims, a title, a clip's length or a sound
+  dragged, files dropped), 50 at most, each with its clips' .json as they were, so a split taken back
+  leaves its clip made as before; Ctrl+Y (or Ctrl+Shift+Z) makes them again, and the Video clips, Titles
+  and sound rows' menus have both with their keys (`EditHistory`). What Ctrl+Z took back is made again only
+  while the storyboard is as Ctrl+Z left it: an edit since, here or by the agent, drops it. Another video
+  opened starts with none (before, Ctrl+Z there wrote the video before's storyboard into its folder), and
+  so does the chat's change to this one, read in or put together with a save here: a storyboard from
+  before it would take the agent's work out again (checked in the app: a title's words changed on disk
+  after a speed change here stayed through Ctrl+Z, and so did Haiku's "The end" made "Fin" from the
+  chat in 8.8 s). Ctrl+Z's own save finds the clips' .json it wrote
+  back changed and puts them together too (`_puttingBack`), which isn't the chat's change.
+- A press anywhere in the panel, a right-click too, gives it the keys: after an edit from a clip's menu,
+  Ctrl+Z went to the side panels' list or the chat's box, and a second Ctrl+Z did nothing once the clip it
+  was on was laid out anew. The panel is focusable, so Avalonia focuses it on a left press away from its
+  buttons; on a right press it doesn't (the chat's box kept the keys), so `OnPressedIn` does. A click on
+  the panel takes the keys from the chat's box, as a click on a piece always did; a key pressed with
+  nothing focused goes to the panel too.
+- Videos and pictures dropped on the Video clips row become clips made of them (an MP4 taken in at once),
+  on the Titles row overlays from there.
+- More on a clip's menu (2026-11-19, the laptop), in groups: Speed, Reverse, Freeze; Mute its sound and Volume (25%
+  to 200% of its own sound); Look, Effects (each on or off, None), Zoom, Turn (Turn right, Turn left, Mirror, Upside
+  down, As shot) and Fit (Fill the frame; Whole, with black bars; Whole, over a blur of itself); Transition in, with
+  its kinds and under them its length (Its usual length, 0.3 to 2 s; greyed for a cut); then the moves, split and
+  trims; Duplicate (Ctrl+D), Copy (Ctrl+C), Paste (Ctrl+V) and Delete (Delete). The Video clips row's own menu has
+  Paste, and Fade in at the start and Fade out at the end (the video's `fadeIn` and `fadeOut`, on unless turned
+  off); the Titles row's has Captions of what is said (`captions`; greyed when no clip says a line).
+- **Save this frame as a picture**, on the Video clips row's menu (`SaveFrame`): the frame under the playhead becomes
+  a picture of the Image editor, a folder named after the video and the moment ("Night drive at 0-03.2") with
+  Frame.png in it: a poster, a thumbnail, a still to redraw there or to start another clip from. Read with the
+  PC's own decoder (no ffmpeg needed) from the joined video when there is one, so with its edits and titles, else
+  from the clip under the playhead as it was made (its `in` and speed counted).
+- A right-click on a row's name (References, Video clips, Titles) opens the row's menu at the playhead, as a sound
+  line's name does (`OnRowNameMenu`): with clips end to end, the Video clips row had nowhere to click that wasn't a
+  clip, and its menu has what is the whole video's (Paste, Save this frame, the fades). Checked in the app: the
+  demo's first frame saved from that menu as "Night drive at 0-00.0" (Frame.png), the clip's own 704x648 frame.
+- A clip's card says how it is edited, after its state under the strip ("Made · sound 50%, vignette grain, turned,
+  mirrored, blur behind"; `ShotItem.Marks`, `Footer`): the strip shows the clip as it was made, and an edit showed
+  nowhere but in the joined video and the tooltip. Its speed and "reversed" stay beside its length.
+- The details beside the viewer say what a clip made of a file or a scene is ("Your file: clip 2.mp4", "Drawn from
+  the scene logo.svg"), its length without a seed, and "Edited: …" as the tooltip has it; they read "Prompt: (none
+  yet)" and "Made with file, picked by Sloperator" beside the person's own footage.
+- **A title or a sound dragged lands on what it is near** (`Land`): its start, or the edge dragged, within 6 pixels
+  of a clip's start, the video's end or the playhead takes that moment, to the hundredth; else a tenth of a second
+  as before. Dragged whole, its start is tried first, then its end. A clip that comes in over a 1.5 s dissolve
+  starts at 6.5 s, and a title put at "about there" started at 6.4. Checked in the app: the "Episode one" title
+  let go 0.04 s short of clip 3's start was at 6.5, and dragged on by half a second at 7.
+- **A title clicked is picked** (`PickTitle`): marked on its row, the playhead put at a moment it is fully there, so
+  the viewer shows it over the video as it is placed and styled; Delete deletes it and Ctrl+D copies it (both taken
+  back by Ctrl+Z), as a clip's. It isn't put in the chat's box. Before, a title was reached only through its
+  right-click menu, and its block never showed as picked. Checked in the app: "Night drive" clicked stood outlined
+  with the playhead at 0:00.8 and its words over clip 1; Ctrl+D put a copy at 3 s, Ctrl+Z took it away, Delete took
+  the title out and Ctrl+Z brought it back.
+- **Delete is taken back by Ctrl+Z** (`VideoEditorViewModel.Deleted.cs`). A clip or sound deleted went straight to
+  the Recycle Bin, and Ctrl+Z after it (it took back the edit before) put the storyboard back with a clip that had
+  no file: a model's clip was to be made again. Delete now keeps the storyboard for Ctrl+Z (`Remember`) and sets the
+  piece's files aside in ".deleted" in the video's folder, under their own paths (`SetAside`, each by the piece's own
+  file: a clip's .mp4 for its .json, its line and its versions, a frame only that clip used by its picture). After
+  Ctrl+Z or Ctrl+Y puts a storyboard back, the files of the pieces it has come back and those of the pieces it
+  hasn't go aside again (`BringBack`). They reach the Recycle Bin, from where they were (so Restore there puts them
+  back in place), once the edits can't be taken back: another video opened, the chat's change to this one, the panel
+  closed (`ForgetEdits`, `EmptyAside`, which takes the emptied ".deleted" folder away too); what a Sloperator that ended suddenly left there goes to the bin when the
+  video is next opened. A sound line deleted with its sounds comes back with one Ctrl+Z. A card of References
+  deleted still goes to the bin at once: a file of the person's there is in no storyboard to tell it is back.
+- **Keys on what is picked**, as their menu items: Delete deletes the clip or sound picked, Ctrl+D puts a copy of
+  the clip picked after it, Ctrl+C takes it and Ctrl+V puts a copy after the clip under the playhead (the last one
+  with the playhead at the end), with its edits and made as the original is (`Duplicate` with a place).
+- Checked in the app on the laptop (2026-11-19; no ffmpeg there yet, so with a demo of three MP4s taken in as clips
+  by `VideoMaker.TakeClip`, `.dev/three-techs-test/demo`, and the panel driven off screen, `ve.ps1`): Turn left,
+  Mirror, Vignette and Film grain, Whole over a blur, Volume 50% and a 1.5 s transition from clip 2's menu were each
+  in its .json ("rotate": 270, "flip": "horizontal", "fit": "blur", "effects": ["vignette", "grain"], "volume": 0.5,
+  "transitionSeconds": 1.5); with clip 3 picked, Delete moved s3.mp4 and s3.json to .deleted\Generated, Ctrl+Z brought
+  them back, Ctrl+Y set them aside again and Ctrl+Z brought them back once more; Ctrl+C on clip 1 and Ctrl+V put its
+  copy after it as clip 2, and Ctrl+D on clip 4 a copy after it, each made. A key hint that isn't a key's name
+  ("Del") threw as the menu opened (`KeyGesture.Parse`): it is "Delete".
+- The same edits asked of the models (the CLI, the demo's storyboard, "turn clip 3 a quarter turn to the right and
+  show it whole over a blurred copy of itself, give it a vignette and film grain, mirror clip 1, make clip 2 fit
+  whole with black bars, and make the transition into clip 3 one second long. Only change the storyboard"): Haiku
+  5.5 in 24 s and qwen3.8 in 3.2 minutes, each in one storyboard change ("rotate": 90, "fit": "blur", "effects":
+  ["vignette", "grain"], "transitionSeconds": 1 on s2; "flip": "horizontal" on s1; "fit": "fit" on s4), each
+  telling clips from shot ids by their order and saying what was there before. Joined with ffmpeg: not yet, there
+  is none on the laptop.
+- Checked in the app (2026-11-19, the "Night drive" demo): two speed changes from the menu taken back and
+  made again with two presses each; the bars clip moved before the city one and back; Ctrl+B at 0:06.8
+  split it 1.5 s in; its start and then its end trimmed there (8.4 s to 7 and 6.9, still made, each taken
+  back); a freeze there (testsrc's clock stood at 00:00:00.700 from 7.0 s to the end of the joined video);
+  twice brighter (lighter bars, three Ctrl+Z put it back); a copy of a clip, still made, and of a title;
+  Space from 0:00 to 0:01.5 and paused; Home, three Rights, Shift+Right and End took the playhead to 0:00,
+  0:00.1, 0:01.1 and 0:08.4; a lower third made yellow, large and sliding left slid in from the right in a
+  video joined in 2 s; a sound's volume set to 50% and back.
+
+**The viewer shows the video under the playhead** (2026-11-19, the laptop: `VideoPreviewer` in Core/Video, the
+panel's `ShowFrameAt`, `AskFrame`, `ShowClip`). Until then the panel was a storyboard's: Play showed each clip's
+first picture and then its last while the sound lines played, moving the playhead showed nothing at all (so a split
+or a trim "at the playhead" was made blind), a picked clip played its own file, which no edit changes, and nothing
+of a look, a turn, a title or a transition was seen until the video was joined again.
+- **What is drawn**: the clip under the playhead at its own frame (`SourceTime`: its `in`, its speed, held from
+  its freeze, backwards from the end of its cut, its last frame once the file has run out), turned, mirrored and cropped
+  (`Turned`), put in the frame as its `fit` says (filling it, whole with black beside it, or whole over a blurred
+  copy of itself), with its effects (blur, sharpening, pixelate, a vignette, a negative, grain), its slow zoom
+  or pan, and its colours (`Colours`: its light and colour as ffmpeg's eq has them, then its look; warm, cool and
+  vintage are near, not the same). In a transition the clip before it shows too, each transition drawn as its name
+  says (`VideoPreviewer.Transitions.cs`; at first every wipe and slide came in from the left and a clock was a
+  circle). Over that the titles and pictures (the same `VideoOverlays.Words` and `Picture` the joined video's are
+  drawn with, at this size, kept by what they say), fading and sliding in as joined, a video laid over the video
+  (picture in picture) at its own frame in its box, a colour keyed out of either (a green screen), a scene once its
+  frames are drawn (joining draws them), the captions when they are on, and the video's own fades. All with Skia,
+  at 960 along the longer side, no ffmpeg: a frame took a few milliseconds on the laptop. The same code at the
+  video's own size makes the file where there is no ffmpeg (see "Videos without ffmpeg").
+- **Reading the clips**: the PC's own decoder (`IMediaDecoder.OpenVideo`), a reader a file, five at most (the clip
+  under the playhead, the one before it in a transition, a video or two over them), kept by the file and when it
+  was written. Playing on, the next frames are read one after another; a jump back or more than a second on seeks. The readers are closed
+  three seconds after the last frame asked for while nothing plays (`RestPreview`), and at once when a clip is about
+  to be copied, moved or made again (`DropViewer`, and `LetGo` for the chat's `MediaRelease`), so the files aren't
+  held while the panel stands there.
+- **In the panel**: `ShowsPlayhead` (playing, or the playhead moved: a click on the ruler, the arrows, Home and End,
+  a trim) puts the frame in the viewer in the player's place, with "Clip 3 · 0:08.0" in its top left corner (a click
+  on it plays or pauses, as Space does); picking
+  something else, or Esc, gives the viewer back to what is picked. A frame is drawn off the window's thread, one at a
+  time, then the latest moment asked for meanwhile (`AskFrame`), so the arrows held down and Play show as many frames
+  as the PC draws. A clip not made yet shows its start or end picture, as before. After an edit the frame is drawn
+  again (`Rebuild`).
+- **A click on a clip puts the playhead there** (`ShowClip`): picked into the chat's box as before, and the
+  playhead goes where the clip was clicked (a click by the keyboard: its first moment past the transition into it),
+  so the viewer shows the clip as it is edited, and Speed, Look, Turn, Fit, Effects or a trim from its menu is seen
+  at once. Space let go is kept from the clip's button, which took it for a click: with the playhead now moved by a
+  click, Play jumped back to the clip's start.
+- **The timeline follows the playhead** (`OnVideoChanged`): played or stepped past what is in view, the timeline
+  scrolls to it (a tenth of the way in while it plays, the middle otherwise; not while the timeline is being
+  dragged). Before, it ran out of sight at the right edge and played on unseen.
+- **Play has the clips' own sound** (`VideoMix.Part.Speed`): each from where its clip starts, its `in` cut off,
+  at its volume (half under a song, as joined), sped up or slowed with the clip (higher or lower with it, where the
+  joined video keeps the pitch), not a clip played backwards. Read when the playhead is first moved, so it is there
+  by the time Play is pressed.
+- Checked: VideoPreviewerTests (a decoder of numbered frames with a white corner: the frame at each edit's moment,
+  one reader while it plays on, the corner where a mirror, a turn, a crop and a zoom put it, black beside a clip shown
+  whole, half of each clip's colour half way through a dissolve, a wipe's two sides, a title's letters only while it
+  shows, the fade in from black). In the app on the laptop, the demo: clip 3 clicked showed it turned left, mirrored,
+  whole over its blur, vignetted, with "Episode one" over it at 0:08.0; Black and white from its menu turned the
+  viewer's frame grey at once, and Ctrl+Z gave its colours back; Home, End and Space moved and played it; from a
+  click on clip 4 at 0:10.3, three seconds of Play ended on clip 5's frame at 0:13.6. Playing took about one of the
+  laptop's 20 cores and 250 MB more, given back after it stopped.
+
+**Make the video** with nothing to make (every clip and sound there and up to date: only edits since)
+joins the video right in the panel, without the chat (the demo: 2 s), its tip saying so; with anything
+to make it goes to the chat as before, which makes, looks and joins. A clip made of a
+file or a scene counts as said (Generate makes it, Make the video isn't greyed), and shows its file
+and how it is edited in its tooltip.
+
+Checked: VideoEditingTests join a video of a clip of the user's at 1.5× in sepia, a reversed MOV made
+an MP4, a held picture zooming in and an SVG scene frozen half way, with a wipe, a dissolve and a slide,
+a title and a picture over them, then export a GIF and an MP3; the panel driven in the built app with
+the "Night drive" demo (intro scene, a gradient clip at 1.5× warm with a circle transition, bars in
+black and white with a slide, a lower third and an end title).
+
+### Videos without ffmpeg (the built-in path)
+ffmpeg is not on a PC until someone puts it there, and the laptop this was built on had none: joining a video,
+a clip of a drawn scene, a clip from a picture and every export stopped with "needs ffmpeg". The user's ask
+(2026-11-19) was to improve without being held to the technology chosen so far, so the whole chain now also
+runs on what Windows and Sloperator have. ffmpeg stays first where there is one (`IMediaDecoder.Ffmpeg`): its
+x264 is the better encoder and its path is the one a year of videos went through. The built-in path is taken
+only when it is null.
+
+- **The writer** (`IMediaWriter`, `MediaFoundationDecoder.Write` in `MediaFoundationWriter.cs`): Media
+  Foundation's Sink Writer through its vtable, like the reader. H.264 High in an MP4, AAC at 192 kbit/s (the most
+  the encoder makes), stereo 48 kHz. Frames go in as NV12, converted from BGRA here (BT.709 from 1280 wide or
+  above 576 lines, BT.601 below, 16 to 235; two rows at a time on all cores), because the writer's own RGB input came out with
+  whatever matrix the converter picked. Two encoder settings matter, passed with the input type:
+  `CODECAPI_AVEncMPVDefaultBPictureCount` 0, since with B-frames the file's first frame read back at 0.033 s (one
+  frame late, behind its sound, and a clip cut from it a frame off); and rate control by quality
+  (`AVEncCommonRateControlMode` 3 with `AVEncCommonQuality` 60, 80 or 92 for draft, usual and best), so flat drawn
+  scenes come out small and film large. `MF_MPEG4SINK_MOOV_BEFORE_MDAT` was tried and dropped: Finalize failed
+  with "Access is denied" on the writer's own stream, and with a read-write stream of ours the file came out
+  twice the size and unreadable. Throttling is off (`MF_SINK_WRITER_DISABLE_THROTTLING`), the frames and the sound
+  are written side by side. Measured on the laptop: 90 frames of 1280x720 in 0.9 s, 150 of 1920x1080 in 3.3 s, 30
+  of 3840x2160 in 3 s; colour bars read back within 3 of 255.
+- **The picture** is `VideoPreviewer` at the video's own size (`VideoComposer.JoinAsync`): the same code that
+  draws the viewer's frame draws every frame of the file, so what was seen is what is made. For that it now draws
+  every transition by its name (wipes, slides, smooth and diagonal wipes with a soft edge, cover and reveal,
+  circles, the crops through black, a clock's hand, squeezes, zoom, blocks, a sideways blur, ten slices), film
+  grain (a fixed tile of specks, 1.5 px at 720p, blended as overlay, moved by the frame's number so a frame looks
+  the same whenever it is drawn), sharpening, a colour keyed out (`KeyOut`, ffmpeg chromakey's measure: 0.15
+  similar, 0.08 blend, on the colour not the brightness) and scenes over the video. Two things were slow and
+  changed: Skia's 3x3 sharpening kernel took 270 ms a 720p frame, an unsharp mask (blur, then
+  `CreateArithmetic(0, 2, -1, 0)`) 15; and a reversed clip seeked for every frame, so going backwards the reader
+  now goes to 12 frames before and keeps them. Grain as first drawn (1 px, strength 46) made 3 s of 720p weigh
+  15 MB; at 1.5 px and 22 it is 3 MB and looks like film rather than sensor noise.
+- **A scene over the video** can't be an MP4 (no clear background) and a WebM needs ffmpeg, so it is drawn as a
+  folder of PNGs, one a frame (`SceneOptions.Frames`, `VideoPreviewer.SceneFrames`: `Generated\overlays\<id>.frames`),
+  with a `drawn.txt` naming the scene's write time, box, rate and length so it is drawn again only when one of
+  them changes. The Video editor draws them too, in the background, when the playhead is first moved and after a
+  change (`WarmScenes`, `VideoComposer.DrawScenesAsync`), and shows the playhead's frame again when they are done:
+  an animated title is seen in the viewer a few seconds after it is added, where at first it showed only once
+  the video had been made.
+- **The sound** is `VideoSoundMix.Mix`, which does what the ffmpeg graph does (see `VideoMontage.Plan`): each
+  clip's sound cut as its shot is, a spoken line in place of it, clips at half under a song, one fading into the
+  next through a transition, the sound lines placed, trimmed, faded, at their volume, music at 35% while someone
+  speaks (eased over 80 ms rather than switched), the end faded, and a limiter at 0.95 (5 ms ahead, 50 ms
+  release). A clip at another speed keeps its pitch through `SoundStretch.Tempo` (WSOLA: 40 ms stretches, half
+  over the one before, each taken from within 10 ms of where it lines up best), where the editor's own preview
+  still just plays it faster.
+- **Play in the Video editor** uses the same mix once it is ready (`WarmMix`, `JoinedSound`): mixed in the
+  background when the playhead is first moved and again after each change, kept by the storyboard's text and the
+  write times of its clips and sounds (a clip made again is another sound), for videos up to five minutes (23 MB
+  a minute). Until it is ready, and for longer videos, Play mixes the parts plainly as before (`VideoMix`: mono,
+  a sped-up clip higher, no ducking, no reversed sound).
+- **Scene clips** (`SceneRenderer.WriteAsync`): each screenshot decoded and handed to the writer. A 3 s SMIL
+  scene at 1024x576 took 7 s, as with ffmpeg: the browser is the slow part.
+- **GIFs** (`GifWriter`) are written here when there is no ffmpeg: each frame gets its
+  own table of up to 255 colours (median cut over 5-bit bins, the table's entries the real average of what fell
+  in them, so a flat colour is itself and the same in every frame), an ordered dither only where the nearest
+  colour is more than 8 off, only the box of what changed since the frame before, and tables as short as the
+  colours need. A frame the same as the last costs 30 bytes. The first version dithered everything and gave each
+  bin's middle as its colour: a flat background came out dotted, and a ball left a ghost trail where the next
+  frame's table differed.
+- **Clips from files** (`VideoComposer.Hold`, `Transcode`) and **exports** (`ExportAsync`: MP4 at any size, GIF,
+  WAV). A WebM, a MOV, an MP3 or an M4A still needs ffmpeg and says what is made without it. Foley still cuts its
+  stretch with ffmpeg (it needs ComfyUI in any case).
+
+Measured on the laptop (no ffmpeg, the software encoder): the "Night drive" demo, 15.5 s of 1280x720 at
+24 fps with rotated, blurred and vignetted clips and two titles, joined in 8.3 s; 19 s of 720p30 with eight
+transitions in 11 s; 13 s with grain, sharpening, a clip at double speed, one reversed, an SVG scene, a keyed
+picture, a picture in picture and music in 21.8 s, of which drawing the scene's 90 frames took 7.
+
+Where a scene clip's time goes (2026-11-19, 1920x1080 on the laptop): 1.2 ms to move the scene's clock, 49 ms for
+the browser's screenshot, 14 ms to decode it, convert it and encode the frame. The screenshot is the browser
+drawing and reading the frame back, not its packing: asked for a JPEG it took 48 ms, for a WebP 154. So a
+second of 1080p30 takes about two seconds, and only another way of taking frames from the browser (begin-frame
+control) would change that; not tried.
+
+How good the encoder is (2026-11-19, `enc psnr` in the rig): a three second zoom and pan over two of Windows'
+own wallpaper photos at 1280x720, written at each quality and read back. Brightness alone (what the encoder
+loses) came out at 34.8 to 38.6 dB for a draft (2.2 to 6.2 Mbit/s), 38.2 to 41.7 dB as usual (5.4 to 17.3
+Mbit/s) and 41.7 to 44.2 dB at best (9.8 to 31.5 Mbit/s); all three colours together 2 to 6 dB lower, most of
+that from colour being kept at half size (4:2:0), as any MP4 has it. Good to look at; x264 would get there
+with fewer bits, which is one reason ffmpeg stays first where there is one.
+
+With the models, on the laptop with no ffmpeg (2026-11-19): "a 4 second animation of a sun rising over hills as
+an animated SVG, as a video file" took Haiku 29 s (6 calls, 1920x1080) and Qwen 3.8 3.2 minutes. "A 9 second
+video called Seasons out of three animated SVG scenes, a different transition between each, a title over the
+start, join it" took Haiku 2.8 minutes (30 calls, one error: a join asked for before the shots were made) and
+Qwen 3.8 22 minutes to the joined file (20 calls, none failed), both through `video` with scenes as shots.
+"Cut holiday.mp4 down to 2 to 6 seconds and also give me a GIF of that part 320 wide" took Haiku 10 s: two
+`action=edit` calls, right the first time. "A video called Pulse out of four animated SVG scenes with my song
+under it and every cut exactly on the beat" (a 112 BPM loop) took Haiku 3 minutes: it asked for the beat with
+`action=check`, made each clip six beats long after the 0.29 s before the first beat, and the cuts fell at
+3.51, 6.72 and 9.94 s, within 5 ms of the kicks. The trimmed single-file build (30,945,572 bytes then, 30,963,009 with all of this round and the ffmpeg matching in; no IL
+warnings, 246 s to publish) joined the demo in the app in 10.3 s, the same bytes as the Debug build's.
+
+Qwen 3.8 on the same tasks, the laptop, no ffmpeg (2026-11-19): the cut and the GIF of holiday.mp4 took 2
+minutes (6 calls, none failed). The beat-cut Pulse video: with the first build it never got to a storyboard in
+six minutes (ffprobe hunt, then its own beat finder in PowerShell; stopped); with `check` taking the sound file
+it asked for the beat as its first step, trimmed the song's first 0.29 s so beat one falls at 0, made four
+clips of 3.216 s (six beats of 0.536 s) with cuts, and had the video joined 13 minutes in (29.5 minutes with
+its own checking and a contact sheet; 35 calls, 2 failed). The caption and arrow on a photo took it 6 to 8
+minutes either way: with the hint in `edit_picture` it drew with an SVG and `render` instead of base64 through
+PowerShell, but spent as long finding the sun's place by reading pixels in a script.
+
+The index is moved to the file's start once the file is closed (`Mp4Index.MoveFirst`: the `moov` box before
+`mdat`, every `stco`/`co64` offset moved on by its size), which is ffmpeg's `+faststart`: a video sent to a chat or
+put on a page plays while it still loads.
+
+**One file edited in one call** (`video` action=edit, `VideoEditorTool.File.cs`): "trim this clip", "make a GIF of
+it", "turn it upright" took a storyboard, a shot, a join and an export (four calls, and a video folder the user
+never asked for), or ffmpeg in a shell. Now the file is one shot of a video made in the scratch folder
+(`scratch\video-edit\<id>`, deleted after), with the shot's own fields for what to do to it, joined and saved
+where asked: so a file is cut, turned, sped up or coloured exactly as a clip in a video is, with no code of its
+own. Its size and rate are the file's (turned when it is turned, the shape of its crop) unless a size is given;
+its length what is left of it from its trim at its speed. The file itself is never written over. A picture is
+taken too (held five seconds unless it says, 1920 along its longer side at most), for a slow zoom over a photo
+or a GIF of it. Costs 80
+tokens of the tool's description.
+
+Not done then (done since, see "The built-in path against ffmpeg"): a real ffmpeg run of the new shot fields on this laptop (no ffmpeg, the user's OK to download one
+never came), and making the built-in path the only one so the viewer and the file can't differ.
+
+Checked: VideoComposerTests (the mix by level, tempo keeping pitch, the key, a file written and read back, a
+real join with a dissolve, a wipe, a turned negative clip and a keyed picture, an SVG to MP4 and GIF and laid
+over a video as frames, exports, a held picture, a GIF written and read back, and one file cut, turned and made a
+GIF through the tool), all against Windows' own encoder.
+
+**Subtitles beside the video** (`VideoSubtitles`, 2026-11-19): every join, with ffmpeg or without, writes what
+is said as `<title>.srt` next to `<title>.mp4`: each shot's line from `LineLead` into its shot to the shot's
+end (as the captions burnt into the picture are timed), each voice-over while it plays (its seconds, else its
+file's length, else 0.4 s a word), in order, cut at the video's end; the file of an earlier join goes when
+nothing is said any more. The join's result tells the agent the file is there. Not tied to "captions": that
+burns the words into the picture, this leaves them a viewer's choice.
+
+**A line round a title's letters** (`VideoOverlay.Outline`, 2026-11-19): white words over a light picture had
+only their shadow to be read by. `outline` (#RRGGBB) strokes each line of the words under its fill, a tenth of
+the letters' height with round joins (`VideoOverlays.Words`); the title's menu has **Line round the letters**,
+black round light words and white round dark ones (`IsDark`). The words are drawn once into a picture that
+both ways of joining lay over the video, so it needs nothing of ffmpeg's.
+
+**Animated GIFs as video** (`GifDecoder`, 2026-11-19): Windows' decoders play no GIF, so without ffmpeg a GIF
+could be nothing in a video, and with ffmpeg it was no kind the storyboard knew (neither a picture nor a
+video). Now `.gif` is among `Storyboard.VideoExtensions` and `GifDecoder` (Skia's codec) stands between the OS's
+decoder and ffmpeg in `MediaDecoders.Create`: each frame is the whole picture as a viewer shows it then (a
+GIF's frames are often only what changed: `Compose` follows each frame's `RequiredFrame` back to one that stands
+alone or is held), a frame that claims no time shows a tenth of a second, and the clear parts stay clear
+(`IVideoReader.HasAlpha`, which `VideoPreviewer.Read` keeps as premultiplied alpha), so a GIF over a video is a
+sticker with the clip showing through and plays round as any video over a video does. As a clip it is read
+and written again as an MP4 on black. With ffmpeg the same GIF goes through ffmpeg's own reader in the join
+(`-stream_loop`, rgba), and a clip from any file that isn't an MP4 is now scaled to whole pairs of pixels
+(`scale=trunc(iw/2)*2:trunc(ih/2)*2`), which a GIF's odd sizes need; that one filter is not tried here (no
+ffmpeg). An animated WebP is read too where asked for directly, but stays a picture to the storyboard.
+Checked: a GIF written by `GifWriter` reads back frame for frame (times, clear parts, a ground kept through
+frames that hold only what changed, a seek backwards), lies over a clip in the previewer and plays round, and
+goes through `video action=edit` to an MP4.
+
+**Export from the panel** (`VideoEditorViewModel.Export`, the Video clips row's menu): an export was something
+only the agent did. The menu offers a half-size MP4, an upright one (nine to sixteen at the video's longer side,
+its middle kept), a square one, a GIF and the sound as a WAV, each written to the video's `Exports` folder under
+the video's name and shown in Explorer; through ffmpeg where there is one, else `VideoComposer.ExportAsync`.
+No Save dialog: the panel has none anywhere, and the file's place is said in the status line. A video changed
+since it was made says so instead of exporting the old one. Checked in the app: GIF of the demo, 4.3 MB.
+
+**"It hardly moves" and what no model made** (2026-11-19): the check that a clip moves (`DescribeMotion`: the
+frames' average change added up under 4) is for clips a video model makes, where a frozen clip is a failed one.
+On a clip from a picture of the user's it was always wrong, and on a drawn scene mostly so: a sun rising over
+hills changes a few pixels in a hundred. Haiku, told "it hardly moves" of a spring scene that was right, searched
+the web for SMIL easing and edited the scene three times (40 s of a 2.8 minute video). Now a held picture is
+said to be one, a scene with little change is said to have small things moving over a still picture (no fault),
+and only a scene in which nothing changes at all (under 0.15) is a fault, since its animation may not be running.
+
+### The built-in path against ffmpeg
+The user's OK to download came late on 2026-11-19, and the laptop got ffmpeg 9.0.2 (gyan.dev's essentials build,
+its 7z from the GitHub mirror, checked against gyan.dev's SHA-256, unpacked with 7zr since Windows' tar here has
+no LZMA; kept in `.dev\ffmpeg-dl`, on the PATH only for these runs). With it the three clip tests that had
+always been skipped on the laptop ran and passed, and the built-in join could be put beside ffmpeg's frame by
+frame (`enc pairs`, `enc curve` in the rig): the same storyboard joined both ways, each transition looked at a
+third and two thirds through.
+
+- **Reading ffmpeg's file**: through Windows' reader its first frame was at 0.133 s, not 0 (x264's frames lean on
+  later ones and the reader gets the file's edit list wrong), so the comparison read ffmpeg's file that much
+  later. Ours has no such frames and starts at 0. (Put right in the reader the day after: see "Awkward files".)
+- **What was wrong here and is put right** (all in `VideoPreviewer.Transitions.cs`, each rule now xfade's own,
+  worked out on a 96x54 grid and smoothed over the frame: `Field`): the diagonal wipes went the other way
+  ("diagtl" ends in the top left, so the new picture starts bottom right); the blinds came from the wrong side
+  and without their band; the smooth wipes, the circles and the clock had edges far harder than xfade's, which
+  are as wide as the frame; "circlecrop" shrank evenly where xfade's goes by the cube; "zoomin" zooms the old
+  picture until its middle fills the frame and only then lets the new one through; "hblur" smears half the
+  frame wide and to the left; "pixelize" takes one pixel a block, not their average; "distance" was a dissolve.
+- **The fade through black**: xfade mixes towards a black of 0 where video's black is 16 (and a white of 255
+  where white is 235), so the picture is darker by that share again and the screen stays black three tenths
+  into the transition, where the rule alone says a tenth of the new clip shows. Measured frame by frame on flat
+  clips, then done the same way here (a colour offset of -16/219 or +20/219 of what the mix leaves to the
+  background).
+- **The sound**: a one-channel file was 3 dB louder here than in ffmpeg's join, which spreads it at 0.707 to
+  each side. `VideoSoundMix` does the same now; with it the demo's loudness by half second is within 5% of
+  ffmpeg's all through (music fading in, clips crossfading, the end fading out).
+- **A shot's own edits against ffmpeg** (`enc looks`, 28 shots of one photo clip, each edited another way): the
+  turns, mirrors, fits, crop, speed, reverse, freeze and trim matched from the start (1 to 2 of 255, the floor
+  for two encoders). The colours did not, and are now ffmpeg's own (`VideoPreviewer.Looks.cs`): eq in the whole
+  numbers ffmpeg uses, on brightness alone, with its settings held as floats (-0.1 is 89 hundredths there, 90 in
+  doubles) and its colour planes a step under their middle when saturation changes; warm and cool as
+  colorbalance has them, pixel by pixel, by its odd measure of lightness (largest colour plus smallest), which
+  touches only the dark parts; vintage as its three curves (natural splines); the vignette as cos^4 of the
+  distance, with the share of video's black it also takes off; the negative of video's numbers; the blurred
+  background's edges and its 22 of 255 darker; the slow zoom by the frame (first frame at the start, last at the
+  end). Contrast went from 10.6 apart to 1.3, warm 9.1 to 1.7, vintage 8.8 to 1.8, the vignette 39.6 to 1.3,
+  the zoom 5.7 to 1.7. Two were left at first and are done too: pixelate (5.1 to 1.2), where ffmpeg's colour
+  blocks are twice the size of its brightness blocks because video keeps colour at half size (`Blocks`: each
+  block its own average brightness, each two by two blocks one colour); and ffmpeg's blur (`Gblur`, the blur
+  effect 2.7 to 1.1, the blurred copy behind a fitted picture 4.5 to 2.5), which at its one step is no Gaussian
+  but each row and column run through forwards and back with a share of the pixel before (a peak with long
+  tails), and spreads the colour planes twice as far as the brightness, for the same reason. The copy behind is
+  darker by eq's -0.06, which in ffmpeg's whole numbers is 16 steps (19 of 255), not the 22 first worked out.
+  With these every one of the 28 edits is within 2.5 of 255 of ffmpeg's, and
+  `A_shots_edits_look_here_as_they_do_in_ffmpegs_join` holds 19 of them to 6 on bars of colour and a grey slope.
+  A GIF is read whole into memory now, so its file isn't held open while it is looked at.
+
+- **What it comes to**: over 21 transitions the two joins differ by 0.1 to 2.5 of 255 a pixel on average
+  (pixelize 3.4, whose blocks start a pixel apart), with a scene, a keyed picture, a picture in picture, grain,
+  sharpening, a clip at double speed and one reversed in the frame. `The_video_joined_here_is_the_one_ffmpeg_joins`
+  holds 13 of them to 6 of 255 wherever there is an ffmpeg. ffmpeg joined the 19 s demo in 3 s where the
+  built-in path takes 11, at two thirds of the size.
+
+### Awkward files: a video read as a player shows it
+Every file the reader had met until 2026-11-20 was one Sloperator or a model had made. So 87 awkward ones were
+made with ffmpeg (`.dev\three-techs-test\inputs.ps1`: a picture said to be turned, twelve frame rates and an
+uneven one, eleven sizes, pixels that aren't square, colour written each way, fifteen kinds of coding and
+container, twelve sound layouts, clips of one and three frames, a clock that starts at ten seconds), with files
+whose picture turns white and whose sound beeps at exactly one second (`sync.ps1`) and patches of eight known
+colours (`colours.ps1`). Each was read with Windows alone and put beside ffmpeg's reading (`enc inputs`,
+`enc sync`, `enc patches`, `enc jumps`), then joined both ways as the second clip of a video (`enc awkward`).
+What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless said:
+
+- **The picture behind the sound.** The white frame against the beep, before and after:
+
+  | file | before | after |
+  | --- | --- | --- |
+  | MP4 or MOV with frames that lean on later ones (x264's usual; 30 fps) | +109 ms | -3 ms |
+  | the same at 24 fps | +143 ms | -3 ms |
+  | the same at 60 fps | +43 ms | -3 ms |
+  | MP4 without such frames, MKV | -24 ms | -3 ms, -24 ms |
+  | MP4 whose clock starts at 10 s | first frame at 10.0 s | -3 ms, first frame at 0.02 |
+  | broadcast stream (.ts) | +1255 ms | -3 ms |
+  | WMV | +50 ms | -3 ms |
+
+  Media Foundation adds an MP4's edit (the two frames a clip with such frames starts into its own track) where
+  it should take it off, so the first frame came at 0.133 s; it leaves in the 21 ms of nothing an AAC encoder
+  starts with; and a stream's two tracks each start where they start. Every video the app plays or joins without
+  ffmpeg had this, ffmpeg's own output included. Now a file's first frame and first sample are read once
+  (`Measure`, kept by path, size and write time in `Origins`), an MP4's own edit list is read from its index
+  (`Mp4Tracks`: each track's empty edit, where in the track the film begins, the first frame's offset), and
+  every time is set on the film's clock from that (`Origin`): the picture starts where the edit list says, the
+  sound loses the encoder's start or gets silence where it starts after the picture, the length is the film's.
+  A file with no edit list keeps the times its tracks have to each other, the earlier one at nought.
+- **Turned**: the track's header says how far a phone's picture is to be turned (`MF_MT_VIDEO_ROTATION`), and the
+  video processor does turn it, but into the frame asked for, which was the lying one: an upright video came out
+  small with black beside it. The size is asked for turned, and turned and upright are asked for outright (the
+  processor is otherwise left out when the size is the decoder's own, and a picture said to be upside down
+  stayed so).
+- **Squeezed**: `MF_MT_PIXEL_ASPECT_RATIO` (16:15 on a DVD's 720x576, 4:3 on a tape camcorder's 1440x1080) is now
+  the width asked for, with square pixels.
+- **Every second frame of an MKV**: its source said 15 frames a second for a video of 30, and the processor made
+  it so by dropping frames. It is told to pass frames on as they come (`MF_XVP_DISABLE_FRC`, through
+  `IMFSourceReaderEx`), and a rate that is half or twice what the first frames show is taken from the frames.
+- **Sound at twice the speed**: an AAC at 22 kHz is first said to be at 44, and says what it is with its first
+  decoded sample (`MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED`). The first sample is read when the file is opened,
+  and again when it is opened anew.
+- **A hang**: H.264 in ten bits or with colour at full detail (profiles 110, 122, 244) is taken by Windows'
+  decoder, which then never gives a frame; the reader, and whatever called it, waited for good. The profile is
+  on the file's type (`MF_MT_MPEG2_PROFILE`), and such a file is refused before anything is read.
+- **Jumps**: a clip's last frames lie past the length the file states (by the same edit), and a jump there
+  failed with `MF_E_INVALID_POSITION`; it goes to just before the end and reads on. Past the end there is no
+  frame, and no throw. A broadcast stream is jumped in by guessing, and the frames found were named by times
+  they don't have (a white frame as the one at 0.25 s): such a file (`IsBroadcast`: 0x47 every 188 bytes) is
+  only read onwards, from its start again to go back. A sound in an MP4 starts at the packet after the place
+  asked for, up to 21 ms late: the jump is made 100 ms early and what is before the place left out by its
+  times; one that lands past the place (an MP4 whose clock starts late landed 1.6 s on) or back at the very
+  start (a file in fragments, an MKV) is counted from the start instead. After this every jump in the nine
+  containers tried gives the sound to the sample (`enc jumps`). A jump in the picture still gives the frame
+  nearest the time, not the one showing then: half a frame at most, and ffmpeg's own frame rate filter rounds
+  the same way.
+- **A file in fragments** (a browser's recording, a stream saved) states no length: its tracks' last fragments
+  are read for it (`Mp4Tracks`, `moof`/`tfdt`/`trun`).
+- **Colours.** How far the eight patches came out from the colours they were made of (largest of 255):
+
+  | written as | before | after | ffmpeg |
+  | --- | --- | --- | --- |
+  | older standard (BT.601), HD | 25 | 1 to 3 | 2 to 3 |
+  | older standard, 640x480, said so | 25 | 1 to 3 | 2 to 3 |
+  | newer standard (BT.709), 640x480 | 29 | 4 to 5 | 4 to 6 |
+  | newer standard, HD | 4 to 5 | 4 to 5 | 4 to 6 |
+
+  The processor's own red, green and blue took a video that says it is in the older standard in the newer one
+  at any size, and a small one that says the newer in the older. So frames are asked for as the decoder has
+  them (NV12), which the processor hands on with their colours untouched, and made red, green and blue here
+  (`ToBgra`: fixed point, the colour values spread between their neighbours, a large frame on every core) by
+  what the file says: an H.264 video's own header (`VideoColours.OfH264`, read out of the MP4's `avcC`), else
+  the MP4's note (`colr`), else by size as players do (under 1280 wide and at most 576 high: the older), a
+  Motion JPEG over the whole range in the older, a WMV in the older as Windows itself has it. The range is
+  the one thing the processor does change: a video its decoder knows to run over the whole range arrives
+  brought down to TV's when the processor is in the way, and as coded when it isn't (`_processed`). Straight
+  from the decoder a picture comes in whole blocks of 16 (1920x1088), cut here to the size asked for. Reading
+  got faster by it: 90 frames of 720p in 0.6 s where it was 1.1, of 1080p in 1.2 for 2.4. The writer goes by
+  the same size rule for what it writes.
+- **ffmpeg's side** had two of these too: its reader (`FfmpegDecoder.ParseProbe`) took a file's stored size,
+  so a turned or squeezed video it read (a phone's HEVC, which Windows doesn't) came out squashed; and the
+  join's fitting goes by pixels alone, so a squeezed clip stayed squeezed (`ShotPicture` now makes the pixels
+  square first: `scale=trunc(iw*sar/2)*2:ih,setsar=1`, nothing for a clip that has them so). And a file Windows
+  finds only sound in (`FallbackDecoder.Probe`) is now asked of ffmpeg too, unless it is a sound file by its
+  name: an HEVC video was "sound, 3 s" with ffmpeg sitting there.
+- **Sound in a join without ffmpeg**: a clip in 5.1 kept its first two channels, so a film lost its speech,
+  which is in the third. `SoundEdit.Fold` folds as ffmpeg does in a join: the centre and the back channels at
+  0.707 to their sides, the deep bass left out, nothing brought down. A clip of one channel that is read and
+  written again as an MP4 (an MKV, a WMV) was 3 dB louder than one taken as it is; `Transcode` writes it at
+  0.707 a side. The speakers had the same fault: `WaveOutPlayer` plays two channels and took a sound's first
+  two, so a film in 5.1 played in the chat or an editor as music and noises without the talk. It folds by the
+  same shares now (`SoundEdit.Shares`, `WaveOutPlayer.ToPcm`), what adds up past full scale held at it.
+- **What can't be read is said**: a clip whose picture nothing here reads was 45 black frames in the joined
+  video and a note. The join stops instead, and so does taking such an MP4 as a clip, with
+  `MediaDecoders.WhyNoPicture`: what the file is coded as, by its own index or its name, and what would read
+  it (ffmpeg in `SloperatorData\tools`, and Microsoft's own extension where there is one). On the laptop
+  (Windows 10 LTSC, nothing added) Windows reads no HEVC, VP8, VP9, AV1, MPEG-2 or ProRes picture, no FLV, and
+  no Ogg, Opus or AIFF sound; AC-3 and Opus sound in an MP4 come out as no sound.
+- **Clips cut from a long recording** (`enc long`: three 5 s clips out of a 20-minute 720p recording, joined
+  without ffmpeg): the mix read each clip's whole sound, the recording's, and held it twice (as read, and at 48
+  kHz): 14 s of video took 39.6 s to join and 3.2 GB, and Stop was not heard for 28 s, since nothing looked for
+  it while the sound was read. `VideoSoundMix` now reads of each file only what a shot or a sound line plays
+  (from its trim, as long as it lasts at its speed; exactly that for a clip played backwards, which starts from
+  the end of its cut), a second at a time with Stop looked for between: 6.7 s, 582 MB at most, and
+  stopped 0.04 s after it is asked. Jumping in the sound is to the sample now (above), which this leans on.
+  `Transcode` (a clip or an export written again as an MP4) holds a sound of over five minutes a second at a time too. Probing
+  the recording takes 0.16 s the first time (its first frames are read for its clock) and 0.02 s after; a frame
+  15 minutes in comes in 0.04 s.
+- **Left as it is**: H.264 in an MKV or a stream has its colours by size alone (its header isn't read there);
+  a file in fragments keeps the encoder's 21 ms at the start of its sound; a shot made of a file still gets the
+  whole file as its clip (three clips of the 581 MB recording are 2.3 GB in the video's folder), and one that
+  isn't an MP4 is read and written again whole, however little of it the shot shows.
+
+**With the agent** (no ffmpeg on the PC): given a phone's upright video (stored lying, turned by its header) and
+an MKV, and asked to cut two seconds out of the first, make a GIF of them and join the two with each shown whole,
+Claude Haiku did it in 51 s and 17 calls: `action=edit` twice (the cut is 720x1280, upright, 60 frames; the
+GIF 640x1138), then a storyboard of two file shots with `fit`, their clips, the join and an export. Before this
+round the cut would have been a 1280x720 frame with the picture small in its middle, and the MKV's clip half
+its frames. qwen3.8 did the same in 9.4 minutes and 20 calls, all three files right.
+
+Both runs showed one more thing: a shot made of a file got the five seconds any shot starts with. The phone
+clip is six seconds: Haiku joined it a second short and said so at the end; qwen saw "5 s" in the storyboard
+beside a file it had read as 6 s, looked for ffprobe over the whole disk to settle it (two calls), and set the
+lengths by hand. Now such a shot, given no length, runs as long as its video does from its trim at its speed
+(`VideoEditorTool.LengthsFromFiles`; a later change that names the same file leaves the length alone), and the
+storyboard says the file's length beside the shot ("the user's file phone.mp4 (6 s long)"). And a shot was a
+minute at most (`Normalize`), which is right for a clip a model makes and wrong for a recording: `action=edit`
+on a 20-minute video, to cut three minutes out or make it smaller, gave its first minute without a word. A
+shot made of a file now runs up to ten hours and one that is a drawn scene up to ten minutes. One five-minute
+shot of 720p joins without ffmpeg in 124 s with 990 MB at most: the mix is still held whole (115 MB for five
+minutes, and the clip's part of the sound twice more while it is made), so an hour would want some 4 GB; a mix
+made a stretch at a time is the thing to do if videos that long are joined here.
+
+With that in, Haiku joined the two at their full lengths (10 s, 53 s of work). qwen3.8, asked only for the
+join, took 6.1 minutes where it had taken 9.4 for all three, but its first step was still ffprobe, before any
+storyboard: not found, searched for over three folders, run from where a copy lay. ffprobe gave the phone's
+video as 1280x720 (its stored size, not turned), so qwen took both clips to fill the frame and set no `fit`.
+So the storyboard now says a file's size as it is shown beside its length ("phone.mp4 (720x1280, 6 s long)"),
+and the guide's line on file shots says to go by that and by read_file, not by ffprobe, and why. With the
+guide's line qwen3.8 read both files with read_file, ran no ffprobe, showed the phone clip whole over a blur of
+itself and joined the two at their full lengths: 5.6 minutes, 18 calls, no errors. (The storyboard's own line
+reached the agent only a commit later: it was written and tested on the overview, and the tool showed the
+overview without the reader it needs. `One_video_file_is_cut_turned…` now asks the tool itself.)
+
+Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
+`MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's
+matrix; and, where there is an ffmpeg to make the files, picture against sound in six containers, MKV, squeezed,
+22 kHz, ten bits, colours five ways).
+
+### Awkward pictures: more kinds, and colours as they are
+The same was done for pictures (2026-11-20): 50 made with ffmpeg and Windows' own library
+(`.dev\three-techs-test\pictures.ps1`: PNG in nine kinds, JPEG in six, BMP, GIF, WebP, ICO, TIFF in seven, Targa in
+four, AVIF, JPEG 2000, EXR, Radiance, QOI, PPM, PCX, a 108-megapixel photo, a dot, a ribbon, files cut short),
+each read as the app reads it and put beside ffmpeg's reading (`enc pictures`). Everything Skia has a decoder for
+came out to the pixel: deep and grey and one-bit PNGs, every JPEG, a 12000x9000 photo in 0.4 s, a file cut short
+as far as it goes. What it has none for was simply not a picture: every TIFF, every Targa file, AVIF and the rest.
+
+- **Windows' own decoders** (`WindowsPictures`, the Windows Imaging Component through its tables, like Media
+  Foundation): a TIFF in any of its kinds (packed or not, 16 bits, grey, clear, several pages: the first), a
+  game's DDS textures, JPEG XR, and whatever the PC has an extension for (a phone's HEIC, AVIF, a camera's raw
+  files; the laptop has none of those, so only TIFF could be tried). Decoded from the file's bytes in memory, so
+  no handle is held, to BGRA with the colours scaled by the clearness. `IPlatformServices.Pictures` hands it to
+  `PictureFile.Os` when the media decoders are set up.
+- **Targa** (`TgaFile`, in Core: neither Skia nor Windows reads it): true colour in 16, 24 or 32 bits, grey, a
+  table of colours, plain or packed in runs, from the bottom up or the top down, clear only where the header
+  keeps bits for it. It has no signature, so its header has to make sense (`LooksLikeOne`), and Windows is asked
+  first.
+- **One place** takes them in: `PictureFile.Decode` goes to the other readers when Skia has no codec, and
+  `PictureFile.Codec`, which much of the code asks for a picture's size and which way up it is, gets such a
+  picture as a PNG of it (packed lightly, kept for the last six files asked for). `PictureFile.Readable` gives
+  the same to what decodes bytes itself: the window's bitmaps (`UprightPicture`) and `PictureEdit`. So read_file
+  shows the model a TIFF or a texture, edit_picture crops and converts one, and the chat, the media viewer and
+  the File inspector show them, with no other change (`PictureFile.Kinds`, `ComfyOutput.KindOf`). The video
+  editor's own list of pictures (`Storyboard.PictureExtensions`: what is a reference, what goes to ComfyUI) is
+  left as it was. Haiku, given a 16-bit TIFF and a half-clear Targa texture: said what each shows, saved the one
+  as a JPEG and the other as a PNG at half size, in 15 s.
+- **Colours named in the file**: a phone's photo is in Display P3 and a camera's often in Adobe RGB, where the
+  same numbers mean stronger colours than in sRGB. Skia reads the numbers and notes the space on the bitmap, and
+  everything after took them as sRGB: such a photo was duller here than it is, in every panel, in what the model
+  was shown, and in every copy an edit saved, which named no space at all. A red of (200, 60, 60) in P3 is
+  (217, 42, 52), a green of (60, 200, 60) is (0, 203, 11); in Adobe RGB (231, 57, 57) and (0, 201, 36).
+  `PictureFile.Usual` brings a picture to sRGB as it is read (Skia does the sums), `PictureEdit` and the window's
+  decoding do the same, and a picture that names sRGB or nothing is untouched (`enc profiles`).
+- **To ComfyUI** (`ComfyApi.UploadAsync`, `PictureFile.AsPlainPng`): a picture goes into ComfyUI's input folder
+  as the file it is, and its loader is Pillow: no HEIC or DDS without more installed, and a photo's numbers
+  taken as they stand, the colour space it names passed by, so what a model made from an iPhone's photo would
+  come out paler than the photo, as it did here before `Usual`. A picture Skia has no decoder for, or one that
+  names a wider space, is now uploaded as a PNG of it as it is seen here (upright, in sRGB, under its own name
+  with .png); every other file goes as it is. Not run against a ComfyUI: the laptop has none, so this stands on
+  what the loader's code does and on the test of what is sent.
+- **Several pictures read in one step** (`AgentSession`, found on this task, nothing to do with their kind): a
+  tool's picture goes to the model in a message after the step's results, and there was room for one, the last.
+  That is right for screenshots, where only the newest screen matters, and wrong for files: asked to look at
+  three pictures, both models read all three in one step, were shown the last, and were told "a 640x480
+  picture" of the other two with no word that it wasn't attached. qwen3.8 reasoned "read_file returned only
+  the size, but the images weren't shown" and saved a PNG copy of each into scratch to read that; Haiku, in the
+  app, did the same and said so. Now every picture a tool opens with a line saying what it is (a file read, a
+  clip looked at) goes, each in a message of its own after the results and in the order read, eight a step at
+  most (`MostPictures`; a ninth's result says to read it again alone); a screenshot is still the last one only.
+  With it both models read the three and went straight on: Haiku in 10 s and 9 calls (15 s and 11 before, one
+  of them a copy nobody asked for), qwen in 84 s and 9 calls as before, with no copies made.
+- **Left**: a 32-bit BMP's fourth byte is taken as nothing, as most programs take it (ffmpeg takes it as
+  clearness); JPEG 2000, EXR, Radiance, QOI, PPM and PCX are not read; a CMYK JPEG was not tried (nothing here
+  writes one).
+
+Tests: `PictureKindsTests` (Targa every way and cut short, as a picture to read, show and edit; a TIFF written
+by hand through Windows' decoders; P3 and Adobe RGB photos read and edited),
+`Every_picture_read_in_one_step_goes_to_the_model`.
+
+### A video a shot is made of is read where it is
+A shot made of a video of the user's had a clip of its own: an MP4 was copied into the shot's place, and any other
+kind was read and written again as an MP4, all of it, for every shot made of it. Three five-second cuts out of a
+20-minute, 600 MB recording put 2.3 GB in the video's folder (the copy in References and one for each cut); as an
+MKV the recording took 204 s to write again for each cut (`enc take`: 36,001 frames at 176 a second), ten minutes
+before anything could be joined; and every split in the Video editor copied the file once more.
+
+Now nothing is copied and nothing made (`Storyboard.ShotSource`, `ShotClip`, `HasClip`): the shot is read from
+the video where it is, which is References for a file given by its path (`TakeInPictures` copies it in once, as
+before). The same three cuts take no time and 580 MB, as an MP4, a MOV, an MKV or a WMV.
+- **Which kinds** (`Storyboard.ReadsWhereItIs`): every video but a GIF (a few colours, often an odd size) and a
+  broadcast stream (.ts, .m2ts, .mts, .mpg, .mpeg), which are made an MP4 once as before. A jump 15 minutes into
+  the recording takes 0.04 s in MP4, MOV, MKV and WMV, and 36 s in a .ts, which Windows only reads from its start
+  (`enc deep`). `VideoExtensions` gained .wmv, .3gp, .flv, .ts, .m2ts, .mts, .mpg and .mpeg: a WMV named as a
+  shot's file was taken for a picture.
+- **Two paths, by what they are for**: `ShotVideo` is the storyboard's own file (to write, move, keep versions of,
+  set aside when the shot is deleted) and is the only one of the two that is ever written or deleted; `ShotClip` is
+  what a shot is read from, the user's video for such a shot, else `ShotVideo`. Every reader goes by `ShotClip`
+  (the join here and ffmpeg's, the sound mix, the previewer, the checks, the panel's strips, player and menus),
+  `VideoPiece.Reads` is the same for a piece. A shot whose video is gone falls back to a clip of its own if it
+  still has one (a video made before this change).
+- **Nothing to make**: such a shot is up to date while its video is there (`VideoMaker.IsCurrent`), so the
+  storyboard lists it as "Read where it is" and it is not among what is to be made. action=shot on it checks that
+  its picture can be read (and says why not: `WhyNoPicture`) and looks at it. A clip the shot had before (a
+  model's, kept as a version first by the tool) is taken away (`DropOwnClip`), so it isn't taken for the shot's if
+  the video is moved. `TakeClip` (the editor's split and trims) does the same for any such video, where it took
+  an MP4 only: a split of an MKV clip made it again from the start.
+- **In the panel** a clip is still known by its own place (`VideoPick.Path`, what a pick in the chat's box is
+  described by), and seen from the video: its pick is not "planned", the viewer and Open in Inspector show the
+  video, the chip under the box says "5 s from 10:00" where it said "not made yet", and the chat is told
+  "cut from their video … (600 to 605 s of it)".
+- **Each shot its own reader** (`VideoPreviewer.SourceOf(file, who)`): readers were kept by file, so two cuts
+  out of one recording shared one, which went to and fro for every frame of the transition between them: the
+  join took 9.2 s, 7.4 s with a reader for each shot.
+
+A cut out of a long file also showed what took a shot for all of its clip:
+- **A look at a shot** (`VideoCheck.Shot`) sampled sixteen frames from the whole file, read its start for how it
+  moves (its first 1,440 frames) and two minutes of its sound: a look at five seconds was of the twenty minutes.
+  `MediaStretch.Of` gives
+  a decoder that reads a file as the stretch a shot shows (`VideoShot.Stretch`: from its `in`, its seconds at its
+  speed), timed from zero; the look goes through it ("Shot s3 (long.mkv, from 1000 to 1005 s of it)…", 1.5 s),
+  and so does the strip on a clip's card, which was of the whole file too. A stretch that is all of the file
+  (to a quarter of a second, as a model's clip runs a frame or two over its shot) is the decoder as it is.
+- **The frames at a cut** (`VideoCheck.Cuts`) and **the frame a shot ends on** (`EndFrame`, for a frame "of" a
+  shot) were the file's first and last. They are the stretch's, and the first of it for a shot played backwards;
+  a frame's stamp takes in the stretch of a shot made of a file, so it is taken again when the cut moves.
+- **Played backwards** a shot played the end of its file, from `in` on: ffmpeg's `trim=start,reverse` reverses
+  all that is left, and the previewer and the mix did as it did. A cut out of the middle of a recording, reversed,
+  showed the recording's last seconds, and ffmpeg held every frame after the cut to do it. It plays its own
+  stretch backwards now (`SourceTime`, `VideoSoundMix`), from the frame showing just before the stretch's end.
+- **ffmpeg jumps to the cut** (`VideoMontage.ShotInput`): each clip is given as `-ss <in> -t <its stretch> -i`,
+  where `-i` and `trim=start` decoded everything before the cut. Forwards half a second more than it shows, so a
+  rounding holds no frame; backwards exactly the stretch. The same three cuts join in 2.2 s with ffmpeg.
+- **The frame showing at a time** (`VideoPreviewer.Read`): a reader goes to the frame that starts nearest a
+  time, which in a frame's second half is the next one. A cut starting between two frames began a frame late,
+  and one played backwards began on the frame after it. The previewer now asks for half a frame earlier and reads
+  on to the one showing. And a frame counts as showing from a thousandth of a second before it starts (it was a
+  ten-thousandth): Windows gives an MKV's or a WMV's frames their times to the millisecond (0.033, 0.067), so
+  frame 6029 is kept as 200.967, a third of a millisecond late, and was still "showing" at 201.0. Every frame
+  of a cut out of an MKV was the one before it, which Haiku's highlights video showed by the recording's own
+  frame counter (6029 where 6030 belongs; exact after the change, forwards and backwards). Backwards, the time
+  asked for is half a frame short of the cut's end, not a thousandth of a second, for the same reason.
+
+Measured (`enc long` on the 20-minute recording, three 5 s cuts with dissolves, `SL_FFMPEG` set): taken in 0.0 s
+(1.2 s and 2.3 GB as copies; an MKV was not taken at all, and 204 s a cut through the tool), joined here in 7.4 s
+and by ffmpeg in 2.2 s, a look at one cut 1.5 s. The join here and ffmpeg's, with the middle cut backwards, are
+the same frame for frame (PSNR 34.6 to 36 dB at no offset, 22 to 26 dB a frame either way, in every clip and
+transition; before the two fixes above the backwards clip was a frame off). In a WMV, ffmpeg's own jump is a
+frame early (it shows 6029 where the time asked for is in 6030, read off the test picture's frame counter); ours
+is the frame showing.
+
+**The video's frame from its footage** (`Storyboard.FrameFrom`, `IsBlank`; `VideoEditorTool.FrameFromFiles`):
+asked for highlights of the 30 frames a second recording, Haiku gave the storyboard neither a size nor a rate
+(as it should not have to), and the video came out at the 1280x720 and 24 a second a new video starts with: one
+frame in five dropped, and a phone's upright clip would have been cut to a strip across its middle. A video
+that had nothing in it (no shot made, described, or made of a file) and is made only of the user's files and
+scenes takes the first video's size as it is shown and its frames a second (60 at most), unless the change
+gives a size or a rate (each on its own: a rate given keeps the size from the footage). Not where a model
+makes a clip too, which is made at the sizes the models make. The same for the first clip dropped on a new
+video in the panel, which also ran a minute at most and now runs its own length.
+
+**The panel's sound before the mix is ready** (`VideoEditorViewModel.ShotAudio`): Play pressed before the mix
+is made plays the clips' sound as read, which was up to twenty minutes of each clip's file, whole (230 MB and
+seconds of reading for the recording, and silence for a cut from past its twentieth minute). Only a cut's own
+seconds are read now (`MediaStretch.Sound`), kept by file and stretch and let go when the clip is cut again.
+
+On the models (`cli.ps1`, "a highlights video from the 20-minute MKV: four seconds from 3:20, four from 10:00
+backwards, four from 16:40, with a dissolve between them"): Haiku in 1.1 and 1.0 minutes, 10 and 11 calls, no
+errors, the storyboard and the join with no step between; Qwen in 6.2 minutes, 19 calls, one failed (a search for
+ffmpeg). All three videos are right by the recording's frame counter. Qwen wanted single frames of the joined
+video to see the dissolves, found the ffmpeg under `.dev` and cut them with it: there is no way yet to ask for
+the frames around a moment of a video (what a scan of a stretch is to give).
+
+Not done: a .ts or .mpg is still written again whole.
+
+Tests: `FileShotTests` (what is read where, nothing copied, an old clip dropped, the video never touched; a
+stretch as a clip of its own; the end frame, the stamp, the look and ffmpeg's inputs of a cut),
+`A_clip_is_cut_as_its_shot_says_before_it_fills_the_frame`, `Of_a_long_recording_only_what_a_shot_or_a_sound_line_plays_is_read`,
+`A_shot_is_at_its_own_moment_of_its_clip`. By hand: the panel on three cuts of the 20-minute MKV
+(`.dev/three-techs-test/home9`): picked, split, reversed, duplicated, deleted and undone, with only the
+shots' small .json files written and the recording untouched.
+
+### A recording looked through for the agent: scan, and silences cut out
+To cut a highlights video out of a long recording the agent has to know where anything happens in it, and all it
+had was read_file's frames, a handful spread over twenty minutes, and the sound's overall level. Qwen, asked only
+to check two dissolves in a video it had joined, went looking for an ffmpeg on the disk to cut single frames with.
+
+**action=scan** (`VideoCheck.Scan`, `VideoCheck.Scan.cs`; `VideoEditorTool.ScanAsync`) looks through a video or
+sound file without watching it and says, in the file's seconds:
+- **Its sound** (`ScanSound`): read through once, a twentieth of a second at a time, none of it held. How loud it
+  usually is (louder than nine tenths of it), where it is silent, and the moments that stand out as loud (a second
+  each, 6 dB over the middle one, five seconds apart at least, eight at most). Silent is 30 dB below the usual
+  level (between -60 and -35 dB), not below a fixed level: a recording made in a room has the room in its
+  silences. A silence is 0.7 s or more (`LeastSilence`: shorter is a breath between two words), and 0.15 s of it
+  is kept beside the sound at each end (`KeptAround`), so a word isn't clipped; all of it goes at the recording's
+  own start and end. The energy is added up over the channels, not the channels: two that mirror each other cancel.
+- **Its picture** (`ScanPicture`): looked at every few seconds (a look for every two seconds, 300 at most, 8 at
+  least), two frames a fifth of a second apart each time: the first against the look before (another picture?) and
+  against the second (does it move?). The reader jumps from look to look, so twenty minutes are 300 jumps, not
+  36,000 frames. Where two looks differ much more than looks do as a rule, the stretch between them is halved
+  towards the half that differs more until two frames next to each other are left (`CutBetween`): a **cut** when
+  most of the difference is between those two, and more than twice what movement makes there in a fifth of a
+  second; its time is the new picture's first frame. Without that a zoom into a fractal was four "cuts" in ten
+  seconds, and sliding stripes a cut at every look. **Still**: the same picture look after look with nothing
+  moving, ten seconds or more. **Black**: two looks or more. **The most movement**: what stands out over three
+  quarters of the looks by half again, six moments at most; in a recording that moves all through, none.
+- **Frames across it** (30 at most, six to a row, 1536 wide), each with its time as a clock shows it, to the tenth
+  of a second when they are less than two seconds apart.
+- **A stretch of it** (`storyboard: {"in", "seconds"}`) is scanned the same way, more closely (eight looks at
+  least): the way to see the frames around a moment of any video, a joined one too.
+
+**action=edit with "skip": "silences"** (`VideoEditorTool.SkipSilences`) saves a file with its silences cut out in
+one call: the one shot the file is edited as becomes a shot for each stretch with sound (of what the shot shows:
+its "in" and "seconds" still cut it), each with the shot's other changes, joined with plain cuts. More than 40
+pieces are joined here even where there is an ffmpeg, which would take each as an input of its own. The scan says
+how long the file is with its silences cut out and names this call.
+
+Measured (`enc scan`): the 110 s test recording (`scan\talk.mp4`: a tone, 3 s of black and silence, a still card
+with a tone that stops for a second in every three, a fractal zoom under noise, 32 s of a still card in silence, a
+tone) in 5.9 s: all eight silences to a tenth of a second, the five cuts at 20, 23, 43, 58 and 90 exactly, both
+standstills, the black, the noise as what stands out. The 20-minute 720p MKV in 9.9 s and 154 MB: no silence, no
+cut, "much the same all through", which it is.
+
+On the models (`cli.ps1` with `scan	alk.mp4`: "save a copy without the silences, then a short highlights video of
+its two most eventful moments, and say where each came from"): Haiku in 1.4 minutes, one scan, the edit with
+"skip": "silences" (71.6 s, all eight silences) and a storyboard of 44-50 s and 89-94 s, picked by the scan's
+cuts and loud moments (its one error was capture_result refusing an MP4, another tool's limit). Qwen in 5.3
+minutes, 0 errors: a scan, then two stretches scanned closely before choosing (47-52 s and 98-103 s), the same
+71.6 s copy. Neither looked for ffmpeg or went through frames by hand.
+
+Tests: `VideoScanTests` (a sound's silences, kept edges, room noise and what stands out; a picture's cuts to the
+frame among sliding bars, its standstills and black, and how few frames are read; the scan's words and sheet, a
+stretch of it, a sound file; through the tool on a file Windows writes: the scan, and the silence cut out of it).
+
+### Cutting on the beat
+A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by
+round seconds, and in the Video editor a clip's length went by half seconds. `SoundBeats` (Core/Media) finds
+them. How much the sound starts anew at each moment (86 a second) is the rise of its spectrum from one look to
+the next, taken twice: over everything, and over the bass alone (under 200 Hz), each less the average of the
+half second around it and in units of how much it varies, then added. The bass run is what tells a kick from a
+hat: by the whole spectrum a quiet hat between beats is as much of a new start as the kick (it is broadband), and
+a loop with hats on the half beats came out at two thirds of its tempo (100 for 150). The tempo is the gap, from
+50 to 210 BPM, at which that run lines up with itself best (about its own mean, or noise lines up at every
+gap), with a leaning towards 120 and a share of the doubled gap's score; the run is spread over the looks
+beside each moment first, because a beat that falls between two looks lined up with the next beat worse than
+with the one after and gave half the tempo (75 for 150). The beats are then followed through the piece (Ellis
+2007: the best chain of strong moments about a beat apart), not counted out from the tempo: a hundredth of a
+beat's error at 120 BPM is a third of a second after three minutes. A file whose spectrum never rises (a held
+note, a hum), noise, speech-like sound with no gap that lines up, and anything under four seconds has no beat.
+
+- **For the agent**: `video action=check` with a sound's id says where the file is, what it holds and its beat
+  in the video's own time (`VideoEditorTool.BeatLine`: BPM, the beat's length, the first eight beats, how long 4
+  and 8 beats are), and a song's result says it as soon as the song is made. With `path` a sound file it tells
+  the file's beat in its own time, before there is any video (`CheckSoundFile`), and the tool's description names
+  both: Qwen 3.8, asked for cuts on a song's beat, read the guide (which then said "with its id once it is there"),
+  wanted the beat before writing a storyboard, searched the PC for ffprobe, and wrote a beat finder in PowerShell.
+  Haiku, asked only "what is the tempo of song.wav and when do its first beats fall", now answers from one call in 7 s.
+- **In the Video editor**: each music file's beat is found when its samples are read for the waveform
+  (`AudioOf`; songs and sound files, not voice-overs or foley), shown as ticks along the bottom of the sound's
+  block (`VideoWave.Beats`, left out when closer than 4 px), and added to what a dragged title or sound lands on
+  (`Land`) and to a clip's right edge (`BeatLength`: the clip's end on the beat within 6 px, else half seconds
+  as before).
+
+Checked: drum loops at 90, 120, 128 and 150 BPM found within 1% with every beat within 0.03 s of a kick; noise,
+a held note, silence and a 2 s loop give none; through the tool, a loop trimmed by 1 s and started at 2 s has
+its beats told at 2.25, 2.75, 3.25 (within 0.01 s). In the app (rig home4: the demo video with a 100 BPM loop)
+the ticks stand under the kicks and clip 1's end dragged from 4 s to near 4.25 s landed on 4.3 s (the beat at
+4.29), where it used to land on 4.5. Not checked on real songs: the laptop has none, and ACE-Step is on the
+workstation. Half or double the real tempo is the likely miss there, and cuts on every other beat still fall on
+beats.
 
 ### How videos did
 On this PC (RTX 5070 Ti 16 GB, ComfyUI 0.41.3), at 1280x720 and 24 fps: a frame from words took
@@ -4429,8 +5571,10 @@ not the text area) and one key down (Home); a posted WM_KEYDOWN for a letter typ
 | `index_folder` | Indexes a folder, as Cursor does a codebase: an overview of the project (its kind, README, folders and what its main files define), and with `query` a search of its files by names or by what the code does (see below) |
 | `read_file`, `write_file`, `edit_file`, `list_directory` | File work; `read_file` also reads PDF, Word, Excel and PowerPoint files as text and shows pictures, videos, sounds and 3D models to the model; `write_file` makes documents from Markdown and `edit_file` changes them in place (see Documents); `edit_file` keeps a file's encoding and Windows line endings and can replace every occurrence (`replace_all`); with `host` they work on an SSH server instead (see below) |
 | `diff` | What changed: a git repository's uncommitted changes, staged ones, one commit, or since a branch, or two files or folders compared without git; the files and their line counts first, then the hunks, in parts (see Diff below) |
-| `comfyui` | Pictures, video, sound, music, speech and 3D models with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
-| `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg (see Videos) |
+| `comfyui` | Raster pictures, video made from them, sound, music and speech with ComfyUI on this PC, which it installs when there is none: templates, node and model look-ups, models found online and downloaded, checked runs that hand back the files (see Pictures, video and sound) |
+| `video` | Videos from a storyboard (the video's folder Video editor shows): plans or changes it, makes its frames, song and shots with ComfyUI, checks each shot against what it should show, joins them with ffmpeg; edits them as a video editor does and exports the video (see Videos, Editing) |
+| `render` | An SVG (SMIL) or a Three.js page drawn in Edge into a PNG, a clip or a .glb, frame by frame on a stopped clock, with a look and the page's errors (see Scenes: SVG and Three.js) |
+| `edit_picture` | An exact edit of a picture file with no model: a crop, another size, a turn, a mirror, its colours or another kind of file (PNG, JPEG, WebP), saved as a new file beside it (in an Image editor picture, its next version; see The Image editor panel) |
 | `edit_sound` | Cuts, keeps, fades, makes louder or quieter a stretch of a sound, or puts another sound in its place, saved as a new WAV beside it (in an Audio editor sound, its next version; see The Audio editor panel) |
 | `run_shell` | PowerShell on Windows, `sh` elsewhere |
 | `ssh` | Commands on another computer over SSH, in a terminal that stays open between calls (see below) |
@@ -5887,6 +7031,8 @@ alone, its tool, its arguments and what it made, the same for every model and se
 - comfyui: a run with save_to a picture of the Image editor's (a folder right in SloperatorData\pictures) in the **Image
   editor** as it starts; once a run ends, the first file it made in the **File inspector** (or the Image editor
   for one of its pictures). Looking things up (templates, models, status) shows nothing.
+- render and edit_picture: a render with save_to a picture of the Image editor's in the **Image editor** as it starts; what
+  either made once it ends, in the Image editor for one of its pictures, else in the **File inspector**.
 - comfyui and edit_sound, for a sound: a run with save_to a sound of the Audio editor's (a folder right in
   SloperatorData\sounds) in the **Audio editor** as it starts, and what a run or an edit made in one once it ends; an
   edit of any other sound in the File inspector.

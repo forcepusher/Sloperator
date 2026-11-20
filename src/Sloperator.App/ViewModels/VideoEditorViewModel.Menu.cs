@@ -16,8 +16,29 @@ public sealed partial class VideoEditorViewModel
         return row switch
         {
             "references" => [new("Create", free, CreateReference)],
-            "video" => [new("Create", free, AddShot)],
-            "sounds" => [new("Create", free, () => CreateSound(seconds, soundLine)), null, new("Delete sound line", free && _board.SoundLines > 1, () => DeleteSoundLine(soundLine))],
+            // How the video itself begins and ends: from black and to black unless turned off.
+            "video" =>
+            [
+                new("Create", free, AddShot),
+                new("Paste", free && CanPaste, () => Paste(), "Ctrl+V"),
+                // The frame under the playhead, to the Image editor: a poster, a still to work on.
+                new("Save this frame as a picture", CanSaveFrame, SaveFrame),
+                // The made video as another file, in its Exports folder: smaller, upright for a phone, a GIF, its sound.
+                new("Export", CanExport, () => { }) { Items = ExportItems() },
+                null,
+                new($"{Mark(VideoMontage.Fades(_board).In > 0)}Fade in at the start", free, () => Edit(() => _board.FadeIn = VideoMontage.Fades(_board).In > 0 ? 0 : null)),
+                new($"{Mark(VideoMontage.Fades(_board).Out > 0)}Fade out at the end", free, () => Edit(() => _board.FadeOut = VideoMontage.Fades(_board).Out > 0 ? 0 : null)),
+                .. UndoItems(free),
+            ],
+            "titles" =>
+            [
+                new("Create", free, () => CreateTitle(seconds)),
+                null,
+                // The lines the shots say, at the bottom while they are said.
+                new($"{Mark(_board.Captions)}Captions of what is said", free && _board.Shots.Exists(Storyboard.Speaks), () => Edit(() => _board.Captions = !_board.Captions)),
+                .. UndoItems(free),
+            ],
+            "sounds" => [new("Create", free, () => CreateSound(seconds, soundLine)), null, new("Delete sound line", free && _board.SoundLines > 1, () => DeleteSoundLine(soundLine)), .. UndoItems(free)],
             _ => [],
         };
     }
@@ -45,12 +66,13 @@ public sealed partial class VideoEditorViewModel
     public IReadOnlyList<PanelMenuItem?> MenuFor(ShotItem shot)
     {
         var free = !Busy(_board.Folder);
-        var items = new List<PanelMenuItem?>
-        {
-            new("Generate", free, () => Generate(shot)),
-            null,
-            new("Delete", free, () => DeleteShot(shot)),
-        };
+        var items = new List<PanelMenuItem?> { new("Generate", free, () => Generate(shot)), null };
+        items.AddRange(ClipEdits(shot, free));
+        items.Add(null);
+        items.Add(new("Duplicate", free, () => Duplicate(shot), "Ctrl+D"));
+        items.Add(new("Copy", true, () => Copy(shot), "Ctrl+C"));
+        items.Add(new("Paste", free && CanPaste, () => Paste(), "Ctrl+V"));
+        items.Add(new("Delete", free, () => DeleteShot(shot), "Delete"));
         AddVersions(items, shot);
         items.Add(null);
         items.Add(new("Create", free, AddShot));
@@ -81,9 +103,19 @@ public sealed partial class VideoEditorViewModel
             new("File…", free && (!generated || !sound.IsMade), () => _ = PickFileForAsync(sound)),
             new("Foley", free && generated, () => MakeFoley(sound)),
             new("Music", free && generated, () => MakeMusic(sound)),
+            new("Voice-over", free && generated, () => MakeVoice(sound)),
             null,
             new("Rename", free, () => RenameAsked?.Invoke(sound, sound.Title), "F2"),
-            new("Delete", free, () => DeleteSound(sound)),
+            new("Delete", free, () => DeleteSound(sound), "Delete"),
+            null,
+            new($"{(sound.Sound.FadeIn > 0 ? "● " : "")}Fade in", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeIn = s.FadeIn > 0 ? 0 : 1))),
+            new($"{(sound.Sound.FadeOut > 0 ? "● " : "")}Fade out", free, () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.FadeOut = s.FadeOut > 0 ? 0 : 2))),
+            // How loud it is in the mix, beside its line's slider: music under a voice-over, a sound too quiet.
+            new("Volume", free, () => { })
+            {
+                Items = new[] { 0.25, 0.5, 0.75, 1, 1.5, 2 }.Select(v => (PanelMenuItem?)new PanelMenuItem($"{(Math.Abs(sound.Sound.Volume - v) < 0.001 ? "● " : "")}{v * 100:0}%", free,
+                    () => Edit(() => _board.Sound(sound.Id)?.Let(s => s.Volume = v)))).ToList(),
+            },
         };
         AddVersions(items, sound);
         return items;
@@ -95,7 +127,7 @@ public sealed partial class VideoEditorViewModel
         var file = thing switch
         {
             ReferenceCard card => card.Path,
-            IVideoPiece piece => piece.Piece.File(_board),
+            IVideoPiece piece => piece.Piece.Reads(_board),
             _ => null,
         };
         return file is not null && File.Exists(file) ? file : null;
@@ -135,7 +167,7 @@ public sealed partial class VideoEditorViewModel
 
     /// <summary>Whether the video's folder is written into now (a piece being made, the chat at work on it): renamed or deleted, the work went astray.</summary>
     private bool Busy(string folder) =>
-        VideoMaker.IsMaking(folder) || SamePath(folder, _board.Folder) && _chat.VideoCall() is { } call && IsThisVideo(call.Args);
+        VideoMaker.IsMaking(folder) || SamePath(folder, _board.Folder) && (_joining || _chat.VideoCall() is { } call && IsThisVideo(call.Args));
 
     // ---- creating: a card or clip that is a file of the user's or generated --------------------------------------
 
@@ -349,6 +381,23 @@ public sealed partial class VideoEditorViewModel
             Status = $"Say in the chat what music {Lower(sound.Title)} should be (its style, and words if it is sung), and Sloperator makes it.";
     }
 
+    /// <summary>A voice-over on a sound: said once the chat is told its words (else at once, its words said).</summary>
+    private void MakeVoice(SoundItem item)
+    {
+        if (item.Sound.Source != VideoSound.Speech)
+        {
+            item.Sound.Source = VideoSound.Speech;
+            Changed();
+            SaveNow(force: true);
+            Rebuild();
+        }
+        if (Sounds.FirstOrDefault(s => s.Id == item.Id) is not { } sound)
+            return;
+        Generate(sound);
+        if (sound.Sound.Text.Trim().Length == 0)
+            Status = $"Say in the chat what {Lower(sound.Title)} says and in what voice, and Sloperator says it.";
+    }
+
     /// <summary>Generate: the piece goes into the chat's box; with what to make said, Sloperator makes it, else the user says what it should be.</summary>
     private void Generate(IVideoPiece piece)
     {
@@ -356,7 +405,8 @@ public sealed partial class VideoEditorViewModel
         var said = piece switch
         {
             FrameItem f => f.Frame.Prompt.Trim().Length > 0,
-            ShotItem s => s.Shot.Prompt.Trim().Length > 0,
+            ShotItem s => s.Shot.Prompt.Trim().Length > 0 || s.Shot.Assembled,
+            SoundItem { Sound.Source: VideoSound.Speech } v => v.Sound.Text.Trim().Length > 0,
             SoundItem a => a.Sound.Tags.Trim().Length > 0,
             _ => false,
         };
@@ -414,6 +464,9 @@ public sealed partial class VideoEditorViewModel
                 break;
             case SoundItem sound:
                 RenameSound(sound, name);
+                break;
+            case OverlayItem overlay:
+                SetWords(overlay, name);
                 break;
         }
     }
@@ -599,7 +652,10 @@ public sealed partial class VideoEditorViewModel
         Status = $"{Path.GetFileName(folder)} is in the Recycle Bin.";
     }
 
-    /// <summary>A clip out of the video, its files to the Recycle Bin with the frames only it uses (see <see cref="Storyboard.DeleteShot"/>).</summary>
+    /// <summary>
+    /// A clip out of the video, with the frames only it uses (see <see cref="Storyboard.DeleteShot"/>). Its files are
+    /// set aside, so Ctrl+Z brings the clip back as it was made, and go to the Recycle Bin once it can't (<see cref="EmptyAside"/>).
+    /// </summary>
     public void DeleteShot(ShotItem item)
     {
         if (Busy(_board.Folder) || _board.Shot(item.Id) is not { } shot)
@@ -607,15 +663,29 @@ public sealed partial class VideoEditorViewModel
         SaveNow();
         StopPlaying();
         DropViewer();
+        Remember();
         try
         {
-            _board.DeleteShot(shot, RecycleBin.Put);
+            // Each file by the piece it is of: the clip's own, and its start and end frames' (those only it uses go with it).
+            var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            void Own(string own)
+            {
+                owners.TryAdd(own, own);
+                foreach (var file in FilesWith(own))
+                    owners.TryAdd(file, own);
+            }
+            Own(_board.ShotVideo(shot));
+            foreach (var id in new[] { shot.First, shot.Last }.OfType<string>())
+                if (_board.Frame(id) is { } frame)
+                    Own(_board.FramePicture(frame));
+            _board.DeleteShot(shot, file => SetAside(file, owners.GetValueOrDefault(file, file)));
             if (_savedJson is not null)
             {
                 _board.Save();
                 _savedJson = _board.ToJson();
                 _dirty = false;
             }
+            Status = $"Deleted {item.Title}. Ctrl+Z brings it back.";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
@@ -652,19 +722,28 @@ public sealed partial class VideoEditorViewModel
         Clear();
     }
 
-    /// <summary>A sound off its sound line, its file to the Recycle Bin (a song with its versions; a sound file of the user's, its copy).</summary>
-    private void DeleteSound(SoundItem item)
+    /// <summary>
+    /// A sound off its sound line (a song with its versions; a sound file of the user's, its copy). Its files are set
+    /// aside, so Ctrl+Z brings it back, and go to the Recycle Bin once it can't (<see cref="EmptyAside"/>).
+    /// </summary>
+    /// <param name="remember">False as one of several deleted at once (a sound line's), which Ctrl+Z brings back together.</param>
+    private void DeleteSound(SoundItem item, bool remember = true)
     {
         SaveNow();
         StopPlaying();
         DropViewer();
+        if (remember)
+            Remember();
         try
         {
-            foreach (var file in Storyboard.FilesOf(_board.SoundFile(item.Sound)).Where(File.Exists).ToList())
-                RecycleBin.Put(file);
+            var own = _board.SoundFile(item.Sound);
+            foreach (var file in Storyboard.FilesOf(own).Where(File.Exists).ToList())
+                SetAside(file, own);
             _board.Sounds.Remove(item.Sound);
             Changed();
             SaveNow();
+            if (remember)
+                Status = $"Deleted {item.Title}. Ctrl+Z brings it back.";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
@@ -677,8 +756,10 @@ public sealed partial class VideoEditorViewModel
     /// <summary>A sound line with its sounds; the sound lines under it move up.</summary>
     private void DeleteSoundLine(int soundLine)
     {
+        SaveNow();
+        Remember();
         foreach (var sound in Sounds.Where(s => s.Sound.SoundLine == soundLine).ToList())
-            DeleteSound(sound);
+            DeleteSound(sound, remember: false);
         foreach (var sound in _board.Sounds.Where(s => s.SoundLine > soundLine))
             sound.SoundLine--;
         if (soundLine < _board.SoundLineVolumes.Count && _board.SoundLines > 1)
@@ -706,12 +787,30 @@ public sealed partial class VideoEditorViewModel
 
     // ---- a sound dragged on its sound line ----------------------------------------------------------------------
 
-    /// <summary>A sound moved along its sound line or to another, or trimmed at an edge, as a video editor's clip is; saved once let go.</summary>
-    public void MoveSound(SoundItem item, double start, int soundLine, double trim, double seconds)
+    /// <summary>
+    /// A sound moved along its sound line or to another ("move"), or trimmed at an edge ("left", "right"), as a video
+    /// editor's clip is; saved once let go. The edge dragged lands on a clip's start, the video's end or the playhead
+    /// when it is near one (<see cref="Land"/>), else on a tenth of a second.
+    /// </summary>
+    public void MoveSound(SoundItem item, double start, int soundLine, double trim, double seconds, string mode = "move")
     {
         var sound = item.Sound;
-        (sound.Start, sound.SoundLine, sound.Trim, sound.Seconds) =
-            (Math.Max(0, Math.Round(start * 10) / 10), Math.Clamp(soundLine, 0, _board.SoundLines - 1), Math.Max(0, Math.Round(trim * 10) / 10), Math.Max(0, Math.Round(seconds * 10) / 10));
+        switch (mode)
+        {
+            case "left":
+                // Its start cut: what it loses at the start it loses of its length, and its trim grows by as much.
+                var landed = Math.Max(0, Land(start).Seconds);
+                (trim, seconds, start) = (Math.Max(0, trim + (landed - start)), seconds > 0 ? Math.Max(0.2, seconds - (landed - start)) : seconds, landed);
+                break;
+            case "right":
+                seconds = Math.Max(0.2, Land(start + seconds).Seconds - start);
+                break;
+            default:
+                start = LandWhole(start, seconds);
+                break;
+        }
+        static double R(double v) => Math.Round(v * 100) / 100;
+        (sound.Start, sound.SoundLine, sound.Trim, sound.Seconds) = (Math.Max(0, R(start)), Math.Clamp(soundLine, 0, _board.SoundLines - 1), Math.Max(0, R(trim)), Math.Max(0, R(seconds)));
         Relayout();
         Changed();
     }

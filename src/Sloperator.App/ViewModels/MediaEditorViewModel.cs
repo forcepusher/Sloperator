@@ -101,7 +101,8 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     private bool _showRecipe;
 
     /// <summary>What the Prompt metadata button says: there for every version, greyed with why for one that doesn't say how it was made.</summary>
-    public string PromptTip => HasRecipe ? "Prompts and settings it was made with"
+    public string PromptTip => Recipe is { Scene: not null } ? "The scene it was drawn from"
+        : HasRecipe ? "Prompts and settings it was made with"
         : Shown is not null ? "This version doesn't say how it was made" : $"Pick a {_noun} that has been made first";
 
     partial void OnShownChanged(VersionItem? value) => ShownChanged();
@@ -316,7 +317,11 @@ public abstract partial class MediaEditorViewModel<TItem> : ObservableObject, IS
     [
         new("Delete", Selected is { } item && !AtWork(item), () => Delete(version)),
         new("Show in folder", true, () => FilePreview.ShowInFolder(version.Path)),
+        .. MoreFor(version),
     ];
+
+    /// <summary>What a version's menu offers besides, in this editor: none unless it says.</summary>
+    protected virtual IEnumerable<PanelMenuItem?> MoreFor(VersionItem version) => [];
 
     /// <summary>One in the list is to be renamed: the panel shows a box with its name to type the new one in.</summary>
     public event Action<TItem>? RenameAsked;

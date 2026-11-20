@@ -119,6 +119,13 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     /// <summary>Another video is shown: what was picked of the one before goes from the chat's box.</summary>
     private void Opened()
     {
+        // The edits of the video before aren't taken back here: Ctrl+Z wrote its storyboard into this video's folder.
+        ForgetEdits();
+        Scrubbed = false;
+        ResetPreview();
+        _soundMix = null;
+        // What a Sloperator that ended suddenly left set aside in this video's folder.
+        ClearAsideFolder(Path.Combine(_board.Folder, AsideName));
         Status = "";
         Rebuild();
         OnPropertyChanged(nameof(Folder));
@@ -250,6 +257,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             sound.BlockWidth = Math.Max(8, seconds * Pps - 2);
             end = Math.Max(end, sound.Sound.Start + seconds);
             sound.Peaks = PeaksOf(sound);
+            sound.Beats = BeatsOf(sound);
         }
         // Each sound line's +: after its last sound.
         foreach (var line in SoundLines)
@@ -259,6 +267,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             end = Math.Max(end, line.AddSeconds + 56 / Pps);
         }
         AddShotX = Lead + length * Pps + 4;
+        LayoutOverlays(length);
         TimelineWidth = Math.Max(Lead + end * Pps, AddReferenceX + CardWidth) + 240;
         OnPropertyChanged(nameof(PlayheadX));
         OnPropertyChanged(nameof(EndX));
@@ -313,37 +322,115 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private readonly HashSet<string> _reading = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A sound's samples, once read; null while they are read (it is laid out again then) or can't be.</summary>
-    private (float[] Samples, int Rate)? AudioOf(string file)
+    /// <param name="from">With <paramref name="to"/>: only this stretch of it, in seconds (a clip cut from a long recording).</param>
+    private (float[] Samples, int Rate)? AudioOf(string file, double from = 0, double to = 0)
     {
         var stamp = File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue;
         if (stamp == DateTime.MinValue)
             return null;
+        var path = file;
+        if (to > 0)
+            file = StretchKey(path, from, to);
         if (_audio.TryGetValue(file, out var known) && known.Stamp == stamp)
             return (known.Samples, known.Rate);
         if (_previews.Decoder is not { } decoder || !_reading.Add(file))
             return null;
+        var music = to <= 0 && _board.Sounds.Any(s => s.Source is VideoSound.Song or VideoSound.FromFile && string.Equals(_board.SoundFile(s), path, StringComparison.OrdinalIgnoreCase));
         _ = Task.Run(() =>
         {
             (float[], int)? read = null;
             try
             {
-                using var reader = decoder.OpenAudio(file);
+                using var whole = decoder.OpenAudio(path);
+                using var reader = whole is not null && to > 0 ? new Core.Media.MediaStretch.Sound(whole, from, to) : whole;
                 if (reader is not null)
                     read = MediaPreview.ReadMono(reader, TimeSpan.FromMinutes(20));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException) { }
+            // Its beat too, for music: the ticks under its waveform, and what a clip's end or a title snaps to.
+            BeatGrid? beat = null;
+            if (music && read is var (heard, at) && heard.Length >= at * 8)
+            {
+                try { beat = SoundBeats.Find(new SoundSamples(heard, at, 1)); }
+                catch (Exception ex) when (ex is ArgumentException or IndexOutOfRangeException or InvalidOperationException) { }
+            }
             Dispatcher.UIThread.Post(() =>
             {
                 _reading.Remove(file);
                 if (_disposing)
                     return;
                 _audio[file] = read is var (samples, rate) ? (stamp, samples, rate) : (stamp, [], 1);
+                // A stretch no clip is cut to any more (it was trimmed again) is let go.
+                if (to > 0)
+                {
+                    var used = _board.Shots.Select(s => StretchKey(_board.ShotClip(s), s.Stretch.From, s.Stretch.To + StretchPad)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    foreach (var old in _audio.Keys.Where(k => k.Contains('|') && !used.Contains(k)).ToList())
+                        _audio.Remove(old);
+                    Relayout();
+                    return;
+                }
+                _beats[file] = beat;
                 foreach (var sound in Sounds.Where(s => string.Equals(_board.SoundFile(s.Sound), file, StringComparison.OrdinalIgnoreCase)))
                     sound.FileSeconds = read is var (all, r) ? all.Length / (double)Math.Max(1, r) : 0;
                 Relayout();
             });
         });
         return null;
+    }
+
+    /// <summary>A little more than a clip shows is read of its sound, so a rounding at its end has something to play.</summary>
+    private const double StretchPad = 0.5;
+
+    private static string StretchKey(string file, double from, double to) => FormattableString.Invariant($"{file}|{from:0.###}|{to:0.###}");
+
+    /// <summary>
+    /// A clip's own sound for the stretch its shot is cut from, starting at the cut: for playing the video before its
+    /// mix is ready. Of a clip cut from a long recording only its own seconds are read: the recording's first twenty
+    /// minutes were, whole (230 MB, and seconds of reading), and a cut from past the twentieth minute played silent.
+    /// </summary>
+    private (float[] Samples, int Rate)? ShotAudio(VideoShot shot) => AudioOf(_board.ShotClip(shot), shot.Stretch.From, shot.Stretch.To + StretchPad);
+
+    /// <summary>The beat of each music file read, by its path; null for one with no steady beat.</summary>
+    private readonly Dictionary<string, BeatGrid?> _beats = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>When the music's beats fall in the video: each song's and sound file's, where it plays.</summary>
+    internal IEnumerable<double> BeatMarks()
+    {
+        foreach (var sound in Sounds)
+            if (_beats.GetValueOrDefault(_board.SoundFile(sound.Sound)) is { } grid)
+            {
+                var plays = sound.PlaySeconds(Length);
+                foreach (var time in grid.Times)
+                    if (time >= sound.Sound.Trim && time <= sound.Sound.Trim + plays)
+                        yield return sound.Sound.Start + time - sound.Sound.Trim;
+            }
+    }
+
+    /// <summary>Where a sound's beats fall along its block, 0 at its left edge to 1 at its right; null for one with no beat found.</summary>
+    private double[]? BeatsOf(SoundItem sound)
+    {
+        if (_beats.GetValueOrDefault(_board.SoundFile(sound.Sound)) is not { } grid)
+            return null;
+        var plays = sound.PlaySeconds(Length);
+        return plays <= 0 ? null : [.. grid.Times.Where(t => t >= sound.Sound.Trim && t <= sound.Sound.Trim + plays).Select(t => (t - sound.Sound.Trim) / plays)];
+    }
+
+    /// <summary>
+    /// A clip's length while its right edge is dragged: to the beat its end is near (within <see cref="SnapPixels"/>),
+    /// so a cut falls on the music; null when no beat is near, and the length goes by half seconds as before.
+    /// </summary>
+    internal double? BeatLength(ShotItem item, double seconds)
+    {
+        var index = _board.Shots.IndexOf(item.Shot);
+        var (starts, _) = _board.Timing();
+        if (index < 0 || index >= starts.Count)
+            return null;
+        var (end, reach) = (starts[index] + seconds, SnapPixels / Math.Max(1, Pps));
+        double? nearest = null;
+        foreach (var beat in BeatMarks())
+            if (Math.Abs(beat - end) <= reach && (nearest is null || Math.Abs(beat - end) < Math.Abs(nearest.Value - end)))
+                nearest = beat;
+        return nearest is { } on && on - starts[index] >= 0.5 ? Math.Round(on - starts[index], 2) : null;
     }
 
     /// <summary>The waveform of the part of a sound that plays, a peak each tenth of a second, 0 to 1.</summary>
@@ -394,7 +481,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private string _playLabel = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlayIcon))]
+    [NotifyPropertyChangedFor(nameof(PlayIcon), nameof(ShowsPlayhead))]
     private bool _isPlaying;
 
     public Avalonia.Media.Geometry PlayIcon => PlayerIcons.Play(IsPlaying);
@@ -417,12 +504,28 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         StartPlaying(PlayPosition >= 0 && PlayPosition < end - 0.05 ? PlayPosition : 0);
     }
 
+    /// <summary>
+    /// The arrow keys: the playhead a frame back or on (by <paramref name="frames"/>), or with Shift a second, kept
+    /// between the video's start and end, for a split or a trim just there.
+    /// </summary>
+    public void StepPlayhead(int frames, bool seconds = false) =>
+        SeekStrip(Math.Clamp(PlayPosition + (seconds ? frames : frames / (double)Math.Max(1, _board.Fps)), 0, Math.Max(0, Length)));
+
+    /// <summary>Home and End: the playhead to the video's start or its end.</summary>
+    public void PlayheadTo(bool end) => SeekStrip(end ? Math.Max(0, Length) : 0);
+
     /// <summary>The timeline was clicked: the playhead goes there (and plays on from there if it was playing).</summary>
     public void SeekStrip(double seconds)
     {
         var playing = IsPlaying;
         StopPlaying();
         PlayPosition = Math.Max(0, seconds);
+        Scrubbed = true;
+        // The clips' sound is read, and the video's sound mixed, by the time Play is pressed.
+        foreach (var made in _board.Shots.Where(s => !s.Reverse && (s.Volume ?? 1) > 0))
+            ShotAudio(made);
+        WarmMix();
+        WarmScenes();
         ShowFrameAt(PlayPosition);
         if (playing)
             StartPlaying(PlayPosition);
@@ -431,11 +534,47 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private void StartPlaying(double from)
     {
         StopPlaying();
+        // The video's sound as joining it mixes it, when that mix is ready for the video as it is now: a clip's sound
+        // through a transition, backwards or at another speed with its pitch kept, the music under a voice, the end's fade.
+        // Before, Play mixed the clips' and lines' sounds plainly, and an edit was heard as it is only once the video was made.
+        var json = MixKey();
+        if (_soundMix is { } ready && ready.Json == json && _previews.NewAudioOutput() is { } speakers)
+        {
+            _playEnd = Math.Max(Length, 0);
+            var joined = new JoinedSound(ready.Mix);
+            joined.Seek(TimeSpan.FromSeconds(from));
+            try
+            {
+                speakers.Play(joined);
+                _playOutput = speakers;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                speakers.Dispose(); // no speakers to open
+            }
+            BeginPlaying(from);
+            return;
+        }
+        WarmMix();
         // The sounds that are read, mixed as the video joins them; with none, the frames go by the clock.
         var parts = new List<VideoMix.Part>();
         foreach (var sound in Sounds)
             if (AudioOf(_board.SoundFile(sound.Sound)) is var (samples, rate) && samples.Length > 0)
                 parts.Add(new VideoMix.Part(samples, rate, sound.Sound.Start, sound.Sound.Trim, sound.PlaySeconds(Length), sound.Sound.Volume * _board.LineVolume(sound.Sound.SoundLine)));
+        // The clips' own sound too, each from where its clip starts, as the joined video has it: its start cut off, at its
+        // speed (higher or lower with it here, where the joined video keeps its pitch), at its volume, half under a song.
+        // Not a clip played backwards, nor one whose sound isn't read yet (it is by the next time).
+        var (starts, _) = _board.Timing();
+        var under = _board.Sounds.Any(s => s.Source == VideoSound.Song) ? 0.5 : 1.0;
+        for (var i = 0; i < _board.Shots.Count && i < starts.Count; i++)
+        {
+            var shot = _board.Shots[i];
+            if (shot.Reverse || (shot.Volume ?? 1) <= 0 || ShotAudio(shot) is not var (samples, rate) || samples.Length == 0)
+                continue;
+            var plays = shot.Freeze is { } freeze ? Math.Min(freeze, shot.Seconds) : shot.Seconds;
+            // The samples start at the clip's cut already.
+            parts.Add(new VideoMix.Part(samples, rate, starts[i], 0, plays, (shot.Volume ?? 1) * under, shot.Speed ?? 1));
+        }
         _playEnd = Math.Max(Length, parts.Select(p => p.Start + p.Seconds).DefaultIfEmpty(0).Max());
         if (parts.Count > 0 && _previews.NewAudioOutput() is { } output)
         {
@@ -451,6 +590,12 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
                 output.Dispose(); // no speakers to open
             }
         }
+        BeginPlaying(from);
+    }
+
+    /// <summary>The playhead set going from a moment, by the sound's clock when there is sound.</summary>
+    private void BeginPlaying(double from)
+    {
         _playFrom = from;
         _playClock = Stopwatch.StartNew();
         IsPlaying = true;
@@ -461,6 +606,82 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     }
 
     private double _playEnd;
+
+    /// <summary>The video's sound mixed as joining it does (<see cref="VideoSoundMix"/>), for the video as its JSON was then.</summary>
+    private (string Json, float[] Mix)? _soundMix;
+    private bool _mixing;
+
+    /// <summary>The longest video whose whole sound is mixed ahead for Play (23 MB a minute while the panel is open).</summary>
+    private const double LongestMixed = 300;
+
+    private bool _drawingScenes;
+
+    /// <summary>
+    /// Draws the frames of the scenes laid over the video (an animated SVG title, a Three.js logo) in the background
+    /// where they aren't drawn yet or the scene changed, then shows the playhead's frame again: the viewer showed
+    /// nothing of such a title until the video had been made once.
+    /// </summary>
+    private void WarmScenes()
+    {
+        if (_drawingScenes || _disposing || _previews.Decoder is not { } decoder || !_board.Overlays.Any(o => o.Scene is { Length: > 0 }))
+            return;
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser")) { Writer = decoder };
+        _drawingScenes = true;
+        _ = Task.Run(async () =>
+        {
+            var drawn = 0;
+            try { drawn = await VideoComposer.DrawScenesAsync(board, scenes, [], null, CancellationToken.None).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is VideoException or Core.Render.RenderException or IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException) { }
+            Dispatcher.UIThread.Post(() =>
+            {
+                _drawingScenes = false;
+                if (!_disposing && drawn > 0 && Scrubbed && !IsPlaying)
+                    ShowFrameAt(PlayPosition);
+            });
+        });
+    }
+
+    /// <summary>What a mix is of: the video as written, and when each clip and sound it is made of was written (a clip made again is another sound).</summary>
+    private string MixKey()
+    {
+        static long Stamp(string file)
+        {
+            try { return File.Exists(file) ? File.GetLastWriteTimeUtc(file).Ticks : 0; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+        }
+        return _board.ToJson() + "|" + string.Join(',', _board.Shots.Select(s => Stamp(_board.ShotClip(s))).Concat(_board.Sounds.Select(s => Stamp(_board.SoundFile(s)))));
+    }
+
+    /// <summary>Mixes the video's sound in the background when the video changed since the last mix, so Play has it.</summary>
+    private void WarmMix()
+    {
+        if (_mixing || _disposing || _previews.Decoder is not { } decoder || _board.Shots.Count == 0 || Length > LongestMixed)
+            return;
+        var json = MixKey();
+        if (_soundMix?.Json == json)
+            return;
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        _mixing = true;
+        _ = Task.Run(() =>
+        {
+            float[]? mix = null;
+            try { mix = VideoSoundMix.Mix(board, decoder, []); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException or SoundEditException) { }
+            Dispatcher.UIThread.Post(() =>
+            {
+                _mixing = false;
+                if (_disposing)
+                    return;
+                _soundMix = mix is null ? null : (json, mix);
+                // Changed again meanwhile: once more for the video as it is now.
+                if (MixKey() != json)
+                    WarmMix();
+            });
+        });
+    }
 
     private void PlayTick()
     {
@@ -483,7 +704,11 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         IsPlaying = false;
     }
 
-    /// <summary>The frame of the clip at a time: its first frame, its last for the second half (when it has one).</summary>
+    /// <summary>
+    /// The video under the playhead, in the viewer: the clip there at its own frame, as it is edited, with the titles
+    /// over it (<see cref="VideoPreviewer"/>), drawn off the window's thread, the latest moment asked for first. Until
+    /// its frame is there, and for a clip not made yet, the clip's start or end picture as before.
+    /// </summary>
     private void ShowFrameAt(double seconds)
     {
         var (starts, _) = _board.Timing();
@@ -493,14 +718,135 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
                 at = i;
         if (at < 0)
         {
-            PlayFrame = null;
+            _frameEpoch++;
+            SetPlayFrame(null, owned: false);
             return;
         }
         var shot = Shots[at];
+        PlayLabel = $"{shot.Title} · {TimeSpan.FromSeconds(Math.Max(0, seconds)):m\\:ss\\.f}";
+        if (_previews.Decoder is not null && _board.HasClip(shot.Shot))
+        {
+            AskFrame(seconds);
+            return;
+        }
         var late = seconds - starts[at] >= shot.Shot.Seconds / 2 && shot.Last is not null && !shot.Shot.LipSync;
         var frame = late ? shot.Last : shot.First ?? shot.Last;
-        PlayFrame = frame?.Thumbnail;
-        PlayLabel = $"{shot.Title}, {(late ? "end" : "start")} · {seconds:0.0} s";
+        _frameEpoch++; // a frame still being drawn for a moment before isn't shown over this
+        SetPlayFrame(frame?.Thumbnail, owned: false);
+    }
+
+    /// <summary>The longer side the playhead's look is drawn at: as wide as the viewer is on most screens.</summary>
+    private const int PreviewSide = 960;
+
+    private VideoPreviewer? _previewer;
+
+    /// <summary>The storyboard the previewer draws from, a copy of its own (it is read off the window's thread), and the JSON it was copied at.</summary>
+    private (string Json, Storyboard Board)? _previewBoard;
+
+    /// <summary>The moment asked for last, and its number: a frame drawn for an earlier one is dropped.</summary>
+    private double _frameWanted;
+    private int _frameAsked;
+    private int _frameEpoch;
+    private bool _drawing;
+
+    /// <summary>Whether <see cref="PlayFrame"/> is a bitmap of the previewer's, to let go when another is shown (a clip's thumbnail is its clip's).</summary>
+    private bool _ownsPlayFrame;
+
+    private void SetPlayFrame(Bitmap? frame, bool owned)
+    {
+        var old = _ownsPlayFrame ? PlayFrame : null;
+        (PlayFrame, _ownsPlayFrame) = (frame, owned);
+        if (!ReferenceEquals(old, frame))
+            old?.Dispose();
+    }
+
+    /// <summary>Asks for the video's frame at a moment; one is drawn at a time, and then the latest asked for meanwhile.</summary>
+    private void AskFrame(double seconds)
+    {
+        _frameWanted = seconds;
+        var asked = Interlocked.Increment(ref _frameAsked);
+        var epoch = _frameEpoch;
+        if (_drawing || _previews.Decoder is not { } decoder)
+            return;
+        var json = _board.ToJson();
+        if (_previewBoard?.Json != json)
+        {
+            var copy = Storyboard.Parse(json);
+            copy.Folder = _board.Folder;
+            _previewBoard = (json, copy);
+        }
+        var board = _previewBoard.Value.Board;
+        var previewer = _previewer ??= new VideoPreviewer(decoder, PreviewSide);
+        _drawing = true;
+        _ = Task.Run(() =>
+        {
+            Core.Platform.RawImage? frame = null;
+            try { frame = previewer.FrameAt(board, seconds); }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException) { }
+            Dispatcher.UIThread.Post(() =>
+            {
+                _drawing = false;
+                if (_disposing)
+                    return;
+                // Shown unless a clip not made, or nothing, took the viewer meanwhile; then on to the latest moment, if another was asked for.
+                if (frame is not null && epoch == _frameEpoch)
+                    SetPlayFrame(ToBitmap(frame), owned: true);
+                if (asked != _frameAsked && ShowsPlayhead)
+                    AskFrame(_frameWanted);
+                else
+                    RestPreview();
+            });
+        });
+    }
+
+    private static Bitmap ToBitmap(Core.Platform.RawImage frame)
+    {
+        var pinned = System.Runtime.InteropServices.GCHandle.Alloc(frame.Bgra, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            return new Bitmap(Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul, pinned.AddrOfPinnedObject(),
+                new Avalonia.PixelSize(frame.Width, frame.Height), new Avalonia.Vector(96, 96), frame.Stride);
+        }
+        finally
+        {
+            pinned.Free();
+        }
+    }
+
+    /// <summary>
+    /// The viewer shows the video under the playhead: while it plays, and once the playhead was moved (a click on the
+    /// ruler, the arrows, Home and End), until something is picked or let go of. Before, moving the playhead showed
+    /// nothing: a split or a trim "at the playhead" was made blind.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsPlayhead))]
+    private bool _scrubbed;
+
+    public bool ShowsPlayhead => IsPlaying || Scrubbed;
+
+    /// <summary>
+    /// Nothing asked of the previewer for a few seconds, and nothing playing: its readers are closed, so the clips'
+    /// files aren't held open while the panel only stands there.
+    /// </summary>
+    private void RestPreview()
+    {
+        _restTimer ??= new DispatcherTimer(TimeSpan.FromSeconds(3), DispatcherPriority.Background, (_, _) =>
+        {
+            _restTimer!.Stop();
+            if (!IsPlaying && !_drawing)
+                _previewer?.Reset();
+        });
+        _restTimer.Stop();
+        _restTimer.Start();
+    }
+
+    private DispatcherTimer? _restTimer;
+
+    /// <summary>The previewer's readers closed (a clip is about to be written over, another video is open).</summary>
+    private void ResetPreview()
+    {
+        _previewer?.Reset();
+        _previewBoard = null;
     }
 }
 
@@ -510,7 +856,8 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
 /// </summary>
 internal sealed class VideoMix(IReadOnlyList<VideoMix.Part> parts, double length) : IAudioReader
 {
-    public sealed record Part(float[] Samples, int Rate, double Start, double Trim, double Seconds, double Volume);
+    /// <param name="Speed">How fast it plays: 2 is twice as fast (and higher), as a clip sped up.</param>
+    public sealed record Part(float[] Samples, int Rate, double Start, double Trim, double Seconds, double Volume, double Speed = 1);
 
     private const int Rate = 48000;
     private long _at;
@@ -531,7 +878,7 @@ internal sealed class VideoMix(IReadOnlyList<VideoMix.Part> parts, double length
                 var local = (_at + i) / (double)Rate - part.Start;
                 if (local < 0 || local >= part.Seconds)
                     continue;
-                var pos = (local + part.Trim) * part.Rate;
+                var pos = (local * part.Speed + part.Trim) * part.Rate;
                 var j = (long)pos;
                 if (j + 1 >= part.Samples.Length)
                     continue;
@@ -545,6 +892,30 @@ internal sealed class VideoMix(IReadOnlyList<VideoMix.Part> parts, double length
     }
 
     public void Seek(TimeSpan time) => _at = Math.Max(0, (long)(time.TotalSeconds * Rate));
+
+    public void Dispose() { }
+}
+
+/// <summary>The video's sound already mixed (stereo at 48 kHz), played from a moment.</summary>
+internal sealed class JoinedSound(float[] mix) : IAudioReader
+{
+    private int _at;
+
+    public int SampleRate => VideoSoundMix.Rate;
+    public int Channels => VideoSoundMix.Channels;
+    public TimeSpan Duration => TimeSpan.FromSeconds(mix.Length / VideoSoundMix.Channels / (double)VideoSoundMix.Rate);
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        var n = Math.Min(count, mix.Length - _at);
+        if (n <= 0)
+            return 0;
+        Array.Copy(mix, _at, buffer, offset, n);
+        _at += n;
+        return n;
+    }
+
+    public void Seek(TimeSpan time) => _at = (int)Math.Clamp((long)(time.TotalSeconds * VideoSoundMix.Rate) * VideoSoundMix.Channels, 0, mix.Length);
 
     public void Dispose() { }
 }

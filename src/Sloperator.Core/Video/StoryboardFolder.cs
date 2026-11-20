@@ -56,7 +56,8 @@ public sealed partial class Storyboard
     public string PlaceFor(VideoShot shot) => $"{GeneratedName}/{Safe(shot.Id)}.mp4";
 
     /// <summary>Where a song is made, for one not placed yet: "Generated/a1.mp3".</summary>
-    public string PlaceFor(VideoSound sound) => $"{GeneratedName}/{Safe(sound.Id)}.mp3";
+    /// <remarks>A voice-over is FLAC, as ComfyUI saves speech.</remarks>
+    public string PlaceFor(VideoSound sound) => $"{GeneratedName}/{Safe(sound.Id)}{(sound.Source == VideoSound.Speech ? ".flac" : ".mp3")}";
 
     /// <summary>
     /// The shot a frame belongs to: the first that ends on it (the frame a shot after starts on is
@@ -158,13 +159,16 @@ public sealed partial class Storyboard
     /// The file a piece's .json is beside: of its name, with the extension its kind has (a frame's
     /// picture as it is there, else a PNG; a shot's or the video's MP4).
     /// </summary>
-    private static string FileOf(string meta, string kind)
+    /// <param name="json">The piece's .json: a voice-over not made yet is a FLAC, as ComfyUI saves speech (read as an MP3's
+    /// place, a voice-over made later was a FLAC named .mp3).</param>
+    private static string FileOf(string meta, string kind, JsonObject? json = null)
     {
         var stem = Path.Combine(Path.GetDirectoryName(meta)!, Path.GetFileNameWithoutExtension(meta));
         if (kind == "frame")
             return PictureExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ?? stem + ".png";
         if (kind == "sound")
-            return SoundExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ?? stem + ".mp3";
+            return SoundExtensions.Select(e => stem + e).FirstOrDefault(File.Exists) ??
+                   stem + (json?["source"] is JsonValue s && s.TryGetValue<string>(out var source) && source == VideoSound.Speech ? ".flac" : ".mp3");
         return stem + ".mp4";
     }
 
@@ -180,7 +184,7 @@ public sealed partial class Storyboard
             var settings = (JsonObject)json.DeepClone();
             settings.Remove("kind");
             settings.Remove("made");
-            settings["place"] = Path.GetRelativePath(folder, FileOf(meta, kind)).Replace(Path.DirectorySeparatorChar, '/');
+            settings["place"] = Path.GetRelativePath(folder, FileOf(meta, kind, json)).Replace(Path.DirectorySeparatorChar, '/');
             switch (kind)
             {
                 case "video" when video is null && Path.GetDirectoryName(meta) == folder:
@@ -281,6 +285,13 @@ public sealed partial class Storyboard
             ["voiceSeed"] = VoiceSeed,
             ["soundLines"] = SoundLines,
             ["soundLineVolumes"] = SoundLineVolumes.All(v => v == 1) ? null : new JsonArray([.. SoundLineVolumes.Select(v => (JsonNode)JsonValue.Create(v))]),
+            // What is laid over the joined video and how it is joined: the video's own, not a piece's.
+            ["overlays"] = Overlays.Count == 0 ? null : JsonSerializer.SerializeToNode(Overlays, typeof(List<VideoOverlay>), Readable),
+            ["fadeIn"] = FadeIn,
+            ["fadeOut"] = FadeOut,
+            ["quality"] = Quality.Length > 0 ? Quality : null,
+            // Not null when off: a bool is read from true or false only.
+            ["captions"] = Captions ? JsonValue.Create(true) : JsonValue.Create(false),
             ["shots"] = new JsonArray([.. Shots.Select(s => (JsonNode)JsonValue.Create(s.Id))]),
         }));
         foreach (var (meta, kind, _) in Metas(Folder).ToList())

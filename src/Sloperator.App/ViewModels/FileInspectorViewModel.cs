@@ -496,9 +496,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IFilePane
             return;
         }
         using var probe = Core.Media.PictureFile.Codec(path);
-        var own = probe is null ? (0, 0) : (probe.Info.Width, probe.Info.Height);
+        var own = probe is null ? (0, 0) : Core.Media.PictureFile.SizeOf(probe);
         using var stream = File.OpenRead(path);
-        var bitmap = own.Item1 is > 0 and <= MaxPictureWidth ? new Bitmap(stream) : Bitmap.DecodeToWidth(stream, MaxPictureWidth, BitmapInterpolationMode.HighQuality);
+        var bitmap = own.Item1 is > 0 and <= MaxPictureWidth ? UprightPicture.Load(stream) : UprightPicture.ToWidth(stream, MaxPictureWidth);
         if (own.Item1 == 0)
             own = (bitmap.PixelSize.Width, bitmap.PixelSize.Height);
         var details = probe is null ? size : $"{own.Item1}x{own.Item2}, {size}";

@@ -642,10 +642,14 @@ public sealed partial class AgentSession(
                 if (!cutCall)
                     cutOffs = 0; // it is moving again; a later cut gets its own notes
 
-                // Only the last screenshot goes to the model: the tools' results come before it.
+                // Only the last screenshot goes to the model: the tools' results come before it. A picture a tool
+                // opened (a file read, a clip looked at: it comes with a line saying what it is) is another matter:
+                // every one of those goes, each after the results. Only the last did, so of three pictures read in
+                // one step the model saw one, was told nothing of the other two, and read them again or made
+                // copies of them to look at (Haiku and qwen3.8 both, 2026-11-20).
                 ChatMessage? shown = null;
                 ContentPart? screenshot = null;
-                string? caption = null;
+                var pictures = new List<(ChatMessage Result, ContentPart Picture, string What)>();
                 ChatMessage? last = null;
                 // This reply's calls were decided on the screen in the last screenshot.
                 toolContext.Seen = toolContext.LastShot;
@@ -704,8 +708,10 @@ public sealed partial class AgentSession(
                         result = result with { Image = null, Text = result.Text + "\n(A picture came with this, left out: the model in use can't see images.)" };
                     var message = last = ChatMessage.ToolResult(call.Id, result.Text);
                     History.Add(message);
-                    if (result.Image is not null)
-                        (shown, screenshot, caption) = (message, ContentPart.FromImage(result.Image, result.ImageMime), result.ImageCaption);
+                    if (result.Image is not null && result.ImageCaption is { } what)
+                        pictures.Add((message, ContentPart.FromImage(result.Image, result.ImageMime), what));
+                    else if (result.Image is not null)
+                        (shown, screenshot) = (message, ContentPart.FromImage(result.Image, result.ImageMime));
                 }
                 // The whole calls ran; the cut one is said after their results.
                 if (cutCall && last is not null)
@@ -722,12 +728,23 @@ public sealed partial class AgentSession(
                     observer.OnNotice("Asked the model to show its plan on the bar above the message box, if more than one thing is left to do.");
                 }
 
-                // Most OpenAI-compatible servers only accept images in user messages,
-                // so the screenshot (or a picture read_file opened) is delivered right after the tool results.
+                // Most OpenAI-compatible servers only accept images in user messages, so each picture a tool
+                // opened, and then the screenshot, is delivered right after the tool results, in a message of its own.
+                for (var i = 0; i < pictures.Count; i++)
+                {
+                    var (result, picture, what) = pictures[i];
+                    if (i >= MostPictures)
+                    {
+                        result.Content += "\n(Its picture isn't attached: more pictures were opened in one step than are sent at once. Read it again on its own to see it.)";
+                        continue;
+                    }
+                    result.Content += pictures.Count == 1 && screenshot is null ? "\n(The picture is attached in the next message.)" : "\n(The picture is attached after these results.)";
+                    History.Add(new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText(what), picture] });
+                }
                 if (screenshot is not null)
                 {
-                    shown!.Content += caption is null ? "\n(The screenshot is attached in the next message.)" : "\n(The picture is attached in the next message.)";
-                    History.Add(new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText(caption ?? ScreenshotText), screenshot] });
+                    shown!.Content += "\n(The screenshot is attached in the next message.)";
+                    History.Add(new ChatMessage { Role = ChatRole.User, Parts = [ContentPart.FromText(ScreenshotText), screenshot] });
                 }
                 // Sloperator's notes come in a message of their own, after the results: inside a
                 // tool result, where text from a web page or a file could have put them, Claude
@@ -1118,6 +1135,9 @@ public sealed partial class AgentSession(
 
     /// <summary>Said above a screenshot a tool took; any other picture a tool gives comes with its own caption.</summary>
     internal const string ScreenshotText = "Screenshot after the last action:";
+
+    /// <summary>The most pictures opened by one step's tools that go to the model with it (some 3,000 tokens each); the rest are read again.</summary>
+    internal const int MostPictures = 8;
 
     // Not "try another approach": told that after a declined listing command, the model asked for
     // it twice more in other words and then listed the folder with another tool.

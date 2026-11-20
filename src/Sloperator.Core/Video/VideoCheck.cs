@@ -36,12 +36,19 @@ public static partial class VideoCheck
 
     public static VideoLook Shot(Storyboard board, VideoShot shot, string clip, IMediaDecoder decoder)
     {
+        // What the shot shows of its clip: all of a model's, a few seconds of a recording it is cut from. Looked at
+        // whole, five seconds out of twenty minutes were sixteen frames of the twenty minutes, and all of it was read.
+        var (from, to) = shot.Stretch;
+        var whole = decoder;
+        decoder = MediaStretch.Of(decoder, clip, from, to);
+        var part = ReferenceEquals(decoder, whole) ? "" : $", from {N(from)} to {N(to)} s of it";
         var info = decoder.Probe(clip) ?? throw new VideoException($"{clip} can't be read on this PC (ffmpeg in Sloperator's SloperatorData\\tools would).");
         var text = new StringBuilder();
         var faults = new List<string>();
-        text.AppendLine($"Shot {shot.Id} ({Path.GetFileName(clip)}): {info.Describe()}; the storyboard gives it {N(shot.Seconds)} s.");
-        if (info.Duration.TotalSeconds + 0.25 < shot.Seconds)
-            text.AppendLine($"It is {N(shot.Seconds - info.Duration.TotalSeconds)} s shorter than its shot: the video holds its last frame for the rest.");
+        text.AppendLine($"Shot {shot.Id} ({Path.GetFileName(clip)}{part}): {info.Describe()}; the storyboard gives it {N(shot.Seconds)} s.");
+        // In the clip's own seconds: a clip played at half speed fills a shot twice its length.
+        if (info.Duration.TotalSeconds + 0.25 < to - from)
+            text.AppendLine($"It is {N((to - from - info.Duration.TotalSeconds) / (shot.Speed ?? 1))} s shorter than its shot: the video holds its last frame for the rest.");
         using var reader = decoder.OpenVideo(clip, 512) ?? throw new VideoException($"{clip} has no picture this PC can read.");
         var frames = Frames(reader, info, 16);
         try
@@ -68,7 +75,7 @@ public static partial class VideoCheck
                 if (alike < 0.5)
                     faults.Add($"it doesn't end on {last.Label}");
             }
-            DescribeMotion(frames, text, faults);
+            DescribeMotion(frames, text, faults, board, shot);
             if (info.HasAudio && decoder.OpenAudio(clip) is { } sound)
                 using (sound)
                 {
@@ -107,7 +114,7 @@ public static partial class VideoCheck
         var sb = new StringBuilder();
         sb.AppendLine($"You are the quality judge for one shot of an AI-made video{Title(board)}. Video models often make \"slop\" that a viewer spots instantly at normal speed: " +
                       "physically impossible events and unnatural motion, not just warped faces. Your job is to catch it, and also not to reject a shot for nothing.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}" + (shot.Camera.Trim().Length > 0 ? $" The camera: {shot.Camera.Trim().TrimEnd('.')}." : ""));
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}" + (shot.Camera.Trim().Length > 0 ? $" The camera: {shot.Camera.Trim().TrimEnd('.')}." : ""));
         Says(shot, heard, sb);
         sb.AppendLine("What the shot asks for never excuses impossible physics or behaviour: if it asks for flying food, splashes or a messy action, the food must still come from a real source " +
                       "(a plate, a fork, a mouth) and fall naturally, and people must still move like real people.");
@@ -142,7 +149,7 @@ public static partial class VideoCheck
         var sb = new StringBuilder();
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: behaviour over time. Video models often make people or animals freeze in a pose, " +
                       "hold an awkward position far too long, or move in ways no real person would, even when every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         Says(shot, heard, sb);
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         // A girl walking steadily to a mailbox read as frozen for 2 s and then teleporting, from frames 0.7 s apart.
@@ -172,7 +179,7 @@ public static partial class VideoCheck
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: whether the world in it stays put. Video models often let the background drift " +
                       "(the moon wandering across the sky, trees or buildings sliding, growing or shrinking) and let people or animals slide, float or sink against the ground, " +
                       "while every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         sb.AppendLine("What the camera should do: " + (shot.Camera.Trim().Length > 0 ? shot.Camera.Trim().TrimEnd('.') + "." : "nothing said (most likely it holds still)."));
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         if (motion is { Length: > 0 })
@@ -200,7 +207,7 @@ public static partial class VideoCheck
         sb.AppendLine($"You judge one shot of an AI-made video{Title(board)} for ONE thing only: whether things move as the shot asks. Video models often move a subject the wrong way, " +
                       "bend a body into a pose nobody asked for, turn a head or walk toward the wrong side, make a prop move by itself or someone do something unasked, " +
                       "while every single frame looks fine.");
-        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {shot.Prompt.Trim()}");
+        sb.AppendLine($"The shot lasts {N(shot.Seconds)} s and should show: {Intent(shot)}");
         sb.AppendLine("What the camera should do: " + (shot.Camera.Trim().Length > 0 ? shot.Camera.Trim().TrimEnd('.') + "." : "nothing said (most likely it holds still)."));
         sb.AppendLine("The picture shows " + TopRow(board, shot) + "8 frames spread evenly over the whole shot, with their times.");
         if (motion is { Length: > 0 })
@@ -524,6 +531,19 @@ public static partial class VideoCheck
         }
     }
 
+    /// <summary>
+    /// What a shot should show, as a judge reads it: its prompt; for a shot no model made (the person's own
+    /// footage, a scene drawn) what it is, and that it isn't to be made again. Told only its empty prompt, a judge
+    /// asked to redo the person's own colour bars as "a test pattern" (2026-11-19).
+    /// </summary>
+    /// <summary>What a shot should show, for the looks at the shot itself: its prompt, else, for a scene drawn, that it is one.</summary>
+    internal static string Intent(VideoShot s) => s.Prompt.Trim() is { Length: > 0 } p ? p
+        : s.Scene is { } scene ? $"an animated scene drawn from {Path.GetFileName(scene)}" : s.File is { } file ? $"the person's own footage, {Path.GetFileName(file)}" : "";
+
+    internal static string Shows(VideoShot s) => !s.Assembled ? s.Prompt.Trim().ReplaceLineEndings(" ")
+        : (s.Scene is { } scene ? $"a scene drawn from {Path.GetFileName(scene)}" : $"the person's own footage, {Path.GetFileName(s.File!)}") +
+          (s.Prompt.Trim() is { Length: > 0 } p ? $": {p.ReplaceLineEndings(" ")}" : "") + " (not made by a model, so never ask to redo it; judge only how it is cut and joined)";
+
     public static string JudgeVideo(Storyboard board)
     {
         var sb = new StringBuilder();
@@ -533,7 +553,7 @@ public static partial class VideoCheck
         About(board, sb);
         sb.AppendLine("The shots should show:");
         foreach (var s in board.Shots)
-            sb.AppendLine($"- {s.Id}: {s.Prompt.Trim().ReplaceLineEndings(" ")}");
+            sb.AppendLine($"- {s.Id}: {Shows(s)}");
         sb.AppendLine("Say briefly and concretely: do the same people look the same in every shot (face, hair, clothes, colours)? Is every shot in the same style: " +
                       "all photographs, or all the same kind of drawing or render? Say for each person in each shot whether they look photographed, a 3D render or drawn. Does the look stay the same? " +
                       "Does each shot show what it should, and do they tell the story in order? Which shots stand out as wrong, and why?");
@@ -562,7 +582,7 @@ public static partial class VideoCheck
                       "to the other side of the sky or changes size, day turns to dusk, someone's clothes, hair or fur change, a photo turns into a cartoon, while the story has the same place and moment.");
         sb.AppendLine("The shots should show:");
         foreach (var s in board.Shots)
-            sb.AppendLine($"- {s.Id}: {s.Prompt.Trim().ReplaceLineEndings(" ")}");
+            sb.AppendLine($"- {s.Id}: {Shows(s)}");
         sb.AppendLine($"You get {(at.Count == 1 ? "one picture" : $"{at.Count} pictures, one per cut")}: on top the last frame of the shot before, below it the first frame of the shot after, " +
                       "each labelled, the same size and lined up, so what stays in the same place is straight above itself. The cuts:");
         foreach (var i in at)
@@ -679,8 +699,8 @@ public static partial class VideoCheck
         for (var i = 1; i < board.Shots.Count; i++)
         {
             var (before, after) = (board.Shots[i - 1], board.Shots[i]);
-            using var end = Edge(board.ShotVideo(before), last: true);
-            using var start = end is null ? null : Edge(board.ShotVideo(after), last: false);
+            using var end = Edge(before, last: true);
+            using var start = end is null ? null : Edge(after, last: false);
             if (end is null || start is null)
                 continue;
             using var picture = GridBitmap([($"{before.Id} ends", end), ($"{after.Id} starts", start)], board.Width, board.Height, columns: 1, sheetWidth: 768);
@@ -688,12 +708,20 @@ public static partial class VideoCheck
         }
         return cuts;
 
-        SKBitmap? Edge(string clip, bool last)
+        // Of what the shot shows of its clip: a shot cut out of a recording ends where its cut does, and one played
+        // backwards starts where its clip ends.
+        SKBitmap? Edge(VideoShot shot, bool last)
         {
+            var clip = board.ShotClip(shot);
             if (!File.Exists(clip))
                 return null;
             using var reader = decoder.OpenVideo(clip, 512);
-            return reader is null ? null : FrameAt(reader, last ? reader.Duration.TotalSeconds - 0.1 : 0, first: !last)?.Frame;
+            if (reader is null)
+                return null;
+            var (from, to) = shot.Stretch;
+            return last != shot.Reverse
+                ? FrameAt(reader, Math.Max(from, Math.Min(to, reader.Duration.TotalSeconds) - 0.1))?.Frame
+                : FrameAt(reader, from, first: from < 0.01)?.Frame;
         }
     }
 
@@ -798,6 +826,24 @@ public static partial class VideoCheck
         return last;
     }
 
+    /// <summary>
+    /// The frame a shot ends on, for the next one to go on from: its clip's very last one, unless the shot shows only
+    /// a stretch of its clip (cut out of a recording: the last frame of the cut, not of the recording), holds a frame
+    /// to its end (that frame), or plays backwards (its stretch's first).
+    /// </summary>
+    public static SKBitmap? EndFrame(IVideoReader reader, VideoShot shot)
+    {
+        var (from, to) = shot.Stretch;
+        if (shot.Reverse)
+            return FrameAt(reader, from, first: from < 0.01)?.Frame;
+        if (to > reader.Duration.TotalSeconds - 0.25)
+            return LastFrame(reader);
+        // A reader goes to the frame that starts nearest a time: three quarters of a frame before the cut's end is
+        // nearest the cut's last frame, with room for a time the file keeps to the millisecond.
+        var step = reader.FrameRate > 0 ? 1 / reader.FrameRate : 1 / 24.0;
+        return FrameAt(reader, Math.Max(from, to - step * 0.75))?.Frame;
+    }
+
     /// <summary>The frame halfway through a video.</summary>
     public static SKBitmap? MiddleFrame(IVideoReader reader) => FrameAt(reader, reader.Duration.TotalSeconds / 2)?.Frame;
 
@@ -811,7 +857,7 @@ public static partial class VideoCheck
     }
 
     /// <summary>How the clip moves, from how much each frame differs from the one before: frozen, or a sudden jump.</summary>
-    private static void DescribeMotion(List<(TimeSpan Time, SKBitmap Frame)> frames, StringBuilder text, List<string> faults)
+    private static void DescribeMotion(List<(TimeSpan Time, SKBitmap Frame)> frames, StringBuilder text, List<string> faults, Storyboard board, VideoShot shot)
     {
         if (frames.Count < 3)
             return;
@@ -831,6 +877,25 @@ public static partial class VideoCheck
         var ordered = changes.Order().ToList();
         var median = ordered[ordered.Count / 2];
         var total = changes.Sum();
+        // What no model made is judged as what it is. A picture of the user's held for the shot never moves, and a drawn
+        // scene is mostly a still background with small things moving over it (a sun rising over hills changes a few
+        // pixels in a hundred): "it hardly moves" sent Haiku to the web and through three edits of a scene that was right.
+        // Only a scene in which nothing at all changes is told, since its animation may not be running.
+        if (total < 4 && shot.Assembled)
+        {
+            var scene = shot.Scene is { Length: > 0 };
+            var picture = !scene && shot.File is { } name && board.FindFile(name) is { } file && !Storyboard.IsVideoFile(file);
+            if (picture)
+                text.AppendLine("It is the picture held still.");
+            else if (scene && total < 0.15)
+            {
+                text.AppendLine("Nothing in it moves at all: if the scene should move, its animation isn't running (its SMIL timing, or a render loop that never draws).");
+                faults.Add("nothing in it moves");
+            }
+            else
+                text.AppendLine(scene ? "Most of the picture stays as it is while small things move over it." : "It hardly moves: almost the same picture all through.");
+            return;
+        }
         if (total < 4)
         {
             text.AppendLine("It hardly moves: almost the same picture all through.");

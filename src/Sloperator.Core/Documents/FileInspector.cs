@@ -87,7 +87,7 @@ public static partial class FileInspector
             ".odt", ".ods", ".odp", ".rtf", ".html", ".htm", ".xhtml", ".mht", ".mhtml"]),
         ("Markdown", InspectorKind.Markdown, [".md", ".markdown", ".mdown", ".mkd"]),
         ("Tables", InspectorKind.Table, [".csv", ".tsv"]),
-        ("Pictures", InspectorKind.Picture, [".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".exr", ".svg"]),
+        ("Pictures", InspectorKind.Picture, [".png", ".jpg", ".jpeg", ".jfif", ".bmp", ".ico", ".tif", ".tiff", ".tga", ".dds", ".heic", ".heif", ".avif", ".jxr", ".exr", ".svg"]),
         ("Animations", InspectorKind.Animation, [".gif", ".webp", ".apng"]),
         ("Videos", InspectorKind.Video, [".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v"]),
         ("Sounds", InspectorKind.Sound, [".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac"]),

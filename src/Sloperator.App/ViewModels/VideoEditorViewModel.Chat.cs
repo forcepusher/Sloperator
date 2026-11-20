@@ -59,9 +59,16 @@ public sealed partial class VideoEditorViewModel
         for (var i = 0; i < _board.Shots.Count; i++)
         {
             var shot = _board.Shots[i];
+            // By its own place in the video's folder, which is what a clip picked is known by; what it is seen from
+            // may be a video of theirs it is cut out of, read where that is.
             if (Is(_board.ShotVideo(shot)))
+            {
+                var file = _board.ShotSource(shot) is { } cut
+                    ? string.Create(CultureInfo.InvariantCulture, $"cut from their video {cut} ({shot.Stretch.From:0.##} to {shot.Stretch.To:0.##} s of it)")
+                    : $"its video file ({full}{state})";
                 return new($"clip {i + 1}", string.Create(CultureInfo.InvariantCulture,
-                    $"clip {i + 1}, shot {shot.Id} of the storyboard (the {i + 1}. of {_board.Shots.Count}, from {starts[i]:0.#} to {starts[i] + shot.Seconds:0.#} s), its video file ({full}{state})"), VideoPiece.Of(shot));
+                    $"clip {i + 1}, shot {shot.Id} of the storyboard (the {i + 1}. of {_board.Shots.Count}, from {starts[i]:0.#} to {starts[i] + shot.Seconds:0.#} s), {file}"), VideoPiece.Of(shot));
+            }
         }
         foreach (var sound in _board.Sounds)
             if (Is(_board.SoundFile(sound)))
@@ -105,7 +112,7 @@ public sealed partial class VideoEditorViewModel
         var note = "Nothing in it is picked: what they say is about the whole video. When they describe it or ask for changes, read the storyboard first, " +
                    "then lay it out or change it with action=storyboard and make nothing unless they ask. " +
                    $"When they ask to make the video: {MakeTheVideo}";
-        if (_board.Shots.All(s => s.Prompt.Trim().Length == 0))
+        if (_board.Shots.All(s => s.Prompt.Trim().Length == 0 && !s.Assembled))
             note += " The video is new: give it a title (its folder is renamed to it), a reference for each person or place that comes back, frames made from those, shots as long as their action " +
                     "(2 to 8 seconds) from different angles, each with a name, its first frame and a last one when where it ends matters, the lines when people speak, " +
                     "and a song on a sound line when they want music. Take out the empty starting shot and frames (s1, f1, f2) if you don't use them.";
@@ -127,12 +134,61 @@ public sealed partial class VideoEditorViewModel
     private const string FixIt = "When a piece's fresh look finds something wrong, change what it is made from (its prompt, its frames, the seed) " +
                                  "and make it again, up to twice. ";
 
-    /// <summary>Makes every piece not made or out of date, each looked at and fixed, then joins the video and looks at it: in the chat.</summary>
+    /// <summary>
+    /// Makes every piece not made or out of date, each looked at and fixed, then joins the video and looks at it: in the chat.
+    /// With every clip and sound made and up to date (only edits since: a speed, a transition, a title), it joins them
+    /// here instead, in seconds, as a video editor shows its edits.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanMakeVideo))]
     private void MakeVideo()
     {
-        if (CanMakeVideo())
+        if (!CanMakeVideo())
+            return;
+        if (OnlyJoin())
+            _ = JoinHereAsync();
+        else
             _chat.SendFromSidePanel("Make the video.");
+    }
+
+    /// <summary>Whether there is nothing to make, only to join: every clip and sound there and up to date, and something to join them with (ffmpeg, or the PC's own encoder).</summary>
+    private bool OnlyJoin() =>
+        _board.Shots.Count > 0 && (_previews.Decoder?.Ffmpeg is not null || VideoComposer.Joins(_previews.Decoder)) && _board.Shots.All(s => VideoMaker.IsCurrent(_board, s)) &&
+        _board.Sounds.All(a => a.Source == VideoSound.FromFile ? File.Exists(_board.SoundFile(a)) : VideoMaker.IsCurrent(_board, a));
+
+    /// <summary>The video is being joined here (Make the video with nothing to make).</summary>
+    private bool _joining;
+
+    private async Task JoinHereAsync()
+    {
+        _joining = true;
+        MakeVideoCommand.NotifyCanExecuteChanged();
+        SaveNow(force: true);
+        StopPlaying();
+        DropViewer();
+        var board = Storyboard.Parse(_board.ToJson());
+        board.Folder = _board.Folder;
+        var scenes = new Core.Render.SceneRenderer(Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_videosRoot))!, "scratch", "render", "browser")) { Writer = _previews.Decoder };
+        try
+        {
+            Status = "Joining the clips…";
+            var made = await Task.Run(() => VideoMontage.JoinAsync(board, _previews.Decoder?.Ffmpeg, _previews.Decoder,
+                p => Avalonia.Threading.Dispatcher.UIThread.Post(() => Status = p), CancellationToken.None, scenes));
+            Status = $"Joined in {made.Took.TotalSeconds:0.#} s: {Path.GetFileName(made.File)}." + (made.Notes.Count > 0 ? " " + string.Join(" ", made.Notes) : "");
+        }
+        catch (Exception ex) when (ex is VideoException or IOException or UnauthorizedAccessException or Core.Render.RenderException)
+        {
+            ShowError($"The video couldn't be joined: {ex.Message}", ex);
+        }
+        finally
+        {
+            _joining = false;
+            MakeVideoCommand.NotifyCanExecuteChanged();
+            RefreshStates();
+            RefreshViewer();
+            OnPropertyChanged(nameof(LengthText));
+            OnPropertyChanged(nameof(HasJoinedVideo));
+            OnPropertyChanged(nameof(MakeVideoTip));
+        }
     }
 
     /// <summary>
@@ -142,11 +198,12 @@ public sealed partial class VideoEditorViewModel
     /// </summary>
     private string? CantMakeVideo() =>
         _board.Shots.Count == 0 ? "The video has no clips yet: say in the chat what video you want first" :
-        _board.Shots.Any(s => s.Prompt.Trim().Length == 0) ? "Some clips don't say what happens in them yet: click them and say it in the chat" : null;
+        // A clip made of a file or a scene says what it is by that.
+        _board.Shots.Any(s => s.Prompt.Trim().Length == 0 && !s.Assembled) ? "Some clips don't say what happens in them yet: click them and say it in the chat" : null;
 
-    private bool CanMakeVideo() => CantMakeVideo() is null;
+    private bool CanMakeVideo() => !_joining && CantMakeVideo() is null;
 
-    public string MakeVideoTip => CantMakeVideo() ?? "Makes what's missing or changed, checks it and joins the video";
+    public string MakeVideoTip => CantMakeVideo() ?? (OnlyJoin() ? "Joins the clips with their edits and titles, here, in seconds" : "Makes what's missing or changed, checks it and joins the video");
 
     // ---- what the chat is doing -------------------------------------------------------------------------
 

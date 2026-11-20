@@ -1832,6 +1832,42 @@ public class AgentSessionTests
     }
 
     [Fact]
+    public async Task Every_picture_read_in_one_step_goes_to_the_model()
+    {
+        // Three pictures read at once: only the last was sent, and nothing told the model the other two weren't,
+        // so it read them again or made copies of them to look at.
+        var dir = Directory.CreateTempSubdirectory("sl-three-pictures-").FullName;
+        try
+        {
+            string[] names = ["one.png", "two.png", "three.png"];
+            foreach (var name in names)
+                File.WriteAllBytes(Path.Combine(dir, name), McpTestServer.TestTools.Png);
+            var calls = new JsonArray([.. names.Select((name, i) => (JsonNode)new JsonObject
+            {
+                ["index"] = i, ["id"] = $"c{i}",
+                ["function"] = new JsonObject { ["name"] = "read_file", ["arguments"] = new JsonObject { ["path"] = Path.Combine(dir, name) }.ToJsonString() },
+            })]);
+            var all = $"data: {new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["delta"] = new JsonObject { ["tool_calls"] = calls } }) }.ToJsonString()}\n\ndata: [DONE]\n\n";
+            var server = new ScriptedServer(all, Sse.Text("Done."));
+            var (session, observer) = CreateSession(server, dir, new FakePlatform());
+
+            await session.RunAsync("look at the three pictures", observer, CancellationToken.None);
+
+            var results = session.History.Where(m => m.Role == ChatRole.Tool).ToList();
+            Assert.Equal(3, results.Count);
+            Assert.All(results, r => Assert.EndsWith("(The picture is attached after these results.)", r.Content));
+            Assert.Equal(3, Images(server.Requests[1]));
+            // Each in a message of its own, said which it is, in the order they were read.
+            var shown = session.History.Where(m => m.Parts is [{ Text: not null }, { IsImage: true }]).Select(m => m.Parts![0].Text).ToList();
+            Assert.Equal(["The picture one.png:", "The picture two.png:", "The picture three.png:"], shown);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void The_system_prompt_is_the_same_all_day()
     {
         // It starts every request; a clock in it would make the server reread a whole chat at each message.

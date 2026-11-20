@@ -29,6 +29,8 @@
   <ItemGroup>
     <!-- How to write what ComfyUI's models are given (ComfyGuides): the comfyui tool and the video director read them. -->
     <EmbeddedResource Include="Comfy\Guides\*.md" LogicalName="guide:%(Filename)" />
+    <!-- three.js (MIT) for the render tool's 3D scenes, served offline: scripts/update-three.ps1 packs it. -->
+    <EmbeddedResource Include="Render\three.zip" LogicalName="render:three.zip" />
   </ItemGroup>
 
 </Project>

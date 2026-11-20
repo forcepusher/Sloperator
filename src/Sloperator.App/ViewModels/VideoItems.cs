@@ -119,12 +119,19 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public string Number => (Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>What the camera does, as a name for the block ("static close-up"), else the start of what happens.</summary>
-    public string Name => Shot.Camera.Trim() is { Length: > 0 } camera ? camera : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "a new clip";
+    /// <remarks>One made of a file or a scene is named by that file.</remarks>
+    public string Name => Shot.Scene is { } scene ? Path.GetFileName(scene) : Shot.File is { } file ? Path.GetFileName(file)
+        : Shot.Camera.Trim() is { Length: > 0 } camera ? camera : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "a new clip";
 
-    /// <summary>What happens in it, as Sloperator asked for it.</summary>
-    public string Summary => Shot.Prompt.Trim() is { Length: > 0 } p ? p : "Say in the chat what happens in it.";
+    /// <summary>What happens in it, as Sloperator asked for it (what it is made of, for a file or a scene), and how it is edited.</summary>
+    public string Summary =>
+        (Shot.Scene is { } scene ? $"Drawn from the scene {Path.GetFileName(scene)}" : Shot.File is { } file ? $"Your file {Path.GetFileName(file)}"
+            : Shot.Prompt.Trim() is { Length: > 0 } p ? p : "Say in the chat what happens in it.") +
+        (Sloperator.Core.Tools.VideoEditorTool.Edits(Shot) is { Length: > 0 } edits ? $"\nEdited: {edits}" : "") +
+        (Shot.Transition != VideoShot.Cut && Index > 0 ? $"\nTransition in: {Shot.Transition}" : "");
 
-    public string LengthText => $"{Shot.Seconds:0.#} s";
+    /// <summary>Its length, and its speed when it plays faster or slower.</summary>
+    public string LengthText => $"{Shot.Seconds:0.#} s" + (Shot.Speed is { } speed ? $" · {speed:0.##}×" : "") + (Shot.Reverse ? " · reversed" : "");
 
     [ObservableProperty]
     private FrameItem? _first;
@@ -155,7 +162,8 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public double SlotWidth => Math.Min(FullSlotWidth, Math.Floor((BlockWidth - 16) / 2));
 
     /// <summary>The block has room for its frame slots; a narrower one is picked whole (zoom in to reach its frames).</summary>
-    public bool HasSlots => SlotWidth >= 8;
+    /// <remarks>One made of a file or a scene has no frames.</remarks>
+    public bool HasSlots => !Shot.Assembled && SlotWidth >= 8;
 
     /// <summary>The slots are full size: one not made shows File… and Generate (a narrower one has them on its right-click menu).</summary>
     public bool SlotsRoomy => SlotWidth >= FullSlotWidth;
@@ -176,7 +184,8 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     /// <summary>Its length changed by dragging its edge: the storyboard follows, and the timeline is laid out again.</summary>
     public void Stretch(double seconds)
     {
-        seconds = Math.Clamp(Math.Round(seconds * 2) / 2, 0.5, 60);
+        // On the music's beat when its end is near one, else by half seconds.
+        seconds = Math.Clamp(video.BeatLength(this, seconds) ?? Math.Round(seconds * 2) / 2, 0.5, 60);
         if (seconds == Shot.Seconds)
             return;
         Shot.Seconds = seconds;
@@ -191,7 +200,29 @@ public sealed partial class ShotItem(VideoEditorViewModel video, VideoShot shot)
     public void Stretched() => video.Changed();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Footer))]
     private string _state = "";
+
+    /// <summary>
+    /// How the clip is edited, in a few words for its card ("black and white, vignette, turned"): its strip shows the
+    /// clip as it was made, and an edit showed nowhere but in the joined video and the tooltip. Its speed and
+    /// "reversed" are beside its length already.
+    /// </summary>
+    public string Marks => string.Join(", ", new[]
+    {
+        Shot.Freeze is not null ? "frozen" : null,
+        Shot.Volume == 0 ? "muted" : Shot.Volume is { } volume ? $"sound {volume * 100:0}%" : null,
+        Shot.Color is { Look: "bw" } ? "black and white" : Shot.Color is { Look.Length: > 0 } look ? look.Look : Shot.Color is not null ? "light" : null,
+        Shot.Effects is { Count: > 0 } effects ? string.Join(" ", effects) : null,
+        Shot.Zoom is not null ? "zoom" : null,
+        Shot.Rotate != 0 ? "turned" : null,
+        Shot.Flip is not null ? "mirrored" : null,
+        Shot.Fit == "fit" ? "bars" : Shot.Fit == "blur" ? "blur behind" : null,
+        Shot.Crop is not null ? "cropped" : null,
+    }.OfType<string>());
+
+    /// <summary>Under the clip's strip: its state, then how it is edited.</summary>
+    public string Footer => Marks.Length == 0 ? State : State.Length == 0 ? Marks : $"{State} · {Marks}";
 
     [ObservableProperty]
     private bool _isError;
@@ -236,7 +267,7 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     public string Title => Sound.Label;
 
     /// <summary>"Sound file", "Foley" or "Music".</summary>
-    public string Kind => Sound.Source switch { VideoSound.FromFile => "Sound file", VideoSound.Foley => "Foley", _ => "Music" };
+    public string Kind => Sound.Source switch { VideoSound.FromFile => "Sound file", VideoSound.Foley => "Foley", VideoSound.Speech => "Voice-over", _ => "Music" };
 
     /// <summary>A song nothing is said of yet: File…, Foley or Music decides what it is.</summary>
     public bool IsNew => Sound.Source == VideoSound.Song && !IsMade && Sound.Tags.Trim().Length == 0;
@@ -244,7 +275,8 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     /// <summary>What it is, for its tooltip: a new one, what to do with it.</summary>
     public string Summary => IsNew ? "Pick File…, Foley or Music, or say in the chat what it should be."
         : Sound.Source == VideoSound.Foley ? "Foley: the sounds of what the clips under it show" + (Sound.Tags.Trim() is { Length: > 0 } heard ? $" ({heard})" : "")
-        : Sound.Source == VideoSound.Song ? $"Music: {Sound.Tags.Trim()}" : Kind;
+        : Sound.Source == VideoSound.Song ? $"Music: {Sound.Tags.Trim()}"
+        : Sound.Source == VideoSound.Speech ? $"Voice-over: \"{Sound.Text.Trim()}\"" : Kind;
 
     /// <summary>How long its file is, in seconds; 0 while it isn't known.</summary>
     public double FileSeconds { get; set; }
@@ -265,6 +297,10 @@ public sealed partial class SoundItem(VideoSound sound) : ObservableObject, IVid
     /// <summary>Its loudness over the part that plays, 0 to 1, ten a second.</summary>
     [ObservableProperty]
     private float[]? _peaks;
+
+    /// <summary>Where its beats fall along the part that plays, 0 to 1; null for a sound with no steady beat (or not music).</summary>
+    [ObservableProperty]
+    private double[]? _beats;
 
     [ObservableProperty]
     private string _state = "";
@@ -345,3 +381,36 @@ public sealed class VideoPick(string path, string caption)
 
 /// <summary>What the viewer shows for something with no picture to play: a piece not made yet, the video not joined.</summary>
 public sealed record PictureView(Bitmap? Picture, string Caption, string? Missing, string? Path = null);
+
+/// <summary>
+/// Something shown over the video on the Titles row: words, a picture, a video or a scene, from where
+/// it starts for as long as it shows. Its words are typed in a box (F2 or a double click).
+/// </summary>
+public sealed partial class OverlayItem(VideoOverlay overlay) : ObservableObject
+{
+    public VideoOverlay Overlay { get; } = overlay;
+    public string Id => Overlay.Id;
+
+    /// <summary>What it shows, as its block says it: the words, or the file's or scene's name.</summary>
+    public string Title => Overlay.Text.Trim().Length > 0 && Overlay.File is null && Overlay.Scene is null ? Overlay.Text.Trim().Replace("\\n", " ").ReplaceLineEndings(" ")
+        : Path.GetFileName(Overlay.Scene ?? Overlay.File ?? Overlay.Id);
+
+    public string Tip => $"{Title} · from {Overlay.Start:0.#} s{(Overlay.Seconds > 0 ? $" for {Overlay.Seconds:0.#} s" : " to the end")}, " +
+                         $"{(Overlay.Position.Length > 0 ? Overlay.Position : "centre")}. Drag it or its edges; double-click to change the words; right-click for its place and length";
+
+    [ObservableProperty]
+    private double _x;
+
+    [ObservableProperty]
+    private double _blockWidth;
+
+    /// <summary>Where it sits in the row and how tall it is: titles that show at once share the row's height, one above the other.</summary>
+    [ObservableProperty]
+    private double _y = 4;
+
+    [ObservableProperty]
+    private double _blockHeight = 38;
+
+    [ObservableProperty]
+    private bool _isSelected;
+}

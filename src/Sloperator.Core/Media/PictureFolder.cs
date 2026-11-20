@@ -26,6 +26,9 @@ public static class PictureFolder
     /// <summary>A new picture's folder, made: "Untitled picture", "Untitled picture 2" when that is taken.</summary>
     public static string New(string root) => Folders.New(root);
 
+    /// <summary>Whether <paramref name="file"/> is a version of a picture of <paramref name="root"/>: in a folder right in it.</summary>
+    public static bool IsVersion(string file, string? root) => SoundFolder.IsVersion(file, root);
+
     /// <summary>
     /// The mask of <paramref name="area"/> on a picture <paramref name="width"/> by <paramref name="height"/>, saved
     /// as a PNG at <paramref name="path"/>: white in the box, black elsewhere, its edge a soft ramp a few pixels
@@ -122,13 +125,13 @@ public static class PictureFolder
         data.SaveTo(file);
     }
 
-    /// <summary>A picture's size in pixels, read from its header; null when it can't be read.</summary>
+    /// <summary>A picture's size in pixels as it is seen, read from its header; null when it can't be read.</summary>
     public static (int Width, int Height)? SizeOf(string path)
     {
         try
         {
-            using var codec = SKCodec.Create(path);
-            return codec is null ? null : (codec.Info.Width, codec.Info.Height);
+            using var codec = PictureFile.Codec(path);
+            return codec is null ? null : PictureFile.SizeOf(codec);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ExternalException)
         {

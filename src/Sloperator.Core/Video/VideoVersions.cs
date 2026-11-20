@@ -23,6 +23,12 @@ public sealed record VideoPiece(VideoPieceKind Kind, string Id)
         _ => board.Sound(Id) is { } a ? board.SoundFile(a) : null,
     };
 
+    /// <summary>
+    /// The file it is seen or heard from: its own, or for a shot cut from a video of the user's, that video where it
+    /// is (<see cref="Storyboard.ShotClip"/>). To read only: <see cref="File"/> is the one that is the storyboard's own.
+    /// </summary>
+    public string? Reads(Storyboard board) => Kind == VideoPieceKind.Shot && board.Shot(Id) is { } s ? board.ShotClip(s) : File(board);
+
     /// <summary>Its meta: what it is, and how it was made.</summary>
     public string? Meta(Storyboard board) => File(board) is { } file ? Storyboard.MetaOf(file) : null;
 

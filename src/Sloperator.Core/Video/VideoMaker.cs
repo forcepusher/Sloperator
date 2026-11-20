@@ -91,7 +91,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
             // Where the shot before's clip ends, as the clip has it; or where a video of the user's ends.
             var started = DateTime.UtcNow;
             var before = board.Shot(of);
-            var clip = before is not null ? board.ShotVideo(before) : board.ReferenceVideo(of)
+            var clip = before is not null ? board.ShotClip(before) : board.ReferenceVideo(of)
                        ?? throw new VideoException($"{frame.Label} is where the video {of} ends, and there is no such video in References ({board.ReferencesFolder}).");
             if (!File.Exists(clip))
                 throw new VideoException($"{frame.Label} is where shot {of} ends, and shot {of} isn't made yet: make it first.");
@@ -100,7 +100,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
             await Task.Run(() =>
             {
                 using var reader = media.OpenVideo(clip, Math.Max(board.Width, board.Height)) ?? throw new VideoException($"{clip} has no picture this PC can read.");
-                using var last = VideoCheck.LastFrame(reader) ?? throw new VideoException($"No frame of {clip} could be read.");
+                using var last = (before is not null ? VideoCheck.EndFrame(reader, before) : VideoCheck.LastFrame(reader)) ?? throw new VideoException($"No frame of {clip} could be read.");
                 var taken = Path.Combine(Path.GetTempPath(), $"sloperator-{Guid.NewGuid():N}.png");
                 try
                 {
@@ -203,6 +203,8 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public async Task<VideoMade> MakeShotAsync(Storyboard board, VideoShot shot, Action<string>? progress, CancellationToken userMessage, CancellationToken ct, string? tryFile = null)
     {
         using var making = MakingIn(board);
+        if (shot.Assembled)
+            return await AssembleShotAsync(board, shot, progress, ct).ConfigureAwait(false);
         var first = board.Frame(shot.First);
         var last = board.Frame(shot.Last);
         string? Picture(VideoFrame? frame)
@@ -277,6 +279,133 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         Restamp(workflow, stamp);
         VideoVersions.Remember(workflow, VideoPiece.Of(shot).Settings(board));
         return new VideoMade(target, workflow, run.Template, run.Took, [.. notes, .. run.Notes]);
+    }
+
+    /// <summary>Draws the scenes a shot is made of (SVG, Three.js); none given: one in Sloperator's temporary folder.</summary>
+    public Render.SceneRenderer? Scenes { get; init; }
+
+    /// <summary>How much of its source a shot uses: what its trim cuts off and its length at its speed.</summary>
+    private static double SourceSeconds(VideoShot shot) => shot.In + shot.Seconds * (shot.Speed ?? 1);
+
+    /// <summary>
+    /// A shot no model makes: a video of the user's as it is (made an MP4 when it is another kind), a
+    /// picture of the user's held for the shot (cut to the video's frame), or a scene drawn (an SVG
+    /// moving with SMIL, a Three.js page) at the video's size and frame rate.
+    /// </summary>
+    private async Task<VideoMade> AssembleShotAsync(Storyboard board, VideoShot shot, Action<string>? progress, CancellationToken ct)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var named = shot.Scene ?? shot.File!;
+        var source = board.FindFile(named) ?? throw new VideoException(
+            $"Shot {shot.Id} is made of {named}, which isn't in its References folder ({board.ReferencesFolder}) or there: copy it in, or give its full path.");
+        var target = board.ShotVideo(shot);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        var notes = new List<string>();
+        var temp = Path.Combine(Path.GetDirectoryName(target)!, "." + Path.GetFileNameWithoutExtension(target) + ".making.mp4");
+        var ffmpeg = media?.Ffmpeg;
+        if (board.ShotSource(shot) is not null)
+        {
+            // A video of the user's is read where it is: nothing is copied and nothing made of it. One whose picture
+            // nothing here reads (a phone's HEVC where Windows has no decoder for it and there is no ffmpeg) is said
+            // now, not found black in the joined video.
+            if (media is not null)
+            {
+                using var readable = media.OpenVideo(source, 64);
+                if (readable is null)
+                    throw new VideoException(MediaDecoders.WhyNoPicture(source, media));
+            }
+            // A clip the shot had before (a model's, kept as a version by whoever asked for this) isn't it any more.
+            DropOwnClip(board, shot);
+            var taken = board.ShotMeta(shot);
+            WriteStamp(taken, ShotStamp(board, shot), "file", null);
+            VideoVersions.Remember(taken, VideoPiece.Of(shot).Settings(board));
+            return new VideoMade(source, taken, null, clock.Elapsed, notes);
+        }
+        if (Render.SceneRenderer.Handles(source))
+        {
+            var scenes = Scenes ?? new Render.SceneRenderer(Path.Combine(Path.GetTempPath(), "Sloperator", "render", "browser")) { Writer = media };
+            var made = await scenes.RenderAsync(source, temp, new Render.SceneOptions
+            {
+                Width = board.Width, Height = board.Height, Fps = board.Fps, Seconds = SourceSeconds(shot), Still = false,
+            }, ffmpeg, progress, ct).ConfigureAwait(false);
+            notes.AddRange(made.Notes);
+            notes.AddRange(made.Errors.Select(e => "The scene's error: " + e));
+        }
+        else
+        {
+            // A picture held, or a video of a kind that is made a clip (a GIF, a broadcast stream).
+            var picture = !Storyboard.IsVideoFile(source);
+            if (ffmpeg is null)
+            {
+                // No ffmpeg: a picture held, or another kind of video read and written again, with what the PC has.
+                if (media is null || !VideoComposer.Joins(media))
+                    throw new VideoException("A clip from a file needs ffmpeg, and there is none on this PC: unpack a portable build into Sloperator's SloperatorData\\tools.");
+                progress?.Invoke(picture ? "Holding the picture…" : "Reading the video…");
+                await Task.Run(() =>
+                {
+                    if (picture)
+                        VideoComposer.Hold(source, temp, board.Width, board.Height, board.Fps, SourceSeconds(shot), media);
+                    else
+                        VideoComposer.Transcode(source, temp, media, progress, ct);
+                }, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                var (w, h) = (board.Width, board.Height);
+                List<string> args = picture
+                    ? ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-loop", "1", "-framerate", board.Fps.ToString(CultureInfo.InvariantCulture), "-t", N(SourceSeconds(shot)), "-i", source,
+                       "-vf", $"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "16", temp]
+                    // In whole pairs of pixels, which H.264 needs: a GIF is as often an odd size as not.
+                    : ["-hide_banner", "-y", "-nostats", "-progress", "pipe:1", "-i", source, "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
+                       "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", temp];
+                await VideoMontage.RunAsync(ffmpeg, args, temp, SourceSeconds(shot), picture ? "Holding the picture" : "Reading the video", "make the clip", progress, ct).ConfigureAwait(false);
+            }
+        }
+        MediaRelease.Release(target);
+        File.Move(temp, target, overwrite: true);
+        var meta = board.ShotMeta(shot);
+        WriteStamp(meta, ShotStamp(board, shot), Render.SceneRenderer.Handles(source) ? "scene" : "file", null);
+        VideoVersions.Remember(meta, VideoPiece.Of(shot).Settings(board));
+        return new VideoMade(target, meta, null, clock.Elapsed, notes);
+    }
+
+    private static string N(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The clip of a shot made of an MP4 of the user's, taken in now without a job (the Video editor's
+    /// split): copied into its place and stamped as made. False when its file isn't an MP4 there is.
+    /// </summary>
+    public static bool TakeClip(Storyboard board, VideoShot shot)
+    {
+        if (board.ShotSource(shot) is null)
+            return false;
+        DropOwnClip(board, shot);
+        WriteStamp(board.ShotMeta(shot), ShotStamp(board, shot), "file", null);
+        return true;
+    }
+
+    /// <summary>
+    /// A shot that reads the user's video where it is has no clip of its own: one left in its place from before (a
+    /// model's clip the shot was, or the copy that was made of the video) goes, so it isn't taken for the shot's when
+    /// the video is moved away. Only ever the storyboard's own file, never the user's.
+    /// </summary>
+    private static void DropOwnClip(Storyboard board, VideoShot shot)
+    {
+        var own = board.ShotVideo(shot);
+        if (board.ShotSource(shot) is not { } source || string.Equals(Path.GetFullPath(source), Path.GetFullPath(own), StringComparison.OrdinalIgnoreCase))
+            return;
+        try
+        {
+            if (File.Exists(own))
+            {
+                MediaRelease.Release(own);
+                File.Delete(own);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Open in a player: it is left, and nothing reads it while the video is there.
+        }
     }
 
     /// <summary>
@@ -389,6 +518,37 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         foreach (var input in def.Inputs.Where(i => i.Required && !inputs.ContainsKey(i.Name) && i.IsWidget && i.Extra["default"] is not null))
             inputs[input.Name] = input.Extra["default"]!.DeepClone();
         return ComfyWorkflow.FromApi(nodes);
+    }
+
+    /// <summary>What a voice-over is made from: its words, its voice and its seed.</summary>
+    public static string SpeechStamp(Storyboard board, VideoSound sound) =>
+        Hash($"speech|{sound.Text.Trim()}|{VoiceOf(board, sound)}|{sound.Seed}|{sound.Model}|{sound.Set?.ToJsonString()}");
+
+    /// <summary>The voice a voice-over is said in: its own tags, else the video's.</summary>
+    private static string VoiceOf(Storyboard board, VideoSound sound) => sound.Tags.Trim() is { Length: > 0 } own ? own : board.Voice.Trim();
+
+    /// <summary>A voice-over on a sound line: its words said by VoxCPM2 in the voice its tags (else the video's voice) describe.</summary>
+    public async Task<VideoMade> MakeSpeechAsync(Storyboard board, VideoSound sound, Action<string>? progress, CancellationToken userMessage, CancellationToken ct)
+    {
+        using var making = MakingIn(board);
+        if (sound.Text.Trim().Length == 0)
+            throw new VideoException($"Sound {sound.Id} is a voice-over with nothing to say yet: give it text, the words it says.");
+        Use();
+        var notes = new List<string>();
+        var api = await hub.ConnectAsync(null, notes, progress, ct).ConfigureAwait(false);
+        var library = await hub.LibraryAsync(api, ct).ConfigureAwait(false);
+        var workflow = SpeechWorkflow(library, sound.Text.Trim(), VoiceOf(board, sound), sound.Seed, null, "", Prefix(board, sound.Id))
+                       ?? throw new VideoException("A voice-over needs VoxCPM2's nodes in ComfyUI (the ComfyUI-VoxCPM custom node pack), and they aren't installed: install the pack.");
+        workflow.FillAdvancedDefaults(library);
+        var stamp = SpeechStamp(board, sound);
+        var target = board.SoundFile(sound);
+        var run = await RunWorkflowAsync(api, library, workflow, board.SoundMeta(sound), stamp, "VoxCPM2", "audio", progress, userMessage, ct).ConfigureAwait(false);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        MediaRelease.Release(target);
+        File.Copy(run.Output, target, overwrite: true);
+        Restamp(board.SoundMeta(sound), stamp);
+        VideoVersions.Remember(board.SoundMeta(sound), VideoPiece.Of(sound).Settings(board));
+        return new VideoMade(target, board.SoundMeta(sound), "VoxCPM2", run.Took, [.. notes, .. run.Notes]);
     }
 
     public static bool LineIsCurrent(Storyboard board, VideoShot shot) =>
@@ -656,7 +816,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         var sb = new StringBuilder($"foley|{sound.Tags.Trim()}|{sound.Seed}|{sound.Model}|{sound.Set?.ToJsonString()}|{from.ToString(CultureInfo.InvariantCulture)}|{to.ToString(CultureInfo.InvariantCulture)}");
         for (var i = 0; i < board.Shots.Count; i++)
             if (starts[i] < to && starts[i] + board.Shots[i].Seconds > from)
-                sb.Append('|').Append(board.Shots[i].Id).Append(' ').Append(FileStamp(board.ShotVideo(board.Shots[i])));
+                sb.Append('|').Append(board.Shots[i].Id).Append(' ').Append(FileStamp(board.ShotClip(board.Shots[i])));
         return Hash(sb.ToString());
     }
 
@@ -802,7 +962,12 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     {
         var sb = new StringBuilder();
         if (frame.Of is { } of && board.Shot(of) is { } before)
-            sb.Append("of|").Append(of).Append('|').Append(FileStamp(board.ShotVideo(before)));
+        {
+            sb.Append("of|").Append(of).Append('|').Append(FileStamp(board.ShotClip(before)));
+            // A shot cut out of a file ends where its cut does, not where the file does.
+            if (before.File is not null)
+                sb.Append('|').Append(before.Stretch.From.ToString(CultureInfo.InvariantCulture)).Append('-').Append(before.Stretch.To.ToString(CultureInfo.InvariantCulture)).Append(before.Reverse ? "r" : "");
+        }
         else if (frame.Of is { } video && (board.ReferenceVideo(video) is not null || Storyboard.IsVideoFile(video)))
             sb.Append("of|").Append(video).Append('|').Append(board.ReferenceVideo(video) is { } file ? FileStamp(file) : "none");
         else if (frame.File is { Length: > 0 } file)
@@ -822,6 +987,17 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public static string ShotStamp(Storyboard board, VideoShot shot)
     {
         var sb = new StringBuilder();
+        // A clip of the user's or a scene drawn: the file it is made of, and for a picture or a scene, how much of it and at what size.
+        if (shot.Assembled)
+        {
+            var named = shot.Scene ?? shot.File!;
+            var source = board.FindFile(named);
+            // By its file's name, not its path: copied into References, the same file keeps the clip made.
+            sb.Append("assembled|").Append(Path.GetFileName(named.Trim().Trim('"'))).Append('|').Append(source is null ? "missing" : FileStamp(source));
+            if (source is null || !Storyboard.IsVideoFile(source))
+                sb.Append('|').Append(SourceSeconds(shot).ToString(CultureInfo.InvariantCulture)).Append('|').Append(board.Fps).Append('|').Append(board.Width).Append('x').Append(board.Height);
+            return Hash(sb.ToString());
+        }
         // Numbers as the invariant culture writes them: a video moved to a PC that writes 5,5 for 5.5 stays made.
         sb.Append(ShotPrompt(shot)).Append('|').Append(shot.Seed).Append('|').Append(shot.Seconds.ToString(CultureInfo.InvariantCulture)).Append('|').Append(board.Fps).Append('|')
           .Append(board.Width).Append('x').Append(board.Height).Append('|').Append(shot.LipSync).Append('|').Append(shot.Set?.ToJsonString());
@@ -941,7 +1117,12 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public static bool IsCurrent(Storyboard board, VideoFrame frame) =>
         File.Exists(board.FramePicture(frame)) && MadeStamp(board.FrameMeta(frame)) is { } made && made == FrameStamp(board, frame);
 
+    /// <summary>
+    /// Whether a shot's clip is there and was made from what the storyboard says now. A shot that reads a video of the
+    /// user's where it is has nothing to make: it is up to date while the video is there.
+    /// </summary>
     public static bool IsCurrent(Storyboard board, VideoShot shot) =>
+        board.ShotSource(shot) is not null ||
         File.Exists(board.ShotVideo(shot)) && MadeStamp(board.ShotMeta(shot)) is { } made && made == ShotStamp(board, shot);
 
     /// <summary>
@@ -954,6 +1135,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         {
             VideoSound.FromFile => true,
             VideoSound.Foley => MadeStamp(board.SoundMeta(sound)) == FoleyStamp(board, sound),
+            VideoSound.Speech => MadeStamp(board.SoundMeta(sound)) == SpeechStamp(board, sound),
             _ => MadeStamp(board.SoundMeta(sound)) is { } made && made.Split(':') is [var hash, var length] && hash == SongHash(sound)
                  && double.TryParse(length, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) && seconds >= SongSeconds(board, sound),
         };

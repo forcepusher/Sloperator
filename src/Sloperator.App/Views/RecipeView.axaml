@@ -20,7 +20,9 @@
                       ToolTip.Tip="Put it on the clipboard" AutomationProperties.Name="{Binding Label, StringFormat='Copy {0}'}" />
               <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
             </DockPanel>
-            <views:SelectableText Text="{Binding Text}" TextWrapping="Wrap" />
+            <views:SelectableText Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding !Code}" />
+            <!-- A scene is code: in the code font, as the Code editor has it. -->
+            <views:SelectableText Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding Code}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" />
           </StackPanel>
         </DataTemplate>
       </ItemsControl.ItemTemplate>

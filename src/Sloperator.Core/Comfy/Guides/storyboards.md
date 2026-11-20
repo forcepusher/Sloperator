@@ -29,6 +29,7 @@ they want), so write them well.
     and timing from its first frame, with a template that follows a video: LTX's IC-LoRA control or
     Wan Animate; not with a line)}]
   - sounds: [{id, name, source: song (made by Sloperator: tags = its style, lyrics, model, seed),
+    speech (a voice-over Sloperator makes: text = what it says, tags = the voice),
     foley (made by Sloperator from what the clips under it show: tags = what is heard, which it can
     do without; model, seed) or file (the person's: file = its full path, copied into Sounds),
     soundLine (from 0), start (seconds into the video), trim (seconds cut off its start), seconds
@@ -131,7 +132,71 @@ they want), so write them well.
   a door, rain), made from the clips themselves, so make them first. "tags" says what is heard
   ("gravel footsteps, wind"); it can be left empty. For music use a song: foley keeps music out.
 - A sound file of the person's ("source": "file") is copied into the video's Sounds folder as it is.
+- To cut on the beat of a song or a sound file, action=check tells its tempo and when its beats
+  fall: with path the sound file itself (before there is a storyboard), or with id the sound's in
+  the video. Make each clip a whole number of beats long. Don't look for ffmpeg or write a script for it.
+- A voice-over Sloperator makes ("source": "speech"): "text" is what it says, "tags" the voice (age,
+  voice, manner; else the video's "voice"); it is said from where it "start"s, not lip-synced, and the
+  music on the other sound lines goes quieter under it.
 - "soundLineVolumes" turns whole sound lines up or down, one number for each (1 as they are).
+
+## Editing
+The storyboard edits the video as a video editor does; all of this is done as the video is joined,
+so no clip is made again for it (action=join after a change).
+- A shot needs no model when it is made of something: "file" is a video, animated GIF or picture of the person's
+  in References (or by its full path), used as it is (a picture is held for the shot's seconds; a video
+  runs its own length unless the shot gives "seconds"). A video is read where it is, with nothing to make:
+  any number of shots can be cut out of one long recording (each its own "in" and "seconds"), ready to join
+  at once, and a video made only of their footage takes its size and frame rate from it unless given others.
+  The storyboard says each video file's size as it
+  is shown and its length beside its shot, and read_file shows a video's frames with the same: go by
+  those, not by ffprobe, which gives a phone's upright video as lying on its side;
+  "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,
+  as the render tool draws it (a title card, a logo sting, an animated diagram, a 3D product turn).
+  action=shot makes it from that in seconds. Use them for footage the person gives and for vector
+  and 3D shots; the models make the rest. A still shot of a generated picture (a slideshow, no video
+  model) is a reference made first (action=frame on a frame with "reference": true and a name), then a
+  shot with "file": its picture in References ("Cafe.png") and a "zoom".
+- A long recording of theirs: action=scan (path: the file) tells where it is silent, loud, still or busy and
+  where it cuts, in seconds, with frames across it and their times, so shots are cut from the right places
+  (storyboard {"in", "seconds"} scans a stretch closely: also the way to see a moment of any video);
+  action=edit with "skip": "silences" saves a file with its silences cut out, in one call.
+- Cutting a clip: "in" (seconds cut off its start), "seconds" (how long it plays), "speed" (0.5 half
+  speed, 2 twice; its sound follows), "reverse": true (that stretch backwards), "freeze" (seconds into the shot where the
+  picture stops and holds), "volume" (its own sound, 0 silent).
+- Its picture: "crop" {x, y, width, height} in fractions of the picture; "zoom" a slow zoom or pan,
+  "in", "out", "left", "right", or {"from": {"scale": 1, "x": 0.5, "y": 0.5}, "to": {"scale": 1.3,
+  "x": 0.6, "y": 0.4}} (scale 2 shows half the picture; x and y are the point it centres on);
+  "color" {brightness -1..1, contrast 0..2, saturation 0..3, look: bw, sepia, warm, cool or vintage};
+  "rotate" 90, 180 or 270 (clockwise: footage filmed on its side) and "flip" horizontal or vertical
+  (mirrored); "fit" for a picture of another shape than the video's, which fills the frame with its
+  edges cut off unless set: fit (whole, black bars beside it) or blur (whole over a blurred copy of
+  itself, as phone footage in a wide video); "effects" [blur, sharpen, vignette, grain, invert,
+  pixelate].
+- "transition" into a shot: cut, dissolve, fade (through black), fadewhite, wipeleft, wiperight,
+  wipeup, wipedown, slideleft, slideright, slideup, slidedown, smoothleft, circleopen, circleclose,
+  radial, pixelize, zoomin, hblur, diagtl, coverleft, revealleft and more of ffmpeg's xfade;
+  "transitionSeconds" its length (0.5 to 1 reads well).
+- "overlays": what shows over the video for a while: [{id, text (a title, a caption, any words;
+  \n breaks a line) or file (a picture, SVG, video or animated GIF: a logo, picture in picture, a sticker) or scene (an SVG
+  or Three.js page drawn with a clear background), start, seconds (0 to the end), motion (slide up,
+  slide down, slide left or slide right into its place as it comes in), position (center,
+  top, bottom, lower third, top left, top right, bottom left, bottom right, full) or box {x, y,
+  width, height}, opacity, fadeIn, fadeOut, and for words: font (Segoe UI, Arial, Georgia, Impact,
+  Consolas…), size (a fraction of the frame's height: 0.09 a title, 0.05 a caption), color
+  (#RRGGBB), background (#RRGGBBAA for a box behind them; none gives a shadow), outline (#RRGGBB: a
+  line round the letters, as a meme's caption or a subtitle has), bold, and for a
+  picture or video: key, a colour taken out of it (a green screen: "#00FF00")}]. Matched by
+  id like the shots: a new one gets an id no overlay has (o3 after o1 and o2), and the person's
+  titles stay unless they ask for them to go. Two in the same place at the same time print over
+  each other: put one elsewhere or after the other.
+- "captions": true shows each shot's line at the bottom while it is said.
+- "fadeIn" and "fadeOut": the seconds the video fades from and to black (0.4 and 1 unless set; 0 for
+  none). A sound's "fadeIn" and "fadeOut" fade it on its sound line.
+- "quality": draft (quick to join while trying things), good (the usual) or best.
+- action=export with output saves the joined video as another file: a smaller MP4 (width), a GIF,
+  a WebM, a MOV, or its sound alone as an MP3; width and height together cut it to that shape (1080
+  by 1920 for a vertical one keeps its middle).
 
 ## Models and changes
 - "model" is what a piece is made with. Set it only when the person names or describes a model or

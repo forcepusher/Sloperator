@@ -43,6 +43,7 @@ public sealed partial class VideoEditorViewModel
             Sounds.Add(new SoundItem(sound));
         for (var i = 0; i < _board.SoundLines; i++)
             SoundLines.Add(new SoundLineItem(i, _board.LineVolume(i), SetLineVolume));
+        RebuildOverlays();
         _loading = false;
         Relabel();
         RefreshReferences();
@@ -50,6 +51,14 @@ public sealed partial class VideoEditorViewModel
         RefreshStates();
         foreach (var p in new[] { nameof(FrameWidth), nameof(FrameHeight), nameof(Fps), nameof(LengthText), nameof(HasJoinedVideo), nameof(VideoName) })
             OnPropertyChanged(p);
+        // The viewer's look at the playhead, with what changed.
+        if (Scrubbed && !IsPlaying)
+            ShowFrameAt(PlayPosition);
+        // And its sound, mixed again for Play once it has been mixed before.
+        if (Scrubbed)
+            WarmScenes();
+        if (_soundMix is not null)
+            WarmMix();
     }
 
     /// <summary>
@@ -194,10 +203,18 @@ public sealed partial class VideoEditorViewModel
                 }
                 break;
             case ShotItem { Shot: var s }:
-                lines.Add($"Prompt: {(s.Prompt.Trim().Length > 0 ? s.Prompt.Trim() : "(none yet)")}");
+                // A clip made of a file or a scene has no prompt and no seed: it said "Prompt: (none yet)" beside the user's own footage.
+                if (s.Scene is { } scene)
+                    lines.Add($"Drawn from the scene {Path.GetFileName(scene)}");
+                else if (s.File is { } own)
+                    lines.Add($"Your file: {Path.GetFileName(own)}");
+                else
+                    lines.Add($"Prompt: {(s.Prompt.Trim().Length > 0 ? s.Prompt.Trim() : "(none yet)")}");
                 if (s.Camera.Trim().Length > 0) lines.Add($"Camera: {s.Camera.Trim()}");
                 if (Storyboard.Speaks(s)) lines.Add($"Says: {s.Line.Trim()} (in the voice: {(_board.Voice.Trim() is { Length: > 0 } v ? v : "picked by the voice model")})");
-                lines.Add($"{s.Seconds:0.#} s · seed {s.Seed}");
+                lines.Add(s.Assembled ? $"{s.Seconds:0.#} s" : $"{s.Seconds:0.#} s · seed {s.Seed}");
+                if (Core.Tools.VideoEditorTool.Edits(s) is { Length: > 0 } edits)
+                    lines.Add($"Edited: {edits}");
                 break;
             case SoundItem { Sound: var a }:
                 if (a.Source == VideoSound.FromFile)
@@ -234,8 +251,9 @@ public sealed partial class VideoEditorViewModel
                     lines.Add($"{name}: {said}");
         }
         Details = string.Join("\n", lines);
-        var meta = Viewing?.Version?.Meta ?? (shown is { Piece: var piece } && piece.File(_board) is { } made && File.Exists(made) ? piece.Meta(_board) : null);
-        MadeWith = shown is { Piece: var p } && meta is not null && VideoMaker.MadeWith(meta) is { } t
+        var meta = Viewing?.Version?.Meta ?? (shown is { Piece: var piece } && piece.Reads(_board) is { } made && File.Exists(made) ? piece.Meta(_board) : null);
+        // Nothing made a clip that is a file of the user's or a scene drawn: no "Made with file, picked by Sloperator".
+        MadeWith = shown is { Piece: var p } && meta is not null && VideoMaker.MadeWith(meta) is { } t && t is not ("file" or "scene")
             ? "Made with " + (t.StartsWith(VideoTemplates.CheckpointPrefix, StringComparison.OrdinalIgnoreCase) ? Path.GetFileNameWithoutExtension(t) + " (checkpoint)" : Path.GetFileName(t)) +
               (ModelWords(p) is { } words ? $", for \"{words}\"" : ", picked by Sloperator")
             : "";

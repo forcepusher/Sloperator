@@ -241,6 +241,12 @@ public interface IPlatformServices
     /// <summary>The OS's own video and sound decoders; null where there are none (ffmpeg stands in).</summary>
     Media.IMediaDecoder? Media => null;
 
+    /// <summary>
+    /// The OS's own picture decoders, for kinds of picture Skia reads none of: a file's bytes to BGRA with its colours
+    /// scaled by its clearness, or null for bytes it has no decoder for. Null where the OS has none.
+    /// </summary>
+    Func<byte[], RawImage?>? Pictures => null;
+
     /// <summary>A way to play sound through the speakers, for the chat's players; null where there is none.</summary>
     Media.IAudioOutput? CreateAudioOutput() => null;
 

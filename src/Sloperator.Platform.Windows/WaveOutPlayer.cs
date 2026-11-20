@@ -78,6 +78,7 @@ public sealed class WaveOutPlayer : IAudioOutput
         var source = _source!;
         var samples = new float[(int)(_rate * BufferSeconds) * Math.Max(2, source.Channels)];
         var sourceChannels = Math.Max(1, source.Channels);
+        var shares = sourceChannels > 2 ? SoundEdit.Shares(sourceChannels) : null;
         var finished = false;
         var prepared = new bool[BufferCount];
         while (!_stopping)
@@ -109,20 +110,7 @@ public sealed class WaveOutPlayer : IAudioOutput
                     finished = true;
                     continue;
                 }
-                var pcm = new short[got * _channels];
-                for (var f = 0; f < got; f++)
-                {
-                    if (_channels == 1 || sourceChannels == 1)
-                    {
-                        var s = sourceChannels == 1 ? samples[f] : (samples[f * sourceChannels] + samples[f * sourceChannels + 1]) / 2;
-                        for (var c = 0; c < _channels; c++) pcm[f * _channels + c] = ToShort(s);
-                    }
-                    else
-                    {
-                        pcm[f * 2] = ToShort(samples[f * sourceChannels]);
-                        pcm[f * 2 + 1] = ToShort(samples[f * sourceChannels + 1]);
-                    }
-                }
+                var pcm = ToPcm(samples, got, sourceChannels, _channels, shares);
                 Marshal.Copy(pcm, 0, _data[i], pcm.Length);
                 Marshal.StructureToPtr(new WaveHeader { Data = _data[i], BufferLength = (uint)(pcm.Length * 2) }, _headers[i], false);
                 waveOutPrepareHeader(_device, _headers[i], (uint)Marshal.SizeOf<WaveHeader>());
@@ -137,6 +125,40 @@ public sealed class WaveOutPlayer : IAudioOutput
             }
             _wake.WaitOne(50);
         }
+    }
+
+    /// <summary>
+    /// The sound's own channels down to the one or two that are played, as 16-bit samples. A film in 5.1 has every
+    /// channel go to its side by <paramref name="shares"/>, the centre, where the speech is, to both: its first two
+    /// channels alone, as was played, are the music and the noises without the talk.
+    /// </summary>
+    internal static short[] ToPcm(float[] samples, int frames, int sourceChannels, int channels, (float L, float R)[]? shares)
+    {
+        var pcm = new short[frames * channels];
+        for (var f = 0; f < frames; f++)
+        {
+            if (channels == 1 || sourceChannels == 1)
+            {
+                var s = sourceChannels == 1 ? samples[f] : (samples[f * sourceChannels] + samples[f * sourceChannels + 1]) / 2;
+                for (var c = 0; c < channels; c++) pcm[f * channels + c] = ToShort(s);
+            }
+            else if (shares is not null)
+            {
+                var (left, right) = (0f, 0f);
+                for (var c = 0; c < sourceChannels; c++)
+                {
+                    left += samples[f * sourceChannels + c] * shares[c].L;
+                    right += samples[f * sourceChannels + c] * shares[c].R;
+                }
+                (pcm[f * 2], pcm[f * 2 + 1]) = (ToShort(left), ToShort(right));
+            }
+            else
+            {
+                pcm[f * 2] = ToShort(samples[f * sourceChannels]);
+                pcm[f * 2 + 1] = ToShort(samples[f * sourceChannels + 1]);
+            }
+        }
+        return pcm;
     }
 
     private static short ToShort(float s) => (short)Math.Clamp(MathF.Round(s * 32767f), -32768, 32767);

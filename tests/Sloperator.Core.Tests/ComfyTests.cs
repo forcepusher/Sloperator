@@ -22,6 +22,8 @@ internal sealed class FakeComfyServer : IDisposable
     public Uri Url { get; }
     public List<JsonObject> Prompts { get; } = [];
     public List<string> Uploads { get; } = [];
+    /// <summary>The name each uploaded file was sent under.</summary>
+    public List<string> UploadNames { get; } = [];
     public List<string> Interrupts { get; } = [];
     public int Frees { get; private set; }
     public int NodeTypeFetches { get; private set; }
@@ -168,6 +170,7 @@ internal sealed class FakeComfyServer : IDisposable
             }
             case "upload/image":
                 Uploads.Add(body.Length > 0 ? "uploaded" : "");
+                UploadNames.Add(System.Text.RegularExpressions.Regex.Match(body, "filename=\"?([^\";\\r\\n]+)").Groups[1].Value);
                 Reply(ctx, 200, """{"name": "uploaded.png", "subfolder": "", "type": "input"}""");
                 return;
             case "free":
@@ -1249,7 +1252,34 @@ public class ComfyToolTests : IDisposable
         var result = await Call(new JsonObject { ["action"] = "run", ["workflow"] = JsonNode.Parse(wf) }.ToJsonString());
         Assert.False(result.IsError, result.Text);
         Assert.Single(_server.Uploads);
+        Assert.Equal("cat.png", _server.UploadNames[0]);
         Assert.Equal("uploaded.png", (string?)_server.Prompts[0]["prompt"]!["1"]!["inputs"]!["image"]);
+
+        // A picture ComfyUI's loader would not read, or would read duller than it is, goes as a PNG of it: a game's
+        // Targa texture (two by two, red), and a photo that names a wider colour space than the usual one.
+        var api = new ComfyApi(_server.Url);
+        var texture = Path.Combine(_home, "wall.tga");
+        File.WriteAllBytes(texture, [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 24, 0x20, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255]);
+        await api.UploadAsync(texture, TestContext.Current.CancellationToken);
+        Assert.Equal("wall.png", _server.UploadNames[^1]);
+        var photo = Path.Combine(_home, "phone.jpg");
+        using (var wide = new SkiaSharp.SKBitmap(new SkiaSharp.SKImageInfo(8, 8, SkiaSharp.SKColorType.Rgba8888, SkiaSharp.SKAlphaType.Opaque,
+                   SkiaSharp.SKColorSpace.CreateRgb(SkiaSharp.SKColorSpaceTransferFn.Srgb, SkiaSharp.SKColorSpaceXyz.DisplayP3))))
+        {
+            // The numbers as they stand in the file (set one by one: a fill would first bring the colour into the space).
+            for (var y = 0; y < 8; y++)
+                for (var x = 0; x < 8; x++)
+                    wide.SetPixel(x, y, new SkiaSharp.SKColor(200, 60, 60));
+            using var pixels = wide.PeekPixels();
+            using var data = pixels.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 95);
+            File.WriteAllBytes(photo, data!.ToArray());
+        }
+        await api.UploadAsync(photo, TestContext.Current.CancellationToken);
+        Assert.Equal("phone.png", _server.UploadNames[^1]);
+        // As it is seen here: the red that those numbers mean in the wider space.
+        using (var sent = SkiaSharp.SKBitmap.Decode(Sloperator.Core.Media.PictureFile.AsPlainPng(photo)))
+            Assert.InRange(sent.GetPixel(4, 4).Red, 212, 222);
+        Assert.Null(Sloperator.Core.Media.PictureFile.AsPlainPng(picture));
     }
 
     [Fact]
@@ -1277,7 +1307,9 @@ public class ComfyToolTests : IDisposable
             new ComfyTemplate("workflows/Mesh/3d_hunyuan3d_multiview_to_model", "", "", "", "user", []),
             new ComfyTemplate("workflows/ImageRotate/templates-1_click_multiple_character_angles-v1.0", "", "", "", "user", []),
             new ComfyTemplate("workflows/Image/nova-furry-v17", "", "", "", "user", [])]);
-        Assert.Contains("a multi-view template (workflows/Mesh/3d_hunyuan3d_multiview_to_model)", note);
+        // Hunyuan3D's isn't offered: the user found its models terrible (2026-11-19).
+        Assert.DoesNotContain("hunyuan", note);
+        Assert.Contains("a multi-view 3D workflow takes", note);
         Assert.Contains("(workflows/ImageRotate/templates-1_click_multiple_character_angles-v1.0 turns the camera;", note);
         Assert.Contains("rotate the camera 90 degrees left and right", ComfyTool.ViewsNote([]));
     }

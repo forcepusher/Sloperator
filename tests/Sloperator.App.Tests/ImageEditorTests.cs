@@ -66,7 +66,10 @@ public sealed class ImageEditorTests : IDisposable
             Assert.Equal("Untitled picture · not made yet", vm.Title);
             var (via, context) = vm.About([picture.Folder])!.Value;
             Assert.Equal("Image editor · Untitled picture · new", via);
-            Assert.Contains($"save_to set to the picture's folder, \"{picture.Folder}\"", context);
+            // One of the three ways, each into the picture's folder: ComfyUI for a raster one, render for an SVG or a Three.js page.
+            Assert.Contains($"into the picture's folder, \"{picture.Folder}\"", context);
+            Assert.Contains("with the comfyui tool and save_to set to that folder", context);
+            Assert.Contains("drawn with render and save_to set to that folder", context);
             Assert.False(vm.MakeAgainCommand.CanExecute(null));
 
             // Pressed again before it is made, it is the same new picture, picked again: not a second empty one.
@@ -290,6 +293,142 @@ public sealed class ImageEditorTests : IDisposable
             // Unpicked before sending, its files go.
             Assert.True(vm.Unpick());
             Assert.Empty(Directory.GetFiles(Picks));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_version_drawn_from_a_scene_is_changed_in_its_scene_which_the_version_keeps()
+    {
+        var folder = Path.Combine(Root, "Untitled picture");
+        Directory.CreateDirectory(folder);
+        var scene = Path.Combine(_dir, "scratch", "paper-plane.svg");
+        Directory.CreateDirectory(Path.GetDirectoryName(scene)!);
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 48\"><title>Paper plane</title><path d=\"M4 24 60 4 40 44z\"/></svg>";
+        File.WriteAllText(scene, svg);
+        var version = Path.Combine(folder, "paper-plane.png");
+        Png(version, 1);
+        File.WriteAllBytes(version, Core.Render.SceneStamp.Stamp(File.ReadAllBytes(version), new Core.Render.SceneSource(scene, true, svg)));
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            var picture = Assert.Single(vm.Items);
+            vm.Pick(picture);
+            Wait(() => vm.HasPicture && vm.HasRecipe);
+            // Named by what its scene is called, and its scene is its Prompt metadata.
+            Wait(() => picture.Name == "Paper plane");
+            Assert.Equal(svg, Assert.Single(vm.Recipe!.Texts).Text);
+
+            // The scene is still as the version has it: that file is the one to change, and render saves the next version.
+            var (via, context) = vm.About([version])!.Value;
+            Assert.Equal("Image editor · Paper plane · version 1", via);
+            Assert.Contains($"This version was drawn from an SVG, \"{scene}\"", context);
+            Assert.Contains($"draw it again with render and save_to set to the picture's folder, \"{folder}\"", context);
+            Assert.DoesNotContain("comfyui", context);
+
+            // Changed since (or cleared with the scratch folder), the version's own copy is written beside it.
+            File.WriteAllText(scene, svg.Replace("M4 24", "M8 24"));
+            var copy = Path.Combine(folder, "paper-plane.svg");
+            Assert.Contains($"This version was drawn from an SVG, \"{copy}\"", vm.About([version])!.Value.Context);
+            Assert.Equal(svg, File.ReadAllText(copy));
+            File.Delete(scene);
+            Assert.Contains($"\"{copy}\"", vm.About([version])!.Value.Context);
+            // The copy is no version of the picture.
+            vm.Refresh();
+            Assert.Single(vm.Versions);
+
+            // A part marked on it is changed in the scene too, not painted over by ComfyUI.
+            vm.PickArea(new DocumentArea(0.5, 0, 1, 0.5));
+            Wait(() => Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1 && vm.About(Directory.GetFiles(Picks)) is not null);
+            var part = vm.About(Directory.GetFiles(Picks))!.Value;
+            Assert.Equal("Image editor · Paper plane · area of version 1", part.Via);
+            Assert.Contains("x 32-64, y 0-24 of the 64x48 pixels", part.Context);
+            Assert.Contains("change only what is in that part as they say, in the scene (edit_file)", part.Context);
+            Assert.DoesNotContain("redraw_area", part.Context);
+            Assert.True(vm.Unpick());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void The_edit_buttons_make_the_next_version_and_crop_waits_for_a_box()
+    {
+        var folder = Path.Combine(Root, "House");
+        Directory.CreateDirectory(folder);
+        Png(Path.Combine(folder, "v1.png"), 1);
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            // Nothing shown yet: greyed, saying why.
+            Assert.False(vm.TurnRightCommand.CanExecute(null));
+            vm.Pick(vm.Items[0]);
+            Wait(() => vm.HasPicture);
+            Assert.True(vm.TurnRightCommand.CanExecute(null));
+            Assert.False(vm.CropCommand.CanExecute(null));
+            Assert.Equal("Drag a box over the picture first (with Area on)", vm.CropTip);
+
+            // A quarter turn: the picture's next version, its sides swapped, shown; the one before stays.
+            vm.TurnRightCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 2 && vm.HasPicture);
+            Assert.Equal(Path.Combine(folder, "Turn 90°.png"), vm.Shown!.Path);
+            Assert.Equal((48, 64), PictureFolder.SizeOf(vm.Shown.Path));
+            Assert.Equal((64, 48), PictureFolder.SizeOf(Path.Combine(folder, "v1.png")));
+
+            // A box marked: Crop keeps it, and what was picked of the version before leaves the box.
+            vm.PickArea(new DocumentArea(0, 0, 0.5, 0.5));
+            Wait(() => vm.CropCommand.CanExecute(null) && Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1);
+            Assert.Equal("Keep only the box marked, as a new version", vm.CropTip);
+            vm.CropCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 3 && vm.HasPicture);
+            Assert.Equal((24, 32), PictureFolder.SizeOf(vm.Shown!.Path));
+            Assert.Null(vm.Mark);
+            Assert.Empty(Directory.GetFiles(Picks));
+            Assert.False(vm.CropCommand.CanExecute(null));
+
+            vm.MirrorCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 4 && vm.HasPicture);
+            vm.FlipCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 5 && vm.HasPicture);
+            vm.TurnLeftCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 6 && vm.HasPicture);
+            Assert.Equal(["Crop 24x32.png", "Flip.png", "Mirror.png", "Turn 270°.png", "Turn 90°.png", "v1.png"], Directory.GetFiles(folder).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+            // A picked version tells the model of the exact edits too.
+            vm.Pick(vm.Items[0], vm.Versions[0]);
+            Assert.Contains($"is edit_picture with path \"{Path.Combine(folder, "v1.png")}\"", vm.About([vm.Versions[0].Path])!.Value.Context);
+            return 0;
+        });
+    }
+
+    [Fact]
+    public void A_photo_stored_on_its_side_is_shown_and_cropped_as_it_is_seen()
+    {
+        var folder = Path.Combine(Root, "Phone photo");
+        Directory.CreateDirectory(folder);
+        // 64 by 48 as stored, with "turn me a quarter to the right to show me" (EXIF's orientation 6), as a phone held upright writes it.
+        var photo = Path.Combine(folder, "IMG_0001.jpg");
+        using (var bitmap = new SkiaSharp.SKBitmap(64, 48))
+        {
+            bitmap.Erase(SkiaSharp.SKColors.SteelBlue);
+            using var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+            var jpeg = data.ToArray();
+            byte[] exif = [(byte)'E', (byte)'x', (byte)'i', (byte)'f', 0, 0, (byte)'I', (byte)'I', 42, 0, 8, 0, 0, 0, 1, 0, 0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0];
+            File.WriteAllBytes(photo, [.. jpeg.AsSpan(0, 2), 0xFF, 0xE1, 0, (byte)(exif.Length + 2), .. exif, .. jpeg.AsSpan(2)]);
+        }
+        HeadlessApp.Run(() =>
+        {
+            using var vm = new ImageEditorViewModel(null, Root, Picks);
+            vm.Pick(vm.Items[0]);
+            Wait(() => vm.HasPicture);
+            // Upright in the big view, where Avalonia's own decoding showed it lying on its side.
+            Assert.Equal(new PixelSize(48, 64), vm.Picture!.PixelSize);
+            Assert.Equal((48, 64), PictureFolder.SizeOf(photo));
+            // Its top half marked and cropped: the top half of what is seen.
+            vm.PickArea(new DocumentArea(0, 0, 1, 0.5));
+            Wait(() => vm.CropCommand.CanExecute(null) && Directory.Exists(Picks) && Directory.GetFiles(Picks, "Area *.png").Length == 1);
+            Assert.Equal((48, 32), PictureFolder.SizeOf(Directory.GetFiles(Picks, "Area *.png").Single()));
+            vm.CropCommand.Execute(null);
+            Wait(() => vm.Versions.Count == 2 && vm.HasPicture);
+            Assert.Equal(new PixelSize(48, 32), vm.Picture!.PixelSize);
             return 0;
         });
     }

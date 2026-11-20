@@ -31,7 +31,26 @@ public partial class VideoEditorPanel : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, (_, _) => Dispatcher.UIThread.Post(() => (DataContext as VideoEditorViewModel)?.DragOver(null)), handledEventsToo: true);
+        // Pressed anywhere in it, the panel takes the keys, as an editor's timeline does: Ctrl+Z after an edit made
+        // from a clip's menu went to the side panels' list it was opened from, or the chat's box.
+        Focusable = true;
+        AddHandler(PointerPressedEvent, OnPressedIn, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyDownEvent, OnPlayheadKeys, RoutingStrategies.Tunnel);
+        // Space let go too: a clip's button takes that for a click, which now puts the playhead on the clip.
+        AddHandler(KeyUpEvent, OnPlayheadKeyUp, RoutingStrategies.Tunnel);
     }
+
+    /// <summary>A press in the panel, a right-click too, which Avalonia doesn't focus on: the panel takes the keys.</summary>
+    private void OnPressedIn(object? sender, PointerPressedEventArgs e)
+    {
+        // Where on a row it was pressed, for a click on a clip, which puts the playhead there.
+        _pressed = RowOf(e.Source as Visual) is { } row ? (Vm.SecondsAt(e.GetPosition(row).X), Environment.TickCount64) : null;
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused || focused != this && !this.IsVisualAncestorOf(focused))
+            Focus();
+    }
+
+    /// <summary>The moment of the video last pressed on a row of the timeline, and when (a click made by the keyboard or a screen reader has none).</summary>
+    private (double Seconds, long At)? _pressed;
 
     private VideoEditorViewModel? _vm;
 
@@ -42,6 +61,7 @@ public partial class VideoEditorPanel : UserControl
         {
             _vm.RenameAsked -= OnRenameAsked;
             _vm.RenameVideoAsked -= OnRenameVideoAsked;
+            _vm.PropertyChanged -= OnVideoChanged;
             _vm.PickFiles = null;
         }
         _vm = DataContext as VideoEditorViewModel;
@@ -49,15 +69,42 @@ public partial class VideoEditorPanel : UserControl
         {
             _vm.RenameAsked += OnRenameAsked;
             _vm.RenameVideoAsked += OnRenameVideoAsked;
+            _vm.PropertyChanged += OnVideoChanged;
             _vm.PickFiles = PickFilesAsync;
         }
     }
 
+    /// <summary>
+    /// The timeline follows the playhead: played, or stepped with the keys, past what is in view, the timeline scrolls
+    /// to it (a tenth of the way in while it plays, so the next stretch is ahead of it; the middle otherwise). Before,
+    /// the playhead ran out of sight at the right edge and played on unseen.
+    /// </summary>
+    private void OnVideoChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(VideoEditorViewModel.PlayheadX) || _vm is not { } vm || _pan is not null)
+            return;
+        var (from, width) = (Timeline.Offset.X, Timeline.Viewport.Width);
+        if (width <= 0 || vm.PlayheadX >= from + 8 && vm.PlayheadX <= from + width - 8)
+            return;
+        Timeline.Offset = new Vector(Math.Clamp(vm.PlayheadX - width * (vm.IsPlaying ? 0.1 : 0.5), 0, Math.Max(0, Timeline.Extent.Width - width)), 0);
+    }
+
     private VideoEditorViewModel Vm => (VideoEditorViewModel)DataContext!;
+
+    private TopLevel? _top;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _top = TopLevel.GetTopLevel(this);
+        _top?.AddHandler(KeyDownEvent, OnUnfocusedKeyDown);
+    }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        _top?.RemoveHandler(KeyDownEvent, OnUnfocusedKeyDown);
+        _top = null;
         _viewer?.Close();
     }
 
@@ -65,7 +112,7 @@ public partial class VideoEditorPanel : UserControl
 
     /// <summary>The row (References, Video clips or the sound lines) a visual is in, by its Tag.</summary>
     private static Control? RowOf(Visual? visual) =>
-        visual?.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => c.Tag is "references" or "video" or "sounds");
+        visual?.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => c.Tag is "references" or "video" or "titles" or "sounds");
 
     /// <summary>Where on the timeline a pointer is: its row, the time there, the sound line, and the card or sound under it.</summary>
     private VideoDropPlace? PlaceAt(Visual? source, Func<Visual, Point> at)
@@ -139,6 +186,87 @@ public partial class VideoEditorPanel : UserControl
         // The key its menu shows beside Rename.
         else if (e.Key == Key.F2 && e.KeyModifiers == KeyModifiers.None && Vm.AskRenamePicked())
             e.Handled = true;
+        else
+            OnEditKeys(e);
+    }
+
+    /// <summary>
+    /// An edit made here taken back (Ctrl+Z), and made again (Ctrl+Y, Ctrl+Shift+Z): a clip's speed, look or transition,
+    /// a split, a title. Ctrl+B splits the clip under the playhead, as in other editors.
+    /// </summary>
+    private void OnEditKeys(KeyEventArgs e)
+    {
+        if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control && Vm.Undo())
+            e.Handled = true;
+        else if ((e.Key == Key.Y && e.KeyModifiers == KeyModifiers.Control || e.Key == Key.Z && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift)) && Vm.Redo())
+            e.Handled = true;
+        else if (e.Key == Key.B && e.KeyModifiers == KeyModifiers.Control && Vm.SplitAtPlayhead())
+            e.Handled = true;
+        // On the clip or sound picked, as its menu's Delete, Duplicate and Copy; Ctrl+V after the clip under the playhead.
+        else if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None && Vm.DeletePicked())
+            e.Handled = true;
+        else if (e.Key == Key.D && e.KeyModifiers == KeyModifiers.Control && Vm.DuplicatePicked())
+            e.Handled = true;
+        else if (e.Key == Key.C && e.KeyModifiers == KeyModifiers.Control && Vm.CopyPicked())
+            e.Handled = true;
+        else if (e.Key == Key.V && e.KeyModifiers == KeyModifiers.Control && Vm.Paste())
+            e.Handled = true;
+    }
+
+    /// <summary>
+    /// A key pressed with nothing in the window focused: the clip that was went as the timeline was laid out anew after
+    /// an edit (made from its menu, or by Ctrl+Z itself). The panel's keys work on: a second Ctrl+Z did nothing.
+    /// </summary>
+    private void OnUnfocusedKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!e.Handled && ReferenceEquals(e.Source, _top) && IsEffectivelyVisible && DataContext is VideoEditorViewModel)
+            OnEditKeys(e);
+    }
+
+    /// <summary>
+    /// The playhead's keys, as in any editor, with the timeline or the panel focused: Space plays the video from the
+    /// playhead or pauses it, the arrows step it a frame (with Shift a second), Home and End take it to the start or
+    /// the end. Seen before a clip's button, which takes Space as a click, and the timeline, which scrolls with the
+    /// arrows. Not in a box being typed in, nor on the panel's buttons.
+    /// </summary>
+    private void OnPlayheadKeys(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not VideoEditorViewModel vm || (e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None
+            || TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is not Visual focused
+            || focused is TextBox || focused != this && !Timeline.IsVisualAncestorOf(focused))
+            return;
+        var shift = e.KeyModifiers == KeyModifiers.Shift;
+        switch (e.Key)
+        {
+            case Key.Space when !shift:
+                vm.PlayStripCommand.Execute(null);
+                break;
+            case Key.Left or Key.Right:
+                vm.StepPlayhead(e.Key == Key.Left ? -1 : 1, seconds: shift);
+                break;
+            case Key.Home or Key.End when !shift:
+                vm.PlayheadTo(end: e.Key == Key.End);
+                break;
+            default:
+                return;
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>A click on the viewer's look at the playhead plays the video from there, or pauses it, as a click on a player does.</summary>
+    private void OnPlayFrameTapped(object? sender, TappedEventArgs e)
+    {
+        (DataContext as VideoEditorViewModel)?.PlayStripCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    /// <summary>Space let go where its press played or paused the video: it is no click on the clip that has the keys.</summary>
+    private void OnPlayheadKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space && e.KeyModifiers == KeyModifiers.None && DataContext is VideoEditorViewModel
+            && TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual focused && focused is not TextBox
+            && (focused == this || Timeline.IsVisualAncestorOf(focused)))
+            e.Handled = true;
     }
 
     // ---- menus: the videos, a row, a card, a clip, a sound, a sound line ---------------------------------------------
@@ -151,6 +279,19 @@ public partial class VideoEditorPanel : UserControl
             return;
         PanelMenu.Open(Vm.MenuForRow(place.Row, place.Seconds, place.SoundLine), e.Source as Control);
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Right-click on a row's name (References, Video clips, Titles): the row's own menu, at the playhead. With clips end
+    /// to end the Video clips row has nowhere to click that isn't a clip, and its menu has what is the whole video's.
+    /// </summary>
+    private void OnRowNameMenu(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is Control { Tag: string row } name)
+        {
+            PanelMenu.Open(Vm.MenuForRow(row, Vm.PlayPosition, 0), name);
+            e.Handled = true;
+        }
     }
 
     private void OnCardMenu(object? sender, ContextRequestedEventArgs e)
@@ -185,6 +326,15 @@ public partial class VideoEditorPanel : UserControl
         if ((sender as Control)?.DataContext is SoundItem sound)
         {
             PanelMenu.Open(Vm.MenuFor(sound), sender as Control, null, Vm.FileOf(sound));
+            e.Handled = true;
+        }
+    }
+
+    private void OnOverlayMenu(object? sender, ContextRequestedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is OverlayItem overlay)
+        {
+            PanelMenu.Open(Vm.MenuFor(overlay), sender as Control);
             e.Handled = true;
         }
     }
@@ -267,8 +417,9 @@ public partial class VideoEditorPanel : UserControl
 
     private void OnShotClick(object? sender, RoutedEventArgs e)
     {
+        // Picked, and the playhead put where it was clicked: the viewer shows the video there, the clip as it is edited.
         if ((sender as Control)?.DataContext is ShotItem shot)
-            Vm.Show(shot);
+            Vm.ShowClip(shot, _pressed is { } pressed && Environment.TickCount64 - pressed.At < 1500 ? pressed.Seconds : null);
     }
 
     private void OnSlotClick(object? sender, RoutedEventArgs e)
@@ -302,6 +453,7 @@ public partial class VideoEditorPanel : UserControl
         if (sender is not Control handle || handle.DataContext is not ShotItem shot)
             return;
         _stretch = (shot, e.GetPosition(Timeline).X, shot.Shot.Seconds);
+        Vm.Remember();
         e.Pointer.Capture(handle);
         e.Handled = true;
         Vm.Show(shot);
@@ -346,6 +498,7 @@ public partial class VideoEditorPanel : UserControl
         var mode = (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("handle"))?.Tag as string ?? "move";
         var a = sound.Sound;
         _sound = (sound, mode, e.GetPosition(SoundRows), a.Start, a.SoundLine, a.Trim, sound.PlaySeconds(Vm.Length), false);
+        Vm.Remember();
         e.Pointer.Capture(clip);
         e.Handled = true;
     }
@@ -365,11 +518,11 @@ public partial class VideoEditorPanel : UserControl
             case "left":
                 // Its start cut: no further back than the file's start, and a tenth of a second kept.
                 dx = Math.Clamp(dx, -Math.Min(s.Trim, s.Start), s.Seconds - 0.2);
-                Vm.MoveSound(s.Sound, s.Start + dx, s.SoundLine, s.Trim + dx, s.Seconds - dx);
+                Vm.MoveSound(s.Sound, s.Start + dx, s.SoundLine, s.Trim + dx, s.Seconds - dx, "left");
                 break;
             case "right":
                 var most = file > 0 ? file - s.Trim : double.MaxValue;
-                Vm.MoveSound(s.Sound, s.Start, s.SoundLine, s.Trim, Math.Clamp(s.Seconds + dx, 0.2, most));
+                Vm.MoveSound(s.Sound, s.Start, s.SoundLine, s.Trim, Math.Clamp(s.Seconds + dx, 0.2, most), "right");
                 break;
             default:
                 var soundLine = s.SoundLine + (int)Math.Round((at.Y - s.From.Y) / VideoEditorViewModel.SoundLineHeight);
@@ -390,6 +543,66 @@ public partial class VideoEditorPanel : UserControl
     }
 
     private void OnSoundCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _sound = null;
+
+    // ---- a title dragged: moved along its row, or made to start or end elsewhere at an edge ---------------------
+
+    private (OverlayItem Item, string Mode, Point From, double Start, double Seconds, bool Moved)? _overlay;
+
+    private void OnOverlayPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control block || block.DataContext is not OverlayItem item || !e.GetCurrentPoint(block).Properties.IsLeftButtonPressed)
+            return;
+        // A double click: its words to change (handled here, as the press before it was, for the drag).
+        if (e.ClickCount == 2)
+        {
+            _overlay = null;
+            Vm.AskWords(item);
+            e.Handled = true;
+            return;
+        }
+        var mode = (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("handle"))?.Tag as string ?? "move";
+        _overlay = (item, mode, e.GetPosition(Timeline), item.Overlay.Start, Vm.ShowSeconds(item), false);
+        Vm.Remember();
+        e.Pointer.Capture(block);
+        e.Handled = true;
+    }
+
+    private void OnOverlayMoved(object? sender, PointerEventArgs e)
+    {
+        if (_overlay is not { } o)
+            return;
+        var at = e.GetPosition(Timeline);
+        if (!o.Moved && Point.Distance(at, o.From) < 4)
+            return;
+        _overlay = o with { Moved = true };
+        var dx = (at.X - o.From.X) / Vm.Pps;
+        switch (o.Mode)
+        {
+            case "left":
+                dx = Math.Clamp(dx, -o.Start, o.Seconds - 0.2);
+                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds - dx, "left");
+                break;
+            case "right":
+                Vm.MoveOverlay(o.Item, o.Start, Math.Max(0.2, o.Seconds + dx), "right");
+                break;
+            default:
+                Vm.MoveOverlay(o.Item, o.Start + dx, o.Seconds);
+                break;
+        }
+    }
+
+    private void OnOverlayReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_overlay is not { } released)
+            return;
+        _overlay = null;
+        e.Pointer.Capture(null);
+        // Clicked, not dragged: it is the title picked, and the playhead goes to it.
+        if (!released.Moved)
+            Vm.PickTitle(released.Item);
+    }
+
+    private void OnOverlayCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _overlay = null;
 
     // ---- dragging the timeline sideways --------------------------------------------------------------
 

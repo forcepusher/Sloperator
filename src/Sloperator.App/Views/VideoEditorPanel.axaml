@@ -261,11 +261,15 @@
                 </Button>
                 <TextBlock Classes="muted" Text="{Binding PlayTime}" FontSize="12" FontFeatures="+tnum" VerticalAlignment="Center" AutomationProperties.Name="Playhead" />
               </StackPanel>
-              <Border Height="92">
+              <!-- A right-click on a row's name opens the row's menu, as on a sound line's: with clips end to end, the row itself is hard to hit. -->
+              <Border Height="92" Background="Transparent" Tag="references" ContextRequested="OnRowNameMenu">
                 <TextBlock Text="References" Margin="10,10,6,0" />
               </Border>
-              <Border Height="112">
+              <Border Height="112" Background="Transparent" Tag="video" ContextRequested="OnRowNameMenu">
                 <TextBlock Text="Video clips" Margin="10,10,6,0" />
+              </Border>
+              <Border Height="{Binding TitlesHeight}" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1" Background="Transparent" Tag="titles" ContextRequested="OnRowNameMenu">
+                <TextBlock Text="Titles" Margin="10,0,6,0" VerticalAlignment="Center" />
               </Border>
               <ItemsControl ItemsSource="{Binding SoundLines}">
                 <ItemsControl.ItemTemplate>
@@ -369,7 +373,7 @@
                                   <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" Margin="4,0" VerticalAlignment="Center" />
                                   <TextBlock Grid.Column="2" Text="{Binding LengthText}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
                                 </Grid>
-                                <TextBlock DockPanel.Dock="Bottom" Height="20" Text="{Binding State}" FontSize="11" Margin="8,0,12,0" Classes="muted" Classes.error="{Binding IsError}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock DockPanel.Dock="Bottom" Height="20" Text="{Binding Footer}" FontSize="11" Margin="8,0,12,0" Classes="muted" Classes.error="{Binding IsError}" TextTrimming="CharacterEllipsis" />
                                 <!-- The start frame, the clip (its frames once made, else what happens in it), the end frame;
                                      the end's margin clears the edge's handle. -->
                                 <Grid ColumnDefinitions="Auto,*,Auto">
@@ -401,6 +405,40 @@
                     </Button>
                   </Canvas>
                 </Panel>
+
+                <!-- Titles: words, pictures and scenes over the video, each from where it starts for as long as it shows.
+                     Right-click the row to create one; double-click one to change its words. -->
+                <Border Height="{Binding TitlesHeight}" Tag="titles" Background="Transparent" BorderBrush="{StaticResource BbLine}" BorderThickness="0,0,0,1">
+                  <ItemsControl ItemsSource="{Binding Overlays}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <Canvas />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.Styles>
+                      <Style Selector="ContentPresenter" x:DataType="vm:OverlayItem">
+                        <Setter Property="Canvas.Left" Value="{Binding X}" />
+                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                      </Style>
+                    </ItemsControl.Styles>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:OverlayItem">
+                        <Border Classes="block clip" Classes.selected="{Binding IsSelected}" Width="{Binding BlockWidth}" Height="{Binding BlockHeight}" Cursor="Hand" Background="Transparent"
+                                ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding Title}" ContextRequested="OnOverlayMenu"
+                                PointerPressed="OnOverlayPressed" PointerMoved="OnOverlayMoved" PointerReleased="OnOverlayReleased" PointerCaptureLost="OnOverlayCaptureLost">
+                          <Panel>
+                            <DockPanel Margin="8,0">
+                              <PathIcon DockPanel.Dock="Left" Data="M5 4v3h5.5v12h3V7H19V4z" Width="11" Height="11" Foreground="{StaticResource BbMuted}" Margin="0,0,6,0" />
+                              <TextBlock Text="{Binding Title}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <Border Classes="handle" Tag="left" Width="6" HorizontalAlignment="Left" Cursor="SizeWestEast" ToolTip.Tip="Drag to start it earlier or later" />
+                            <Border Classes="handle" Tag="right" Width="6" HorizontalAlignment="Right" Cursor="SizeWestEast" ToolTip.Tip="Drag to show it longer or shorter" />
+                          </Panel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Border>
 
                 <!-- The sound lines: each sound a clip from where it starts for as long as it plays, dragged along
                      and between sound lines, trimmed at either edge, overlapping as they please. -->
@@ -443,7 +481,7 @@
                                 PointerPressed="OnSoundPressed" PointerMoved="OnSoundMoved" PointerReleased="OnSoundReleased" PointerCaptureLost="OnSoundCaptureLost"
                                 ContextRequested="OnSoundMenu">
                           <Panel>
-                            <views:VideoWave Peaks="{Binding Peaks}" Margin="0,4" />
+                            <views:VideoWave Peaks="{Binding Peaks}" Beats="{Binding Beats}" Margin="0,4,0,1" />
                             <StackPanel Margin="8,2,8,0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
                               <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" />
                               <TextBlock Text="{Binding State}" FontSize="10" Classes="muted" Classes.error="{Binding IsError}" VerticalAlignment="Center" />
@@ -497,11 +535,12 @@
       <!-- Its margin takes clicks too: away from the picture, they show the whole video. -->
       <Panel Background="Transparent" PointerPressed="OnAwayPressed">
         <Panel x:Name="ViewerBox" Margin="16,12">
-          <ContentControl Content="{Binding Viewer}" IsVisible="{Binding !IsPlaying}" />
-          <Border Classes="thumb" Background="#000000" IsVisible="{Binding IsPlaying}" views:FileMenu.Image="{Binding PlayFrame}">
+          <ContentControl Content="{Binding Viewer}" IsVisible="{Binding !ShowsPlayhead}" />
+          <Border Classes="thumb" Background="#000000" IsVisible="{Binding ShowsPlayhead}" views:FileMenu.Image="{Binding PlayFrame}" Tapped="OnPlayFrameTapped" Cursor="Hand"
+                  ToolTip.Tip="The video under the playhead, as it is edited. Click to play or pause (Space)">
             <Panel>
               <Image Source="{Binding PlayFrame}" Stretch="Uniform" />
-              <Border Background="#B0000000" VerticalAlignment="Bottom" HorizontalAlignment="Left" Padding="8,3" Margin="10" CornerRadius="4">
+              <Border Background="#B0000000" VerticalAlignment="Top" HorizontalAlignment="Left" Padding="8,3" Margin="10" CornerRadius="4">
                 <TextBlock Text="{Binding PlayLabel}" FontSize="12" />
               </Border>
             </Panel>

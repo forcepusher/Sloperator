@@ -5,6 +5,164 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **The agent can look through a long recording without watching it.** It finds where the sound is silent or
+  loud, where the picture cuts, stands still or is busy, and sees frames across it with their times, so it can
+  pick the highlights of a long video itself. It can also look closely at any moment of a video.
+- **Cut the silences out of a recording in one step.** Ask for the dead air to be removed from a talk, a
+  tutorial or a screen recording, and each silence of 0.7 seconds or more is cut out.
+- **Vector and 3D pictures and clips.** Pictures and video now come from three things: ComfyUI for photos,
+  paintings and illustrations, SVG for icons, logos, diagrams and motion graphics (moving with SMIL), and Three.js
+  for 3D scenes. The agent writes an SVG or a Three.js page and turns it into a PNG, or into an MP4 clip when it
+  moves, frame by frame in Edge on your PC, however heavy the scene. Three.js loads from its CDN and, offline,
+  from a copy built into Sloperator.
+- **Vector and 3D pictures in the Image editor.** A picture there can now be an SVG or a Three.js scene as well as a
+  ComfyUI one: say what you want, and an icon, a logo or a diagram is drawn as vector art, each change a new version
+  beside the earlier ones. A version drawn this way keeps its scene: **Prompt metadata** shows it, picking the
+  version or marking a part of it and saying what to change changes the scene itself (so the rest stays exactly as
+  it was), and **Show its SVG in folder** on the version's right-click menu finds the vector file.
+- A picture with see-through parts, such as an icon with clear corners, is shown over a checkerboard in the Image
+  editor, so you can see what is clear.
+- **Edit pictures yourself in the Image editor.** An **Edit** line over the versions: **Crop** to the box you drag
+  over the picture, **Turn left**, **Turn right**, **Mirror** and **Flip**. Each is a new version at once; the
+  earlier ones stay.
+- **Exact picture edits from the chat.** Ask the agent to crop, resize, turn or mirror a picture, make it black and
+  white, brighter or with more contrast, or save it as a JPG, PNG or WebP: it does so to the pixel, in a moment,
+  without a model drawing the picture again. The picture you gave stays as it was.
+- **3D model files.** Asked for a 3D model, the agent builds it in Three.js and saves a .glb you can load anywhere
+  (under a minute with Claude Haiku). For a realistic one, of a real thing or to match a picture, it uses ComfyUI's
+  TRELLIS.2 instead, never Hunyuan3D.
+- **Video editing.** Ask for it in the chat, or right-click a clip in the Video editor: trim a clip's start, slow it
+  down or speed it up, play it backwards, freeze a frame, crop it, zoom or pan slowly over it, make it black and
+  white, sepia, warm, cool or vintage, brighter or darker, with more or less contrast or colour, mute it, and pick
+  from 40 transitions into it (wipes, slides, a circle, a clock, pixels, fades through black or white). **Split at
+  the playhead** (Ctrl+B) cuts a clip in two, **Trim start** and **Trim end to the playhead** cut a clip's start or
+  end off, **Move earlier** and **Move later** change the clips' order, and **Duplicate** copies a clip or a title.
+  Space plays the video from the playhead or pauses it, the arrow keys move the playhead a frame (with Shift a
+  second), and Home and End take it to the start or end.
+- **More ways to edit a clip:** turn it a quarter turn or mirror it (footage filmed on its side), show a clip of
+  another shape whole, with black bars or over a blurred copy of itself, instead of cutting its edges off, and
+  add effects: blur, sharpen, vignette, film grain, negative, pixelate. A clip's menu also sets how loud its own
+  sound is and how long the transition into it takes, and the rows' menus turn the video's fade in and out and
+  captions on or off. Ask for any of it in the chat too.
+- **Delete, copy and paste in the Video editor:** Delete removes the clip, title or sound you picked, Ctrl+D duplicates a
+  clip or a title, Ctrl+C and Ctrl+V copy a clip to after the clip under the playhead. **Ctrl+Z brings what you deleted
+  back** as it was, with its files; they go to the Recycle Bin only once the edit can't be undone any more. Click a
+  title to pick it and see it in the viewer.
+- **Save this frame as a picture** on the Video clips row's right-click menu puts the frame under the playhead in
+  the Image editor, as a poster or a still to work on.
+- A clip in the Video editor says how it is edited under its pictures ("black and white, vignette, turned").
+- A title or a sound dragged near a clip's start, the video's end or the playhead snaps to it.
+- **The Video editor shows what you edit as you edit it.** Its viewer shows the video under the playhead: move the
+  playhead, or click a clip, and you see that frame with the clip's speed, look, turn, crop, zoom and effects, the
+  transition into it and the titles over it. **Play** plays the clips themselves with their sound, where it
+  showed one still picture a clip. Change a clip from its menu and the viewer follows at once, with no need to
+  make the video first.
+- **Titles and overlays.** A **Titles** row in the Video editor: right-click it to add words over the video, drag a title
+  or its edges to time it, double-click it to change its words, and from its menu place it (centre, top, bottom,
+  lower third, a corner), slide it in, and pick its size, colour and font. The agent can also put a logo, a picture
+  in picture, an animated SVG title or captions of the lines over the video, take a green screen out, and fade or
+  slide words in. A sound's menu fades it in or out and sets how loud it is.
+- **Make the video** joins your edits in seconds, right in the Video editor, when every clip is already made.
+- **Undo and Redo in the Video editor:** Ctrl+Z takes back your last edits there (not the agent's), a clip's length or
+  a sound dragged too, and Ctrl+Y makes them again; both are on the rows' right-click menus. Videos and pictures dropped on the clips become
+  clips, and on the titles, pictures over the video.
+- **Voice-overs.** Ask for narration over a video and the agent says it in the voice you describe, with the music
+  going quieter under it.
+- **Your own clips, pictures and scenes as shots.** A clip in a video can be a video or picture of yours, or an
+  animated SVG or Three.js scene, with no model making it.
+- **Export.** The finished video can be saved as a smaller MP4, a WebM, a MOV, a GIF, its sound alone as an MP3, or
+  cut to another shape, such as a vertical one. Sounds fade in and out, and the video's own fades can be set or
+  turned off.
+- **Videos need nothing installed.** Joining a video, turning an animated SVG or Three.js scene into a clip, making
+  a clip from a picture or from a MOV, WMV or AVI of yours, and exporting as an MP4 of any size, a GIF or a WAV are
+  now done with what Windows has. Before, each stopped with "needs ffmpeg" until you downloaded it. ffmpeg is still
+  used when it is there; only a WebM, a MOV or an MP3 needs it.
+- **Animated GIFs** of an SVG or Three.js scene, with a clear background when you ask for one.
+- **Subtitles beside the video.** When a video has spoken lines or a voice-over, making it also writes them as a
+  subtitle file next to it (the video's name with .srt), which players show and sites take as its subtitles.
+- **A line round a title's letters** (**Line round the letters** on a title's menu, or ask the agent for outlined
+  or meme-style words), so the words read over any picture.
+- **Animated GIFs in videos.** A GIF can be a clip of a video or lie over it as a sticker that keeps its clear
+  background and plays round, and the agent can turn a GIF into an MP4. Drop one on the Video editor's rows as
+  you would a video.
+- **Captions, arrows and frames on your photos.** Asked to write on a picture or point at something in it, the
+  agent draws over the picture itself as vector art and saves the result; the photo can be anywhere on your PC.
+- **Export** on the Video clips row's right-click menu in the Video editor saves the made video as a smaller,
+  upright (for a phone) or square MP4, a GIF, or its sound alone, into the video's Exports folder, and shows it
+  there.
+- **Cut on the beat.** The Video editor finds the beat of a song or a music file of yours and marks each beat
+  with a tick under its waveform. Drag a clip's end, a title or a sound near a beat and it snaps to it. Ask the
+  agent to cut a video on the beat and it reads the song's tempo and where its beats fall, and makes the clips
+  that long.
+- **Quick edits of a video file.** Ask to trim a video, turn it upright, speed it up, crop it, make it a GIF or
+  half the size, and the agent does it in one step, without making a video in the Video editor for it. Your file
+  stays as it was; the result is a new file beside it. A picture works too: ask for a five second clip or a GIF
+  of a photo with a slow zoom over it.
+- The Video editor's viewer shows every transition as it will look (a wipe from its own side, slides, circles, a
+  clock's hand, blinds and the rest), film grain, sharpening, a green screen taken out, and an animated SVG or
+  Three.js scene laid over the video. **Play** there now sounds as the made video will: the music going quieter
+  under a voice, one clip's sound fading into the next, a clip sped up or slowed keeping its pitch, a reversed
+  clip heard backwards.
+- **More kinds of picture open.** TIFF (a scanner's, a print shop's), TGA and DDS (a game's textures) and, on a PC
+  that has Windows' extensions for them, a phone's HEIC and AVIF: they show in the chat and the File inspector,
+  and the agent can look at them, crop them and save them as PNG or JPEG.
+
+### Changed
+- **A video made only of your own footage takes its size and frame rate from the footage.** It was made at
+  1280x720 and 24 frames a second unless told otherwise, so 30 fps footage lost one frame in five and a phone's
+  upright clip was cut to a strip across its middle. The same when you drop a clip on a new video.
+- **A clip cut from a video of yours is read from the video itself.** Nothing is copied or converted for it, so
+  cuts from a long recording are ready at once and take no extra disk space. Three cuts from a 20-minute MKV took
+  ten minutes to prepare and 2.3 GB; they take no time and no space now.
+- The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
+  a workbook stays a real Excel chart; a picture in a Word, PowerPoint or PDF file is made one of the three ways.
+
+### Fixed
+- A clip made from a picture of yours, or from a drawn scene with small things moving over a still background,
+  is no longer reported as "it hardly moves", which sent the agent off to fix scenes that were right.
+- **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
+  chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
+  has them upright.
+- **Asked to look at several pictures at once, the agent saw only the last of them.** It read the others again, or
+  saved copies of them to look at. It now sees every picture it opens in one step.
+- A picture given to ComfyUI that it has no reader for (a phone's HEIC, a game texture), or would read paler than
+  it is (an iPhone's photo), is handed to it as a plain PNG, so what is made from it keeps the photo's colours.
+- **Photos from a phone or a camera looked duller than they are.** Those in a wider colour range (an iPhone's
+  Display P3, a camera's Adobe RGB) had their reds and greens weakened, and a copy the agent cropped or converted
+  kept the dull colours. They are shown and saved as they look now.
+- **Most videos played with the picture a little behind the sound** (about a tenth of a second, in the chat's
+  player, the Video editor and a video joined without ffmpeg): any MP4 or MOV that didn't come straight from a
+  phone. The two are together now, in MKV, WMV and broadcast (.ts) files too.
+- **A phone video filmed upright is upright at its own size.** It was shown small, in the middle of a wide black frame.
+- A DVD's or an old camcorder's video is shown at its real width, not squeezed.
+- An MKV video lost every second frame and played jerkily.
+- **Colours of some videos were a little off**: reds too orange, greens too dark in videos written in the older
+  colour standard (many Android phones' videos, DVDs, most small videos). They are read as the file says now.
+- A video with low-quality sound (22 kHz AAC) played its sound twice as fast and high.
+- A video in 10-bit H.264 froze whatever tried to show it. It now says it can't be read, and why.
+- A clip in 5.1 surround lost its speech in a video joined without ffmpeg; all its channels are mixed in now.
+- A video or a sound in 5.1 surround played without its speech in the chat and in the editors.
+- **A cut played backwards plays its own seconds backwards.** It played the last seconds of the file it was cut
+  from.
+- The check of a clip cut from a long video, the pictures of each cut and a frame that goes on from a clip were
+  taken from the whole file. They are taken from the seconds the clip shows.
+- WMV, 3GP, FLV, TS and MPG files can be clips. A WMV named as a clip's file was taken for a picture.
+- With ffmpeg, joining cuts from a long recording read the recording from its start for each cut.
+- A cut that starts between two frames began one frame late in a video joined without ffmpeg.
+- A video dropped on the Video editor as a clip ran a minute at most; it runs its own length.
+- Pressing Play in the Video editor right after opening a video cut from a long recording read the recording's
+  first 20 minutes of sound first, and a cut from later in it played silent.
+- **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
+  clip is (a phone's HEVC, a web video's VP9) and what would read it.
+- Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.
+- **A clip made of a video of yours can be longer than a minute.** Cutting three minutes out of a recording, or
+  making a long video smaller, gave only its first minute.
+- A video file the agent adds as a clip runs its own length unless told how long. It got five seconds, so a longer
+  one lost its end and the agent went looking for the file's length.
+- **Clips cut out of a long recording join quickly without ffmpeg.** Three short clips from a 20-minute recording
+  took 40 seconds and 3 GB of memory to join; now 7 seconds and a fifth of the memory. **Stop** stops such a
+  join at once, where it could take half a minute.
 
 ## [1.5.1] - 2026-11-17
 ### Changed
