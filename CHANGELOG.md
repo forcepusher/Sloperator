@@ -131,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A video with low-quality sound (22 kHz AAC) played its sound twice as fast and high.
 - A video in 10-bit H.264 froze whatever tried to show it. It now says it can't be read, and why.
 - A clip in 5.1 surround lost its speech in a video joined without ffmpeg; all its channels are mixed in now.
+- A video or a sound in 5.1 surround played without its speech in the chat and in the editors.
 - **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
   clip is (a phone's HEVC, a web video's VP9) and what would read it.
 - Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.

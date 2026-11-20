@@ -2710,7 +2710,9 @@ What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless 
   which is in the third. `SoundEdit.Fold` folds as ffmpeg does in a join: the centre and the back channels at
   0.707 to their sides, the deep bass left out, nothing brought down. A clip of one channel that is read and
   written again as an MP4 (an MKV, a WMV) was 3 dB louder than one taken as it is; `Transcode` writes it at
-  0.707 a side.
+  0.707 a side. The speakers had the same fault: `WaveOutPlayer` plays two channels and took a sound's first
+  two, so a film in 5.1 played in the chat or an editor as music and noises without the talk. It folds by the
+  same shares now (`SoundEdit.Shares`, `WaveOutPlayer.ToPcm`), what adds up past full scale held at it.
 - **What can't be read is said**: a clip whose picture nothing here reads was 45 black frames in the joined
   video and a note. The join stops instead, and so does taking such an MP4 as a clip, with
   `MediaDecoders.WhyNoPicture`: what the file is coded as, by its own index or its name, and what would read

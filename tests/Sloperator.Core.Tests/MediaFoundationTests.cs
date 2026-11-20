@@ -54,6 +54,28 @@ public class MediaFoundationTests : IDisposable
         Assert.Null(decoder.Probe(Path.Combine(_dir, "missing.wav")));
     }
 
+    [Fact]
+    public void A_sound_in_surround_is_played_with_its_speech()
+    {
+        // Two frames of 5.1 as Windows gives it: the first has speech alone (the centre), the second music at the
+        // front and something behind on the left. Its first two channels alone, as was played, are silence then music.
+        float[] film = [0, 0, 0.5f, 0.9f, 0, 0, 0.25f, -0.25f, 0, 0.9f, 0.5f, 0];
+        var played = WaveOutPlayer.ToPcm(film, 2, 6, 2, SoundEdit.Shares(6));
+        Assert.Equal(4, played.Length);
+        Assert.InRange(played[0], 11580, 11590); // 0.5 x 0.707 of full scale, and the deep bass left out
+        Assert.Equal(played[0], played[1]);
+        Assert.InRange(played[2], 19770, 19780); // 0.25 + 0.5 x 0.707
+        Assert.Equal(-8192, played[3]);
+
+        // Two channels and one are as they were; more than full scale is held at it.
+        Assert.Equal(new short[] { 16384, -16384 }, WaveOutPlayer.ToPcm([0.5f, -0.5f], 1, 2, 2, null));
+        Assert.Equal(new short[] { 16384, -32768 }, WaveOutPlayer.ToPcm([0.5f, -1.5f], 2, 1, 1, null));
+        Assert.Equal(new short[] { 32767, 32767 }, WaveOutPlayer.ToPcm([1, 1, 1, 0, 1, 1], 1, 6, 2, SoundEdit.Shares(6)));
+        // Every count of channels has a share for each of them.
+        for (var channels = 3; channels <= 12; channels++)
+            Assert.Equal(channels, SoundEdit.Shares(channels).Length);
+    }
+
     [Theory]
     [InlineData(0.4567)]
     [InlineData(0.8)]

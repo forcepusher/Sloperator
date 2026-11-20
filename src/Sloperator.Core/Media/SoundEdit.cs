@@ -332,19 +332,7 @@ public static class SoundEdit
     /// </summary>
     internal static SoundSamples Fold(SoundSamples sound, int channels)
     {
-        const float half = 0.70710678f;
-        // Each channel's share to the left and to the right, in the order Windows gives them.
-        (float L, float R)[] shares = sound.Channels switch
-        {
-            3 => [(1, 0), (0, 1), (half, half)],
-            4 => [(1, 0), (0, 1), (half, 0), (0, half)],
-            5 => [(1, 0), (0, 1), (half, half), (half, 0), (0, half)],
-            6 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half)],
-            7 => [(1, 0), (0, 1), (half, half), (0, 0), (0.5f, 0.5f), (half, 0), (0, half)],
-            8 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half), (half, 0), (0, half)],
-            // A layout not known here: the odd channels to the left, the even to the right.
-            _ => [.. Enumerable.Range(0, sound.Channels).Select(c => c % 2 == 0 ? (1f, 0f) : (0f, 1f))],
-        };
+        var shares = Shares(sound.Channels);
         var (s, from, frames) = (sound.Samples, sound.Channels, sound.Frames);
         var o = new float[frames * channels];
         for (var f = 0; f < frames; f++)
@@ -361,6 +349,27 @@ public static class SoundEdit
                 (o[f * 2], o[f * 2 + 1]) = (left, right);
         }
         return new SoundSamples(o, sound.Rate, channels);
+    }
+
+    /// <summary>
+    /// Each channel's share to the left and to the right when a sound of more than two channels is folded to two, in
+    /// the order Windows gives the channels (front left, front right, centre, deep bass, the back and side pairs):
+    /// for <see cref="Fold"/>, and for what plays such a sound as it reads it.
+    /// </summary>
+    public static (float L, float R)[] Shares(int channels)
+    {
+        const float half = 0.70710678f;
+        return channels switch
+        {
+            3 => [(1, 0), (0, 1), (half, half)],
+            4 => [(1, 0), (0, 1), (half, 0), (0, half)],
+            5 => [(1, 0), (0, 1), (half, half), (half, 0), (0, half)],
+            6 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half)],
+            7 => [(1, 0), (0, 1), (half, half), (0, 0), (0.5f, 0.5f), (half, 0), (0, half)],
+            8 => [(1, 0), (0, 1), (half, half), (0, 0), (half, 0), (0, half), (half, 0), (0, half)],
+            // A layout not known here: the odd channels to the left, the even to the right.
+            _ => [.. Enumerable.Range(0, Math.Max(1, channels)).Select(c => c % 2 == 0 ? (1f, 0f) : (0f, 1f))],
+        };
     }
 
     /// <summary>"Cut 3.18-5.00 s", "Fade out 7.00-8.00 s", "+3 dB" (the whole sound), "-3 dB 3.18-5.00 s": the new version's name.</summary>
