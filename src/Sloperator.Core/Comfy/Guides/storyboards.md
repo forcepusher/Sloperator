@@ -147,7 +147,8 @@ so no clip is made again for it (action=join after a change).
   in References (or by its full path), used as it is (a picture is held for the shot's seconds; a video
   runs its own length unless the shot gives "seconds"). A video is read where it is, with nothing to make:
   any number of shots can be cut out of one long recording (each its own "in" and "seconds"), ready to join
-  at once. The storyboard says each video file's size as it
+  at once, and a video made only of their footage takes its size and frame rate from it unless given others.
+  The storyboard says each video file's size as it
   is shown and its length beside its shot, and read_file shows a video's frames with the same: go by
   those, not by ffprobe, which gives a phone's upright video as lying on its side;
   "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,

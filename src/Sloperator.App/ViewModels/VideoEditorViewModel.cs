@@ -322,22 +322,27 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
     private readonly HashSet<string> _reading = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A sound's samples, once read; null while they are read (it is laid out again then) or can't be.</summary>
-    private (float[] Samples, int Rate)? AudioOf(string file)
+    /// <param name="from">With <paramref name="to"/>: only this stretch of it, in seconds (a clip cut from a long recording).</param>
+    private (float[] Samples, int Rate)? AudioOf(string file, double from = 0, double to = 0)
     {
         var stamp = File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue;
         if (stamp == DateTime.MinValue)
             return null;
+        var path = file;
+        if (to > 0)
+            file = StretchKey(path, from, to);
         if (_audio.TryGetValue(file, out var known) && known.Stamp == stamp)
             return (known.Samples, known.Rate);
         if (_previews.Decoder is not { } decoder || !_reading.Add(file))
             return null;
-        var music = _board.Sounds.Any(s => s.Source is VideoSound.Song or VideoSound.FromFile && string.Equals(_board.SoundFile(s), file, StringComparison.OrdinalIgnoreCase));
+        var music = to <= 0 && _board.Sounds.Any(s => s.Source is VideoSound.Song or VideoSound.FromFile && string.Equals(_board.SoundFile(s), path, StringComparison.OrdinalIgnoreCase));
         _ = Task.Run(() =>
         {
             (float[], int)? read = null;
             try
             {
-                using var reader = decoder.OpenAudio(file);
+                using var whole = decoder.OpenAudio(path);
+                using var reader = whole is not null && to > 0 ? new Core.Media.MediaStretch.Sound(whole, from, to) : whole;
                 if (reader is not null)
                     read = MediaPreview.ReadMono(reader, TimeSpan.FromMinutes(20));
             }
@@ -354,8 +359,17 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
                 _reading.Remove(file);
                 if (_disposing)
                     return;
-                _beats[file] = beat;
                 _audio[file] = read is var (samples, rate) ? (stamp, samples, rate) : (stamp, [], 1);
+                // A stretch no clip is cut to any more (it was trimmed again) is let go.
+                if (to > 0)
+                {
+                    var used = _board.Shots.Select(s => StretchKey(_board.ShotClip(s), s.Stretch.From, s.Stretch.To + StretchPad)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    foreach (var old in _audio.Keys.Where(k => k.Contains('|') && !used.Contains(k)).ToList())
+                        _audio.Remove(old);
+                    Relayout();
+                    return;
+                }
+                _beats[file] = beat;
                 foreach (var sound in Sounds.Where(s => string.Equals(_board.SoundFile(s.Sound), file, StringComparison.OrdinalIgnoreCase)))
                     sound.FileSeconds = read is var (all, r) ? all.Length / (double)Math.Max(1, r) : 0;
                 Relayout();
@@ -363,6 +377,18 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         });
         return null;
     }
+
+    /// <summary>A little more than a clip shows is read of its sound, so a rounding at its end has something to play.</summary>
+    private const double StretchPad = 0.5;
+
+    private static string StretchKey(string file, double from, double to) => FormattableString.Invariant($"{file}|{from:0.###}|{to:0.###}");
+
+    /// <summary>
+    /// A clip's own sound for the stretch its shot is cut from, starting at the cut: for playing the video before its
+    /// mix is ready. Of a clip cut from a long recording only its own seconds are read: the recording's first twenty
+    /// minutes were, whole (230 MB, and seconds of reading), and a cut from past the twentieth minute played silent.
+    /// </summary>
+    private (float[] Samples, int Rate)? ShotAudio(VideoShot shot) => AudioOf(_board.ShotClip(shot), shot.Stretch.From, shot.Stretch.To + StretchPad);
 
     /// <summary>The beat of each music file read, by its path; null for one with no steady beat.</summary>
     private readonly Dictionary<string, BeatGrid?> _beats = new(StringComparer.OrdinalIgnoreCase);
@@ -497,7 +523,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         Scrubbed = true;
         // The clips' sound is read, and the video's sound mixed, by the time Play is pressed.
         foreach (var made in _board.Shots.Where(s => !s.Reverse && (s.Volume ?? 1) > 0))
-            AudioOf(_board.ShotClip(made));
+            ShotAudio(made);
         WarmMix();
         WarmScenes();
         ShowFrameAt(PlayPosition);
@@ -543,10 +569,11 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         for (var i = 0; i < _board.Shots.Count && i < starts.Count; i++)
         {
             var shot = _board.Shots[i];
-            if (shot.Reverse || (shot.Volume ?? 1) <= 0 || AudioOf(_board.ShotClip(shot)) is not var (samples, rate) || samples.Length == 0)
+            if (shot.Reverse || (shot.Volume ?? 1) <= 0 || ShotAudio(shot) is not var (samples, rate) || samples.Length == 0)
                 continue;
             var plays = shot.Freeze is { } freeze ? Math.Min(freeze, shot.Seconds) : shot.Seconds;
-            parts.Add(new VideoMix.Part(samples, rate, starts[i], shot.In, plays, (shot.Volume ?? 1) * under, shot.Speed ?? 1));
+            // The samples start at the clip's cut already.
+            parts.Add(new VideoMix.Part(samples, rate, starts[i], 0, plays, (shot.Volume ?? 1) * under, shot.Speed ?? 1));
         }
         _playEnd = Math.Max(Length, parts.Select(p => p.Start + p.Seconds).DefaultIfEmpty(0).Max());
         if (parts.Count > 0 && _previews.NewAudioOutput() is { } output)

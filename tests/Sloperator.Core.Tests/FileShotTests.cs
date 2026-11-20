@@ -285,4 +285,47 @@ public sealed class FileShotTests : IDisposable
         Assert.DoesNotContain("trim=start", graph);
         Assert.Contains("[1:v]setpts=PTS-STARTPTS,reverse,setpts=PTS/2,", graph);
     }
+
+    /// <summary>A reader that says every video is a phone's upright clip: 1080x1920 at 29.97 frames a second, 20 s.</summary>
+    private sealed class Upright : IMediaDecoder
+    {
+        public MediaInfo? Probe(string path) => new() { HasVideo = true, Width = 1081, Height = 1920, FrameRate = 29.97, Duration = TimeSpan.FromSeconds(20) };
+        public IVideoReader? OpenVideo(string path, int maxSide) => null;
+        public IAudioReader? OpenAudio(string path) => null;
+    }
+
+    [Fact]
+    public void A_video_of_only_the_users_footage_takes_its_frame_from_it()
+    {
+        static System.Text.Json.Nodes.JsonObject Json(string json) => (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(json)!;
+        Storyboard Blank()
+        {
+            var board = new Storyboard { Title = "Phone", Folder = _dir };
+            Directory.CreateDirectory(board.ReferencesFolder);
+            File.WriteAllText(Path.Combine(board.ReferencesFolder, "phone.mov"), "");
+            return board;
+        }
+        (int, int, int) Made(string change, bool blank = true)
+        {
+            var json = Json(change);
+            var board = Storyboard.Merge(Blank(), json);
+            VideoEditorTool.FrameFromFiles(board, json, new Upright(), blank);
+            return (board.Width, board.Height, board.Fps);
+        }
+        Assert.True(Blank().IsBlank);
+        // Told neither a size nor a rate, it is the clip's: upright as it is shown, in whole pairs of pixels, at its
+        // 30 frames a second. It was 1280x720 at 24: a strip across the clip's middle, one frame in five dropped.
+        Assert.Equal((1080, 1920, 30), Made("""{"shots": [{"id": "s1", "file": "phone.mov"}]}"""));
+        // Turned a quarter by its shot, its sides swap.
+        Assert.Equal((1920, 1080, 30), Made("""{"shots": [{"id": "s1", "file": "phone.mov", "rotate": 90}]}"""));
+        // What it is told is kept, and only that.
+        Assert.Equal((1280, 720, 30), Made("""{"width": 1280, "height": 720, "shots": [{"id": "s1", "file": "phone.mov"}]}"""));
+        Assert.Equal((1080, 1920, 25), Made("""{"fps": 25, "shots": [{"id": "s1", "file": "phone.mov"}]}"""));
+        // Not where a model makes a clip too (made at the sizes the models make), nor in a video that had something in it.
+        Assert.Equal((1280, 720, 24), Made("""{"shots": [{"id": "s1", "file": "phone.mov"}, {"id": "s2", "prompt": "A fox runs."}]}"""));
+        Assert.Equal((1280, 720, 24), Made("""{"shots": [{"id": "s1", "file": "phone.mov"}]}""", blank: false));
+        // A video with a clip in it is not blank.
+        var filled = Storyboard.Merge(Blank(), Json("""{"shots": [{"id": "s1", "file": "phone.mov"}]}"""));
+        Assert.False(filled.IsBlank);
+    }
 }

@@ -104,6 +104,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the agent can look at them, crop them and save them as PNG or JPEG.
 
 ### Changed
+- **A video made only of your own footage takes its size and frame rate from the footage.** It was made at
+  1280x720 and 24 frames a second unless told otherwise, so 30 fps footage lost one frame in five and a phone's
+  upright clip was cut to a strip across its middle. The same when you drop a clip on a new video.
 - **A clip cut from a video of yours is read from the video itself.** Nothing is copied or converted for it, so
   cuts from a long recording are ready at once and take no extra disk space. Three cuts from a 20-minute MKV took
   ten minutes to prepare and 2.3 GB; they take no time and no space now.
@@ -142,6 +145,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WMV, 3GP, FLV, TS and MPG files can be clips. A WMV named as a clip's file was taken for a picture.
 - With ffmpeg, joining cuts from a long recording read the recording from its start for each cut.
 - A cut that starts between two frames began one frame late in a video joined without ffmpeg.
+- A video dropped on the Video editor as a clip ran a minute at most; it runs its own length.
+- Pressing Play in the Video editor right after opening a video cut from a long recording read the recording's
+  first 20 minutes of sound first, and a cut from later in it played silent.
 - **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
   clip is (a phone's HEVC, a web video's VP9) and what would read it.
 - Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.

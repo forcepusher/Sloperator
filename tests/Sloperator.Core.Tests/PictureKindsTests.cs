@@ -10,7 +10,7 @@ public class PictureKindsTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("bb-kinds-").FullName;
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    public void Dispose() => TestFolder.Delete(_dir);
 
     /// <summary>A Targa file's 18 bytes of header.</summary>
     private static byte[] Head(int kind, int width, int height, int depth, int descriptor, int mapCount = 0, int mapDepth = 0) =>

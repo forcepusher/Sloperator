@@ -488,6 +488,33 @@ public sealed partial class Storyboard
         shot.Scene is null && shot.File is { Length: > 0 } name && FindFile(name) is { } file && ReadsWhereItIs(file) ? file : null;
 
     /// <summary>
+    /// Whether nothing in the video has fixed its frame yet: no shot is made, is made of a file or a scene, or says
+    /// what happens in it, and no frame is made or described (a new video as the panel starts one, or one just made).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsBlank =>
+        Shots.All(s => !s.Assembled && s.Prompt.Trim().Length == 0 && !File.Exists(ShotVideo(s))) &&
+        Frames.All(f => f.Prompt.Trim().Length == 0 && f.File is not { Length: > 0 } && !File.Exists(FramePicture(f)));
+
+    /// <summary>
+    /// The video's frame taken from a video of the user's it is made of: its size as it is shown (in whole pairs of
+    /// pixels) and its frames a second (60 at most). For a video with nothing in it but the user's footage, which is
+    /// told no size or rate: left at 1280x720 and 24 a second, a phone's upright clip was cut to a strip across its
+    /// middle, and 30 frames a second were shown as 24, one in five dropped.
+    /// </summary>
+    /// <param name="rotate">How far its shot turns it: a quarter turn swaps its sides.</param>
+    public void FrameFrom(Media.MediaInfo info, int rotate = 0, bool size = true, bool rate = true)
+    {
+        if (size && info is { Width: > 1, Height: > 1 })
+        {
+            var (w, h) = rotate is 90 or 270 ? (info.Height, info.Width) : (info.Width, info.Height);
+            (Width, Height) = (Math.Clamp(w / 2 * 2, 64, 4096), Math.Clamp(h / 2 * 2, 64, 4096));
+        }
+        if (rate && info.FrameRate > 0)
+            Fps = Math.Clamp((int)Math.Round(info.FrameRate), 1, 60);
+    }
+
+    /// <summary>
     /// The file a shot's picture and sound are read from: the video of the user's it is made of where that is
     /// (<see cref="ShotSource"/>), else its own clip. Only <see cref="ShotVideo"/> is the storyboard's own, to write,
     /// move, keep versions of or delete: this one may be the user's recording.

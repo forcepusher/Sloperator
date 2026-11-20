@@ -2896,8 +2896,22 @@ transition; before the two fixes above the backwards clip was a frame off). In a
 frame early (it shows 6029 where the time asked for is in 6030, read off the test picture's frame counter); ours
 is the frame showing.
 
-Not done: the panel's fallback sound while the mix is being made still reads up to 20 minutes of each file whole
-(once for a file now, not once for each cut); a .ts or .mpg is still written again whole.
+**The video's frame from its footage** (`Storyboard.FrameFrom`, `IsBlank`; `VideoEditorTool.FrameFromFiles`):
+asked for highlights of the 30 frames a second recording, Haiku gave the storyboard neither a size nor a rate
+(as it should not have to), and the video came out at the 1280x720 and 24 a second a new video starts with: one
+frame in five dropped, and a phone's upright clip would have been cut to a strip across its middle. A video
+that had nothing in it (no shot made, described, or made of a file) and is made only of the user's files and
+scenes takes the first video's size as it is shown and its frames a second (60 at most), unless the change
+gives a size or a rate (each on its own: a rate given keeps the size from the footage). Not where a model
+makes a clip too, which is made at the sizes the models make. The same for the first clip dropped on a new
+video in the panel, which also ran a minute at most and now runs its own length.
+
+**The panel's sound before the mix is ready** (`VideoEditorViewModel.ShotAudio`): Play pressed before the mix
+is made plays the clips' sound as read, which was up to twenty minutes of each clip's file, whole (230 MB and
+seconds of reading for the recording, and silence for a cut from past its twentieth minute). Only a cut's own
+seconds are read now (`MediaStretch.Sound`), kept by file and stretch and let go when the clip is cut again.
+
+Not done: a .ts or .mpg is still written again whole.
 
 Tests: `FileShotTests` (what is read where, nothing copied, an old clip dropped, the video never touched; a
 stretch as a clip of its own; the end frame, the stamp, the look and ffmpeg's inputs of a cut),

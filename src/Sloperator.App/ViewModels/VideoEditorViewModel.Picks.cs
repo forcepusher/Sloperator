@@ -180,9 +180,19 @@ public sealed partial class VideoEditorViewModel
     private void AddDropped(IReadOnlyList<string> copies, VideoDropPlace place)
     {
         var clips = new List<VideoShot>();
+        // The first clip of a video with nothing in it yet gives the video its frame: a phone's upright clip dropped
+        // on a new video was cut to a strip across the 1280x720 it starts with, and played at 24 frames a second.
+        var blank = place.Row != "titles" && _board.IsBlank;
         foreach (var copy in copies)
         {
-            var seconds = Storyboard.IsVideoFile(copy) ? Math.Clamp(_previews.Decoder?.Probe(copy)?.Duration.TotalSeconds ?? 5, 0.5, 60) : 3;
+            var info = Storyboard.IsVideoFile(copy) ? _previews.Decoder?.Probe(copy) : null;
+            // A clip made of a video runs as long as the video does (it was cut off at a minute).
+            var seconds = Storyboard.IsVideoFile(copy) ? Math.Clamp(info?.Duration.TotalSeconds ?? 5, 0.5, place.Row == "titles" ? 60 : Storyboard.MaxFileSeconds) : 3;
+            if (blank && info is { HasVideo: true })
+            {
+                _board.FrameFrom(info);
+                blank = false;
+            }
             var name = _board.InReferences(copy);
             if (place.Row == "titles")
                 _board.Overlays.Add(new VideoOverlay

@@ -159,8 +159,10 @@ public sealed partial class VideoEditorTool : Tool
             if (change is not null)
             {
                 var files = board.Shots.Where(s => s.File is not null).GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().File!);
+                var blank = board.IsBlank;
                 board = Storyboard.Merge(board, change);
                 LengthsFromFiles(board, change, ctx.Media, files);
+                FrameFromFiles(board, change, ctx.Media, blank);
                 // The video's folder is named after it: a new title renames it.
                 if (change["title"] is JsonValue named && named.TryGetValue<string>(out var newName) && newName.Trim().Length > 0 &&
                     Storyboard.Safe(newName) != Path.GetFileName(board.Folder))
@@ -194,6 +196,7 @@ public sealed partial class VideoEditorTool : Tool
         Directory.CreateDirectory(folder);
         var created = Storyboard.Merge(new Storyboard { Title = title, Folder = folder }, change);
         LengthsFromFiles(created, change, ctx.Media);
+        FrameFromFiles(created, change, ctx.Media, true);
         Save(created);
         return created;
 
@@ -222,6 +225,29 @@ public sealed partial class VideoEditorTool : Tool
             if (LengthOf(file, media) is { } length && length - shot.In > 0.05)
                 shot.Seconds = Math.Clamp(Math.Round((length - shot.In) / (shot.Speed ?? 1), 3), 0.5, Storyboard.MaxFileSeconds);
         }
+    }
+
+    /// <summary>
+    /// A video that had nothing in it and is made only of the user's files and scenes takes its frame from the first
+    /// video among them, unless the change gives a size (or a rate): the video's size as it is shown, and its frames a
+    /// second. Asked for highlights of a 30 frames a second recording, the model gave neither and got 1280x720 at 24;
+    /// a phone's upright clip would have been cut to a strip. Not where a model makes a clip: those are made at the
+    /// sizes the models make.
+    /// </summary>
+    /// <param name="blank">The video had nothing in it before the change (see <see cref="Storyboard.IsBlank"/>).</param>
+    internal static void FrameFromFiles(Storyboard board, JsonObject? change, IMediaDecoder? media, bool blank)
+    {
+        if (media is null || change is null || !blank || board.Shots.Any(s => !s.Assembled && s.Prompt.Trim().Length > 0))
+            return;
+        var (size, rate) = (change["width"] is null && change["height"] is null, change["fps"] is null);
+        if (!size && !rate)
+            return;
+        foreach (var shot in board.Shots)
+            if (shot.Scene is null && shot.File is { } name && board.FindFile(name) is { } file && Storyboard.IsVideoFile(file) && Held(file, media) is { } info)
+            {
+                board.FrameFrom(info, shot.Rotate, size, rate);
+                return;
+            }
     }
 
     /// <summary>
