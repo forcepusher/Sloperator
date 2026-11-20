@@ -104,6 +104,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the agent can look at them, crop them and save them as PNG or JPEG.
 
 ### Changed
+- **A clip cut from a video of yours is read from the video itself.** Nothing is copied or converted for it, so
+  cuts from a long recording are ready at once and take no extra disk space. Three cuts from a 20-minute MKV took
+  ten minutes to prepare and 2.3 GB; they take no time and no space now.
 - The agent no longer draws pictures with Python, Pillow, matplotlib or Blender unless you ask for them. A chart in
   a workbook stays a real Excel chart; a picture in a Word, PowerPoint or PDF file is made one of the three ways.
 
@@ -132,6 +135,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A video in 10-bit H.264 froze whatever tried to show it. It now says it can't be read, and why.
 - A clip in 5.1 surround lost its speech in a video joined without ffmpeg; all its channels are mixed in now.
 - A video or a sound in 5.1 surround played without its speech in the chat and in the editors.
+- **A cut played backwards plays its own seconds backwards.** It played the last seconds of the file it was cut
+  from.
+- The check of a clip cut from a long video, the pictures of each cut and a frame that goes on from a clip were
+  taken from the whole file. They are taken from the seconds the clip shows.
+- WMV, 3GP, FLV, TS and MPG files can be clips. A WMV named as a clip's file was taken for a picture.
+- With ffmpeg, joining cuts from a long recording read the recording from its start for each cut.
+- A cut that starts between two frames began one frame late in a video joined without ffmpeg.
 - **A clip Windows can't read no longer becomes a black stretch in the video.** Joining stops and says what the
   clip is (a phone's HEVC, a web video's VP9) and what would read it.
 - Jumping to the very end of a clip, or about in a broadcast (.ts) recording, showed the wrong picture or none.

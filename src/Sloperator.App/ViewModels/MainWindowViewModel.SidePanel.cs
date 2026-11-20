@@ -264,7 +264,8 @@ public sealed partial class MainWindowViewModel
     /// user then says what to do with it. A piece not made yet has no file: it goes as its place.
     /// One picked again under another caption (more lines of a file in the File changes panel) is put back with it.
     /// </summary>
-    internal void Pick(IReadOnlyList<(string Path, string Caption)> picked)
+    /// <param name="said">What a pick's chip says under its name in place of its file's size, by its path; null for the size.</param>
+    internal void Pick(IReadOnlyList<(string Path, string Caption)> picked, Func<string, string?>? said = null)
     {
         foreach (var old in Attachments.Where(a => a.Picked && !picked.Any(p => string.Equals(p.Path, a.Path, StringComparison.OrdinalIgnoreCase) && p.Caption == a.Caption)).ToList())
             RemoveAttachment(old);
@@ -277,7 +278,7 @@ public sealed partial class MainWindowViewModel
             foreach (var same in Attachments.Where(a => string.Equals(a.Path, path, StringComparison.OrdinalIgnoreCase)).ToList())
                 RemoveAttachment(same);
             // After the other picks, before the user's own files: what comes from the panel goes first (the user, 2026-10-26).
-            Attachments.Insert(Attachments.Count(a => a.Picked), new AttachmentItem(path, RemoveAttachment, caption));
+            Attachments.Insert(Attachments.Count(a => a.Picked), new AttachmentItem(path, RemoveAttachment, caption, said?.Invoke(path)));
         }
     }
 

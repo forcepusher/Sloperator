@@ -59,9 +59,16 @@ public sealed partial class VideoEditorViewModel
         for (var i = 0; i < _board.Shots.Count; i++)
         {
             var shot = _board.Shots[i];
+            // By its own place in the video's folder, which is what a clip picked is known by; what it is seen from
+            // may be a video of theirs it is cut out of, read where that is.
             if (Is(_board.ShotVideo(shot)))
+            {
+                var file = _board.ShotSource(shot) is { } cut
+                    ? string.Create(CultureInfo.InvariantCulture, $"cut from their video {cut} ({shot.Stretch.From:0.##} to {shot.Stretch.To:0.##} s of it)")
+                    : $"its video file ({full}{state})";
                 return new($"clip {i + 1}", string.Create(CultureInfo.InvariantCulture,
-                    $"clip {i + 1}, shot {shot.Id} of the storyboard (the {i + 1}. of {_board.Shots.Count}, from {starts[i]:0.#} to {starts[i] + shot.Seconds:0.#} s), its video file ({full}{state})"), VideoPiece.Of(shot));
+                    $"clip {i + 1}, shot {shot.Id} of the storyboard (the {i + 1}. of {_board.Shots.Count}, from {starts[i]:0.#} to {starts[i] + shot.Seconds:0.#} s), {file}"), VideoPiece.Of(shot));
+            }
         }
         foreach (var sound in _board.Sounds)
             if (Is(_board.SoundFile(sound)))

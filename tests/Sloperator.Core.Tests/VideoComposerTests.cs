@@ -163,9 +163,12 @@ public sealed class VideoComposerTests : IDisposable
         // Some eleven seconds of sound read in all (in two channels at 8 kHz), of an hour and forty minutes.
         Assert.InRange(media.Heard, 8000 * 2 * 8, 8000 * 2 * 12);
 
-        // Backwards a clip plays from its end, so all of it from its trim is read: its last second first.
-        var back = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "in": 1190, "reverse": true, "place": "ramp 1200s.mp4"}]}"""), new Levels(), [], TestContext.Current.CancellationToken);
-        Assert.InRange(At(back, 0.5), 0.11994f, 0.11996f);
+        // Backwards a clip plays its own cut from the cut's end (not the last seconds of its file, as it did): two
+        // seconds from 1190 s, the last of them first, and no more than those two seconds read.
+        var heard = new Levels();
+        var back = VideoSoundMix.Mix(Video("""{"fadeOut": 0, "shots": [{"id": "s1", "seconds": 2, "in": 1190, "reverse": true, "place": "ramp 1200s.mp4"}]}"""), heard, [], TestContext.Current.CancellationToken);
+        Assert.InRange(At(back, 0.5), 0.11914f, 0.11916f);
+        Assert.InRange(heard.Heard, 8000 * 2 * 2, 8000 * 2 * 3);
     }
 
     [Fact]

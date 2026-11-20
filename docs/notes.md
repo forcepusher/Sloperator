@@ -2161,7 +2161,8 @@ the joined video is out of date when a piece's .json or the video's is newer tha
 
 - **Shots no model makes** (`VideoShot.Assembled`): `file`, a video or picture of the user's (in
   References, or a full path), and `scene`, an SVG or Three.js page. action=shot makes them in
-  seconds (`VideoMaker.AssembleShotAsync`): an MP4 is copied, another video made an MP4, a picture
+  seconds (`VideoMaker.AssembleShotAsync`): a video is read where it is (nothing is made: see "A video a shot
+  is made of is read where it is"; a GIF or a broadcast stream is made an MP4), a picture
   held for the shot (cut to the frame), a scene drawn at the video's size and frame rate for as much
   as the shot uses (`in` plus its seconds at its speed). Their stamp is the file's (and, for a
   picture or scene, how much of it and at what size). They get no first frame (`AddFirstFrames`), and
@@ -2338,7 +2339,7 @@ first picture and then its last while the sound lines played, moving the playhea
 or a trim "at the playhead" was made blind), a picked clip played its own file, which no edit changes, and nothing
 of a look, a turn, a title or a transition was seen until the video was joined again.
 - **What is drawn**: the clip under the playhead at its own frame (`SourceTime`: its `in`, its speed, held from
-  its freeze, backwards from the file's end, its last frame once the file has run out), turned, mirrored and cropped
+  its freeze, backwards from the end of its cut, its last frame once the file has run out), turned, mirrored and cropped
   (`Turned`), put in the frame as its `fit` says (filling it, whole with black beside it, or whole over a blurred
   copy of itself), with its effects (blur, sharpening, pixelate, a vignette, a negative, grain), its slow zoom
   or pan, and its colours (`Colours`: its light and colour as ffmpeg's eq has them, then its look; warm, cool and
@@ -2723,10 +2724,10 @@ What came out wrong, all of it in Windows' reader (`MediaFoundation.cs`) unless 
   without ffmpeg): the mix read each clip's whole sound, the recording's, and held it twice (as read, and at 48
   kHz): 14 s of video took 39.6 s to join and 3.2 GB, and Stop was not heard for 28 s, since nothing looked for
   it while the sound was read. `VideoSoundMix` now reads of each file only what a shot or a sound line plays
-  (from its trim, as long as it lasts at its speed; all of it from the trim only for a clip played backwards,
-  which starts from its end), a second at a time with Stop looked for between: 6.7 s, 582 MB at most, and
+  (from its trim, as long as it lasts at its speed; exactly that for a clip played backwards, which starts from
+  the end of its cut), a second at a time with Stop looked for between: 6.7 s, 582 MB at most, and
   stopped 0.04 s after it is asked. Jumping in the sound is to the sample now (above), which this leans on.
-  `Transcode` (a MOV or an MKV made an MP4 clip) holds a sound of over five minutes a second at a time too. Probing
+  `Transcode` (a clip or an export written again as an MP4) holds a sound of over five minutes a second at a time too. Probing
   the recording takes 0.16 s the first time (its first frames are read for its clock) and 0.02 s after; a frame
   15 minutes in comes in 0.04 s.
 - **Left as it is**: H.264 in an MKV or a stream has its colours by size alone (its header isn't read there);
@@ -2829,6 +2830,81 @@ as far as it goes. What it has none for was simply not a picture: every TIFF, ev
 Tests: `PictureKindsTests` (Targa every way and cut short, as a picture to read, show and edit; a TIFF written
 by hand through Windows' decoders; P3 and Adobe RGB photos read and edited),
 `Every_picture_read_in_one_step_goes_to_the_model`.
+
+### A video a shot is made of is read where it is
+A shot made of a video of the user's had a clip of its own: an MP4 was copied into the shot's place, and any other
+kind was read and written again as an MP4, all of it, for every shot made of it. Three five-second cuts out of a
+20-minute, 600 MB recording put 2.3 GB in the video's folder (the copy in References and one for each cut); as an
+MKV the recording took 204 s to write again for each cut (`enc take`: 36,001 frames at 176 a second), ten minutes
+before anything could be joined; and every split in the Video editor copied the file once more.
+
+Now nothing is copied and nothing made (`Storyboard.ShotSource`, `ShotClip`, `HasClip`): the shot is read from
+the video where it is, which is References for a file given by its path (`TakeInPictures` copies it in once, as
+before). The same three cuts take no time and 580 MB, as an MP4, a MOV, an MKV or a WMV.
+- **Which kinds** (`Storyboard.ReadsWhereItIs`): every video but a GIF (a few colours, often an odd size) and a
+  broadcast stream (.ts, .m2ts, .mts, .mpg, .mpeg), which are made an MP4 once as before. A jump 15 minutes into
+  the recording takes 0.04 s in MP4, MOV, MKV and WMV, and 36 s in a .ts, which Windows only reads from its start
+  (`enc deep`). `VideoExtensions` gained .wmv, .3gp, .flv, .ts, .m2ts, .mts, .mpg and .mpeg: a WMV named as a
+  shot's file was taken for a picture.
+- **Two paths, by what they are for**: `ShotVideo` is the storyboard's own file (to write, move, keep versions of,
+  set aside when the shot is deleted) and is the only one of the two that is ever written or deleted; `ShotClip` is
+  what a shot is read from, the user's video for such a shot, else `ShotVideo`. Every reader goes by `ShotClip`
+  (the join here and ffmpeg's, the sound mix, the previewer, the checks, the panel's strips, player and menus),
+  `VideoPiece.Reads` is the same for a piece. A shot whose video is gone falls back to a clip of its own if it
+  still has one (a video made before this change).
+- **Nothing to make**: such a shot is up to date while its video is there (`VideoMaker.IsCurrent`), so the
+  storyboard lists it as "Read where it is" and it is not among what is to be made. action=shot on it checks that
+  its picture can be read (and says why not: `WhyNoPicture`) and looks at it. A clip the shot had before (a
+  model's, kept as a version first by the tool) is taken away (`DropOwnClip`), so it isn't taken for the shot's if
+  the video is moved. `TakeClip` (the editor's split and trims) does the same for any such video, where it took
+  an MP4 only: a split of an MKV clip made it again from the start.
+- **In the panel** a clip is still known by its own place (`VideoPick.Path`, what a pick in the chat's box is
+  described by), and seen from the video: its pick is not "planned", the viewer and Open in Inspector show the
+  video, the chip under the box says "5 s from 10:00" where it said "not made yet", and the chat is told
+  "cut from their video … (600 to 605 s of it)".
+- **Each shot its own reader** (`VideoPreviewer.SourceOf(file, who)`): readers were kept by file, so two cuts
+  out of one recording shared one, which went to and fro for every frame of the transition between them: the
+  join took 9.2 s, 7.4 s with a reader for each shot.
+
+A cut out of a long file also showed what took a shot for all of its clip:
+- **A look at a shot** (`VideoCheck.Shot`) sampled sixteen frames from the whole file, read all of it for how it
+  moves and two minutes of its sound: a look at five seconds was of the twenty minutes. `MediaStretch.Of` gives
+  a decoder that reads a file as the stretch a shot shows (`VideoShot.Stretch`: from its `in`, its seconds at its
+  speed), timed from zero; the look goes through it ("Shot s3 (long.mkv, from 1000 to 1005 s of it)…", 1.5 s),
+  and so does the strip on a clip's card, which was of the whole file too. A stretch that is all of the file
+  (to a quarter of a second, as a model's clip runs a frame or two over its shot) is the decoder as it is.
+- **The frames at a cut** (`VideoCheck.Cuts`) and **the frame a shot ends on** (`EndFrame`, for a frame "of" a
+  shot) were the file's first and last. They are the stretch's, and the first of it for a shot played backwards;
+  a frame's stamp takes in the stretch of a shot made of a file, so it is taken again when the cut moves.
+- **Played backwards** a shot played the end of its file, from `in` on: ffmpeg's `trim=start,reverse` reverses
+  all that is left, and the previewer and the mix did as it did. A cut out of the middle of a recording, reversed,
+  showed the recording's last seconds, and ffmpeg held every frame after the cut to do it. It plays its own
+  stretch backwards now (`SourceTime`, `VideoSoundMix`), from the frame showing just before the stretch's end.
+- **ffmpeg jumps to the cut** (`VideoMontage.ShotInput`): each clip is given as `-ss <in> -t <its stretch> -i`,
+  where `-i` and `trim=start` decoded everything before the cut. Forwards half a second more than it shows, so a
+  rounding holds no frame; backwards exactly the stretch. The same three cuts join in 2.2 s with ffmpeg.
+- **The frame showing at a time** (`VideoPreviewer.Read`): a reader goes to the frame that starts nearest a
+  time, which in a frame's second half is the next one. A cut starting between two frames began a frame late,
+  and one played backwards began on the frame after it. The previewer now asks for half a frame earlier and reads
+  on to the one showing.
+
+Measured (`enc long` on the 20-minute recording, three 5 s cuts with dissolves, `SL_FFMPEG` set): taken in 0.0 s
+(1.2 s and 2.3 GB as copies; an MKV was not taken at all, and 204 s a cut through the tool), joined here in 7.4 s
+and by ffmpeg in 2.2 s, a look at one cut 1.5 s. The join here and ffmpeg's, with the middle cut backwards, are
+the same frame for frame (PSNR 34.6 to 36 dB at no offset, 22 to 26 dB a frame either way, in every clip and
+transition; before the two fixes above the backwards clip was a frame off). In a WMV, ffmpeg's own jump is a
+frame early (it shows 6029 where the time asked for is in 6030, read off the test picture's frame counter); ours
+is the frame showing.
+
+Not done: the panel's fallback sound while the mix is being made still reads up to 20 minutes of each file whole
+(once for a file now, not once for each cut); a .ts or .mpg is still written again whole.
+
+Tests: `FileShotTests` (what is read where, nothing copied, an old clip dropped, the video never touched; a
+stretch as a clip of its own; the end frame, the stamp, the look and ffmpeg's inputs of a cut),
+`A_clip_is_cut_as_its_shot_says_before_it_fills_the_frame`, `Of_a_long_recording_only_what_a_shot_or_a_sound_line_plays_is_read`,
+`A_shot_is_at_its_own_moment_of_its_clip`. By hand: the panel on three cuts of the 20-minute MKV
+(`.dev/three-techs-test/home9`): picked, split, reversed, duplicated, deleted and undone, with only the
+shots' small .json files written and the recording untouched.
 
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by

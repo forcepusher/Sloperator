@@ -92,8 +92,9 @@ public sealed class VideoPreviewerTests : IDisposable
     [InlineData(""", "speed": 2""", 1.25, 2.5)]
     [InlineData(""", "in": 1, "speed": 0.5""", 1, 1.5)]
     [InlineData(""", "freeze": 0.7""", 1.25, 0.7)]
-    [InlineData(""", "reverse": true""", 1.25, 3.75)]
-    [InlineData(""", "reverse": true, "speed": 2""", 1, 3)]
+    // Backwards from the end of its cut, or of its file where that ends first (as here), a thousandth short of it: the frame showing just before.
+    [InlineData(""", "reverse": true""", 1.25, 3.749)]
+    [InlineData(""", "reverse": true, "speed": 2""", 1, 2.999)]
     [InlineData("", 9, 4.98)] // the file has run out: its last frame is held
     public void A_shot_is_at_its_own_moment_of_its_clip(string edits, double into, double moment)
     {

@@ -91,7 +91,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
             // Where the shot before's clip ends, as the clip has it; or where a video of the user's ends.
             var started = DateTime.UtcNow;
             var before = board.Shot(of);
-            var clip = before is not null ? board.ShotVideo(before) : board.ReferenceVideo(of)
+            var clip = before is not null ? board.ShotClip(before) : board.ReferenceVideo(of)
                        ?? throw new VideoException($"{frame.Label} is where the video {of} ends, and there is no such video in References ({board.ReferencesFolder}).");
             if (!File.Exists(clip))
                 throw new VideoException($"{frame.Label} is where shot {of} ends, and shot {of} isn't made yet: make it first.");
@@ -100,7 +100,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
             await Task.Run(() =>
             {
                 using var reader = media.OpenVideo(clip, Math.Max(board.Width, board.Height)) ?? throw new VideoException($"{clip} has no picture this PC can read.");
-                using var last = VideoCheck.LastFrame(reader) ?? throw new VideoException($"No frame of {clip} could be read.");
+                using var last = (before is not null ? VideoCheck.EndFrame(reader, before) : VideoCheck.LastFrame(reader)) ?? throw new VideoException($"No frame of {clip} could be read.");
                 var taken = Path.Combine(Path.GetTempPath(), $"sloperator-{Guid.NewGuid():N}.png");
                 try
                 {
@@ -303,6 +303,24 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         var notes = new List<string>();
         var temp = Path.Combine(Path.GetDirectoryName(target)!, "." + Path.GetFileNameWithoutExtension(target) + ".making.mp4");
         var ffmpeg = media?.Ffmpeg;
+        if (board.ShotSource(shot) is not null)
+        {
+            // A video of the user's is read where it is: nothing is copied and nothing made of it. One whose picture
+            // nothing here reads (a phone's HEVC where Windows has no decoder for it and there is no ffmpeg) is said
+            // now, not found black in the joined video.
+            if (media is not null)
+            {
+                using var readable = media.OpenVideo(source, 64);
+                if (readable is null)
+                    throw new VideoException(MediaDecoders.WhyNoPicture(source, media));
+            }
+            // A clip the shot had before (a model's, kept as a version by whoever asked for this) isn't it any more.
+            DropOwnClip(board, shot);
+            var taken = board.ShotMeta(shot);
+            WriteStamp(taken, ShotStamp(board, shot), "file", null);
+            VideoVersions.Remember(taken, VideoPiece.Of(shot).Settings(board));
+            return new VideoMade(source, taken, null, clock.Elapsed, notes);
+        }
         if (Render.SceneRenderer.Handles(source))
         {
             var scenes = Scenes ?? new Render.SceneRenderer(Path.Combine(Path.GetTempPath(), "Sloperator", "render", "browser")) { Writer = media };
@@ -315,20 +333,9 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         }
         else
         {
+            // A picture held, or a video of a kind that is made a clip (a GIF, a broadcast stream).
             var picture = !Storyboard.IsVideoFile(source);
-            if (!picture && Path.GetExtension(source).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
-            {
-                // An MP4 is taken as it is, so one whose picture nothing here reads (a phone's HEVC where Windows has
-                // no decoder for it and there is no ffmpeg) is said now, not found black in the joined video.
-                if (media is not null)
-                {
-                    using var readable = media.OpenVideo(source, 64);
-                    if (readable is null)
-                        throw new VideoException(MediaDecoders.WhyNoPicture(source, media));
-                }
-                File.Copy(source, temp, overwrite: true);
-            }
-            else if (ffmpeg is null)
+            if (ffmpeg is null)
             {
                 // No ffmpeg: a picture held, or another kind of video read and written again, with what the PC has.
                 if (media is null || !VideoComposer.Joins(media))
@@ -370,17 +377,35 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     /// </summary>
     public static bool TakeClip(Storyboard board, VideoShot shot)
     {
-        if (shot.File is not { } name || board.FindFile(name) is not { } source || !source.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        if (board.ShotSource(shot) is null)
             return false;
-        var target = board.ShotVideo(shot);
-        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-        if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
-        {
-            MediaRelease.Release(target);
-            File.Copy(source, target, overwrite: true);
-        }
+        DropOwnClip(board, shot);
         WriteStamp(board.ShotMeta(shot), ShotStamp(board, shot), "file", null);
         return true;
+    }
+
+    /// <summary>
+    /// A shot that reads the user's video where it is has no clip of its own: one left in its place from before (a
+    /// model's clip the shot was, or the copy that was made of the video) goes, so it isn't taken for the shot's when
+    /// the video is moved away. Only ever the storyboard's own file, never the user's.
+    /// </summary>
+    private static void DropOwnClip(Storyboard board, VideoShot shot)
+    {
+        var own = board.ShotVideo(shot);
+        if (board.ShotSource(shot) is not { } source || string.Equals(Path.GetFullPath(source), Path.GetFullPath(own), StringComparison.OrdinalIgnoreCase))
+            return;
+        try
+        {
+            if (File.Exists(own))
+            {
+                MediaRelease.Release(own);
+                File.Delete(own);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Open in a player: it is left, and nothing reads it while the video is there.
+        }
     }
 
     /// <summary>
@@ -791,7 +816,7 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
         var sb = new StringBuilder($"foley|{sound.Tags.Trim()}|{sound.Seed}|{sound.Model}|{sound.Set?.ToJsonString()}|{from.ToString(CultureInfo.InvariantCulture)}|{to.ToString(CultureInfo.InvariantCulture)}");
         for (var i = 0; i < board.Shots.Count; i++)
             if (starts[i] < to && starts[i] + board.Shots[i].Seconds > from)
-                sb.Append('|').Append(board.Shots[i].Id).Append(' ').Append(FileStamp(board.ShotVideo(board.Shots[i])));
+                sb.Append('|').Append(board.Shots[i].Id).Append(' ').Append(FileStamp(board.ShotClip(board.Shots[i])));
         return Hash(sb.ToString());
     }
 
@@ -937,7 +962,12 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     {
         var sb = new StringBuilder();
         if (frame.Of is { } of && board.Shot(of) is { } before)
-            sb.Append("of|").Append(of).Append('|').Append(FileStamp(board.ShotVideo(before)));
+        {
+            sb.Append("of|").Append(of).Append('|').Append(FileStamp(board.ShotClip(before)));
+            // A shot cut out of a file ends where its cut does, not where the file does.
+            if (before.File is not null)
+                sb.Append('|').Append(before.Stretch.From.ToString(CultureInfo.InvariantCulture)).Append('-').Append(before.Stretch.To.ToString(CultureInfo.InvariantCulture)).Append(before.Reverse ? "r" : "");
+        }
         else if (frame.Of is { } video && (board.ReferenceVideo(video) is not null || Storyboard.IsVideoFile(video)))
             sb.Append("of|").Append(video).Append('|').Append(board.ReferenceVideo(video) is { } file ? FileStamp(file) : "none");
         else if (frame.File is { Length: > 0 } file)
@@ -1087,7 +1117,12 @@ public sealed partial class VideoMaker(ComfyHub hub, IMediaDecoder? media)
     public static bool IsCurrent(Storyboard board, VideoFrame frame) =>
         File.Exists(board.FramePicture(frame)) && MadeStamp(board.FrameMeta(frame)) is { } made && made == FrameStamp(board, frame);
 
+    /// <summary>
+    /// Whether a shot's clip is there and was made from what the storyboard says now. A shot that reads a video of the
+    /// user's where it is has nothing to make: it is up to date while the video is there.
+    /// </summary>
     public static bool IsCurrent(Storyboard board, VideoShot shot) =>
+        board.ShotSource(shot) is not null ||
         File.Exists(board.ShotVideo(shot)) && MadeStamp(board.ShotMeta(shot)) is { } made && made == ShotStamp(board, shot);
 
     /// <summary>

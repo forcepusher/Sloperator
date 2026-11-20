@@ -145,7 +145,9 @@ The storyboard edits the video as a video editor does; all of this is done as th
 so no clip is made again for it (action=join after a change).
 - A shot needs no model when it is made of something: "file" is a video, animated GIF or picture of the person's
   in References (or by its full path), used as it is (a picture is held for the shot's seconds; a video
-  runs its own length unless the shot gives "seconds"). The storyboard says each video file's size as it
+  runs its own length unless the shot gives "seconds"). A video is read where it is, with nothing to make:
+  any number of shots can be cut out of one long recording (each its own "in" and "seconds"), ready to join
+  at once. The storyboard says each video file's size as it
   is shown and its length beside its shot, and read_file shows a video's frames with the same: go by
   those, not by ffprobe, which gives a phone's upright video as lying on its side;
   "scene" is an SVG (moving with SMIL) or a Three.js page drawn into the clip at the video's size,
@@ -155,7 +157,7 @@ so no clip is made again for it (action=join after a change).
   model) is a reference made first (action=frame on a frame with "reference": true and a name), then a
   shot with "file": its picture in References ("Cafe.png") and a "zoom".
 - Cutting a clip: "in" (seconds cut off its start), "seconds" (how long it plays), "speed" (0.5 half
-  speed, 2 twice; its sound follows), "reverse": true, "freeze" (seconds into the shot where the
+  speed, 2 twice; its sound follows), "reverse": true (that stretch backwards), "freeze" (seconds into the shot where the
   picture stops and holds), "volume" (its own sound, 0 silent).
 - Its picture: "crop" {x, y, width, height} in fractions of the picture; "zoom" a slow zoom or pan,
   "in", "out", "left", "right", or {"from": {"scale": 1, "x": 0.5, "y": 0.5}, "to": {"scale": 1.3,

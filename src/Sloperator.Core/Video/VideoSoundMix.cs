@@ -120,8 +120,8 @@ public static class VideoSoundMix
                 speaking.Add((starts[i], starts[i] + shot.Seconds));
             }
             // Of the clip's sound only what the shot plays: from its trim, as much as its length takes at its speed.
-            // Backwards it plays from the clip's end, so all of it from the trim on is needed.
-            else if ((shot.Volume ?? 1) > 0 && part(board.ShotVideo(shot), shot.In, shot.Reverse ? 0 : (shot.Freeze ?? shot.Seconds) * (shot.Speed ?? 1) + 0.5) is { } clip)
+            // Backwards it plays its cut from the cut's end: exactly the cut, so it starts on the cut's last sound.
+            else if ((shot.Volume ?? 1) > 0 && part(board.ShotClip(shot), shot.In, shot.Reverse ? Math.Max(0.01, shot.Seconds * (shot.Speed ?? 1)) : (shot.Freeze ?? shot.Seconds) * (shot.Speed ?? 1) + 0.5) is { } clip)
                 (own, volume) = (ShotSound(shot, clip, trimmed: true), shotVolume * (shot.Volume ?? 1));
             else
                 continue;

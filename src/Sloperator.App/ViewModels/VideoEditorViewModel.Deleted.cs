@@ -155,7 +155,7 @@ public sealed partial class VideoEditorViewModel
     public void ShowClip(ShotItem item, double? seconds)
     {
         Show(item);
-        if (FindShot(item) is not { } shot || !File.Exists(_board.ShotVideo(shot)) || _previews.Decoder is null)
+        if (FindShot(item) is not { } shot || !_board.HasClip(shot) || _previews.Decoder is null)
             return;
         var (starts, _) = _board.Timing();
         if (item.Index >= starts.Count)
@@ -193,7 +193,7 @@ public sealed partial class VideoEditorViewModel
     // ---- a frame of the video as a picture -------------------------------------------------------------------------
 
     /// <summary>Whether there is a frame under the playhead to save: something here reads video, and a clip is made.</summary>
-    private bool CanSaveFrame => _previews.Decoder is not null && (HasJoinedVideo || _board.Shots.Exists(s => File.Exists(_board.ShotVideo(s))));
+    private bool CanSaveFrame => _previews.Decoder is not null && (HasJoinedVideo || _board.Shots.Exists(_board.HasClip));
 
     /// <summary>
     /// The frame under the playhead saved as a picture of the Image editor ("Night drive at 0-03.2"): a poster, a
@@ -209,8 +209,8 @@ public sealed partial class VideoEditorViewModel
         double at;
         if (HasJoinedVideo)
             (source, at) = (_board.JoinedFile, PlayPosition);
-        else if (Shots.LastOrDefault(s => s.Index < starts.Count && starts[s.Index] <= PlayPosition + 0.001) is { } item && FindShot(item) is { } shot && File.Exists(_board.ShotVideo(shot)))
-            (source, at) = (_board.ShotVideo(shot), shot.In + (PlayPosition - starts[item.Index]) * (shot.Speed ?? 1));
+        else if (Shots.LastOrDefault(s => s.Index < starts.Count && starts[s.Index] <= PlayPosition + 0.001) is { } item && FindShot(item) is { } shot && _board.HasClip(shot))
+            (source, at) = (_board.ShotClip(shot), VideoPreviewer.SourceTime(shot, PlayPosition - starts[item.Index], double.MaxValue));
         else
         {
             Status = "There is no frame under the playhead yet: the clip there isn't made.";

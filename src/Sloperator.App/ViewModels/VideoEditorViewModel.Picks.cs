@@ -35,7 +35,11 @@ public sealed partial class VideoEditorViewModel
         Scrubbed = false;
         PickedTitle(null);
         Viewing = pick;
-        _chat.Pick([(pick.Path, pick.Caption)]);
+        // A clip cut from a video of theirs has no file of its own: its chip says what it is of the video, not "not made yet".
+        var cut = pick.Piece is ShotItem item && FindShot(item) is { } shot && _board.ShotSource(shot) is not null
+            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{shot.Stretch.To - shot.Stretch.From:0.##} s from {(int)(shot.Stretch.From / 60)}:{(int)(shot.Stretch.From % 60):00}")
+            : null;
+        _chat.Pick([(pick.Path, pick.Caption)], _ => cut);
     }
 
     /// <summary>A piece clicked on the timeline: picked; null shows the whole video.</summary>
@@ -47,7 +51,9 @@ public sealed partial class VideoEditorViewModel
             return;
         }
         var path = piece.Piece.File(_board) ?? _board.Folder;
-        Choose(new VideoPick(path, $"{piece.Title} · {Path.GetFileName(path)}") { Piece = piece, IsPlanned = !File.Exists(path) });
+        // A clip cut from a video of theirs is that video where it is: there to be seen with no file of its own.
+        var reads = piece.Piece.Reads(_board) ?? path;
+        Choose(new VideoPick(path, $"{piece.Title} · {Path.GetFileName(reads)}") { Piece = piece, IsPlanned = !File.Exists(reads) });
     }
 
     /// <summary>A card of the References row clicked: its generated image, or the user's image file.</summary>
@@ -261,7 +267,7 @@ public sealed partial class VideoEditorViewModel
         if (_disposing)
             return;
         var pick = Viewing;
-        var path = pick?.Path ?? (HasJoinedVideo ? _board.JoinedFile : null);
+        var path = pick?.Piece?.Piece.Reads(_board) ?? pick?.Path ?? (HasJoinedVideo ? _board.JoinedFile : null);
         if (path is not null && pick is not { IsPlanned: true } && File.Exists(path))
         {
             var stamp = StampOf(path);
@@ -363,7 +369,7 @@ public sealed partial class VideoEditorViewModel
     {
         var files = References.Select(c => (c.Path, Caption: $"{c.Name} · {c.Kind}"))
             .Concat(Shots.SelectMany(s => new[] { s.First, s.Last }.OfType<FrameItem>().Select(f => (Path: _board.FramePicture(f.Frame), Caption: f.Title))
-                .Append((Path: _board.ShotVideo(s.Shot), Caption: s.Title))))
+                .Append((Path: _board.ShotClip(s.Shot), Caption: s.Title))))
             .Append((Path: _board.JoinedFile, Caption: "The video"));
         return files.Where(f => File.Exists(f.Path) && MainWindowViewModel.Viewable(f.Path)).DistinctBy(f => Path.GetFullPath(f.Path), StringComparer.OrdinalIgnoreCase)
             .Select(f => new MediaEntry(f.Path, f.Path, null, f.Caption)).ToList();

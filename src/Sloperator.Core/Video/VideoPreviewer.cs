@@ -55,7 +55,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
     }
 
     /// <summary>The readers open, by file and when it was written (a clip made again is read anew); a few at most.</summary>
-    private readonly Dictionary<(string File, long Stamp), Source> _sources = [];
+    private readonly Dictionary<(string File, long Stamp, string For), Source> _sources = [];
 
     /// <summary>The titles and pictures drawn, by what they are and the size they were drawn at.</summary>
     private readonly Dictionary<string, SKBitmap?> _overlays = [];
@@ -128,22 +128,25 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
 
     /// <summary>
     /// Where in a clip's file the shot is <paramref name="into"/> seconds in: its start trimmed, at its speed, held from
-    /// its freeze, backwards from the file's end, and on its last frame once the file has run out.
+    /// its freeze, backwards from the end of its cut, and on its last frame once the file has run out.
     /// </summary>
-    internal static double SourceTime(VideoShot shot, double into, double fileSeconds)
+    public static double SourceTime(VideoShot shot, double into, double fileSeconds)
     {
         if (shot.Freeze is { } freeze)
             into = Math.Min(into, freeze);
         var played = Math.Max(0, into) * (shot.Speed ?? 1);
-        var time = shot.Reverse ? fileSeconds - played : shot.In + played;
-        return Math.Clamp(time, shot.Reverse ? shot.In : 0, Math.Max(0, fileSeconds - 0.02));
+        // Backwards from the end of its cut, not of its file: a cut out of the middle of a recording played backwards
+        // showed the recording's last seconds. Its first frame is the cut's last, the one showing just before the cut's
+        // end, so a thousandth of a second short of it: at the end itself is the first frame after the cut.
+        var time = shot.Reverse ? Math.Min(shot.Stretch.To, fileSeconds) - played - 0.001 : shot.In + played;
+        return Math.Clamp(time, shot.Reverse ? Math.Min(shot.In, Math.Max(0, fileSeconds - 0.02)) : 0, Math.Max(0, fileSeconds - 0.02));
     }
 
     /// <summary>The shot's picture at <paramref name="into"/> seconds, filling a frame of the size given; null when its clip isn't made or can't be read.</summary>
     private SKImage? ClipFrame(Storyboard board, VideoShot shot, double into, int width, int height)
     {
-        var file = board.ShotVideo(shot);
-        if (!File.Exists(file) || SourceOf(file) is not { } source)
+        var file = board.ShotClip(shot);
+        if (!File.Exists(file) || SourceOf(file, shot.Id) is not { } source)
             return null;
         var duration = source.Reader.Duration.TotalSeconds;
         if (Read(source, SourceTime(shot, into, duration)) is not { } frame)
@@ -416,12 +419,16 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
 
     // ---- reading the clips ---------------------------------------------------------------------------------------
 
-    private Source? SourceOf(string file)
+    /// <param name="who">
+    /// The shot it is read for: each has a reader of its own, so two cuts out of one recording (read where it is, the
+    /// same file for both) don't send one reader to and fro for every frame of the transition between them.
+    /// </param>
+    private Source? SourceOf(string file, string who = "")
     {
         long stamp;
         try { stamp = File.GetLastWriteTimeUtc(file).Ticks; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
-        var key = (file.ToLowerInvariant(), stamp);
+        var key = (file.ToLowerInvariant(), stamp, who);
         if (!_sources.TryGetValue(key, out var source))
         {
             IVideoReader? reader;
@@ -469,7 +476,11 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
             var backwards = source.Frame is not null && time < source.Time && source.Time - time < 1.5;
             if (source.Frame is null || time < source.Time || time > source.Time + 1)
             {
-                reader.Seek(TimeSpan.FromSeconds(Math.Max(0, backwards ? time - (KeptBack - 1) * step : time)));
+                // Half a frame before the time: a reader goes to the frame that starts nearest a time, which for a time
+                // in a frame's second half is the next one, not the one showing. From half a frame early it lands on
+                // the one showing or the one before it, and the loop below reads on to the one showing. (A cut that
+                // starts between two frames began a frame late, and one played backwards began on the frame after it.)
+                reader.Seek(TimeSpan.FromSeconds(Math.Max(0, backwards ? time - (KeptBack - 1) * step : time - step / 2)));
                 source.Forget();
             }
             var keep = backwards ? KeptBack : 1;

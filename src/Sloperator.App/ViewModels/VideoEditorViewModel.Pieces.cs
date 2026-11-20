@@ -251,7 +251,7 @@ public sealed partial class VideoEditorViewModel
                     lines.Add($"{name}: {said}");
         }
         Details = string.Join("\n", lines);
-        var meta = Viewing?.Version?.Meta ?? (shown is { Piece: var piece } && piece.File(_board) is { } made && File.Exists(made) ? piece.Meta(_board) : null);
+        var meta = Viewing?.Version?.Meta ?? (shown is { Piece: var piece } && piece.Reads(_board) is { } made && File.Exists(made) ? piece.Meta(_board) : null);
         // Nothing made a clip that is a file of the user's or a scene drawn: no "Made with file, picked by Sloperator".
         MadeWith = shown is { Piece: var p } && meta is not null && VideoMaker.MadeWith(meta) is { } t && t is not ("file" or "scene")
             ? "Made with " + (t.StartsWith(VideoTemplates.CheckpointPrefix, StringComparison.OrdinalIgnoreCase) ? Path.GetFileNameWithoutExtension(t) + " (checkpoint)" : Path.GetFileName(t)) +

@@ -264,7 +264,7 @@ public sealed partial class VideoEditorViewModel
 
     /// <summary>Whether a clip can be split this far into it: made, not reversed, and a fifth of a second either side.</summary>
     private bool CanSplit(VideoShot shot, double into) =>
-        !shot.Reverse && into > 0.2 && into < shot.Seconds - 0.2 && File.Exists(_board.ShotVideo(shot));
+        !shot.Reverse && into > 0.2 && into < shot.Seconds - 0.2 && _board.HasClip(shot);
 
     /// <summary>Ctrl+B: the clip under the playhead split there, as its menu's Split at the playhead does; false when none can be.</summary>
     public bool SplitAtPlayhead()
@@ -472,13 +472,13 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>
-    /// What a clip is cut from, so it can be cut without being made again: the MP4 of the user's it is made of, else its
+    /// What a clip is cut from, so it can be cut without being made again: the video of the user's it is made of, else its
     /// clip (a model's, or a scene drawn) copied into References as "&lt;clip&gt; footage.mp4". It is made of that from then on.
     /// </summary>
     private string Footage(ShotItem item, VideoShot shot)
     {
         string name;
-        if (shot.File is { } own && _board.FindFile(own) is { } source && source.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        if (shot.File is { } own && _board.ShotSource(shot) is not null)
             name = own;
         else
         {

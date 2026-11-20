@@ -117,16 +117,18 @@ public sealed partial class VideoEditorViewModel
         }
         foreach (var shot in Shots)
         {
-            var path = _board.ShotVideo(shot.Shot);
+            var path = _board.ShotClip(shot.Shot);
             var made = File.Exists(path);
             shot.IsMade = made;
             if (!shot.IsWorking)
                 (shot.State, shot.IsError) = (StateOf(shot, made, VideoMaker.IsCurrent(_board, shot.Shot)), false);
-            var stamp = made ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+            // Its strip is of what it shows of its file: cut again (or pointed at another file), it is drawn again.
+            var (from, to) = shot.Shot.Stretch;
+            var stamp = made ? FormattableString.Invariant($"{path}|{File.GetLastWriteTimeUtc(path).Ticks}|{from:0.###}|{to:0.###}") : "";
             if (made && _clipStamps.GetValueOrDefault(shot.Id) != stamp)
             {
                 _clipStamps[shot.Id] = stamp;
-                LoadStrip(shot, path, stamp);
+                LoadStrip(shot, path, stamp, from, to);
             }
             else if (!made && shot.Strip is not null)
             {
@@ -168,7 +170,7 @@ public sealed partial class VideoEditorViewModel
         // A piece picked before it was made, made now (Music on a new sound, then the song): picked
         // again, so the viewer plays it and the box says what it is. The pick kept "not made yet", and
         // the viewer went on showing the new sound's card and asking for its style.
-        if (Viewing is { IsPlanned: true, Piece: { } planned } && planned.Piece.File(_board) is { } file && File.Exists(file))
+        if (Viewing is { IsPlanned: true, Piece: { } planned } && planned.Piece.Reads(_board) is { } file && File.Exists(file))
         {
             Status = "";
             Show(_frames.Values.Concat<IVideoPiece>(Shots).Concat(Sounds).FirstOrDefault(p => p.Piece == planned.Piece) ?? planned);
@@ -182,7 +184,7 @@ public sealed partial class VideoEditorViewModel
     private static string Lower(string s) =>
         new[] { "Clip ", "The ", "Start of", "End of", "Frame ", "Reference ", "A " }.Any(p => s.StartsWith(p, StringComparison.Ordinal)) ? char.ToLowerInvariant(s[0]) + s[1..] : s;
 
-    private readonly Dictionary<string, DateTime> _clipStamps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _clipStamps = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<FrameItem, DateTime> _thumbStamps = [];
 
     /// <summary>A frame's picture, small, for the timeline's blocks while its shot isn't made and for playing the storyboard.</summary>
@@ -244,14 +246,15 @@ public sealed partial class VideoEditorViewModel
     }
 
     /// <summary>A clip as a row of frames, for its block on the timeline.</summary>
-    private void LoadStrip(ShotItem shot, string path, DateTime stamp)
+    private void LoadStrip(ShotItem shot, string path, string stamp, double from, double to)
     {
         if (_previews.Decoder is not { } decoder)
             return;
         _ = Task.Run(() =>
         {
             byte[]? jpeg = null;
-            try { jpeg = VideoCheck.Strip(path, decoder, 64); }
+            // Of the stretch the clip shows: a few seconds cut from a long recording had a strip of the whole recording.
+            try { jpeg = VideoCheck.Strip(path, Core.Media.MediaStretch.Of(decoder, path, from, to), 64); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or VideoException) { }
             if (jpeg is null)
                 return;

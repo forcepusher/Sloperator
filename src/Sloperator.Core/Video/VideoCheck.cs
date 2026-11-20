@@ -36,12 +36,19 @@ public static partial class VideoCheck
 
     public static VideoLook Shot(Storyboard board, VideoShot shot, string clip, IMediaDecoder decoder)
     {
+        // What the shot shows of its clip: all of a model's, a few seconds of a recording it is cut from. Looked at
+        // whole, five seconds out of twenty minutes were sixteen frames of the twenty minutes, and all of it was read.
+        var (from, to) = shot.Stretch;
+        var whole = decoder;
+        decoder = MediaStretch.Of(decoder, clip, from, to);
+        var part = ReferenceEquals(decoder, whole) ? "" : $", from {N(from)} to {N(to)} s of it";
         var info = decoder.Probe(clip) ?? throw new VideoException($"{clip} can't be read on this PC (ffmpeg in Sloperator's SloperatorData\\tools would).");
         var text = new StringBuilder();
         var faults = new List<string>();
-        text.AppendLine($"Shot {shot.Id} ({Path.GetFileName(clip)}): {info.Describe()}; the storyboard gives it {N(shot.Seconds)} s.");
-        if (info.Duration.TotalSeconds + 0.25 < shot.Seconds)
-            text.AppendLine($"It is {N(shot.Seconds - info.Duration.TotalSeconds)} s shorter than its shot: the video holds its last frame for the rest.");
+        text.AppendLine($"Shot {shot.Id} ({Path.GetFileName(clip)}{part}): {info.Describe()}; the storyboard gives it {N(shot.Seconds)} s.");
+        // In the clip's own seconds: a clip played at half speed fills a shot twice its length.
+        if (info.Duration.TotalSeconds + 0.25 < to - from)
+            text.AppendLine($"It is {N((to - from - info.Duration.TotalSeconds) / (shot.Speed ?? 1))} s shorter than its shot: the video holds its last frame for the rest.");
         using var reader = decoder.OpenVideo(clip, 512) ?? throw new VideoException($"{clip} has no picture this PC can read.");
         var frames = Frames(reader, info, 16);
         try
@@ -692,8 +699,8 @@ public static partial class VideoCheck
         for (var i = 1; i < board.Shots.Count; i++)
         {
             var (before, after) = (board.Shots[i - 1], board.Shots[i]);
-            using var end = Edge(board.ShotVideo(before), last: true);
-            using var start = end is null ? null : Edge(board.ShotVideo(after), last: false);
+            using var end = Edge(before, last: true);
+            using var start = end is null ? null : Edge(after, last: false);
             if (end is null || start is null)
                 continue;
             using var picture = GridBitmap([($"{before.Id} ends", end), ($"{after.Id} starts", start)], board.Width, board.Height, columns: 1, sheetWidth: 768);
@@ -701,12 +708,20 @@ public static partial class VideoCheck
         }
         return cuts;
 
-        SKBitmap? Edge(string clip, bool last)
+        // Of what the shot shows of its clip: a shot cut out of a recording ends where its cut does, and one played
+        // backwards starts where its clip ends.
+        SKBitmap? Edge(VideoShot shot, bool last)
         {
+            var clip = board.ShotClip(shot);
             if (!File.Exists(clip))
                 return null;
             using var reader = decoder.OpenVideo(clip, 512);
-            return reader is null ? null : FrameAt(reader, last ? reader.Duration.TotalSeconds - 0.1 : 0, first: !last)?.Frame;
+            if (reader is null)
+                return null;
+            var (from, to) = shot.Stretch;
+            return last != shot.Reverse
+                ? FrameAt(reader, Math.Max(from, Math.Min(to, reader.Duration.TotalSeconds) - 0.1))?.Frame
+                : FrameAt(reader, from, first: from < 0.01)?.Frame;
         }
     }
 
@@ -809,6 +824,22 @@ public static partial class VideoCheck
             last = MediaPreview.ToBitmap(next.Frame);
         }
         return last;
+    }
+
+    /// <summary>
+    /// The frame a shot ends on, for the next one to go on from: its clip's very last one, unless the shot shows only
+    /// a stretch of its clip (cut out of a recording: the last frame of the cut, not of the recording), holds a frame
+    /// to its end (that frame), or plays backwards (its stretch's first).
+    /// </summary>
+    public static SKBitmap? EndFrame(IVideoReader reader, VideoShot shot)
+    {
+        var (from, to) = shot.Stretch;
+        if (shot.Reverse)
+            return FrameAt(reader, from, first: from < 0.01)?.Frame;
+        if (to > reader.Duration.TotalSeconds - 0.25)
+            return LastFrame(reader);
+        var step = reader.FrameRate > 0 ? 1 / reader.FrameRate : 1 / 24.0;
+        return FrameAt(reader, Math.Max(from, to - step / 2))?.Frame;
     }
 
     /// <summary>The frame halfway through a video.</summary>

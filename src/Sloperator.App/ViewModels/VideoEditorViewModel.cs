@@ -497,7 +497,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         Scrubbed = true;
         // The clips' sound is read, and the video's sound mixed, by the time Play is pressed.
         foreach (var made in _board.Shots.Where(s => !s.Reverse && (s.Volume ?? 1) > 0))
-            AudioOf(_board.ShotVideo(made));
+            AudioOf(_board.ShotClip(made));
         WarmMix();
         WarmScenes();
         ShowFrameAt(PlayPosition);
@@ -543,7 +543,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         for (var i = 0; i < _board.Shots.Count && i < starts.Count; i++)
         {
             var shot = _board.Shots[i];
-            if (shot.Reverse || (shot.Volume ?? 1) <= 0 || AudioOf(_board.ShotVideo(shot)) is not var (samples, rate) || samples.Length == 0)
+            if (shot.Reverse || (shot.Volume ?? 1) <= 0 || AudioOf(_board.ShotClip(shot)) is not var (samples, rate) || samples.Length == 0)
                 continue;
             var plays = shot.Freeze is { } freeze ? Math.Min(freeze, shot.Seconds) : shot.Seconds;
             parts.Add(new VideoMix.Part(samples, rate, starts[i], shot.In, plays, (shot.Volume ?? 1) * under, shot.Speed ?? 1));
@@ -624,7 +624,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
             try { return File.Exists(file) ? File.GetLastWriteTimeUtc(file).Ticks : 0; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
         }
-        return _board.ToJson() + "|" + string.Join(',', _board.Shots.Select(s => Stamp(_board.ShotVideo(s))).Concat(_board.Sounds.Select(s => Stamp(_board.SoundFile(s)))));
+        return _board.ToJson() + "|" + string.Join(',', _board.Shots.Select(s => Stamp(_board.ShotClip(s))).Concat(_board.Sounds.Select(s => Stamp(_board.SoundFile(s)))));
     }
 
     /// <summary>Mixes the video's sound in the background when the video changed since the last mix, so Play has it.</summary>
@@ -697,7 +697,7 @@ public sealed partial class VideoEditorViewModel : ObservableObject, ISidePanel
         }
         var shot = Shots[at];
         PlayLabel = $"{shot.Title} · {TimeSpan.FromSeconds(Math.Max(0, seconds)):m\\:ss\\.f}";
-        if (_previews.Decoder is not null && File.Exists(_board.ShotVideo(shot.Shot)))
+        if (_previews.Decoder is not null && _board.HasClip(shot.Shot))
         {
             AskFrame(seconds);
             return;

@@ -51,13 +51,18 @@ public sealed class VideoEditingTests : IDisposable
             """);
         var (args, length, _) = VideoMontage.Plan(board, _ => true, "out.mp4");
         var graph = Graph(args);
-        Assert.Contains("[0:v]trim=start=1.5,setpts=PTS-STARTPTS,reverse,setpts=PTS/2,crop=iw*0.5:ih*0.5:iw*0.1:ih*0.2,hue=s=0,trim=duration=2,setpts=PTS-STARTPTS,tpad=", graph);
+        // Its clip is read from its cut, exactly as much as it shows (3 s at twice the speed), so backwards it starts on
+        // the cut's last frame and ffmpeg holds six seconds, not all that comes after them.
+        Assert.Equal(["-ss", "1.5", "-t", "6", "-i"], args.Skip(args.IndexOf("-ss")).Take(5));
+        Assert.Contains("[0:v]setpts=PTS-STARTPTS,reverse,setpts=PTS/2,crop=iw*0.5:ih*0.5:iw*0.1:ih*0.2,hue=s=0,trim=duration=2,setpts=PTS-STARTPTS,tpad=", graph);
+        // A clip played forwards from its start: no jump, and half a second more than it shows (2 s at a quarter speed).
+        Assert.Equal(["-t", "1", "-i"], args.Skip(args.IndexOf("-i") + 2).Take(3));
         Assert.Contains("scale=1280:720,zoompan=z='(1+(0.25)*min(on/71,1))'", graph);
         Assert.Contains("eq=brightness=0.1:contrast=1:saturation=1.5,colorbalance=", graph);
         Assert.Contains("xfade=transition=wipeleft:duration=0.6:offset=2.4", graph);
         Assert.Contains("xfade=transition=circleopen:duration=0.8:offset=3.6", graph);
-        // Its sound follows its picture: trimmed, reversed, twice as fast; a muted clip is silence.
-        Assert.Contains("[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=start=1.5,asetpts=PTS-STARTPTS,areverse,atempo=2,atrim=duration=2,", graph);
+        // Its sound follows its picture: reversed, twice as fast; a muted clip is silence.
+        Assert.Contains("[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS,areverse,atempo=2,atrim=duration=2,", graph);
         Assert.Contains("anullsrc=r=48000:cl=stereo,atrim=duration=2,aformat=sample_fmts=fltp:channel_layouts=stereo[a1]", graph);
         Assert.DoesNotContain("fade=t=in", graph);
         Assert.Contains("veryfast", args);

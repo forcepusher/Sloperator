@@ -76,16 +76,16 @@ public static class VideoComposer
     {
         if (board.Shots.Count == 0)
             throw new VideoException("The video has no shots to join.");
-        var missing = board.Shots.Where(s => !File.Exists(board.ShotVideo(s))).Select(s => s.Id).ToList();
+        var missing = board.Shots.Where(s => !board.HasClip(s)).Select(s => s.Id).ToList();
         if (missing.Count > 0)
             throw new VideoException($"These shots have no clip yet: {string.Join(", ", missing)}. Make them first.");
         // A clip whose picture can't be read at all (a phone's HEVC where Windows has no decoder for it) would be a
         // stretch of black in the video: said now, with what would read it, instead.
         foreach (var shot in board.Shots)
         {
-            using var readable = decoder.OpenVideo(board.ShotVideo(shot), 64);
+            using var readable = decoder.OpenVideo(board.ShotClip(shot), 64);
             if (readable is null)
-                throw new VideoException($"Shot {shot.Id}'s clip can't be joined: " + MediaDecoders.WhyNoPicture(board.ShotVideo(shot), decoder));
+                throw new VideoException($"Shot {shot.Id}'s clip can't be joined: " + MediaDecoders.WhyNoPicture(board.ShotClip(shot), decoder));
         }
         var clock = Stopwatch.StartNew();
         var (_, length) = board.Timing();

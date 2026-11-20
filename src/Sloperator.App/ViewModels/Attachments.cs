@@ -16,13 +16,16 @@ namespace Sloperator.App.ViewModels;
 public sealed partial class AttachmentItem : ObservableObject, IDisposable
 {
     private readonly Action<AttachmentItem>? _remove;
+    private readonly string? _said;
 
     /// <param name="remove">Takes it off the message being written; null in a sent message's bubble.</param>
     /// <param name="picked">Picked in the side panel (a piece of the video): what it is there, "Clip 2 · s2.mp4".</param>
-    public AttachmentItem(string path, Action<AttachmentItem>? remove = null, string? picked = null)
+    /// <param name="said">What is said under its name in place of its size: a clip cut from a video has no file of its own to be the size of.</param>
+    public AttachmentItem(string path, Action<AttachmentItem>? remove = null, string? picked = null, string? said = null)
     {
         Path = path;
         _remove = remove;
+        _said = said;
         Caption = picked;
         FileName = System.IO.Path.GetFileName(path.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : path;
         IsPicture = MediaPreview.KindOf(path) is "image" or "animation";
@@ -39,7 +42,7 @@ public sealed partial class AttachmentItem : ObservableObject, IDisposable
         try
         {
             folder = Directory.Exists(Path);
-            details = folder ? "folder" : File.Exists(Path) ? FilePreview.Size(Path) : Picked ? "not made yet" : "no longer there";
+            details = _said ?? (folder ? "folder" : File.Exists(Path) ? FilePreview.Size(Path) : Picked ? "not made yet" : "no longer there");
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

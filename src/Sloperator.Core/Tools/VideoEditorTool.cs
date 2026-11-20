@@ -403,7 +403,7 @@ public sealed partial class VideoEditorTool : Tool
             var join = i == 0 ? "" : s.First is not null && s.First == board.Shots[i - 1].Last ? $", goes on from {board.Shots[i - 1].Id}" : $", a {s.Transition} from {board.Shots[i - 1].Id}";
             if (i > 0 && s.Transition != VideoShot.Cut && !join.Contains(s.Transition, StringComparison.Ordinal)) join += $" ({s.Transition})";
             var frames = s.Scene is { } scene ? $"the scene {scene}" : s.File is { } clipFile ? $"the user's file {clipFile}{FileLength(board, s, media)}" : $"{s.First ?? "no first frame"} → {(s.LipSync ? "(lip-synced, first frame only)" : s.Last ?? "no last frame")}";
-            var made = File.Exists(board.ShotVideo(s));
+            var (made, clip) = (board.HasClip(s), board.ShotClip(s));
             var staleFrames = new[] { s.First, s.LipSync ? null : s.Last }.OfType<string>().Where(stale.Contains).Distinct().ToList();
             var current = VideoMaker.IsCurrent(board, s) && staleFrames.Count == 0;
             sb.AppendLine($"  {s.Id}, clip {i + 1} ({N(starts[i])}–{N(starts[i] + s.Seconds)} s, {N(s.Seconds)} s{join}): {frames}. \"{s.Prompt.Trim().ReplaceLineEndings(" ").Clip(300)}\"" +
@@ -413,8 +413,8 @@ public sealed partial class VideoEditorTool : Tool
                           (Storyboard.Speaks(s) ? $" Says: \"{s.Line.Trim().ReplaceLineEndings(" ")}\"" + (VideoMaker.LineIsCurrent(board, s) ? " (said)." : " (not said yet).") : "") +
                           (Edits(s) is { Length: > 0 } edits ? $" Edited: {edits}." : "") +
                           (s.Assembled ? " " : $" Seed {s.Seed}. ") +
-                          (!made ? "Not made." : current ? $"Made: {board.ShotVideo(s)}" :
-                           VideoMaker.IsCurrent(board, s) ? $"Made, but to be made again after frame {string.Join(", ", staleFrames)}: {board.ShotVideo(s)}" : $"Made, but out of date: {board.ShotVideo(s)}"));
+                          (!made ? "Not made." : current ? board.ShotSource(s) is not null ? $"Read where it is: {clip}" : $"Made: {clip}" :
+                           VideoMaker.IsCurrent(board, s) ? $"Made, but to be made again after frame {string.Join(", ", staleFrames)}: {clip}" : $"Made, but out of date: {clip}"));
             if (!current)
                 todo.Add($"shot {s.Id}");
         }
@@ -754,7 +754,9 @@ public sealed partial class VideoEditorTool : Tool
             var look = await LookAtShotAsync(board, shot, made.File, ctx, ct).ConfigureAwait(false);
             RememberLook(made.Meta, look.Text, look.Faults);
             var said = shot.Assembled
-                ? $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} from {shot.Scene ?? shot.File}: {made.File}"
+                ? board.ShotSource(shot) is not null
+                    ? string.Create(CultureInfo.InvariantCulture, $"Shot {shot.Id} is {shot.File} from {N(shot.Stretch.From)} to {N(shot.Stretch.To)} s, read where it is: {made.File}")
+                    : $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} from {shot.Scene ?? shot.File}: {made.File}"
                 : $"Shot {shot.Id} made in {Chats.ChatTimes.Stopwatch(made.Took)} with {made.Template}: {made.File}\nIts ComfyUI workflow (fixed seed {shot.Seed}): {Storyboard.WorkflowOf(made.File)}";
             return Result(board, shot, said, [.. first, .. made.Notes], look, made.File);
         }
@@ -848,7 +850,7 @@ public sealed partial class VideoEditorTool : Tool
         if (id is { Length: > 0 })
         {
             var shot = board.Shot(id) ?? throw new VideoException($"There is no frame or shot \"{id}\" in this video.");
-            var clip = board.ShotVideo(shot);
+            var clip = board.ShotClip(shot);
             if (!File.Exists(clip))
                 throw new VideoException($"Shot {shot.Id} has no clip yet: make it with action=shot.");
             var look = await LookAtShotAsync(board, shot, clip, ctx, ct).ConfigureAwait(false);
@@ -964,7 +966,7 @@ public sealed partial class VideoEditorTool : Tool
 
     private async Task<ToolResult> JoinAsync(Storyboard board, ToolContext ctx, CancellationToken ct)
     {
-        var stale = board.Shots.Where(s => File.Exists(board.ShotVideo(s)) && !VideoMaker.IsCurrent(board, s)).Select(s => s.Id).ToList();
+        var stale = board.Shots.Where(s => board.HasClip(s) && !VideoMaker.IsCurrent(board, s)).Select(s => s.Id).ToList();
         var made = await VideoMontage.JoinAsync(board, ctx.Media?.Ffmpeg, ctx.Media, ctx.Progress, ct, RenderTool.Renderer(ctx)).ConfigureAwait(false);
         var preview = MediaPreview.ForFiles([made.File], ctx.Media, ctx.SeesImages);
         var sb = new StringBuilder();

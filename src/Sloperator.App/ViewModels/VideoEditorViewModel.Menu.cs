@@ -127,7 +127,7 @@ public sealed partial class VideoEditorViewModel
         var file = thing switch
         {
             ReferenceCard card => card.Path,
-            IVideoPiece piece => piece.Piece.File(_board),
+            IVideoPiece piece => piece.Piece.Reads(_board),
             _ => null,
         };
         return file is not null && File.Exists(file) ? file : null;

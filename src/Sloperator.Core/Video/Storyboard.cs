@@ -159,9 +159,19 @@ public sealed partial class Storyboard
     public static readonly string[] PictureExtensions = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 
     /// <summary>The kinds of video a reference can be: a clip of the user's whose movement, look or end a shot takes.</summary>
-    public static readonly string[] VideoExtensions = [".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".gif"];
+    public static readonly string[] VideoExtensions = [".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".gif", ".wmv", ".3gp", ".flv", ".ts", ".m2ts", ".mts", ".mpg", ".mpeg"];
 
     public static bool IsVideoFile(string path) => VideoExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The kinds of video that are made an MP4 once to be a shot's clip, where every other kind is read where it is: a
+    /// GIF (a few colours, as often an odd size as not, and read whole to be read at all), and a broadcast stream,
+    /// which nothing here jumps into without reading it from its start (36 seconds to reach the fifteenth minute of one).
+    /// </summary>
+    private static readonly string[] MadeAClip = [".gif", ".ts", ".m2ts", ".mts", ".mpg", ".mpeg"];
+
+    /// <summary>Whether a shot made of this video reads it where it is, with no clip of its own (see <see cref="ShotSource"/>).</summary>
+    public static bool ReadsWhereItIs(string path) => IsVideoFile(path) && !MadeAClip.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The video in References a shot's "motion", a frame's "of" or "from" names: by its path there
@@ -467,6 +477,26 @@ public sealed partial class Storyboard
     /// <summary>A shot's clip, in its folder.</summary>
     public string ShotVideo(VideoShot shot) => Full(shot.Place ?? PlaceFor(shot));
 
+    /// <summary>
+    /// The video file of the user's a shot is made of, which the shot is read from where the file is: no copy of it is
+    /// kept as the shot's clip, and none is made of another kind. A copy of a 600 MB recording for each of three shots
+    /// was 1.8 GB in the video's folder, and a 20-minute MKV took 3.4 minutes to write again as an MP4 for every one of
+    /// them. Null for any other shot (a model's, a scene, a picture held, a kind that is made a clip: see
+    /// <see cref="ReadsWhereItIs"/>), and when the file is gone.
+    /// </summary>
+    public string? ShotSource(VideoShot shot) =>
+        shot.Scene is null && shot.File is { Length: > 0 } name && FindFile(name) is { } file && ReadsWhereItIs(file) ? file : null;
+
+    /// <summary>
+    /// The file a shot's picture and sound are read from: the video of the user's it is made of where that is
+    /// (<see cref="ShotSource"/>), else its own clip. Only <see cref="ShotVideo"/> is the storyboard's own, to write,
+    /// move, keep versions of or delete: this one may be the user's recording.
+    /// </summary>
+    public string ShotClip(VideoShot shot) => ShotSource(shot) ?? ShotVideo(shot);
+
+    /// <summary>Whether there is something to read a shot from: its clip is made, or the video it is made of is there.</summary>
+    public bool HasClip(VideoShot shot) => File.Exists(ShotClip(shot));
+
     /// <summary>What a shot is and how its clip was made.</summary>
     public string ShotMeta(VideoShot shot) => MetaOf(ShotVideo(shot));
 
@@ -533,7 +563,7 @@ public sealed partial class Storyboard
             if (!File.Exists(video))
                 return false;
             // Its pieces' .json too, as a clip's speed or a title changes there, and the video's own.
-            var newest = Shots.Select(ShotVideo).Concat(Sounds.Select(SoundFile)).Concat(Shots.Select(ShotMeta)).Concat(Sounds.Select(SoundMeta)).Append(VideoMeta).Where(File.Exists)
+            var newest = Shots.Select(ShotClip).Concat(Sounds.Select(SoundFile)).Concat(Shots.Select(ShotMeta)).Concat(Sounds.Select(SoundMeta)).Append(VideoMeta).Where(File.Exists)
                 .Select(File.GetLastWriteTimeUtc).DefaultIfEmpty(DateTime.MinValue).Max();
             return File.GetLastWriteTimeUtc(video) < newest;
         }
@@ -1266,6 +1296,13 @@ public sealed class VideoShot
     /// <summary>Whether no model makes its clip: it is a file of the user's or a scene drawn.</summary>
     [JsonIgnore]
     public bool Assembled => File is { Length: > 0 } || Scene is { Length: > 0 };
+
+    /// <summary>
+    /// The stretch of its clip the shot is cut from, in the clip's own seconds: from its "in", for its length at its
+    /// speed. All of a model's clip; five seconds of a recording. Played backwards, it is this stretch from its end.
+    /// </summary>
+    [JsonIgnore]
+    public (double From, double To) Stretch => (Math.Max(0, In), Math.Max(0, In) + Math.Max(0, Seconds) * (Speed ?? 1));
 }
 
 /// <summary>A part of a picture, in fractions of it: 0,0 is its top left, 1,1 its bottom right.</summary>

@@ -29,7 +29,7 @@ public static class VideoMontage
     {
         if (board.Shots.Count == 0)
             throw new VideoException("The video has no shots to join.");
-        var missing = board.Shots.Where(s => !File.Exists(board.ShotVideo(s))).Select(s => s.Id).ToList();
+        var missing = board.Shots.Where(s => !board.HasClip(s)).Select(s => s.Id).ToList();
         if (missing.Count > 0)
             throw new VideoException($"These shots have no clip yet: {string.Join(", ", missing)}. Make them first.");
         var notes = new List<string>();
@@ -47,7 +47,7 @@ public static class VideoMontage
         var shotVolume = sounds.Any(s => s.Source == VideoSound.Song) ? 0.5 : 1.0;
         var args = new List<string> { "-hide_banner", "-y", "-nostats", "-progress", "pipe:1" };
         foreach (var shot in board.Shots)
-            args.AddRange(["-i", board.ShotVideo(shot)]);
+            args.AddRange(ShotInput(shot, board.ShotClip(shot)));
         foreach (var sound in sounds)
             args.AddRange(["-i", board.SoundFile(sound)]);
         // A shot's line is heard as the voice model said it, clean, not as the video model gave it back.
@@ -79,14 +79,14 @@ public static class VideoMontage
         {
             var shot = board.Shots[i];
             var s = shot.Seconds;
-            f.Append($"[{i}:v]").Append(ShotPicture(shot, width, height, fps)).Append($"[v{i}];");
+            f.Append($"[{i}:v]").Append(ShotPicture(shot, width, height, fps, cut: true)).Append($"[v{i}];");
             if (lines.TryGetValue(i, out var line))
             {
                 f.Append($"[{line}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume={N(shot.Volume ?? 1)},apad=whole_dur={N(s)},atrim=duration={N(s)},asetpts=PTS-STARTPTS[a{i}];");
                 continue;
             }
-            if (hasSound(board.ShotVideo(shot)) && (shot.Volume ?? 1) > 0)
-                f.Append($"[{i}:a]").Append(ShotSound(shot, shotVolume)).Append($"[a{i}];");
+            if (hasSound(board.ShotClip(shot)) && (shot.Volume ?? 1) > 0)
+                f.Append($"[{i}:a]").Append(ShotSound(shot, shotVolume, cut: true)).Append($"[a{i}];");
             else
                 f.Append($"anullsrc=r=48000:cl=stereo,atrim=duration={N(s)},aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}];");
         }
@@ -196,6 +196,29 @@ public static class VideoMontage
         return (args, length, notes);
     }
 
+    /// <summary>
+    /// A shot's clip as one of ffmpeg's inputs, read from the shot's cut for as long as it shows. A few seconds out of a
+    /// long recording aren't found by decoding the recording from its start (trim=start read all that came before), and
+    /// a cut played backwards holds its own seconds, not all that comes after them: ffmpeg's reverse holds every frame
+    /// it is given, so the end of a 20-minute file played backwards was the whole file in memory. The filters after it
+    /// are made with cut: true.
+    /// </summary>
+    internal static IEnumerable<string> ShotInput(VideoShot shot, string clip)
+    {
+        var (from, to) = shot.Stretch;
+        if (from > 0)
+        {
+            yield return "-ss";
+            yield return N(from);
+        }
+        // Forwards a little more than it shows, so a rounding never has its last frame held; backwards exactly its
+        // cut, as it starts on the cut's last frame.
+        yield return "-t";
+        yield return N(to - from + (shot.Reverse ? 0 : 0.5));
+        yield return "-i";
+        yield return clip;
+    }
+
     /// <summary>ffmpeg's xfade name for a shot's transition: a dissolve is its fade, a fade goes through black.</summary>
     internal static string XfadeName(string transition) => transition switch
     {
@@ -209,11 +232,12 @@ public static class VideoMontage
     /// cropped, coloured, frozen where it says, held on its last frame when it is shorter than the shot,
     /// cut to the shot's length, filling the video's frame at its frame rate, and zoomed or panned over.
     /// </summary>
-    internal static string ShotPicture(VideoShot shot, int width, int height, int fps, string pixelFormat = "yuv420p")
+    /// <param name="cut">The clip is read from the shot's cut already (<see cref="ShotInput"/>), so its start isn't trimmed here.</param>
+    internal static string ShotPicture(VideoShot shot, int width, int height, int fps, string pixelFormat = "yuv420p", bool cut = false)
     {
         var s = shot.Seconds;
         var chain = new List<string>();
-        if (shot.In > 0)
+        if (shot.In > 0 && !cut)
             chain.Add($"trim=start={N(shot.In)}");
         chain.Add("setpts=PTS-STARTPTS");
         if (shot.Reverse)
@@ -307,13 +331,14 @@ public static class VideoMontage
     }
 
     /// <summary>The filters for a shot's own sound, as its picture is cut: trimmed, reversed, at its speed, at its volume, frozen with silence, padded to its length.</summary>
-    internal static string ShotSound(VideoShot shot, double under)
+    /// <param name="cut">The clip is read from the shot's cut already (<see cref="ShotInput"/>), so its start isn't trimmed here.</param>
+    internal static string ShotSound(VideoShot shot, double under, bool cut = false)
     {
         var s = shot.Seconds;
         var chain = new List<string> { "aresample=48000", "aformat=sample_fmts=fltp:channel_layouts=stereo" };
         if (shot.In > 0 || shot.Reverse || shot.Speed is not null || shot.Freeze is not null)
         {
-            if (shot.In > 0)
+            if (shot.In > 0 && !cut)
                 chain.Add($"atrim=start={N(shot.In)}");
             chain.Add("asetpts=PTS-STARTPTS");
             if (shot.Reverse)
@@ -360,16 +385,16 @@ public static class VideoMontage
         if (end - start < 0.5)
             throw new VideoException(start >= length ? $"No clip is under {N(start)} s: the video is {N(length)} s long." : "The stretch is too short to make a sound from.");
         var under = Enumerable.Range(0, board.Shots.Count).Where(i => starts[i] < end - 1e-6 && starts[i] + board.Shots[i].Seconds > start + 1e-6).ToList();
-        var missing = under.Where(i => !File.Exists(board.ShotVideo(board.Shots[i]))).Select(i => board.Shots[i].Id).ToList();
+        var missing = under.Where(i => !board.HasClip(board.Shots[i])).Select(i => board.Shots[i].Id).ToList();
         if (missing.Count > 0)
             throw new VideoException($"The clips under it aren't made yet: {string.Join(", ", missing)}. Make them first: the sound is made from what they show.");
         var (width, height) = (board.Width, board.Height);
         var args = new List<string> { "-hide_banner", "-y", "-nostats", "-progress", "pipe:1" };
         foreach (var i in under)
-            args.AddRange(["-i", board.ShotVideo(board.Shots[i])]);
+            args.AddRange(ShotInput(board.Shots[i], board.ShotClip(board.Shots[i])));
         var f = new StringBuilder();
         for (var k = 0; k < under.Count; k++)
-            f.Append($"[{k}:v]").Append(ShotPicture(board.Shots[under[k]], width, height, FoleyFps)).Append($"[v{k}];");
+            f.Append($"[{k}:v]").Append(ShotPicture(board.Shots[under[k]], width, height, FoleyFps, cut: true)).Append($"[v{k}];");
         var (video, joined) = ("v0", board.Shots[under[0]].Seconds);
         for (var k = 1; k < under.Count; k++)
         {
