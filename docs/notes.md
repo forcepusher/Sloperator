@@ -2867,8 +2867,9 @@ before). The same three cuts take no time and 580 MB, as an MP4, a MOV, an MKV o
   join took 9.2 s, 7.4 s with a reader for each shot.
 
 A cut out of a long file also showed what took a shot for all of its clip:
-- **A look at a shot** (`VideoCheck.Shot`) sampled sixteen frames from the whole file, read all of it for how it
-  moves and two minutes of its sound: a look at five seconds was of the twenty minutes. `MediaStretch.Of` gives
+- **A look at a shot** (`VideoCheck.Shot`) sampled sixteen frames from the whole file, read its start for how it
+  moves (its first 1,440 frames) and two minutes of its sound: a look at five seconds was of the twenty minutes.
+  `MediaStretch.Of` gives
   a decoder that reads a file as the stretch a shot shows (`VideoShot.Stretch`: from its `in`, its seconds at its
   speed), timed from zero; the look goes through it ("Shot s3 (long.mkv, from 1000 to 1005 s of it)…", 1.5 s),
   and so does the strip on a clip's card, which was of the whole file too. A stretch that is all of the file
@@ -2886,7 +2887,12 @@ A cut out of a long file also showed what took a shot for all of its clip:
 - **The frame showing at a time** (`VideoPreviewer.Read`): a reader goes to the frame that starts nearest a
   time, which in a frame's second half is the next one. A cut starting between two frames began a frame late,
   and one played backwards began on the frame after it. The previewer now asks for half a frame earlier and reads
-  on to the one showing.
+  on to the one showing. And a frame counts as showing from a thousandth of a second before it starts (it was a
+  ten-thousandth): Windows gives an MKV's or a WMV's frames their times to the millisecond (0.033, 0.067), so
+  frame 6029 is kept as 200.967, a third of a millisecond late, and was still "showing" at 201.0. Every frame
+  of a cut out of an MKV was the one before it, which Haiku's highlights video showed by the recording's own
+  frame counter (6029 where 6030 belongs; exact after the change, forwards and backwards). Backwards, the time
+  asked for is half a frame short of the cut's end, not a thousandth of a second, for the same reason.
 
 Measured (`enc long` on the 20-minute recording, three 5 s cuts with dissolves, `SL_FFMPEG` set): taken in 0.0 s
 (1.2 s and 2.3 GB as copies; an MKV was not taken at all, and 204 s a cut through the tool), joined here in 7.4 s
@@ -2910,6 +2916,13 @@ video in the panel, which also ran a minute at most and now runs its own length.
 is made plays the clips' sound as read, which was up to twenty minutes of each clip's file, whole (230 MB and
 seconds of reading for the recording, and silence for a cut from past its twentieth minute). Only a cut's own
 seconds are read now (`MediaStretch.Sound`), kept by file and stretch and let go when the clip is cut again.
+
+On the models (`cli.ps1`, "a highlights video from the 20-minute MKV: four seconds from 3:20, four from 10:00
+backwards, four from 16:40, with a dissolve between them"): Haiku in 1.1 and 1.0 minutes, 10 and 11 calls, no
+errors, the storyboard and the join with no step between; Qwen in 6.2 minutes, 19 calls, one failed (a search for
+ffmpeg). All three videos are right by the recording's frame counter. Qwen wanted single frames of the joined
+video to see the dissolves, found the ffmpeg under `.dev` and cut them with it: there is no way yet to ask for
+the frames around a moment of a video (what a scan of a stretch is to give).
 
 Not done: a .ts or .mpg is still written again whole.
 

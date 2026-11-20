@@ -261,4 +261,66 @@ public sealed class VideoPreviewerTests : IDisposable
         Assert.False(VideoOverlays.IsDark(null));
         Assert.False(VideoOverlays.IsDark("#FFD60A"));
     }
+
+    /// <summary>
+    /// A clip as Windows reads an MKV or a WMV: 30 frames a second with each frame's time kept to the millisecond
+    /// (0.033, 0.067, 0.1), and a jump that lands on the frame starting nearest the time. Frame n holds n in its blue and green.
+    /// </summary>
+    private sealed class ToTheMillisecond : IMediaDecoder
+    {
+        public MediaInfo? Probe(string path) => new() { Duration = TimeSpan.FromSeconds(20), HasVideo = true, Width = 40, Height = 20, FrameRate = 30 };
+        public IVideoReader? OpenVideo(string path, int maxSide) => new Reader();
+        public IAudioReader? OpenAudio(string path) => null;
+
+        private sealed class Reader : IVideoReader
+        {
+            private int _next;
+            public int Width => 40;
+            public int Height => 20;
+            public TimeSpan Duration => TimeSpan.FromSeconds(20);
+            public double FrameRate => 30;
+            private static double TimeOf(int n) => Math.Round(n / 30.0, 3);
+
+            public (TimeSpan Time, RawImage Frame)? Next()
+            {
+                if (_next >= 600)
+                    return null;
+                var n = _next++;
+                var pixels = new byte[Width * Height * 4];
+                for (var i = 0; i < pixels.Length; i += 4)
+                    (pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = ((byte)(n % 256), (byte)(n / 256), 0, 255);
+                return (TimeSpan.FromSeconds(TimeOf(n)), new RawImage(Width, Height, pixels));
+            }
+
+            public void Seek(TimeSpan time)
+            {
+                _next = 0;
+                while (_next < 600 && TimeOf(_next) < time.TotalSeconds - 0.5 / 30)
+                    _next++;
+            }
+
+            public void Dispose() { }
+        }
+    }
+
+    [Fact]
+    public void A_clip_whose_times_are_kept_to_the_millisecond_shows_the_frame_asked_for()
+    {
+        static int Number(RawImage frame) => At(frame, 0.6, 0.6).B + At(frame, 0.6, 0.6).G * 256;
+        // Forwards from two seconds in, every frame its own: frame 89 is kept as 2.967, a third of a millisecond late,
+        // and was taken for the one showing at 3.0, so every frame of a cut out of an MKV was the one before it.
+        var forwards = Video("""{"width": 640, "height": 320, "fps": 30, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 4, "in": 2, "file": "a.mkv"}]}""");
+        using (var preview = new VideoPreviewer(new ToTheMillisecond(), 80))
+            for (var k = 0; k < 120; k++)
+                Assert.Equal(60 + k, Number(preview.FrameAt(forwards, k / 30.0)!));
+        // Jumped to, one at a time, the same.
+        using (var preview = new VideoPreviewer(new ToTheMillisecond(), 80))
+            foreach (var k in (int[])[30, 7, 119, 0, 61])
+                Assert.Equal(60 + k, Number(preview.FrameAt(forwards, k / 30.0)!));
+        // Backwards: the cut's last frame first, down to its first, none from after the cut.
+        var backwards = Video("""{"width": 640, "height": 320, "fps": 30, "fadeIn": 0, "fadeOut": 0, "shots": [{"id": "s1", "seconds": 4, "in": 2, "reverse": true, "file": "a.mkv"}]}""");
+        using (var preview = new VideoPreviewer(new ToTheMillisecond(), 80))
+            for (var k = 0; k < 120; k++)
+                Assert.Equal(179 - k, Number(preview.FrameAt(backwards, k / 30.0)!));
+    }
 }

@@ -838,8 +838,10 @@ public static partial class VideoCheck
             return FrameAt(reader, from, first: from < 0.01)?.Frame;
         if (to > reader.Duration.TotalSeconds - 0.25)
             return LastFrame(reader);
+        // A reader goes to the frame that starts nearest a time: three quarters of a frame before the cut's end is
+        // nearest the cut's last frame, with room for a time the file keeps to the millisecond.
         var step = reader.FrameRate > 0 ? 1 / reader.FrameRate : 1 / 24.0;
-        return FrameAt(reader, Math.Max(from, to - step / 2))?.Frame;
+        return FrameAt(reader, Math.Max(from, to - step * 0.75))?.Frame;
     }
 
     /// <summary>The frame halfway through a video.</summary>

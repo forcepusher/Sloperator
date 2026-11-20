@@ -130,15 +130,17 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
     /// Where in a clip's file the shot is <paramref name="into"/> seconds in: its start trimmed, at its speed, held from
     /// its freeze, backwards from the end of its cut, and on its last frame once the file has run out.
     /// </summary>
-    public static double SourceTime(VideoShot shot, double into, double fileSeconds)
+    /// <param name="frame">How long one of the clip's frames shows, where it is known: backwards, the middle of the frame before is asked for.</param>
+    public static double SourceTime(VideoShot shot, double into, double fileSeconds, double frame = 0.002)
     {
         if (shot.Freeze is { } freeze)
             into = Math.Min(into, freeze);
         var played = Math.Max(0, into) * (shot.Speed ?? 1);
         // Backwards from the end of its cut, not of its file: a cut out of the middle of a recording played backwards
         // showed the recording's last seconds. Its first frame is the cut's last, the one showing just before the cut's
-        // end, so a thousandth of a second short of it: at the end itself is the first frame after the cut.
-        var time = shot.Reverse ? Math.Min(shot.Stretch.To, fileSeconds) - played - 0.001 : shot.In + played;
+        // end, so half a frame short of it: at the end itself is the first frame after the cut, and a thousandth of
+        // a second short of it was that frame too in a file whose times are kept to the millisecond (an MKV, a WMV).
+        var time = shot.Reverse ? Math.Min(shot.Stretch.To, fileSeconds) - played - Math.Max(0.001, frame / 2) : shot.In + played;
         return Math.Clamp(time, shot.Reverse ? Math.Min(shot.In, Math.Max(0, fileSeconds - 0.02)) : 0, Math.Max(0, fileSeconds - 0.02));
     }
 
@@ -149,7 +151,8 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
         if (!File.Exists(file) || SourceOf(file, shot.Id) is not { } source)
             return null;
         var duration = source.Reader.Duration.TotalSeconds;
-        if (Read(source, SourceTime(shot, into, duration)) is not { } frame)
+        var rate = source.Reader.FrameRate;
+        if (Read(source, SourceTime(shot, into, duration, rate > 0 ? 1 / rate : 0.002)) is not { } frame)
             return null;
         using var turned = Turned(frame, shot);
         // Its colours next, before it is fitted into the frame, as ffmpeg's chain has them.
@@ -462,7 +465,11 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
     {
         var reader = source.Reader;
         var step = reader.FrameRate > 0 ? 1 / reader.FrameRate : 1 / 24.0;
-        bool Shows(double at) => time >= at - 1e-4 && time < at + step - 1e-4;
+        // A frame is the one showing from a thousandth of a second before it starts: an MKV or a WMV keeps its frames'
+        // times to the millisecond, so one starts a third of a millisecond late or early by its file, and the frame
+        // before it was taken for the one at a time that is exactly its start (every frame of a cut, one early).
+        var near = Math.Min(0.001, step / 4);
+        bool Shows(double at) => time >= at - near && time < at + step - near;
         if (source.Frame is not null && Shows(source.Time))
             return source.Frame;
         foreach (var (at, held) in source.Held)
@@ -497,7 +504,7 @@ public sealed partial class VideoPreviewer(IMediaDecoder decoder, int maxSide = 
                     source.Held.RemoveAt(0);
                 }
                 (source.Frame, source.Time) = (frame, next.Time.TotalSeconds);
-                if (source.Time + step > time + 1e-4)
+                if (source.Time + step > time + near)
                     break;
             }
         }
