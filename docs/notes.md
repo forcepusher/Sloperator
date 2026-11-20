@@ -2757,7 +2757,11 @@ join, took 6.1 minutes where it had taken 9.4 for all three, but its first step 
 storyboard: not found, searched for over three folders, run from where a copy lay. ffprobe gave the phone's
 video as 1280x720 (its stored size, not turned), so qwen took both clips to fill the frame and set no `fit`.
 So the storyboard now says a file's size as it is shown beside its length ("phone.mp4 (720x1280, 6 s long)"),
-and the guide's line on file shots says to go by that and by read_file, not by ffprobe, and why.
+and the guide's line on file shots says to go by that and by read_file, not by ffprobe, and why. With the
+guide's line qwen3.8 read both files with read_file, ran no ffprobe, showed the phone clip whole over a blur of
+itself and joined the two at their full lengths: 5.6 minutes, 18 calls, no errors. (The storyboard's own line
+reached the agent only a commit later: it was written and tested on the overview, and the tool showed the
+overview without the reader it needs. `One_video_file_is_cut_turned…` now asks the tool itself.)
 
 Tests: `Mp4TracksTests` (index, fragments, headers of five real videos, the fold, ffmpeg's account, why not),
 `MediaFoundationTests` (the conversion by each standard, sizes, jumps, a turned clip made here by its header's
@@ -2798,12 +2802,24 @@ as far as it goes. What it has none for was simply not a picture: every TIFF, ev
   (217, 42, 52), a green of (60, 200, 60) is (0, 203, 11); in Adobe RGB (231, 57, 57) and (0, 201, 36).
   `PictureFile.Usual` brings a picture to sRGB as it is read (Skia does the sums), `PictureEdit` and the window's
   decoding do the same, and a picture that names sRGB or nothing is untouched (`enc profiles`).
+- **Several pictures read in one step** (`AgentSession`, found on this task, nothing to do with their kind): a
+  tool's picture goes to the model in a message after the step's results, and there was room for one, the last.
+  That is right for screenshots, where only the newest screen matters, and wrong for files: asked to look at
+  three pictures, both models read all three in one step, were shown the last, and were told "a 640x480
+  picture" of the other two with no word that it wasn't attached. qwen3.8 reasoned "read_file returned only
+  the size, but the images weren't shown" and saved a PNG copy of each into scratch to read that; Haiku, in the
+  app, did the same and said so. Now every picture a tool opens with a line saying what it is (a file read, a
+  clip looked at) goes, each in a message of its own after the results and in the order read, eight a step at
+  most (`MostPictures`; a ninth's result says to read it again alone); a screenshot is still the last one only.
+  With it both models read the three and went straight on: Haiku in 10 s and 9 calls (15 s and 11 before, one
+  of them a copy nobody asked for), qwen in 84 s and 9 calls as before, with no copies made.
 - **Left**: a 32-bit BMP's fourth byte is taken as nothing, as most programs take it (ffmpeg takes it as
   clearness); JPEG 2000, EXR, Radiance, QOI, PPM and PCX are not read; a CMYK JPEG was not tried (nothing here
   writes one).
 
 Tests: `PictureKindsTests` (Targa every way and cut short, as a picture to read, show and edit; a TIFF written
-by hand through Windows' decoders; P3 and Adobe RGB photos read and edited).
+by hand through Windows' decoders; P3 and Adobe RGB photos read and edited),
+`Every_picture_read_in_one_step_goes_to_the_model`.
 
 ### Cutting on the beat
 A music video is cut on its song's beat, and nothing here knew where the beats were: the agent placed cuts by

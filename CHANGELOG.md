@@ -113,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Photos taken with a phone held upright no longer lie on their side.** They are shown the right way up in the
   chat, the File inspector and the Image and Video editors, the agent sees them that way, and a video made of them
   has them upright.
+- **Asked to look at several pictures at once, the agent saw only the last of them.** It read the others again, or
+  saved copies of them to look at. It now sees every picture it opens in one step.
 - **Photos from a phone or a camera looked duller than they are.** Those in a wider colour range (an iPhone's
   Display P3, a camera's Adobe RGB) had their reds and greens weakened, and a copy the agent cropped or converted
   kept the dull colours. They are shown and saved as they look now.

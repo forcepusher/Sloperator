@@ -121,7 +121,7 @@ public class PictureKindsTests : IDisposable
                     bitmap.SetPixel(x, y, new SKColor(colours[x / 32].R, colours[x / 32].G, colours[x / 32].B));
             using var pixels = bitmap.PeekPixels();
             using var data = pixels.Encode(kind == ".png" ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg, 95);
-            File.WriteAllBytes(path, data.ToArray());
+            File.WriteAllBytes(path, data!.ToArray());
         }
         using var read = PictureFile.Decode(path)!;
         var (red, green, grey) = (At(read, 16, 16), At(read, 48, 16), At(read, 80, 16));

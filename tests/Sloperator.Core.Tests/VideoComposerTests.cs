@@ -845,6 +845,22 @@ public sealed class VideoComposerTests : IDisposable
         Assert.Empty(Directory.GetDirectories(Path.Combine(_dir, "scratch", "video-edit")));
         await Assert.ThrowsAsync<Tools.ToolArgumentException>(() =>
             new Tools.VideoEditorTool().ExecuteAsync(new System.Text.Json.Nodes.JsonObject { ["action"] = "edit", ["path"] = source, ["output"] = source }, ctx, ct));
+
+        // As a shot of a video, with no length given: it runs the file's own four seconds, and the storyboard the tool
+        // shows says the file's size and length beside the shot, so neither has to be found out some other way.
+        var asShot = new System.Text.Json.Nodes.JsonObject
+        {
+            ["action"] = "storyboard", ["path"] = Path.Combine(_dir, "whole"),
+            ["storyboard"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["title"] = "whole",
+                ["shots"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["id"] = "s1", ["file"] = source }),
+            },
+        };
+        var shown = await new Tools.VideoEditorTool().ExecuteAsync(asShot, ctx, ct);
+        Assert.False(shown.IsError, shown.Text);
+        // (Four seconds and the little its sound runs past them.)
+        Assert.Matches(@", 4(\.0\d)? s\): the user's file mine\.mp4 \(320x180, 4(\.0\d)? s long\)\.", shown.Text);
     }
 
     [Fact]
