@@ -2974,6 +2974,13 @@ tone) in 5.9 s: all eight silences to a tenth of a second, the five cuts at 20, 
 standstills, the black, the noise as what stands out. The 20-minute 720p MKV in 9.9 s and 154 MB: no silence, no
 cut, "much the same all through", which it is.
 
+On the models (`cli.ps1` with `scan	alk.mp4`: "save a copy without the silences, then a short highlights video of
+its two most eventful moments, and say where each came from"): Haiku in 1.4 minutes, one scan, the edit with
+"skip": "silences" (71.6 s, all eight silences) and a storyboard of 44-50 s and 89-94 s, picked by the scan's
+cuts and loud moments (its one error was capture_result refusing an MP4, another tool's limit). Qwen in 5.3
+minutes, 0 errors: a scan, then two stretches scanned closely before choosing (47-52 s and 98-103 s), the same
+71.6 s copy. Neither looked for ffmpeg or went through frames by hand.
+
 Tests: `VideoScanTests` (a sound's silences, kept edges, room noise and what stands out; a picture's cuts to the
 frame among sliding bars, its standstills and black, and how few frames are read; the scan's words and sheet, a
 stretch of it, a sound file; through the tool on a file Windows writes: the scan, and the silence cut out of it).
