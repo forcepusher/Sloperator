@@ -51,5 +51,3 @@ dotnet test              # unit tests
 ```
 
 Details are in [docs/notes.md](docs/notes.md), which is meant to be read by LLMs, not people.
-
-Making a release: [docs/releasing.md](docs/releasing.md).
