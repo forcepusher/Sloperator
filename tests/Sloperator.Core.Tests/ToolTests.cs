@@ -907,14 +907,22 @@ public class ToolTests
         await Until(() => Volatile.Read(ref ends) == 1, ct);
         UserKeys((Break, false), (Break, true));
         await Until(() => Volatile.Read(ref ends) == 2, ct);
+        UserKeys((LShift, true));
+
+        // The right Shift does the same.
+        UserKeys((RShift, false));
+        UserKeys((Pause, false), (Pause, true));
+        await Until(() => Volatile.Read(ref ends) == 3, ct);
+        UserKeys((RShift, true));
         await Task.Delay(100, ct);
         Assert.Equal("", past.Take());
         Assert.Equal(0, Volatile.Read(ref stops));
 
         // No wait going: it stops nothing, and goes on to the window as usual.
         Volatile.Write(ref waiting, 0);
+        UserKeys((LShift, false));
         UserKeys((Pause, false), (Pause, true));
-        await Until(() => Volatile.Read(ref ends) == 3, ct);
+        await Until(() => Volatile.Read(ref ends) == 4, ct);
         await Task.Delay(100, ct);
         UserKeys((LShift, true));
         Assert.Equal("pause↓ pause↑", past.Take());
@@ -927,7 +935,7 @@ public class ToolTests
             UserKeys((Pause, false), (Pause, true));
             await Until(() => Volatile.Read(ref stops) == 1, ct);
         }
-        Assert.Equal(3, Volatile.Read(ref ends));
+        Assert.Equal(4, Volatile.Read(ref ends));
 #endif
     }
 
@@ -995,7 +1003,7 @@ public class ToolTests
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vk);
 
-    private const int Break = 0x03, Esc = 0x1B, Pause = 0x13, LShift = 0xA0, LWin = 0x5B, F23 = 0x86, F24 = 0x87;
+    private const int Break = 0x03, Esc = 0x1B, Pause = 0x13, LShift = 0xA0, RShift = 0xA1, LWin = 0x5B, F23 = 0x86, F24 = 0x87;
 
     /// <summary>For <see cref="Until"/>, which asks twice: once the wait is ended it stays done.</summary>
     private static Func<bool> EndsTheWait(ToolContext ctx)
